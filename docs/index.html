@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GymFlow - Gym Attendance Made Simple</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-orange: #FF8C00;
+            --primary-red: #FF4500;
+            --text-dark: #1a1a1a;
+            --text-light: #f5f5f5;
+            --bg-light: #ffffff;
+            --bg-dark: #0a0a0a;
+            --border-light: #e5e5e5;
+            --border-dark: #2a2a2a;
+        }
+
+        html.dark {
+            --text-dark: #f5f5f5;
+            --text-light: #1a1a1a;
+            --bg-light: #0a0a0a;
+            --bg-dark: #ffffff;
+            --border-light: #2a2a2a;
+            --border-dark: #e5e5e5;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            transition: background-color 0.3s, color 0.3s;
+            line-height: 1.6;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-weight: 700;
+        }
+
+        /* Navigation */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--border-light);
+            position: sticky;
+            top: 0;
+            background-color: var(--bg-light);
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary-orange), var(--primary-red));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--border-light);
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 4rem 2rem;
+            background: linear-gradient(135deg, rgba(255, 140, 0, 0.05), rgba(255, 69, 0, 0.05));
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            line-height: 1.2;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: #666;
+            margin-bottom: 2rem;
+            max-width: 600px;
+        }
+
+        html.dark .hero p {
+            color: #999;
+        }
+
+        .download-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 3rem;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            font-size: 1rem;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-orange), var(--primary-red));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(255, 140, 0, 0.3);
+        }
+
+        .btn-secondary {
+            border: 2px solid var(--primary-orange);
+            color: var(--primary-orange);
+            background: transparent;
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--border-light);
+        }
+
+        /* Features Section */
+        .features {
+            padding: 4rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .features h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            padding: 2rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--border-light);
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--primary-orange);
+            box-shadow: 0 10px 30px rgba(255, 140, 0, 0.1);
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: var(--primary-orange);
+        }
+
+        .feature-card p {
+            color: #666;
+        }
+
+        html.dark .feature-card p {
+            color: #999;
+        }
+
+        /* Footer */
+        footer {
+            padding: 2rem;
+            border-top: 1px solid var(--border-light);
+            text-align: center;
+            color: #666;
+            margin-top: 4rem;
+        }
+
+        html.dark footer {
+            color: #999;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .hero p {
+                font-size: 1rem;
+            }
+
+            .download-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+
+            .features h2 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="logo">GymFlow</div>
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">🌙</button>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <h1>GymFlow</h1>
+        <p>Transform Your Gym with Effortless Attendance Management</p>
+        <div class="download-buttons">
+            <a href="https://github.com/MahmoudMosalm88/gymflow/releases/download/v1.0.0/GymFlow-arm64.dmg" class="btn btn-primary">
+                🍎 Download for Mac
+            </a>
+            <a href="https://github.com/MahmoudMosalm88/gymflow/releases/download/v1.0.0/gymflow-1.0.0-setup.exe" class="btn btn-primary">
+                🪟 Download for Windows
+            </a>
+        </div>
+        <p style="margin-top: 2rem; font-size: 0.9rem; color: #999;">Free desktop app for gym owners</p>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features">
+        <h2>Why Choose GymFlow?</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <h3>⚡ Instant Check-In</h3>
+                <p>QR code scanning for instant member verification and attendance logging</p>
+            </div>
+            <div class="feature-card">
+                <h3>📱 Member Management</h3>
+                <p>Easily manage member profiles, photos, and subscription status</p>
+            </div>
+            <div class="feature-card">
+                <h3>💰 Subscription Tracking</h3>
+                <p>Flexible plans (1, 3, 6, 12 months) with automatic renewal</p>
+            </div>
+            <div class="feature-card">
+                <h3>📊 Attendance Reports</h3>
+                <p>Comprehensive attendance history and member analytics</p>
+            </div>
+            <div class="feature-card">
+                <h3>🔔 WhatsApp Integration</h3>
+                <p>Automated notifications for expiring memberships and gym alerts</p>
+            </div>
+            <div class="feature-card">
+                <h3>🎯 Session Quotas</h3>
+                <p>Configurable session limits by membership tier and gender</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2026 GymFlow. All rights reserved.</p>
+        <p><a href="#" style="color: var(--primary-orange); text-decoration: none;">Privacy Policy</a> | <a href="#" style="color: var(--primary-orange); text-decoration: none;">Terms of Service</a></p>
+    </footer>
+
+    <script>
+        // Dark mode toggle
+        function toggleTheme() {
+            const html = document.documentElement;
+            const isDark = html.classList.contains('dark');
+            
+            if (isDark) {
+                html.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+                document.getElementById('themeToggle').textContent = '🌙';
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                document.getElementById('themeToggle').textContent = '☀️';
+            }
+        }
+
+        // Load saved theme preference
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+                document.getElementById('themeToggle').textContent = '☀️';
+            }
+        });
+    </script>
+</body>
+</html>
