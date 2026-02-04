@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import PhotoCapture from '../components/PhotoCapture'
+import ScannerInput from '../components/ScannerInput'
 
 interface MemberFormData {
   name: string
@@ -9,6 +10,7 @@ interface MemberFormData {
   gender: 'male' | 'female' | ''
   access_tier: 'A' | 'B'
   photo_path: string | null
+  card_code: string
 }
 
 export default function MemberForm(): JSX.Element {
@@ -22,8 +24,12 @@ export default function MemberForm(): JSX.Element {
     phone: '',
     gender: '',
     access_tier: 'A',
-    photo_path: null
+    photo_path: null,
+    card_code: ''
   })
+  const [createSubscription, setCreateSubscription] = useState(true)
+  const [planMonths, setPlanMonths] = useState<1 | 3 | 6 | 12>(1)
+  const [pricePaid, setPricePaid] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -42,7 +48,8 @@ export default function MemberForm(): JSX.Element {
           phone: member.phone,
           gender: member.gender,
           access_tier: member.access_tier,
-          photo_path: member.photo_path
+          photo_path: member.photo_path,
+          card_code: member.card_code || ''
         })
       }
     } catch (error) {
@@ -80,7 +87,8 @@ export default function MemberForm(): JSX.Element {
           phone: formData.phone,
           gender: formData.gender as 'male' | 'female',
           access_tier: formData.access_tier,
-          photo_path: photoPath ?? null
+          photo_path: photoPath ?? null,
+          card_code: formData.card_code.trim() || null
         })
       } else {
         // Create member first (without photo), then save photo using generated member ID
@@ -88,7 +96,8 @@ export default function MemberForm(): JSX.Element {
           name: formData.name,
           phone: formData.phone,
           gender: formData.gender as 'male' | 'female',
-          access_tier: formData.access_tier
+          access_tier: formData.access_tier,
+          card_code: formData.card_code.trim() || null
         })
 
         if (formData.photo_path) {
@@ -102,6 +111,14 @@ export default function MemberForm(): JSX.Element {
           }
 
           await window.api.members.update(created.id, { photo_path: photoPath })
+        }
+
+        if (createSubscription) {
+          await window.api.subscriptions.create({
+            member_id: created.id,
+            plan_months: planMonths,
+            price_paid: pricePaid ? Number(pricePaid) : undefined
+          })
         }
       }
 
@@ -118,22 +135,30 @@ export default function MemberForm(): JSX.Element {
     setFormData({ ...formData, photo_path: photoPath })
   }
 
+  const handleCardScan = (value: string) => {
+    setFormData((prev) => ({ ...prev, card_code: value }))
+    setError(null)
+  }
+
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">
+    <div className="min-h-full p-4 md:p-8 bg-gray-50 dark:bg-gray-950 max-w-3xl mx-auto">
+      <h1 className="text-4xl font-heading font-bold text-gray-900 dark:text-white mb-2">
         {isEditing ? t('memberForm.editTitle') : t('memberForm.addTitle')}
       </h1>
+      <p className="text-gray-600 dark:text-gray-400 mb-8">
+        {isEditing ? 'Update member information' : 'Create a new gym member'}
+      </p>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-200 animate-slide-up">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-6 space-y-6">
+      <form onSubmit={handleSubmit} className="card space-y-6">
         {/* Photo */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-3">
             {t('memberForm.photo')}
           </label>
           <PhotoCapture
@@ -143,93 +168,185 @@ export default function MemberForm(): JSX.Element {
           />
         </div>
 
-        {/* Name */}
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-            {t('memberForm.name')}
-          </label>
-          <input
-            type="text"
-            id="name"
-            required
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Name */}
+          <div>
+            <label htmlFor="name" className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
+              {t('memberForm.name')} *
+            </label>
+            <input
+              type="text"
+              id="name"
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="input-field"
+              placeholder="Full name"
+            />
+          </div>
+
+          {/* Phone */}
+          <div>
+            <label htmlFor="phone" className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
+              {t('memberForm.phone')} *
+            </label>
+            <input
+              type="tel"
+              id="phone"
+              required
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              placeholder="+201xxxxxxxxx"
+              className="input-field"
+            />
+          </div>
+
+          {/* Gender */}
+          <div>
+            <label htmlFor="gender" className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
+              {t('memberForm.gender')} *
+            </label>
+            <select
+              id="gender"
+              required
+              value={formData.gender}
+              onChange={(e) =>
+                setFormData({ ...formData, gender: e.target.value as 'male' | 'female' | '' })
+              }
+              className="input-field"
+            >
+              <option value="">{t('memberForm.selectGender')}</option>
+              <option value="male">{t('memberForm.male')}</option>
+              <option value="female">{t('memberForm.female')}</option>
+            </select>
+          </div>
+
+          {/* Access Tier */}
+          <div>
+            <label htmlFor="tier" className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
+              {t('memberForm.tier')} *
+            </label>
+            <select
+              id="tier"
+              value={formData.access_tier}
+              onChange={(e) =>
+                setFormData({ ...formData, access_tier: e.target.value as 'A' | 'B' })
+              }
+              className="input-field"
+            >
+              <option value="A">{t('memberForm.tierA')}</option>
+              <option value="B">{t('memberForm.tierB')}</option>
+            </select>
+          </div>
         </div>
 
-        {/* Phone */}
+        {/* Card Code */}
         <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-            {t('memberForm.phone')}
+          <label htmlFor="card_code" className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
+            {t('memberForm.cardCode', 'Card QR Code')}
           </label>
-          <input
-            type="tel"
-            id="phone"
-            required
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            placeholder="+201xxxxxxxxx"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
-          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              id="card_code"
+              value={formData.card_code}
+              onChange={(e) => setFormData({ ...formData, card_code: e.target.value })}
+              placeholder={t('memberForm.cardPlaceholder', 'Scan or type card code')}
+              className="input-field flex-1"
+            />
+            <button
+              type="button"
+              onClick={() => document.querySelector<HTMLInputElement>('.scanner-input')?.focus()}
+              className="btn btn-secondary"
+            >
+              {t('memberForm.scanCard', 'Scan Card')}
+            </button>
+          </div>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+            {t('memberForm.cardHint', 'Assign a QR card now, or you can do it later.')}
+          </p>
         </div>
 
-        {/* Gender */}
-        <div>
-          <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-2">
-            {t('memberForm.gender')}
-          </label>
-          <select
-            id="gender"
-            required
-            value={formData.gender}
-            onChange={(e) =>
-              setFormData({ ...formData, gender: e.target.value as 'male' | 'female' | '' })
-            }
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
-          >
-            <option value="">{t('memberForm.selectGender')}</option>
-            <option value="male">{t('memberForm.male')}</option>
-            <option value="female">{t('memberForm.female')}</option>
-          </select>
-        </div>
+        {!isEditing && (
+          <div className="border-t border-gray-300 dark:border-gray-700 pt-6">
+            <h3 className="text-base font-heading font-semibold text-gray-900 dark:text-white mb-4">
+              {t('memberForm.subscription', 'Initial Subscription')}
+            </h3>
+            <label className="flex items-center gap-3 mb-5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={createSubscription}
+                onChange={(e) => setCreateSubscription(e.target.checked)}
+                className="w-5 h-5 accent-brand-primary rounded"
+              />
+              <span className="text-gray-700 dark:text-gray-300 font-medium">
+                {t('memberForm.createSubscription', 'Create subscription now')}
+              </span>
+            </label>
 
-        {/* Access Tier */}
-        <div>
-          <label htmlFor="tier" className="block text-sm font-medium text-gray-700 mb-2">
-            {t('memberForm.tier')}
-          </label>
-          <select
-            id="tier"
-            value={formData.access_tier}
-            onChange={(e) =>
-              setFormData({ ...formData, access_tier: e.target.value as 'A' | 'B' })
-            }
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
-          >
-            <option value="A">{t('memberForm.tierA')}</option>
-            <option value="B">{t('memberForm.tierB')}</option>
-          </select>
-        </div>
+            {createSubscription && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-100 dark:bg-gray-800/50 rounded-lg">
+                <div>
+                  <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
+                    {t('memberForm.planMonths', 'Duration')}
+                  </label>
+                  <select
+                    value={planMonths}
+                    onChange={(e) => setPlanMonths(Number(e.target.value) as 1 | 3 | 6 | 12)}
+                    className="input-field"
+                  >
+                    <option value={1}>1 {t('memberForm.month', 'month')}</option>
+                    <option value={3}>3 {t('memberForm.months', 'months')}</option>
+                    <option value={6}>6 {t('memberForm.months', 'months')}</option>
+                    <option value={12}>12 {t('memberForm.months', 'months')}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
+                    {t('memberForm.pricePaid', 'Price Paid')}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={pricePaid}
+                    onChange={(e) => setPricePaid(e.target.value)}
+                    className="input-field"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Actions */}
-        <div className="flex gap-4 pt-4">
+        <div className="flex gap-4 pt-6 border-t border-gray-300 dark:border-gray-700">
           <button
             type="submit"
             disabled={isLoading}
-            className="flex-1 py-3 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+            className="btn btn-primary flex-1"
           >
-            {isLoading ? t('common.loading') : t('memberForm.save')}
+            {isLoading ? (
+              <>
+                <div className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                {t('common.loading')}
+              </>
+            ) : (
+              t('memberForm.save')
+            )}
           </button>
           <button
             type="button"
             onClick={() => navigate('/members')}
-            className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+            className="btn btn-secondary flex-1"
           >
             {t('memberForm.cancel')}
           </button>
         </div>
       </form>
+
+      {/* Hidden scanner input for card assignment */}
+      <ScannerInput onScan={(value) => handleCardScan(value)} autoFocus={false} />
     </div>
   )
 }

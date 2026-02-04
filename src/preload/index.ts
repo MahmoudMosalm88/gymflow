@@ -17,6 +17,8 @@ const api = {
     getStatus: (token?: string) => ipcRenderer.invoke('owner:getStatus', token),
     register: (phone: string, password: string) =>
       ipcRenderer.invoke('owner:register', phone, password),
+    registerWithName: (phone: string, password: string, name: string) =>
+      ipcRenderer.invoke('owner:register', phone, password, name),
     verifyOtp: (phone: string, code: string, purpose?: 'verify' | 'reset') =>
       ipcRenderer.invoke('owner:verifyOtp', phone, code, purpose),
     login: (phone: string, password: string) =>
@@ -30,13 +32,22 @@ const api = {
       ipcRenderer.invoke('owner:completeOnboarding', settings)
   },
 
+  // Secure storage (for auth token etc.)
+  secureStore: {
+    get: (key: string) => ipcRenderer.invoke('secureStore:get', key),
+    set: (key: string, value: string) => ipcRenderer.invoke('secureStore:set', key, value),
+    delete: (key: string) => ipcRenderer.invoke('secureStore:delete', key)
+  },
+
   // Subscription operations
   subscriptions: {
     getByMemberId: (memberId: string) => ipcRenderer.invoke('subscriptions:getByMemberId', memberId),
     create: (data: unknown) => ipcRenderer.invoke('subscriptions:create', data),
     renew: (memberId: string, data: unknown) =>
       ipcRenderer.invoke('subscriptions:renew', memberId, data),
-    cancel: (id: number) => ipcRenderer.invoke('subscriptions:cancel', id)
+    cancel: (id: number) => ipcRenderer.invoke('subscriptions:cancel', id),
+    updatePricePaid: (id: number, pricePaid: number | null) =>
+      ipcRenderer.invoke('subscriptions:updatePricePaid', id, pricePaid)
   },
 
   // Attendance operations
@@ -72,6 +83,8 @@ const api = {
     disconnect: () => ipcRenderer.invoke('whatsapp:disconnect'),
     sendMessage: (memberId: string, type: string) =>
       ipcRenderer.invoke('whatsapp:sendMessage', memberId, type),
+    sendQRCode: (memberId: string, memberName: string, qrDataUrl: string) =>
+      ipcRenderer.invoke('whatsapp:sendQRCode', memberId, memberName, qrDataUrl),
     sendImmediate: (memberId: string) => ipcRenderer.invoke('whatsapp:sendImmediate', memberId),
     getQueueStatus: () => ipcRenderer.invoke('whatsapp:getQueueStatus'),
     getQueueMessages: (limit?: number) => ipcRenderer.invoke('whatsapp:getQueueMessages', limit),

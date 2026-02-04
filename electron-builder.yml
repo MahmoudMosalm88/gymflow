@@ -8,6 +8,7 @@ extraResources:
     to: Docs/spreadsheet.xlsx
 files:
   - '!**/.vscode/*'
+  - '!**/.wwebjs_auth/**'
   - '!src/*'
   - '!electron.vite.config.*'
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'

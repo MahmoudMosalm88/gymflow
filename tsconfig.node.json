@@ -9,5 +9,16 @@
     "electron.vite.config.*",
     "src/main/**/*",
     "src/preload/**/*"
+  ],
+  "exclude": [
+    "electron.vite.config.d.ts",
+    "src/main/**/*.d.ts",
+    "src/preload/**/*.d.ts",
+    "out",
+    "dist",
+    "build",
+    "release",
+    "out/**/*.d.ts",
+    "dist/**/*.d.ts"
   ]
 }

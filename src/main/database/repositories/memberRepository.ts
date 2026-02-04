@@ -8,6 +8,7 @@ export interface Member {
   gender: 'male' | 'female'
   photo_path: string | null
   access_tier: 'A' | 'B'
+  card_code: string | null
   created_at: number
   updated_at: number
 }
@@ -16,21 +17,81 @@ export interface CreateMemberInput {
   name: string
   phone: string
   gender: 'male' | 'female'
-  photo_path?: string
   access_tier?: 'A' | 'B'
+  photo_path?: string | null
+  card_code?: string | null
 }
 
 export interface UpdateMemberInput {
   name?: string
   phone?: string
   gender?: 'male' | 'female'
-  photo_path?: string | null
   access_tier?: 'A' | 'B'
+  photo_path?: string | null
+  card_code?: string | null
 }
 
-export function getAllMembers(): Member[] {
+export function normalizePhone(phone: string): string {
+  if (!phone) return ''
+  let cleaned = phone.replace(/[\s\-()]/g, '')
+
+  if (cleaned.startsWith('00')) {
+    cleaned = '+' + cleaned.substring(2)
+  } else if (!cleaned.startsWith('+')) {
+    if (cleaned.startsWith('0')) {
+      cleaned = '+20' + cleaned.substring(1)
+    } else {
+      cleaned = '+20' + cleaned
+    }
+  }
+
+  return cleaned
+}
+
+export function validatePhone(phone: string): boolean {
+  const cleaned = phone.replace(/[\s\-()]/g, '')
+  if (cleaned.startsWith('+')) {
+    return /^\+\d{8,15}$/.test(cleaned)
+  }
+  if (cleaned.startsWith('00')) {
+    return /^00\d{8,17}$/.test(cleaned)
+  }
+  return /^\d{8,15}$/.test(cleaned)
+}
+
+export function createMember(input: CreateMemberInput): Member {
+  if (!validatePhone(input.phone)) {
+    throw new Error(`Invalid phone number: ${input.phone}`)
+  }
+
   const db = getDatabase()
-  return db.prepare('SELECT * FROM members ORDER BY created_at DESC').all() as Member[]
+  const id = uuidv4()
+  const now = Math.floor(Date.now() / 1000)
+  const normalizedPhone = normalizePhone(input.phone)
+  const cardCode = input.card_code ? input.card_code.trim() : null
+  if (cardCode) {
+    const existing = getMemberByCardCode(cardCode)
+    if (existing) {
+      throw new Error(`Card code already in use: ${cardCode}`)
+    }
+  }
+
+  db.prepare(
+    `INSERT INTO members (id, name, phone, gender, photo_path, access_tier, card_code, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    input.name,
+    normalizedPhone,
+    input.gender,
+    input.photo_path || null,
+    input.access_tier || 'A',
+    cardCode || null,
+    now,
+    now
+  )
+
+  return getMemberById(id)!
 }
 
 export function getMemberById(id: string): Member | null {
@@ -41,83 +102,74 @@ export function getMemberById(id: string): Member | null {
 
 export function getMemberByPhone(phone: string): Member | null {
   const db = getDatabase()
-  const result = db.prepare('SELECT * FROM members WHERE phone = ?').get(phone)
+  const normalized = normalizePhone(phone)
+  const result = db.prepare('SELECT * FROM members WHERE phone = ?').get(normalized)
   return (result as Member) || null
+}
+
+export function getMemberByCardCode(cardCode: string): Member | null {
+  const db = getDatabase()
+  const result = db.prepare('SELECT * FROM members WHERE card_code = ?').get(cardCode)
+  return (result as Member) || null
+}
+
+export function getAllMembers(): Member[] {
+  const db = getDatabase()
+  return db.prepare('SELECT * FROM members ORDER BY created_at DESC').all() as Member[]
 }
 
 export function searchMembers(query: string): Member[] {
   const db = getDatabase()
-  const searchPattern = `%${query}%`
+  const normalized = normalizePhone(query)
+  const escapeLike = (value: string): string => value.replace(/[\\%_]/g, '\\$&')
+  const likeQuery = `%${escapeLike(query)}%`
   return db
     .prepare(
       `SELECT * FROM members
-       WHERE name LIKE ? OR phone LIKE ?
-       ORDER BY name ASC
-       LIMIT 50`
+       WHERE name LIKE ? ESCAPE '\\' OR phone LIKE ? ESCAPE '\\' OR phone = ?
+       ORDER BY name ASC`
     )
-    .all(searchPattern, searchPattern) as Member[]
-}
-
-export function createMember(input: CreateMemberInput): Member {
-  const db = getDatabase()
-  const id = uuidv4()
-  const now = Math.floor(Date.now() / 1000)
-
-  // Normalize phone number
-  const normalizedPhone = normalizePhone(input.phone)
-
-  db.prepare(
-    `INSERT INTO members (id, name, phone, gender, photo_path, access_tier, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    id,
-    input.name.trim(),
-    normalizedPhone,
-    input.gender,
-    input.photo_path || null,
-    input.access_tier || 'A',
-    now,
-    now
-  )
-
-  return getMemberById(id)!
+    .all(likeQuery, likeQuery, normalized) as Member[]
 }
 
 export function updateMember(id: string, input: UpdateMemberInput): Member {
   const db = getDatabase()
-  const now = Math.floor(Date.now() / 1000)
-
-  const updates: string[] = ['updated_at = ?']
-  const values: (string | number | null)[] = [now]
+  const fields: string[] = []
+  const values: unknown[] = []
 
   if (input.name !== undefined) {
-    updates.push('name = ?')
-    values.push(input.name.trim())
+    fields.push('name = ?')
+    values.push(input.name)
   }
-
   if (input.phone !== undefined) {
-    updates.push('phone = ?')
+    if (!validatePhone(input.phone)) {
+      throw new Error(`Invalid phone number: ${input.phone}`)
+    }
+    fields.push('phone = ?')
     values.push(normalizePhone(input.phone))
   }
-
   if (input.gender !== undefined) {
-    updates.push('gender = ?')
+    fields.push('gender = ?')
     values.push(input.gender)
   }
-
-  if (input.photo_path !== undefined) {
-    updates.push('photo_path = ?')
-    values.push(input.photo_path)
-  }
-
   if (input.access_tier !== undefined) {
-    updates.push('access_tier = ?')
+    fields.push('access_tier = ?')
     values.push(input.access_tier)
   }
+  if (input.photo_path !== undefined) {
+    fields.push('photo_path = ?')
+    values.push(input.photo_path)
+  }
+  if (input.card_code !== undefined) {
+    fields.push('card_code = ?')
+    values.push(input.card_code ? input.card_code.trim() : null)
+  }
 
+  fields.push('updated_at = ?')
+  values.push(Math.floor(Date.now() / 1000))
   values.push(id)
 
-  db.prepare(`UPDATE members SET ${updates.join(', ')} WHERE id = ?`).run(...values)
+  db.prepare(`UPDATE members SET ${fields.join(', ')} WHERE id = ?`).run(...values)
 
   return getMemberById(id)!
 }
@@ -125,40 +177,4 @@ export function updateMember(id: string, input: UpdateMemberInput): Member {
 export function deleteMember(id: string): void {
   const db = getDatabase()
   db.prepare('DELETE FROM members WHERE id = ?').run(id)
-}
-
-export function getMemberCount(): number {
-  const db = getDatabase()
-  const result = db.prepare('SELECT COUNT(*) as count FROM members').get() as { count: number }
-  return result.count
-}
-
-// Phone normalization for Egyptian numbers
-export function normalizePhone(phone: string): string {
-  // Remove all non-digit characters except leading +
-  let normalized = phone.replace(/[^\d+]/g, '')
-
-  // Handle various formats
-  if (normalized.startsWith('+')) {
-    // Already has country code
-    return normalized
-  }
-
-  if (normalized.startsWith('00')) {
-    // Replace 00 with +
-    return '+' + normalized.slice(2)
-  }
-
-  if (normalized.startsWith('20')) {
-    // Has country code without +
-    return '+' + normalized
-  }
-
-  if (normalized.startsWith('0')) {
-    // Local format, add Egypt country code
-    return '+2' + normalized
-  }
-
-  // Assume it's missing everything
-  return '+20' + normalized
 }

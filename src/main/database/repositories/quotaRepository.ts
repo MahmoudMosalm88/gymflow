@@ -61,7 +61,7 @@ export function getOrCreateCurrentQuota(memberId: string): Quota | null {
   }
 
   // Check if subscription is expired
-  if (subscription.end_date < now) {
+  if (subscription.end_date <= now) {
     return null
   }
 

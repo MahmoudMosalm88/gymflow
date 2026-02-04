@@ -1,9 +1,9 @@
-import { ipcMain, shell, dialog, app } from 'electron'
-import { copyFileSync, existsSync } from 'fs'
-import { join } from 'path'
+import { ipcMain, shell, dialog, app, BrowserWindow } from 'electron'
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'fs'
+import { join, resolve, relative, isAbsolute } from 'path'
 import * as QRCode from 'qrcode'
+import { compareSync, hashSync } from 'bcryptjs'
 
-// Database repositories
 import * as memberRepo from '../database/repositories/memberRepository'
 import * as subscriptionRepo from '../database/repositories/subscriptionRepository'
 import * as quotaRepo from '../database/repositories/quotaRepository'
@@ -12,13 +12,11 @@ import * as settingsRepo from '../database/repositories/settingsRepository'
 import * as messageQueueRepo from '../database/repositories/messageQueueRepository'
 import * as ownerRepo from '../database/repositories/ownerRepository'
 
-// Services
 import { checkAttendance } from '../services/attendance'
 import { getDatabase, getUserDataPath, getPhotosPath, closeDatabase, initDatabase } from '../database/connection'
 import { whatsappService } from '../services/whatsapp'
-import { BrowserWindow } from 'electron'
-import { compareSync, hashSync } from 'bcryptjs'
 import { logToFile } from '../utils/logger'
+import { getSecureItem, setSecureItem, deleteSecureItem } from '../secureStore'
 
 let whatsappForwardersRegistered = false
 
@@ -27,17 +25,13 @@ function registerWhatsAppForwarders(): void {
   whatsappForwardersRegistered = true
 
   whatsappService.on('qr', (qr: string) => {
-    const windows = BrowserWindow.getAllWindows()
-    windows.forEach((win) => {
-      win.webContents.send('whatsapp:qr', qr)
-    })
+    BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('whatsapp:qr', qr))
   })
 
   whatsappService.on('status', (status) => {
-    const windows = BrowserWindow.getAllWindows()
-    windows.forEach((win) => {
+    BrowserWindow.getAllWindows().forEach((win) =>
       win.webContents.send('whatsapp:status', status)
-    })
+    )
   })
 }
 
@@ -46,11 +40,8 @@ function parseStartDate(value: unknown): number | undefined {
 
   const parseNumericDate = (num: number): number | undefined => {
     if (!Number.isFinite(num)) return undefined
-    // Epoch milliseconds
     if (num > 1e12) return Math.floor(num / 1000)
-    // Epoch seconds
     if (num > 1e9) return Math.floor(num)
-    // Excel serial date (days since 1899-12-30)
     if (num > 20000) {
       const excelEpoch = Date.UTC(1899, 11, 30)
       return Math.floor((excelEpoch + num * 86400000) / 1000)
@@ -93,17 +84,21 @@ async function sendOtpMessage(
       : `Your GymFlow password reset code is ${code}`
 
   if (status.authenticated) {
-    const result = await whatsappService.sendMessage(phone, message)
-    if (result.success) {
-      return { sentVia: 'whatsapp' }
+    try {
+      const ok = await whatsappService.sendMessage(phone, message)
+      if (ok) return { sentVia: 'whatsapp' }
+    } catch {
+      // ignore and fall back to manual
     }
   }
+
+  // Never leak OTP codes in packaged builds.
+  if (app.isPackaged) return { sentVia: 'manual' }
 
   return { sentVia: 'manual', code }
 }
 
 function getImportTemplatePath(): string {
-  // Packaged app: template is bundled via extraResources
   if (app.isPackaged) {
     const packagedPath = join(process.resourcesPath, 'Docs', 'spreadsheet.xlsx')
     if (existsSync(packagedPath)) return packagedPath
@@ -111,121 +106,175 @@ function getImportTemplatePath(): string {
     if (existsSync(fallbackPath)) return fallbackPath
   }
 
-  // Dev: Docs folder is at repo root (one level above gymflow)
   const devPath = join(process.cwd(), '..', 'Docs', 'spreadsheet.xlsx')
   if (existsSync(devPath)) return devPath
 
   throw new Error('Template spreadsheet not found')
 }
 
+function ensurePathInBaseDir(baseDir: string, targetPath: string): void {
+  const resolvedBase = resolve(baseDir)
+  const resolvedTarget = resolve(targetPath)
+  const relativePath = relative(resolvedBase, resolvedTarget)
+  if (relativePath.startsWith('..') || isAbsolute(relativePath)) {
+    throw new Error('Invalid photo path')
+  }
+}
+
 export function registerIpcHandlers(): void {
   registerWhatsAppForwarders()
 
   // ============== OWNER AUTH ==============
-  ipcMain.handle('owner:getStatus', (_, token?: string) => {
+  ipcMain.handle('owner:getStatus', (_event, token?: string) => {
     const hasOwner = ownerRepo.getOwnerCount() > 0
     const onboardingComplete = settingsRepo.getSetting<boolean>('onboarding_complete', false)
-    let authenticated = false
-    let owner: { id: number; phone: string } | null = null
 
-    if (token) {
-      const session = ownerRepo.getSessionByToken(token)
-      if (session && !session.revoked_at) {
-        const now = Math.floor(Date.now() / 1000)
-        if (!session.expires_at || session.expires_at > now) {
-          const dbOwner = ownerRepo.getOwnerById(session.owner_id)
-          if (dbOwner && dbOwner.verified_at) {
-            authenticated = true
-            owner = { id: dbOwner.id, phone: dbOwner.phone }
-          }
-        }
-      }
+    if (!hasOwner) {
+      return { hasOwner: false, onboardingComplete: false, authenticated: false }
     }
 
-    return { hasOwner, onboardingComplete, authenticated, owner }
+    if (!token) {
+      return { hasOwner: true, onboardingComplete, authenticated: false }
+    }
+
+    const session = ownerRepo.getSessionByToken(token)
+    if (!session || session.revoked_at) {
+      return { hasOwner: true, onboardingComplete, authenticated: false }
+    }
+
+    const now = Math.floor(Date.now() / 1000)
+    if (session.expires_at && session.expires_at <= now) {
+      return { hasOwner: true, onboardingComplete, authenticated: false }
+    }
+
+    const owner = ownerRepo.getOwnerById(session.owner_id)
+    return {
+      hasOwner: true,
+      onboardingComplete,
+      authenticated: true,
+      owner: owner ? { id: owner.id, phone: owner.phone } : null
+    }
   })
 
-  ipcMain.handle('owner:register', async (_, phone: string, password: string) => {
+  ipcMain.handle('owner:register', async (_event, phone: string, password: string, name?: string) => {
     const existing = ownerRepo.getOwnerByPhone(phone)
-    if (existing) {
-      return { success: false, error: 'Owner already exists' }
+    if (existing) return { success: false, error: 'Owner already exists' }
+
+    if (app.isPackaged && !whatsappService.getStatus().authenticated) {
+      return { success: false, error: 'WhatsApp not connected' }
     }
 
     const passwordHash = hashSync(password, 10)
-    const owner = ownerRepo.createOwner(phone, passwordHash)
+    const owner = ownerRepo.createOwner(phone, passwordHash, name)
+    const otp = ownerRepo.createOtp(phone, 'verify')
+    const sent = await sendOtpMessage(phone, otp.code, 'verify')
 
-    const otp = ownerRepo.createOtp(owner.phone, 'verify')
-    const sent = await sendOtpMessage(owner.phone, otp.code, 'verify')
+    if (app.isPackaged && sent.sentVia !== 'whatsapp') {
+      // Don't leave behind unverifiable accounts or OTPs in production if delivery failed.
+      try {
+        ownerRepo.deleteOtpById(otp.id)
+      } catch {
+        // ignore
+      }
+      try {
+        ownerRepo.deleteOwnerById(owner.id)
+      } catch {
+        // ignore
+      }
+      return { success: false, error: 'WhatsApp not connected' }
+    }
 
     return { success: true, ownerId: owner.id, ...sent }
   })
 
-  ipcMain.handle(
-    'owner:verifyOtp',
-    (_, phone: string, code: string, purpose: 'verify' | 'reset' = 'verify') => {
-      const ok = ownerRepo.verifyOtp(phone, code, purpose)
-      if (!ok) {
-        return { success: false, error: 'Invalid or expired code' }
-      }
+  ipcMain.handle('owner:verifyOtp', (_event, phone: string, code: string, purpose?: 'verify' | 'reset') => {
+    const ok = ownerRepo.verifyOtp(phone, code, purpose || 'verify')
+    if (!ok) return { success: false, error: 'Invalid or expired code' }
 
-      if (purpose === 'verify') {
-        const owner = ownerRepo.getOwnerByPhone(phone)
-        if (owner) {
-          ownerRepo.markOwnerVerified(owner.id)
-        }
-      }
-
-      return { success: true }
+    if ((purpose || 'verify') === 'verify') {
+      const owner = ownerRepo.getOwnerByPhone(phone)
+      if (owner) ownerRepo.markOwnerVerified(owner.id)
     }
-  )
 
-  ipcMain.handle('owner:login', (_, phone: string, password: string) => {
+    return { success: true }
+  })
+
+  ipcMain.handle('owner:login', (_event, phone: string, password: string) => {
     const owner = ownerRepo.getOwnerByPhone(phone)
-    if (!owner) {
-      return { success: false, error: 'Owner not found' }
-    }
-    if (!owner.verified_at) {
-      return { success: false, error: 'Account not verified' }
-    }
-    const valid = compareSync(password, owner.password_hash)
-    if (!valid) {
-      return { success: false, error: 'Invalid credentials' }
-    }
+    if (!owner) return { success: false, error: 'Owner not found' }
+    if (!owner.verified_at) return { success: false, error: 'Account not verified' }
+
+    const ok = compareSync(password, owner.password_hash)
+    if (!ok) return { success: false, error: 'Invalid credentials' }
 
     const session = ownerRepo.createSession(owner.id)
     ownerRepo.updateLastLogin(owner.id)
     return { success: true, token: session.token }
   })
 
-  ipcMain.handle('owner:logout', (_, token: string) => {
+  ipcMain.handle('owner:logout', (_event, token: string) => {
     ownerRepo.revokeSession(token)
     return { success: true }
   })
 
-  ipcMain.handle('owner:requestPasswordReset', async (_, phone: string) => {
+  // ============== SECURE STORE (RENDERER TOKEN) ==============
+  ipcMain.handle('secureStore:get', (_event, key: string) => {
+    try {
+      return { success: true, value: getSecureItem(key) }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('secureStore:set', (_event, key: string, value: string) => {
+    try {
+      setSecureItem(key, value)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('secureStore:delete', (_event, key: string) => {
+    try {
+      deleteSecureItem(key)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('owner:requestPasswordReset', async (_event, phone: string) => {
     const owner = ownerRepo.getOwnerByPhone(phone)
-    if (!owner) {
-      return { success: false, error: 'Owner not found' }
+    if (!owner) return { success: false, error: 'Owner not found' }
+
+    if (app.isPackaged && !whatsappService.getStatus().authenticated) {
+      return { success: false, error: 'WhatsApp not connected' }
     }
 
-    const otp = ownerRepo.createOtp(owner.phone, 'reset')
-    const sent = await sendOtpMessage(owner.phone, otp.code, 'reset')
+    const otp = ownerRepo.createOtp(phone, 'reset')
+    const sent = await sendOtpMessage(phone, otp.code, 'reset')
+
+    if (app.isPackaged && sent.sentVia !== 'whatsapp') {
+      try {
+        ownerRepo.deleteOtpById(otp.id)
+      } catch {
+        // ignore
+      }
+      return { success: false, error: 'WhatsApp not connected' }
+    }
 
     return { success: true, ...sent }
   })
 
   ipcMain.handle(
     'owner:resetPassword',
-    (_, phone: string, code: string, newPassword: string) => {
+    (_event, phone: string, code: string, newPassword: string) => {
       const ok = ownerRepo.verifyOtp(phone, code, 'reset')
-      if (!ok) {
-        return { success: false, error: 'Invalid or expired code' }
-      }
+      if (!ok) return { success: false, error: 'Invalid or expired code' }
 
       const owner = ownerRepo.getOwnerByPhone(phone)
-      if (!owner) {
-        return { success: false, error: 'Owner not found' }
-      }
+      if (!owner) return { success: false, error: 'Owner not found' }
 
       const passwordHash = hashSync(newPassword, 10)
       ownerRepo.updateOwnerPassword(owner.id, passwordHash)
@@ -233,292 +282,171 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  ipcMain.handle('owner:completeOnboarding', (_, settings: Record<string, unknown>) => {
+  ipcMain.handle('owner:completeOnboarding', (_event, settings: Record<string, unknown>) => {
     settingsRepo.setSettings(settings)
     settingsRepo.setSetting('onboarding_complete', true)
     return { success: true }
   })
 
   // ============== MEMBERS ==============
-  ipcMain.handle('members:getAll', () => {
-    return memberRepo.getAllMembers()
-  })
-
-  ipcMain.handle('members:getById', (_, id: string) => {
-    return memberRepo.getMemberById(id)
-  })
-
-  ipcMain.handle('members:create', (_, data: memberRepo.CreateMemberInput) => {
-    return memberRepo.createMember(data)
-  })
-
-  ipcMain.handle('members:update', (_, id: string, data: memberRepo.UpdateMemberInput) => {
-    return memberRepo.updateMember(id, data)
-  })
-
-  ipcMain.handle('members:delete', (_, id: string) => {
-    memberRepo.deleteMember(id)
-    return { success: true }
-  })
-
-  ipcMain.handle('members:search', (_, query: string) => {
-    return memberRepo.searchMembers(query)
-  })
+  ipcMain.handle('members:getAll', () => memberRepo.getAllMembers())
+  ipcMain.handle('members:getById', (_event, id: string) => memberRepo.getMemberById(id))
+  ipcMain.handle('members:create', (_event, data) => memberRepo.createMember(data))
+  ipcMain.handle('members:update', (_event, id: string, data) => memberRepo.updateMember(id, data))
+  ipcMain.handle('members:delete', (_event, id: string) => memberRepo.deleteMember(id))
+  ipcMain.handle('members:search', (_event, query: string) => memberRepo.searchMembers(query))
 
   // ============== SUBSCRIPTIONS ==============
-  ipcMain.handle('subscriptions:getByMemberId', (_, memberId: string) => {
-    return subscriptionRepo.getSubscriptionsByMemberId(memberId)
-  })
-
-  ipcMain.handle('subscriptions:create', (_, data: subscriptionRepo.CreateSubscriptionInput) => {
-    return subscriptionRepo.createSubscription(data)
-  })
-
-  ipcMain.handle(
-    'subscriptions:renew',
-    (_, memberId: string, data: { plan_months: 1 | 3 | 6 | 12; price_paid?: number }) => {
-      return subscriptionRepo.renewSubscription(memberId, data.plan_months, data.price_paid)
-    }
+  ipcMain.handle('subscriptions:getByMemberId', (_event, memberId: string) =>
+    subscriptionRepo.getSubscriptionsByMemberId(memberId)
   )
-
-  ipcMain.handle('subscriptions:cancel', (_, id: number) => {
+  ipcMain.handle('subscriptions:create', (_event, data) => subscriptionRepo.createSubscription(data))
+  ipcMain.handle('subscriptions:renew', (_event, memberId: string, data) =>
+    subscriptionRepo.renewSubscription(memberId, data.plan_months, data.price_paid)
+  )
+  ipcMain.handle('subscriptions:cancel', (_event, id: number) =>
     subscriptionRepo.cancelSubscription(id)
-    return { success: true }
-  })
+  )
+  ipcMain.handle('subscriptions:updatePricePaid', (_event, id: number, pricePaid: number | null) =>
+    subscriptionRepo.updateSubscriptionPricePaid(id, pricePaid)
+  )
 
   // ============== ATTENDANCE ==============
-  ipcMain.handle(
-    'attendance:check',
-    (_, scannedValue: string, method: 'scan' | 'manual' = 'scan') => {
-      return checkAttendance(scannedValue, method)
-    }
+  ipcMain.handle('attendance:check', (_event, scannedValue: string, method?: 'scan' | 'manual') =>
+    checkAttendance(scannedValue, method || 'scan')
   )
-
-  ipcMain.handle('attendance:getTodayLogs', () => {
-    return logRepo.getTodayLogs()
-  })
-
-  ipcMain.handle('attendance:getLogsByMember', (_, memberId: string) => {
-    return logRepo.getLogsByMember(memberId)
-  })
-
-  ipcMain.handle('attendance:getTodayStats', () => {
-    return logRepo.getTodayStats()
-  })
+  ipcMain.handle('attendance:getTodayLogs', () => logRepo.getTodayLogs())
+  ipcMain.handle('attendance:getLogsByMember', (_event, memberId: string) =>
+    logRepo.getLogsByMember(memberId)
+  )
+  ipcMain.handle('attendance:getTodayStats', () => logRepo.getTodayStats())
 
   // ============== QUOTAS ==============
-  ipcMain.handle('quotas:getCurrentByMember', (_, memberId: string) => {
-    return quotaRepo.getCurrentQuota(memberId)
-  })
-
-  ipcMain.handle('quotas:getHistory', (_, memberId: string) => {
-    return quotaRepo.getQuotaHistory(memberId)
-  })
+  ipcMain.handle('quotas:getCurrentByMember', (_event, memberId: string) =>
+    quotaRepo.getCurrentQuota(memberId)
+  )
+  ipcMain.handle('quotas:getHistory', (_event, memberId: string) =>
+    quotaRepo.getQuotaHistory(memberId)
+  )
 
   // ============== SETTINGS ==============
-  ipcMain.handle('settings:get', (_, key: string) => {
-    return settingsRepo.getSetting(key)
-  })
-
-  ipcMain.handle('settings:getAll', () => {
-    return settingsRepo.getAllSettings()
-  })
-
-  ipcMain.handle('settings:set', (_, key: string, value: unknown) => {
+  ipcMain.handle('settings:get', (_event, key: string) => settingsRepo.getSetting(key))
+  ipcMain.handle('settings:getAll', () => settingsRepo.getAllSettings())
+  ipcMain.handle('settings:set', (_event, key: string, value: unknown) =>
     settingsRepo.setSetting(key, value)
-    return { success: true }
-  })
-
-  ipcMain.handle('settings:setAll', (_, settings: Record<string, unknown>) => {
+  )
+  ipcMain.handle('settings:setAll', (_event, settings: Record<string, unknown>) =>
     settingsRepo.setSettings(settings)
-    return { success: true }
-  })
-
-  ipcMain.handle('settings:resetDefaults', () => {
-    settingsRepo.resetToDefaults()
-    return { success: true }
-  })
+  )
+  ipcMain.handle('settings:resetDefaults', () => settingsRepo.resetToDefaults())
 
   // ============== WHATSAPP ==============
-  ipcMain.handle('whatsapp:getStatus', () => {
-    return whatsappService.getStatus()
-  })
-
-  ipcMain.handle('whatsapp:connect', async () => {
-    return whatsappService.connect()
-  })
-
-  ipcMain.handle('whatsapp:disconnect', async () => {
-    await whatsappService.disconnect()
-    return { success: true }
-  })
-
-  ipcMain.handle('whatsapp:sendMessage', (_, memberId: string, type: string) => {
-    // Queue the message
-    messageQueueRepo.createMessage({
-      member_id: memberId,
-      message_type: type as 'welcome' | 'renewal' | 'low_sessions'
-    })
-    return { success: true }
-  })
-
-  ipcMain.handle('whatsapp:sendImmediate', async (_, memberId: string) => {
-    return whatsappService.sendWelcomeMessage(memberId)
-  })
-
-  ipcMain.handle('whatsapp:getQueueStatus', () => {
-    return messageQueueRepo.getQueueStats()
-  })
-
-  ipcMain.handle('whatsapp:getQueueMessages', (_, limit: number = 50) => {
-    return messageQueueRepo.getPendingMessages(limit)
-  })
-
+  ipcMain.handle('whatsapp:getStatus', () => whatsappService.getStatus())
+  ipcMain.handle('whatsapp:connect', async () => whatsappService.connect())
+  ipcMain.handle('whatsapp:disconnect', async () => whatsappService.disconnect())
+  ipcMain.handle('whatsapp:getQueueStatus', () => messageQueueRepo.getQueueStats())
+  ipcMain.handle('whatsapp:getQueueMessages', (_event, limit?: number) =>
+    messageQueueRepo.getPendingMessages(limit)
+  )
   ipcMain.handle('whatsapp:requeueFailed', () => {
     const count = messageQueueRepo.requeueFailedMessages()
     return { success: true, count }
   })
 
-  // ============== IMPORT ==============
-  ipcMain.handle('import:parseExcel', async (_, filePath: string) => {
+  ipcMain.handle('whatsapp:sendMessage', async (_event, memberId: string, type: string) => {
     try {
-      const XLSX = await import('xlsx')
-      const workbook = XLSX.readFile(filePath)
-      const sheetName = workbook.SheetNames[0]
-      const worksheet = workbook.Sheets[sheetName]
-      const data = XLSX.utils.sheet_to_json(worksheet) as Record<string, unknown>[]
+      const member = memberRepo.getMemberById(memberId)
+      if (!member) return { success: false, error: 'Member not found' }
 
-      const valid: Array<{
-        row: number
-        name: string
-        phone: string
-        gender: 'male' | 'female'
-        access_tier: 'A' | 'B'
-        plan_months: 1 | 3 | 6 | 12
-        start_date?: string
-        price_paid?: number
-      }> = []
+      if (type === 'welcome') {
+        const template = settingsRepo.getSetting<string>(
+          'whatsapp_template_welcome',
+          'Welcome to GymFlow, {{name}}!'
+        )
+        const message = template.replace('{{name}}', member.name)
+        await whatsappService.sendMessage(member.phone, message)
+        return { success: true }
+      }
 
-      const invalid: Array<{ row: number; errors: string[] }> = []
+      if (type === 'renewal') {
+        const subscription = subscriptionRepo.getActiveSubscription(memberId)
+        if (!subscription) return { success: false, error: 'No active subscription' }
+        const now = Math.floor(Date.now() / 1000)
+        const days = Math.max(0, Math.ceil((subscription.end_date - now) / 86400))
+        const template = settingsRepo.getSetting<string>(
+          'whatsapp_template_renewal',
+          'Hi {{name}}, your subscription expires in {{days}} days.'
+        )
+        const message = template.replace('{{name}}', member.name).replace('{{days}}', String(days))
+        await whatsappService.sendMessage(member.phone, message)
+        return { success: true }
+      }
 
-      data.forEach((row, index) => {
-        const rowNumber = index + 2 // Account for header row
-        const errors: string[] = []
+      if (type === 'low_sessions') {
+        const quota = quotaRepo.getCurrentQuota(memberId)
+        if (!quota) return { success: false, error: 'No active quota' }
+        const sessions = Math.max(0, quota.sessions_cap - quota.sessions_used)
+        const template = settingsRepo.getSetting<string>(
+          'whatsapp_template_low_sessions',
+          'Hi {{name}}, you have only {{sessions}} sessions remaining.'
+        )
+        const message = template
+          .replace('{{name}}', member.name)
+          .replace('{{sessions}}', String(sessions))
+        await whatsappService.sendMessage(member.phone, message)
+        return { success: true }
+      }
 
-        // Validate required fields
-        const name = String(row.name || row.Name || '').trim()
-        const phone = String(row.phone || row.Phone || '').trim()
-        const gender = String(row.gender || row.Gender || '').toLowerCase()
-        const accessTier = String(row.access_tier || row.AccessTier || row['Access Tier'] || 'A')
-          .toUpperCase()
-        const planMonths = Number(row.plan_months || row.PlanMonths || row['Plan Months'] || 1)
-        const startDate = row.start_date || row.StartDate || row['Start Date']
-        const pricePaid = row.price_paid || row.PricePaid || row['Price Paid']
-
-        if (!name) errors.push('Name is required')
-        if (!phone) errors.push('Phone is required')
-        if (!['male', 'female'].includes(gender)) errors.push('Gender must be male or female')
-        if (!['A', 'B'].includes(accessTier)) errors.push('Access tier must be A or B')
-        if (![1, 3, 6, 12].includes(planMonths)) errors.push('Plan months must be 1, 3, 6, or 12')
-
-        if (errors.length > 0) {
-          invalid.push({ row: rowNumber, errors })
-        } else {
-          valid.push({
-            row: rowNumber,
-            name,
-            phone,
-            gender: gender as 'male' | 'female',
-            access_tier: accessTier as 'A' | 'B',
-            plan_months: planMonths as 1 | 3 | 6 | 12,
-            start_date: startDate ? String(startDate) : undefined,
-            price_paid: pricePaid ? Number(pricePaid) : undefined
-          })
-        }
-      })
-
-      return { valid, invalid, total: data.length }
+      return { success: false, error: 'Unknown message type' }
     } catch (error) {
-      return { valid: [], invalid: [], total: 0, error: String(error) }
+      return { success: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('whatsapp:sendImmediate', async (_event, memberId: string) => {
+    try {
+      const member = memberRepo.getMemberById(memberId)
+      if (!member) return { success: false, error: 'Member not found' }
+      const message = settingsRepo.getSetting<string>(
+        'whatsapp_template_welcome',
+        'Welcome to GymFlow, {{name}}!'
+      )
+      await whatsappService.sendMessage(member.phone, message.replace('{{name}}', member.name))
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: String(error) }
     }
   })
 
   ipcMain.handle(
-    'import:execute',
-    async (
-      _,
-      data: Array<{
-        name: string
-        phone: string
-        gender: 'male' | 'female'
-        access_tier: 'A' | 'B'
-        plan_months: 1 | 3 | 6 | 12
-        start_date?: string
-        price_paid?: number
-        send_welcome?: boolean
-      }>
-    ) => {
-      let success = 0
-      let failed = 0
-      const errors: Array<{ row: number; error: string }> = []
+    'whatsapp:sendQRCode',
+    async (_event, memberId: string, memberName: string, qrDataUrl: string) => {
+      try {
+        const member = memberRepo.getMemberById(memberId)
+        if (!member) return { success: false, error: 'Member not found' }
 
-      for (let i = 0; i < data.length; i++) {
-        const row = data[i]
-        try {
-          // Check if phone already exists
-          const normalizedPhone = memberRepo.normalizePhone(row.phone)
-          const existing = memberRepo.getMemberByPhone(normalizedPhone)
-          if (existing) {
-            errors.push({ row: i + 1, error: 'Phone number already exists' })
-            failed++
-            continue
-          }
-
-          // Create member
-          const member = memberRepo.createMember({
-            name: row.name,
-            phone: row.phone,
-            gender: row.gender,
-            access_tier: row.access_tier
-          })
-
-          // Parse start date
-          const startTimestamp = parseStartDate(row.start_date)
-
-          // Create subscription
-          subscriptionRepo.createSubscription({
-            member_id: member.id,
-            plan_months: row.plan_months,
-            price_paid: row.price_paid,
-            start_date: startTimestamp
-          })
-
-          // Queue welcome message if requested
-          if (row.send_welcome) {
-            messageQueueRepo.createMessage({
-              member_id: member.id,
-              message_type: 'welcome'
-            })
-          }
-
-          success++
-        } catch (error) {
-          errors.push({ row: i + 1, error: String(error) })
-          failed++
+        const userDataPath = getUserDataPath()
+        const tempDir = join(userDataPath, 'temp')
+        if (!existsSync(tempDir)) {
+          mkdirSync(tempDir, { recursive: true })
         }
-      }
+        const filePath = join(tempDir, `${memberId}-qr.png`)
+        const base64Data = qrDataUrl.replace(/^data:image\/\w+;base64,/, '')
+        writeFileSync(filePath, Buffer.from(base64Data, 'base64'))
 
-      return { success, failed, errors }
+        const ok = await whatsappService.sendMembershipQR(member.phone, memberName, filePath)
+        return { success: ok }
+      } catch (error) {
+        return { success: false, error: String(error) }
+      }
     }
   )
 
+  // ============== IMPORT ==============
   ipcMain.handle('import:selectFile', async () => {
     const result = await dialog.showOpenDialog({
-      title: 'Select Excel File',
-      filters: [
-        { name: 'Excel Files', extensions: ['xlsx', 'xls', 'csv'] },
-        { name: 'All Files', extensions: ['*'] }
-      ],
+      title: 'Select Import File',
+      filters: [{ name: 'Excel or CSV', extensions: ['xlsx', 'xls', 'csv'] }],
       properties: ['openFile']
     })
 
@@ -529,15 +457,132 @@ export function registerIpcHandlers(): void {
     return { success: true, path: result.filePaths[0] }
   })
 
+  ipcMain.handle('import:parseExcel', async (_event, filePath: string) => {
+    try {
+      const XLSX = await import('xlsx')
+      const workbook = XLSX.readFile(filePath)
+      const sheetName = workbook.SheetNames[0]
+      const worksheet = workbook.Sheets[sheetName]
+      const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' }) as Array<
+        Record<string, unknown>
+      >
+
+      const valid: Array<Record<string, unknown>> = []
+      const invalid: Array<{ row: number; errors: string[] }> = []
+
+      rows.forEach((row, index) => {
+        const rowNumber = index + 2
+        const getValue = (key: string) =>
+          row[key] ?? row[key.toLowerCase()] ?? row[key.toUpperCase()]
+
+        const name = (getValue('name') ?? getValue('Name') ?? row['الاسم']) as string
+        const phone = (getValue('phone') ?? getValue('Phone') ?? row['رقم الهاتف']) as string
+        const genderRaw = (getValue('gender') ?? getValue('Gender')) as string
+        const accessTierRaw = (getValue('access_tier') ?? getValue('Access_Tier')) as string
+        const planMonthsRaw = getValue('plan_months') ?? getValue('Plan_Months')
+        const startDateRaw = getValue('start_date') ?? getValue('Start_Date')
+        const priceRaw = getValue('price_paid') ?? getValue('Price_Paid')
+        const cardCodeRaw = getValue('card_code') ?? getValue('Card_Code') ?? row['رمز البطاقة']
+
+        const errors: string[] = []
+
+        const gender = String(genderRaw || '').toLowerCase()
+        const access_tier = String(accessTierRaw || 'A').toUpperCase()
+        const plan_months = Number(planMonthsRaw)
+        const start_date = parseStartDate(startDateRaw)
+        const price_paid =
+          priceRaw !== undefined && priceRaw !== null && String(priceRaw).trim() !== ''
+            ? Number(priceRaw)
+            : undefined
+        const card_code = cardCodeRaw ? String(cardCodeRaw).trim() : ''
+
+        if (!name) errors.push('Name is required')
+        if (!phone) errors.push('Phone is required')
+        if (!['male', 'female'].includes(gender)) errors.push('Gender must be male or female')
+        if (!['A', 'B'].includes(access_tier)) errors.push('Access tier must be A or B')
+        if (![1, 3, 6, 12].includes(plan_months))
+          errors.push('Plan months must be 1, 3, 6, or 12')
+
+        if (errors.length > 0) {
+          invalid.push({ row: rowNumber, errors })
+          return
+        }
+
+        valid.push({
+          row: rowNumber,
+          name,
+          phone,
+          gender,
+          access_tier,
+          plan_months,
+          start_date,
+          price_paid,
+          card_code
+        })
+      })
+
+      return { valid, invalid, total: rows.length }
+    } catch (error) {
+      return { valid: [], invalid: [], total: 0, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('import:execute', async (_event, rows: Array<Record<string, unknown>>) => {
+    const errors: Array<{ row: number; error: string }> = []
+    let success = 0
+    let failed = 0
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      try {
+        const member = memberRepo.getMemberByPhone(String(row.phone))
+        let memberId: string
+
+        if (member) {
+          const updated = memberRepo.updateMember(member.id, {
+            name: row.name as string,
+            phone: row.phone as string,
+            gender: row.gender as 'male' | 'female',
+            access_tier: (row.access_tier as 'A' | 'B') || 'A',
+            card_code: (row.card_code as string) || undefined
+          })
+          memberId = updated.id
+        } else {
+          const created = memberRepo.createMember({
+            name: row.name as string,
+            phone: row.phone as string,
+            gender: row.gender as 'male' | 'female',
+            access_tier: (row.access_tier as 'A' | 'B') || 'A',
+            card_code: (row.card_code as string) || undefined
+          })
+          memberId = created.id
+        }
+
+        subscriptionRepo.createSubscription({
+          member_id: memberId,
+          plan_months: row.plan_months as 1 | 3 | 6 | 12,
+          price_paid: row.price_paid as number | undefined,
+          start_date: row.start_date as number | undefined
+        })
+
+        success++
+      } catch (error) {
+        failed++
+        errors.push({ row: i + 1, error: String(error) })
+      }
+    }
+
+    return { success, failed, errors }
+  })
+
   ipcMain.handle('import:getTemplate', () => {
-    // Return template column headers
-    return 'name,phone,gender,access_tier,plan_months,start_date,price_paid'
+    return getImportTemplatePath()
   })
 
   ipcMain.handle('import:downloadTemplate', async () => {
     const result = await dialog.showSaveDialog({
       title: 'Save Import Template',
-      defaultPath: 'gymflow-import-template.csv',
+      defaultPath: 'members-template.csv',
       filters: [{ name: 'CSV File', extensions: ['csv'] }]
     })
 
@@ -552,8 +597,6 @@ export function registerIpcHandlers(): void {
       const sheetName = workbook.SheetNames[0]
       const worksheet = workbook.Sheets[sheetName]
       const csv = XLSX.utils.sheet_to_csv(worksheet)
-
-      const { writeFileSync } = await import('fs')
       writeFileSync(result.filePath, csv, 'utf8')
       return { success: true, path: result.filePath }
     } catch (error) {
@@ -567,12 +610,7 @@ export function registerIpcHandlers(): void {
     return { success: true }
   })
 
-  ipcMain.handle('app:logError', (_event, payload: { message?: string; stack?: string; source?: string }) => {
-    logToFile('ERROR', payload?.message || 'Renderer error', payload)
-    return { success: true }
-  })
-
-  ipcMain.handle('app:backup', async (_, destPath?: string) => {
+  ipcMain.handle('app:backup', async (_event, destPath?: string) => {
     const userDataPath = getUserDataPath()
     const dbPath = join(userDataPath, 'gymflow.db')
 
@@ -598,7 +636,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle('app:restore', async (_, srcPath?: string) => {
+  ipcMain.handle('app:restore', async (_event, srcPath?: string) => {
     if (!srcPath) {
       const result = await dialog.showOpenDialog({
         title: 'Restore Database',
@@ -616,24 +654,18 @@ export function registerIpcHandlers(): void {
     const dbPath = join(userDataPath, 'gymflow.db')
 
     try {
-      // Create backup first
       const backupPath = join(userDataPath, `gymflow-pre-restore-${Date.now()}.db`)
       if (existsSync(dbPath)) {
         const database = getDatabase()
         await database.backup(backupPath)
       }
 
-      // Close DB before restore
       closeDatabase()
-
       copyFileSync(srcPath, dbPath)
-
-      // Re-init DB after restore
       initDatabase()
 
       return { success: true, backupPath }
     } catch (error) {
-      // Ensure DB is initialized even if restore fails
       try {
         initDatabase()
       } catch {
@@ -643,20 +675,22 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle('app:getVersion', () => {
-    return '1.0.0'
+  ipcMain.handle('app:getVersion', () => app.getVersion())
+
+  ipcMain.handle('app:logError', (_event, payload: { message?: string; stack?: string; source?: string }) => {
+    logToFile('ERROR', payload?.message || 'Renderer error', payload)
+    return { success: true }
   })
 
   // ============== QR CODE ==============
-  ipcMain.handle('qrcode:generate', async (_, memberId: string) => {
+  ipcMain.handle('qrcode:generate', async (_event, memberId: string) => {
     try {
-      const dataUrl = await QRCode.toDataURL(memberId, {
+      const member = memberRepo.getMemberById(memberId)
+      const qrValue = member?.card_code || memberId
+      const dataUrl = await QRCode.toDataURL(qrValue, {
         width: 300,
         margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff'
-        }
+        color: { dark: '#000000', light: '#ffffff' }
       })
       return { success: true, dataUrl }
     } catch (error) {
@@ -665,19 +699,17 @@ export function registerIpcHandlers(): void {
   })
 
   // ============== PHOTOS ==============
-  ipcMain.handle('photos:save', async (_, dataUrl: string, memberId: string) => {
+  ipcMain.handle('photos:save', async (_event, dataUrl: string, memberId: string) => {
     try {
       const photosPath = getPhotosPath()
+      if (!existsSync(photosPath)) {
+        mkdirSync(photosPath, { recursive: true })
+      }
       const fileName = `${memberId}.jpg`
       const filePath = join(photosPath, fileName)
-
-      // Convert data URL to buffer and save
+      ensurePathInBaseDir(photosPath, filePath)
       const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '')
-      const buffer = Buffer.from(base64Data, 'base64')
-
-      const { writeFileSync } = await import('fs')
-      writeFileSync(filePath, buffer)
-
+      writeFileSync(filePath, Buffer.from(base64Data, 'base64'))
       return { success: true, path: filePath }
     } catch (error) {
       return { success: false, error: String(error) }
@@ -685,43 +717,28 @@ export function registerIpcHandlers(): void {
   })
 
   // ============== REPORTS ==============
-  ipcMain.handle('reports:getDailyStats', (_, days: number = 30) => {
-    return logRepo.getDailyAttendanceStats(days)
-  })
-
-  ipcMain.handle('reports:getHourlyDistribution', () => {
-    return logRepo.getHourlyDistribution()
-  })
-
-  ipcMain.handle('reports:getTopMembers', (_, days: number = 30, limit: number = 10) => {
-    return logRepo.getTopMembers(days, limit)
-  })
-
-  ipcMain.handle('reports:getDenialReasons', (_, days: number = 30) => {
-    return logRepo.getDenialReasons(days)
-  })
-
+  ipcMain.handle('reports:getDailyStats', (_event, days: number = 30) =>
+    logRepo.getDailyAttendanceStats(days)
+  )
+  ipcMain.handle('reports:getHourlyDistribution', () => logRepo.getHourlyDistribution())
+  ipcMain.handle('reports:getTopMembers', (_event, days: number = 30, limit: number = 10) =>
+    logRepo.getTopMembers(days, limit)
+  )
+  ipcMain.handle('reports:getDenialReasons', (_event, days: number = 30) =>
+    logRepo.getDenialReasons(days)
+  )
   ipcMain.handle('reports:getOverview', () => {
     const memberCount = memberRepo.getAllMembers().length
     const activeSubscriptions = subscriptionRepo.getActiveSubscriptionCount()
     const expiredSubscriptions = subscriptionRepo.getExpiredSubscriptionCount()
     const todayStats = logRepo.getTodayStats()
     const queueStats = messageQueueRepo.getQueueStats()
-
-    return {
-      memberCount,
-      activeSubscriptions,
-      expiredSubscriptions,
-      todayStats,
-      queueStats
-    }
+    return { memberCount, activeSubscriptions, expiredSubscriptions, todayStats, queueStats }
   })
-
-  ipcMain.handle('reports:getExpiringSubscriptions', (_, days: number = 7) => {
-    return subscriptionRepo.getExpiringSubscriptions(days)
-  })
-
-  ipcMain.handle('reports:getLowSessionMembers', (_, threshold: number = 3) => {
-    return quotaRepo.getMembersWithLowSessions(threshold)
-  })
+  ipcMain.handle('reports:getExpiringSubscriptions', (_event, days: number = 7) =>
+    subscriptionRepo.getExpiringSubscriptions(days)
+  )
+  ipcMain.handle('reports:getLowSessionMembers', (_event, threshold: number = 3) =>
+    quotaRepo.getMembersWithLowSessions(threshold)
+  )
 }

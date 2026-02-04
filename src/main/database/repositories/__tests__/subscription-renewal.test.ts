@@ -36,6 +36,7 @@ function setupTestDatabase() {
       gender TEXT CHECK(gender IN ('male', 'female')) NOT NULL,
       photo_path TEXT,
       access_tier TEXT CHECK(access_tier IN ('A', 'B')) DEFAULT 'A',
+      card_code TEXT,
       created_at INTEGER DEFAULT (unixepoch()),
       updated_at INTEGER DEFAULT (unixepoch())
     );

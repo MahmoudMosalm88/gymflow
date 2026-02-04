@@ -5,7 +5,8 @@
     "subscriptions": "الاشتراكات",
     "reports": "التقارير",
     "import": "استيراد",
-    "settings": "الإعدادات"
+    "settings": "الإعدادات",
+    "logout": "تسجيل الخروج"
   },
   "dashboard": {
     "title": "لوحة الماسح",
@@ -46,6 +47,17 @@
     "tier": "فئة الوصول",
     "tierA": "الفئة أ - وصول كامل",
     "tierB": "الفئة ب - أوزان فقط",
+    "cardCode": "رمز بطاقة العضو",
+    "cardPlaceholder": "امسح أو اكتب رمز البطاقة",
+    "scanCard": "مسح البطاقة",
+    "cardHint": "يمكنك تعيين بطاقة QR الآن أو لاحقًا.",
+    "cardRequired": "يرجى مسح بطاقة لتخصيصها",
+    "subscription": "اشتراك مبدئي",
+    "createSubscription": "إنشاء اشتراك الآن",
+    "planMonths": "المدة",
+    "month": "شهر",
+    "months": "أشهر",
+    "pricePaid": "المبلغ المدفوع",
     "photo": "الصورة",
     "capturePhoto": "التقاط صورة",
     "uploadPhoto": "رفع صورة",
@@ -58,27 +70,44 @@
     "active": "نشط",
     "expiring": "ينتهي قريباً",
     "expired": "منتهي",
-    "noSubscriptions": "لا توجد اشتراكات"
+    "noSubscriptions": "لا توجد اشتراكات",
+    "selectMember": "اختر عضواً لإدارة الاشتراكات",
+    "searchMembers": "ابحث عن عضو بالاسم أو الهاتف...",
+    "renew": "تجديد الاشتراك",
+    "cancel": "إلغاء الاشتراك",
+    "recordPayment": "تسجيل دفعة",
+    "current": "الاشتراك الحالي",
+    "starts": "يبدأ",
+    "paymentHistory": "سجل الدفعات",
+    "noHistory": "لا يوجد سجل دفعات بعد",
+    "date": "التاريخ",
+    "cashOnly": "تسجيل يدوي (نقداً فقط)",
+    "invalidAmount": "أدخل مبلغاً صحيحاً"
   },
   "attendance": {
     "allowed": "تم السماح بالدخول",
     "warning": "تم السماح بالدخول (تحذير)",
     "denied": "تم رفض الدخول",
     "ignored": "تم تسجيل الدخول مسبقاً",
+    "warningsTitle": "تحذيرات",
     "reasons": {
       "ok": "عضوية صالحة",
       "unknown_qr": "رمز QR غير معروف",
       "expired": "الاشتراك منتهي",
       "no_sessions": "لا توجد جلسات متبقية",
       "outside_hours": "خارج ساعات الدخول",
-      "cooldown": "تم تسجيل الدخول مؤخراً"
+      "cooldown": "تم تسجيل الدخول مؤخراً",
+      "not_started": "لم يبدأ الاشتراك بعد",
+      "no_quota": "تعذر إنشاء حصة الجلسات"
     },
     "sessionsRemaining_one": "{{count}} جلسة متبقية",
     "sessionsRemaining_other": "{{count}} جلسات متبقية",
     "daysRemaining_one": "{{count}} يوم متبقي",
     "daysRemaining_other": "{{count}} أيام متبقية",
     "expiresIn_one": "ينتهي خلال {{count}} يوم",
-    "expiresIn_other": "ينتهي خلال {{count}} أيام"
+    "expiresIn_other": "ينتهي خلال {{count}} أيام",
+    "sessionsAfterVisit_one": "سيتبقى {{count}} جلسة فقط بعد هذه الزيارة",
+    "sessionsAfterVisit_other": "سيتبقى {{count}} جلسات فقط بعد هذه الزيارة"
   },
   "settings": {
     "title": "الإعدادات",
@@ -136,9 +165,42 @@
     "success": "تم استيراد {{count}} عضو بنجاح",
     "sendQRCodes": "إرسال رموز QR عبر واتساب"
   },
+  "reports": {
+    "title": "التقارير",
+    "dailyAttendance": "الحضور اليومي",
+    "hourlyDistribution": "توزيع الساعات اليومي",
+    "topMembers": "الأعضاء الأكثر نشاطاً",
+    "noData": "لا توجد بيانات",
+    "visits": "زيارات",
+    "legend": {
+      "allowed": "مسموح",
+      "warning": "تحذير",
+      "denied": "مرفوض"
+    },
+    "overview": {
+      "members": "إجمالي الأعضاء",
+      "active": "الاشتراكات النشطة",
+      "todayCheckins": "تسجيلات دخول اليوم",
+      "todayDenied": "المرفوضة اليوم"
+    },
+    "range": {
+      "7days": "آخر 7 أيام",
+      "30days": "آخر 30 يوم",
+      "90days": "آخر 90 يوم"
+    },
+    "reason": {
+      "unknownQr": "رمز QR غير معروف",
+      "expired": "اشتراك منتهي",
+      "outsideHours": "خارج ساعات الدخول",
+      "noSessions": "لا توجد جلسات متبقية",
+      "noQuota": "لا توجد حصة",
+      "notStarted": "لم يبدأ بعد"
+    }
+  },
   "common": {
     "loading": "جاري التحميل...",
     "error": "حدث خطأ",
+    "close": "إغلاق",
     "save": "حفظ",
     "cancel": "إلغاء",
     "delete": "حذف",
@@ -163,11 +225,32 @@
     "title": "رمز QR",
     "scanInstructions": "امسح هذا الرمز عند مدخل الجيم",
     "printCard": "طباعة البطاقة",
-    "sendViaWhatsApp": "إرسال عبر واتساب"
+    "sendViaWhatsApp": "إرسال عبر واتساب",
+    "codeLabel": "الكود",
+    "copyCode": "نسخ الكود",
+    "copied": "تم النسخ",
+    "copyFailed": "فشل النسخ"
   },
   "auth": {
     "loginTitle": "تسجيل الدخول إلى GymFlow",
     "onboardingTitle": "إنشاء حساب المالك",
+    "connectWhatsAppTitle": "ربط واتساب",
+    "connectWhatsAppHelp": "قم بربط واتساب أولاً حتى نرسل لك رموز التحقق.",
+    "continue": "متابعة",
+    "fullName": "الاسم الكامل",
+    "namePlaceholder": "اسم المالك",
+    "stepAccount": "الحساب",
+    "stepVerify": "التحقق",
+    "stepSettings": "الإعدادات",
+    "stepWhatsApp": "واتساب",
+    "accountHelp": "استخدم رقم الهاتف لتسجيل الدخول وإدارة الجيم.",
+    "verifyHelp": "أدخل الرمز الذي أرسلناه إلى هاتفك.",
+    "settingsHelp": "يمكنك تعديل هذه الإعدادات لاحقًا من صفحة الإعدادات.",
+    "phoneHint": "أدخل رمز الدولة مثل +201...",
+    "passwordHint": "استخدم 8 أحرف على الأقل.",
+    "whatsappOtpHelp": "قم بربط واتساب لاستلام رموز التحقق وإعادة التعيين.",
+    "whatsappScanQr": "امسح رمز QR أدناه",
+    "whatsappNotConnected": "واتساب غير متصل",
     "createAccount": "إنشاء حساب",
     "verifyTitle": "تأكيد رقم الهاتف",
     "setupSettings": "إعدادات الجيم",

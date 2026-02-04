@@ -1,361 +1,290 @@
-import { Client, LocalAuth, MessageMedia } from 'whatsapp-web.js'
-import { app, BrowserWindow } from 'electron'
-import { join } from 'path'
+import { Client, LocalAuth } from 'whatsapp-web.js'
 import { EventEmitter } from 'events'
-import { getMemberById } from '../database/repositories/memberRepository'
-import { getActiveSubscription } from '../database/repositories/subscriptionRepository'
-import { getCurrentQuota } from '../database/repositories/quotaRepository'
-import { getSetting } from '../database/repositories/settingsRepository'
-import {
-  getPendingMessages,
-  markAsSent,
-  markAsFailed,
-  QueuedMessage
-} from '../database/repositories/messageQueueRepository'
+import { app } from 'electron'
+import { join } from 'path'
+import { existsSync, rmSync } from 'fs'
 
 export interface WhatsAppStatus {
   connected: boolean
   authenticated: boolean
-  qrCode: string | null
-  error: string | null
+  qrCode?: string | null
+  error?: string | null
 }
 
-class WhatsAppService extends EventEmitter {
+export class WhatsAppService extends EventEmitter {
   private client: Client | null = null
+  private isReady: boolean = false
+  private connectInFlight: Promise<{ success: boolean; error?: string }> | null = null
+  private readonly authPath = join(app.getPath('userData'), 'wwebjs_auth')
   private status: WhatsAppStatus = {
     connected: false,
     authenticated: false,
     qrCode: null,
     error: null
   }
-  private isProcessingQueue = false
-  private queueInterval: NodeJS.Timeout | null = null
 
   constructor() {
     super()
+    this.initialize()
   }
 
-  async initialize(): Promise<void> {
-    if (this.client) {
-      return
-    }
-
-    const dataPath = app.getPath('userData')
-    const authPath = join(dataPath, 'whatsapp-auth')
-
+  private initialize() {
     this.client = new Client({
-      authStrategy: new LocalAuth({
-        dataPath: authPath
-      }),
+      authStrategy: new LocalAuth({ dataPath: this.authPath }),
       puppeteer: {
         headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--disable-gpu'
-        ]
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
       }
     })
 
-    this.setupEventListeners()
-  }
-
-  private setupEventListeners(): void {
-    if (!this.client) return
-
     this.client.on('qr', (qr: string) => {
-      console.log('WhatsApp QR code received')
+      console.log('WhatsApp QR Code received')
       this.status.qrCode = qr
+      this.status.connected = true
       this.status.authenticated = false
       this.emit('qr', qr)
-      this.emit('status', this.status)
+      this.emit('status', { ...this.status })
     })
 
     this.client.on('ready', () => {
       console.log('WhatsApp client is ready')
+      this.isReady = true
       this.status.connected = true
       this.status.authenticated = true
-      this.status.qrCode = null
       this.status.error = null
-      this.emit('ready')
-      this.emit('status', this.status)
-
-      // Start queue processor
-      this.startQueueProcessor()
+      this.emit('status', { ...this.status })
     })
 
-    this.client.on('authenticated', () => {
-      console.log('WhatsApp authenticated')
-      this.status.authenticated = true
-      this.status.qrCode = null
-      this.emit('authenticated')
-      this.emit('status', this.status)
-    })
-
-    this.client.on('auth_failure', (message: string) => {
-      console.error('WhatsApp auth failure:', message)
-      this.status.authenticated = false
-      this.status.error = message
-      this.emit('auth_failure', message)
-      this.emit('status', this.status)
-    })
-
-    this.client.on('disconnected', (reason: string) => {
-      console.log('WhatsApp disconnected:', reason)
+    this.client.on('disconnected', (reason) => {
+      console.log('WhatsApp client disconnected:', reason)
+      this.isReady = false
       this.status.connected = false
       this.status.authenticated = false
-      this.emit('disconnected', reason)
-      this.emit('status', this.status)
+      this.status.error = String(reason || '')
+      this.emit('status', { ...this.status })
+    })
 
-      // Stop queue processor
-      this.stopQueueProcessor()
+    this.client.on('auth_failure', (msg) => {
+      console.error('WhatsApp authentication failed:', msg)
+      this.isReady = false
+      this.status.connected = false
+      this.status.authenticated = false
+      this.status.error = msg
+      this.emit('status', { ...this.status })
     })
   }
 
-  async connect(): Promise<{ success: boolean; error?: string }> {
-    try {
-      if (!this.client) {
-        await this.initialize()
+  private cleanupAuthLocks(): void {
+    const sessionPath = join(this.authPath, 'session')
+    const lockFiles = ['SingletonLock', 'SingletonSocket', 'SingletonCookie']
+    for (const fileName of lockFiles) {
+      const fullPath = join(sessionPath, fileName)
+      if (existsSync(fullPath)) {
+        try {
+          rmSync(fullPath, { force: true })
+        } catch {
+          // ignore
+        }
       }
-
-      await this.client!.initialize()
-      return { success: true }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      this.status.error = errorMessage
-      return { success: false, error: errorMessage }
     }
   }
 
-  async disconnect(): Promise<void> {
-    this.stopQueueProcessor()
-
+  private async resetClient(): Promise<void> {
     if (this.client) {
       try {
+        this.client.removeAllListeners()
         await this.client.destroy()
-      } catch (error) {
-        console.error('Error destroying WhatsApp client:', error)
+      } catch {
+        // ignore
       }
       this.client = null
     }
+    this.isReady = false
+    this.status.connected = false
+    this.status.authenticated = false
+    this.status.qrCode = null
+    this.initialize()
+  }
 
-    this.status = {
-      connected: false,
-      authenticated: false,
-      qrCode: null,
-      error: null
+  async connect(): Promise<{ success: boolean; error?: string }> {
+    if (this.status.authenticated) {
+      return { success: true }
     }
 
-    this.emit('status', this.status)
+    if (this.connectInFlight) {
+      return this.connectInFlight
+    }
+
+    this.connectInFlight = (async () => {
+      const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
+        new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('WhatsApp connection timed out'))
+          }, timeoutMs)
+          promise
+            .then((result) => {
+              clearTimeout(timeout)
+              resolve(result)
+            })
+            .catch((error) => {
+              clearTimeout(timeout)
+              reject(error)
+            })
+        })
+
+      try {
+        if (!this.client) {
+          this.initialize()
+        }
+        await withTimeout(this.client!.initialize(), 30000)
+        return { success: true }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+
+        // Handle stale Chromium lock files from a previous crash.
+        if (message.includes('already running') || message.includes('Singleton')) {
+          try {
+            this.cleanupAuthLocks()
+            await this.resetClient()
+            await withTimeout(this.client!.initialize(), 30000)
+            this.status.error = null
+            this.emit('status', { ...this.status })
+            return { success: true }
+          } catch (retryError) {
+            const retryMessage =
+              retryError instanceof Error ? retryError.message : String(retryError)
+            this.status.error = retryMessage
+            this.emit('status', { ...this.status })
+            return { success: false, error: retryMessage }
+          }
+        }
+
+        this.status.error = message
+        this.emit('status', { ...this.status })
+        return { success: false, error: message }
+      } finally {
+        this.connectInFlight = null
+      }
+    })()
+
+    return this.connectInFlight
+  }
+
+  async disconnect(): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (this.client) {
+        await this.client.destroy()
+        this.isReady = false
+        this.client = null
+      }
+      this.status.connected = false
+      this.status.authenticated = false
+      this.status.qrCode = null
+      this.emit('status', { ...this.status })
+      return { success: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      this.status.error = message
+      this.emit('status', { ...this.status })
+      return { success: false, error: message }
+    }
+  }
+
+  private formatPhoneForWhatsApp(phone: string): string {
+    let cleaned = phone.replace(/[\s\-()]/g, '')
+
+    if (cleaned.startsWith('00')) {
+      cleaned = '+' + cleaned.substring(2)
+    } else if (cleaned.startsWith('0') && !cleaned.startsWith('00')) {
+      cleaned = '+20' + cleaned.substring(1)
+    } else if (!cleaned.startsWith('+')) {
+      cleaned = '+20' + cleaned
+    }
+
+    const whatsappId = cleaned.replace('+', '') + '@c.us'
+    return whatsappId
+  }
+
+  async sendMessage(phone: string, message: string): Promise<boolean> {
+    if (!this.client || !this.isReady) {
+      throw new Error('WhatsApp client is not ready')
+    }
+
+    try {
+      const whatsappId = this.formatPhoneForWhatsApp(phone)
+      await this.client.sendMessage(whatsappId, message)
+      return true
+    } catch (error: any) {
+      console.error('Failed to send WhatsApp message:', error)
+      throw new Error(`Failed to send message: ${error.message}`)
+    }
+  }
+
+  async sendImage(phone: string, imagePath: string, caption?: string): Promise<boolean> {
+    if (!this.client || !this.isReady) {
+      throw new Error('WhatsApp client is not ready')
+    }
+
+    try {
+      const MessageMedia = require('whatsapp-web.js').MessageMedia
+      const whatsappId = this.formatPhoneForWhatsApp(phone)
+      const media = MessageMedia.fromFilePath(imagePath)
+      await this.client.sendMessage(whatsappId, media, { caption })
+      return true
+    } catch (error: any) {
+      console.error('Failed to send WhatsApp image:', error)
+      throw new Error(`Failed to send image: ${error.message}`)
+    }
+  }
+
+  async isRegistered(phone: string): Promise<boolean> {
+    if (!this.client || !this.isReady) {
+      throw new Error('WhatsApp client is not ready')
+    }
+
+    try {
+      const whatsappId = this.formatPhoneForWhatsApp(phone)
+      const numberId = whatsappId.replace('@c.us', '')
+      const isRegistered = await this.client.isRegisteredUser(numberId)
+      return isRegistered
+    } catch (error: any) {
+      console.error('Failed to check WhatsApp registration:', error)
+      return false
+    }
   }
 
   getStatus(): WhatsAppStatus {
     return { ...this.status }
   }
 
-  async sendMessage(
+  async sendMembershipQR(phone: string, memberName: string, qrCodePath: string): Promise<boolean> {
+    const message = `مرحباً ${memberName}!\n\nهذا هو رمز QR الخاص بعضويتك.\nيرجى إظهاره عند الدخول للنادي.`
+    return await this.sendImage(phone, qrCodePath, message)
+  }
+
+  async sendRenewalReminder(
     phone: string,
-    message: string,
-    mediaBase64?: string
-  ): Promise<{ success: boolean; error?: string }> {
-    if (!this.client || !this.status.authenticated) {
-      return { success: false, error: 'WhatsApp not connected' }
-    }
+    memberName: string,
+    expiryDate: string
+  ): Promise<boolean> {
+    const message =
+      `عزيزي/عزيزتي ${memberName},\n\n` +
+      `تنتهي عضويتك في ${expiryDate}.\n` +
+      `يرجى تجديد اشتراكك قريباً لتجنب انقطاع الخدمة.\n\n` +
+      `شكراً لك!`
 
-    try {
-      // Format phone number for WhatsApp (remove +, add @c.us)
-      const formattedPhone = phone.replace(/\+/g, '') + '@c.us'
-
-      if (mediaBase64) {
-        const media = new MessageMedia('image/png', mediaBase64, 'qrcode.png')
-        await this.client.sendMessage(formattedPhone, media, { caption: message })
-      } else {
-        await this.client.sendMessage(formattedPhone, message)
-      }
-
-      return { success: true }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      return { success: false, error: errorMessage }
-    }
+    return await this.sendMessage(phone, message)
   }
 
-  private startQueueProcessor(): void {
-    if (this.queueInterval) return
+  async sendWelcomeMessage(phone: string, memberName: string, gymName: string): Promise<boolean> {
+    const message =
+      `مرحباً ${memberName}! 👋\n\n` +
+      `نرحب بك في ${gymName}!\n` +
+      `نتمنى لك تجربة رائعة معنا.\n\n` +
+      `إذا كان لديك أي استفسارات، لا تتردد في التواصل معنا.`
 
-    // Check queue every 30 seconds
-    this.queueInterval = setInterval(() => {
-      this.processQueue()
-    }, 30000)
-
-    // Process immediately on start
-    this.processQueue()
-  }
-
-  private stopQueueProcessor(): void {
-    if (this.queueInterval) {
-      clearInterval(this.queueInterval)
-      this.queueInterval = null
-    }
-    this.isProcessingQueue = false
-  }
-
-  private async processQueue(): Promise<void> {
-    if (this.isProcessingQueue || !this.status.authenticated) return
-
-    const whatsappEnabled = getSetting<boolean>('whatsapp_enabled', false)
-    if (!whatsappEnabled) return
-
-    this.isProcessingQueue = true
-
-    try {
-      const messages = getPendingMessages(5)
-
-      for (const msg of messages) {
-        await this.processMessage(msg)
-
-        // Random delay between messages (10-15 seconds default)
-        const minDelay = getSetting<number>('whatsapp_batch_delay_min', 10) * 1000
-        const maxDelay = getSetting<number>('whatsapp_batch_delay_max', 15) * 1000
-        const delay = minDelay + Math.random() * (maxDelay - minDelay)
-
-        await new Promise((resolve) => setTimeout(resolve, delay))
-      }
-    } catch (error) {
-      console.error('Error processing message queue:', error)
-    } finally {
-      this.isProcessingQueue = false
-    }
-  }
-
-  private async processMessage(msg: QueuedMessage): Promise<void> {
-    const member = getMemberById(msg.member_id)
-    if (!member) {
-      markAsFailed(msg.id, 'Member not found')
-      return
-    }
-
-    try {
-      const messageText = this.buildMessageText(msg, member)
-      let mediaBase64: string | undefined
-
-      // For welcome messages, include QR code
-      if (msg.message_type === 'welcome') {
-        const QRCode = await import('qrcode')
-        const qrDataUrl = await QRCode.toDataURL(member.id, {
-          width: 300,
-          margin: 2
-        })
-        // Extract base64 from data URL
-        mediaBase64 = qrDataUrl.replace(/^data:image\/\w+;base64,/, '')
-      }
-
-      const result = await this.sendMessage(member.phone, messageText, mediaBase64)
-
-      if (result.success) {
-        markAsSent(msg.id)
-        this.emit('message_sent', { messageId: msg.id, memberId: member.id })
-      } else {
-        markAsFailed(msg.id, result.error || 'Unknown error')
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      markAsFailed(msg.id, errorMessage)
-    }
-  }
-
-  private buildMessageText(
-    msg: QueuedMessage,
-    member: { id: string; name: string; phone: string }
-  ): string {
-    let template: string
-
-    switch (msg.message_type) {
-      case 'welcome':
-        template = getSetting<string>(
-          'whatsapp_template_welcome',
-          'Welcome to GymFlow, {{name}}! Your QR code is attached.'
-        )
-        break
-      case 'renewal':
-        template = getSetting<string>(
-          'whatsapp_template_renewal',
-          'Hi {{name}}, your subscription expires in {{days}} days. Please renew soon!'
-        )
-        break
-      case 'low_sessions':
-        template = getSetting<string>(
-          'whatsapp_template_low_sessions',
-          'Hi {{name}}, you have only {{sessions}} sessions remaining this cycle.'
-        )
-        break
-      default:
-        template = 'Hello {{name}}!'
-    }
-
-    // Replace placeholders
-    let message = template.replace(/\{\{name\}\}/g, member.name)
-
-    // Get additional data for placeholders
-    if (msg.message_type === 'renewal') {
-      const subscription = getActiveSubscription(member.id)
-      if (subscription) {
-        const now = Math.floor(Date.now() / 1000)
-        const daysRemaining = Math.ceil((subscription.end_date - now) / 86400)
-        message = message.replace(/\{\{days\}\}/g, String(daysRemaining))
-      }
-    }
-
-    if (msg.message_type === 'low_sessions') {
-      const quota = getCurrentQuota(member.id)
-      if (quota) {
-        const sessionsRemaining = quota.sessions_cap - quota.sessions_used
-        message = message.replace(/\{\{sessions\}\}/g, String(sessionsRemaining))
-      }
-    }
-
-    // Parse payload for additional replacements
-    if (msg.payload_json) {
-      try {
-        const payload = JSON.parse(msg.payload_json)
-        for (const [key, value] of Object.entries(payload)) {
-          message = message.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), String(value))
-        }
-      } catch {
-        // Ignore JSON parse errors
-      }
-    }
-
-    return message
-  }
-
-  // Manually trigger sending a message to a specific member
-  async sendWelcomeMessage(
-    memberId: string
-  ): Promise<{ success: boolean; error?: string }> {
-    const member = getMemberById(memberId)
-    if (!member) {
-      return { success: false, error: 'Member not found' }
-    }
-
-    const template = getSetting<string>(
-      'whatsapp_template_welcome',
-      'Welcome to GymFlow, {{name}}! Your QR code is attached.'
-    )
-    const message = template.replace(/\{\{name\}\}/g, member.name)
-
-    // Generate QR code
-    const QRCode = await import('qrcode')
-    const qrDataUrl = await QRCode.toDataURL(memberId, { width: 300, margin: 2 })
-    const mediaBase64 = qrDataUrl.replace(/^data:image\/\w+;base64,/, '')
-
-    return this.sendMessage(member.phone, message, mediaBase64)
+    return await this.sendMessage(phone, message)
   }
 }
 
-// Singleton instance
 export const whatsappService = new WhatsAppService()

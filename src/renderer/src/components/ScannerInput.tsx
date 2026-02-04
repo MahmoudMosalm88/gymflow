@@ -2,69 +2,75 @@ import { useEffect, useRef } from 'react'
 
 interface ScannerInputProps {
   onScan: (value: string, method: 'scan' | 'manual') => void
+  autoFocus?: boolean
 }
 
-export default function ScannerInput({ onScan }: ScannerInputProps): JSX.Element {
+export default function ScannerInput({ onScan, autoFocus = true }: ScannerInputProps): JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null)
   const bufferRef = useRef<string>('')
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
 
   useEffect(() => {
-    // Focus the input on mount and when window gains focus
-    const focusInput = () => {
-      inputRef.current?.focus()
+    if (!autoFocus) return
+    const focusInputIfIdle = () => {
+      const active = document.activeElement as HTMLElement | null
+      const isIdle =
+        !active ||
+        active === document.body ||
+        active === document.documentElement
+
+      if (isIdle) {
+        inputRef.current?.focus()
+      }
     }
 
-    focusInput()
-    window.addEventListener('focus', focusInput)
-
-    // Also refocus when clicking anywhere on the page
-    const handleClick = () => {
-      setTimeout(focusInput, 100)
-    }
-    document.addEventListener('click', handleClick)
+    focusInputIfIdle()
+    window.addEventListener('focus', focusInputIfIdle)
 
     return () => {
-      window.removeEventListener('focus', focusInput)
-      document.removeEventListener('click', handleClick)
+      window.removeEventListener('focus', focusInputIfIdle)
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
       }
     }
-  }, [])
+  }, [autoFocus])
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Clear any existing timeout
+  const clearBuffer = () => {
+    bufferRef.current = ''
+    if (inputRef.current) inputRef.current.value = ''
+  }
+
+  const scheduleClear = () => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current)
     }
+    timeoutRef.current = setTimeout(() => {
+      clearBuffer()
+    }, 800)
+  }
+
+  const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
+    bufferRef.current = e.currentTarget.value
+    scheduleClear()
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Clear any existing timeout
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
 
     // If Enter is pressed, process the scan
     if (e.key === 'Enter') {
       e.preventDefault()
-      const value = bufferRef.current.trim()
-      if (value) {
-        onScan(value, 'scan')
+      const scannedValue = e.currentTarget.value.trim()
+      if (scannedValue) {
+        onScan(scannedValue, 'scan')
       }
-      bufferRef.current = ''
-      if (inputRef.current) {
-        inputRef.current.value = ''
-      }
+      clearBuffer()
       return
     }
 
-    // Add character to buffer
-    if (e.key.length === 1) {
-      bufferRef.current += e.key
-    }
-
     // Set timeout to clear buffer if no more input (handles manual typing)
-    timeoutRef.current = setTimeout(() => {
-      bufferRef.current = ''
-      if (inputRef.current) {
-        inputRef.current.value = ''
-      }
-    }, 500)
+    scheduleClear()
   }
 
   return (
@@ -72,6 +78,8 @@ export default function ScannerInput({ onScan }: ScannerInputProps): JSX.Element
       ref={inputRef}
       type="text"
       className="scanner-input"
+      defaultValue=""
+      onInput={handleInput}
       onKeyDown={handleKeyDown}
       autoComplete="off"
       autoCorrect="off"

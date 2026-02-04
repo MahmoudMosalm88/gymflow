@@ -6,7 +6,7 @@
   "author": "GymFlow",
   "license": "MIT",
   "scripts": {
-    "dev": "npm run rebuild:electron && electron-vite dev",
+    "dev": "npm run rebuild:electron && (unset ELECTRON_RUN_AS_NODE; export ELECTRON_EXEC_PATH=\"$(node -p 'require(\"electron\")')\"; electron-vite dev)",
     "build": "electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
@@ -15,6 +15,8 @@
     "build:linux": "npm run build && electron-builder --linux",
     "test": "npm run rebuild:node && vitest",
     "test:run": "vitest run",
+    "test:watch": "vitest --watch",
+    "test:watch:fs": "node scripts/watch-tests.mjs",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "rebuild:electron": "electron-rebuild -f -w better-sqlite3",

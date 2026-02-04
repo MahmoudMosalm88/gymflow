@@ -212,7 +212,7 @@ export default function Import() {
             <p className="mt-4 text-sm text-gray-500">
               {t(
                 'import.upload.optional',
-                'Optional: access_tier (A/B), start_date, price_paid'
+                'Optional: access_tier (A/B), start_date, price_paid, card_code'
               )}
             </p>
           </div>

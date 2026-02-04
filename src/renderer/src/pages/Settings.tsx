@@ -55,7 +55,7 @@ export default function Settings(): JSX.Element {
     }
     loadStatus()
 
-    const unsubscribeQr = window.api.whatsapp.onQRCode(async (qr) => {
+    const unsubscribeQr = window.api.whatsapp.onQRCode(async (qr: string) => {
       setWhatsappStatus((prev) => ({ ...prev, qrCode: qr, error: null }))
       try {
         const dataUrl = await QRCode.toDataURL(qr, { width: 260, margin: 1 })
@@ -71,7 +71,7 @@ export default function Settings(): JSX.Element {
       }
     })
 
-    const unsubscribeStatus = window.api.whatsapp.onStatusChange((status) => {
+    const unsubscribeStatus = window.api.whatsapp.onStatusChange((status: any) => {
       setWhatsappStatus(status as any)
       // Close QR modal when authenticated, after a brief delay to show success
       if ((status as any).authenticated) {

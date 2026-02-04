@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import AuthLayout from '../components/AuthLayout'
+import WhatsAppConnectPanel from '../components/WhatsAppConnectPanel'
 
 interface OnboardingProps {
   onComplete: (token: string) => void
   onGoToLogin?: () => void
   onEnableTestMode?: () => void
+  mode?: 'initial' | 'signup'
 }
 
 interface SettingsData {
@@ -32,15 +34,17 @@ const defaultSettings: SettingsData = {
   whatsapp_enabled: false
 }
 
-type Step = 'account' | 'verify' | 'settings'
+type Step = 'whatsapp' | 'account' | 'verify' | 'settings'
 
 export default function Onboarding({
   onComplete,
   onGoToLogin,
-  onEnableTestMode
+  onEnableTestMode,
+  mode = 'initial'
 }: OnboardingProps): JSX.Element {
   const { t, i18n } = useTranslation()
-  const [step, setStep] = useState<Step>('account')
+  const [step, setStep] = useState<Step>('whatsapp')
+  const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -63,8 +67,25 @@ export default function Onboarding({
     loadSettings()
   }, [])
 
+  const handleWhatsAppContinue = async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const status = await window.api.whatsapp.getStatus()
+      if (!status?.authenticated) {
+        setError(t('auth.whatsappNotConnected', 'WhatsApp not connected'))
+        return
+      }
+      setStep('account')
+    } catch (err) {
+      setError(String(err))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleRegister = async () => {
-    if (!phone || !password) {
+    if (!name || !phone || !password) {
       setError(t('auth.required', 'All fields are required'))
       return
     }
@@ -76,7 +97,7 @@ export default function Onboarding({
     setIsLoading(true)
     setError(null)
     try {
-      const result = await window.api.owner.register(phone, password)
+      const result = await window.api.owner.registerWithName(phone, password, name)
       if (!result.success) {
         setError(result.error || t('auth.registerFailed', 'Registration failed'))
         return
@@ -102,6 +123,15 @@ export default function Onboarding({
       const result = await window.api.owner.verifyOtp(phone, otpCode, 'verify')
       if (!result.success) {
         setError(result.error || t('auth.invalidCode', 'Invalid or expired code'))
+        return
+      }
+      if (mode === 'signup') {
+        const loginResult = await window.api.owner.login(phone, password)
+        if (!loginResult.success || !loginResult.token) {
+          setError(loginResult.error || t('auth.loginFailed', 'Login failed'))
+          return
+        }
+        onComplete(loginResult.token)
         return
       }
       setStep('settings')
@@ -138,15 +168,126 @@ export default function Onboarding({
     }
   }
 
+  const steps =
+    mode === 'initial'
+      ? [
+          { key: 'whatsapp', label: t('auth.stepWhatsApp', 'WhatsApp') },
+          { key: 'account', label: t('auth.stepAccount', 'Account') },
+          { key: 'verify', label: t('auth.stepVerify', 'Verify') },
+          { key: 'settings', label: t('auth.stepSettings', 'Settings') }
+        ]
+      : [
+          { key: 'whatsapp', label: t('auth.stepWhatsApp', 'WhatsApp') },
+          { key: 'account', label: t('auth.stepAccount', 'Account') },
+          { key: 'verify', label: t('auth.stepVerify', 'Verify') }
+        ]
+
+  const currentStepIndex = steps.findIndex((item) => item.key === step)
+
+  const renderStepper = () => (
+    <div className="mb-6">
+      <div className="flex items-center justify-between text-sm text-gray-500">
+        {steps.map((item, index) => {
+          const isActive = index === currentStepIndex
+          const isComplete = index < currentStepIndex
+          return (
+            <div key={item.key} className="flex items-center flex-1">
+              <div
+                className={`flex items-center gap-2 ${
+                  index !== 0 ? 'ml-2' : ''
+                }`}
+              >
+                <div
+                  className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold ${
+                    isComplete
+                      ? 'bg-gym-primary text-white'
+                      : isActive
+                        ? 'border border-gym-primary text-gym-primary'
+                        : 'border border-gray-300 text-gray-400'
+                  }`}
+                >
+                  {index + 1}
+                </div>
+                <span
+                  className={`font-medium ${
+                    isActive || isComplete ? 'text-gray-800' : 'text-gray-400'
+                  }`}
+                >
+                  {item.label}
+                </span>
+              </div>
+              {index < steps.length - 1 && (
+                <div className="flex-1 mx-3 h-px bg-gray-200" />
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+
+  if (step === 'whatsapp') {
+    return (
+      <AuthLayout title={t('auth.connectWhatsAppTitle', 'Connect WhatsApp')}>
+        {renderStepper()}
+        <p className="mb-4 text-sm text-gray-600">
+          {t(
+            'auth.connectWhatsAppHelp',
+            'Connect WhatsApp first so we can send you verification codes.'
+          )}
+        </p>
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+            {error}
+          </div>
+        )}
+        <WhatsAppConnectPanel />
+        <div className="mt-4 space-y-3">
+          <button
+            onClick={handleWhatsAppContinue}
+            disabled={isLoading}
+            className="w-full py-3 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+          >
+            {isLoading ? t('common.loading', 'Loading...') : t('auth.continue', 'Continue')}
+          </button>
+          {onGoToLogin && (
+            <button
+              onClick={onGoToLogin}
+              className="w-full text-sm text-gray-600 hover:underline"
+            >
+              {t('auth.alreadyHaveAccount', 'Already have an account?')}
+            </button>
+          )}
+        </div>
+      </AuthLayout>
+    )
+  }
+
   if (step === 'account') {
     return (
       <AuthLayout title={t('auth.onboardingTitle', 'Create owner account')}>
+        {renderStepper()}
+        <p className="mb-4 text-sm text-gray-600">
+          {t('auth.accountHelp', 'Use your phone to sign in and manage the gym.')}
+        </p>
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
             {error}
           </div>
         )}
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t('auth.fullName', 'Full name')}
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
+              placeholder={t('auth.namePlaceholder', 'Owner name')}
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {t('auth.phone', 'Phone')}
@@ -158,6 +299,9 @@ export default function Onboarding({
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
               placeholder="+201xxxxxxxxx"
             />
+            <p className="mt-1 text-xs text-gray-500">
+              {t('auth.phoneHint', 'Include country code, e.g. +201...')}
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -169,6 +313,9 @@ export default function Onboarding({
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
             />
+            <p className="mt-1 text-xs text-gray-500">
+              {t('auth.passwordHint', 'Use at least 8 characters.')}
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -196,7 +343,7 @@ export default function Onboarding({
               {t('auth.alreadyHaveAccount', 'Already have an account?')}
             </button>
           )}
-          {onEnableTestMode && (
+          {import.meta.env.DEV && onEnableTestMode && (
             <button
               onClick={onEnableTestMode}
               className="w-full text-sm text-gray-600 hover:underline"
@@ -212,12 +359,16 @@ export default function Onboarding({
   if (step === 'verify') {
     return (
       <AuthLayout title={t('auth.verifyTitle', 'Verify phone')}>
+        {renderStepper()}
+        <p className="mb-4 text-sm text-gray-600">
+          {t('auth.verifyHelp', 'Enter the code we sent to your phone.')}
+        </p>
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
             {error}
           </div>
         )}
-        {otpSentVia === 'manual' && manualCode && (
+        {import.meta.env.DEV && otpSentVia === 'manual' && manualCode && (
           <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg">
             {t('auth.otpManual', 'Your code is')}: <strong>{manualCode}</strong>
           </div>
@@ -242,6 +393,7 @@ export default function Onboarding({
             {isLoading ? t('common.loading', 'Loading...') : t('auth.verify', 'Verify')}
           </button>
         </div>
+
       </AuthLayout>
     )
   }
@@ -249,9 +401,13 @@ export default function Onboarding({
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
       <div className="w-full max-w-3xl bg-white rounded-2xl shadow-xl p-8">
+        {renderStepper()}
         <h2 className="text-2xl font-bold text-gray-900 mb-6">
           {t('auth.setupSettings', 'Set up your gym settings')}
         </h2>
+        <p className="mb-6 text-sm text-gray-600">
+          {t('auth.settingsHelp', 'You can change these settings later in Settings.')}
+        </p>
 
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">

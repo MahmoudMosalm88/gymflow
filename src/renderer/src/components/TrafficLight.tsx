@@ -70,7 +70,7 @@ export default function TrafficLight({ status }: TrafficLightProps): JSX.Element
 
   return (
     <div
-      className={`w-48 h-48 rounded-full flex items-center justify-center transition-all duration-300 ${getStatusClass()}`}
+      className={`w-56 h-56 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl ${getStatusClass()}`}
     >
       {getStatusIcon()}
     </div>

@@ -1,4 +1,4 @@
-import { getMemberById, Member } from '../database/repositories/memberRepository'
+import { getMemberById, getMemberByCardCode, Member } from '../database/repositories/memberRepository'
 import {
   getActiveSubscription,
   Subscription
@@ -13,12 +13,11 @@ import { getSetting } from '../database/repositories/settingsRepository'
 
 export interface AttendanceResult {
   status: 'allowed' | 'warning' | 'denied' | 'ignored'
-  reason?: string
   reasonCode?: string
   member?: Member
   subscription?: Subscription
   quota?: Quota
-  warnings?: string[]
+  warnings?: Array<{ key: string; params?: Record<string, unknown> }>
 }
 
 interface TimeWindow {
@@ -39,15 +38,20 @@ export function checkAttendance(
   if (lastScan) {
     return {
       status: 'ignored',
-      reason: 'Already checked in recently',
       reasonCode: 'cooldown'
     }
   }
 
-  // 2. Find member by UUID
-  const member = getMemberById(scannedValue)
+  // 2. Find member by card code (scan) or member id (manual)
+  const member =
+    method === 'manual' ? getMemberById(scannedValue) : getMemberByCardCode(scannedValue)
 
-  if (!member) {
+  let resolvedMember = member
+  if (!resolvedMember && method !== 'manual') {
+    resolvedMember = getMemberById(scannedValue) || null
+  }
+
+  if (!resolvedMember) {
     // Log unknown QR
     createLog({
       member_id: null,
@@ -59,17 +63,18 @@ export function checkAttendance(
 
     return {
       status: 'denied',
-      reason: 'Unknown QR code',
       reasonCode: 'unknown_qr'
     }
   }
 
+  const memberFinal = resolvedMember
+
   // 3. Get active subscription
-  const subscription = getActiveSubscription(member.id)
+  const subscription = getActiveSubscription(memberFinal.id)
 
   if (!subscription) {
     createLog({
-      member_id: member.id,
+      member_id: memberFinal.id,
       scanned_value: scannedValue,
       method,
       status: 'denied',
@@ -78,16 +83,15 @@ export function checkAttendance(
 
     return {
       status: 'denied',
-      reason: 'No active subscription',
       reasonCode: 'expired',
-      member
+      member: memberFinal
     }
   }
 
   // Check if subscription is expired
-  if (subscription.end_date < now) {
+  if (subscription.end_date <= now) {
     createLog({
-      member_id: member.id,
+      member_id: memberFinal.id,
       scanned_value: scannedValue,
       method,
       status: 'denied',
@@ -96,9 +100,8 @@ export function checkAttendance(
 
     return {
       status: 'denied',
-      reason: 'Subscription expired',
       reasonCode: 'expired',
-      member,
+      member: memberFinal,
       subscription
     }
   }
@@ -106,7 +109,7 @@ export function checkAttendance(
   // Check if subscription has not started yet
   if (subscription.start_date > now) {
     createLog({
-      member_id: member.id,
+      member_id: memberFinal.id,
       scanned_value: scannedValue,
       method,
       status: 'denied',
@@ -115,9 +118,8 @@ export function checkAttendance(
 
     return {
       status: 'denied',
-      reason: 'Subscription has not started yet',
       reasonCode: 'not_started',
-      member,
+      member: memberFinal,
       subscription
     }
   }
@@ -127,12 +129,12 @@ export function checkAttendance(
 
   if (accessHoursEnabled) {
     const accessHoursKey =
-      member.gender === 'male' ? 'access_hours_male' : 'access_hours_female'
+      memberFinal.gender === 'male' ? 'access_hours_male' : 'access_hours_female'
     const accessHours = getSetting<TimeWindow[]>(accessHoursKey, [])
 
     if (!isWithinAccessHours(accessHours)) {
       createLog({
-        member_id: member.id,
+        member_id: memberFinal.id,
         scanned_value: scannedValue,
         method,
         status: 'denied',
@@ -141,20 +143,19 @@ export function checkAttendance(
 
       return {
         status: 'denied',
-        reason: 'Outside access hours',
         reasonCode: 'outside_hours',
-        member,
+        member: memberFinal,
         subscription
       }
     }
   }
 
   // 5. Get or create current quota
-  const quota = getOrCreateCurrentQuota(member.id)
+  const quota = getOrCreateCurrentQuota(memberFinal.id)
 
   if (!quota) {
     createLog({
-      member_id: member.id,
+      member_id: memberFinal.id,
       scanned_value: scannedValue,
       method,
       status: 'denied',
@@ -163,9 +164,8 @@ export function checkAttendance(
 
     return {
       status: 'denied',
-      reason: 'Unable to create session quota',
       reasonCode: 'no_quota',
-      member,
+      member: memberFinal,
       subscription
     }
   }
@@ -173,7 +173,7 @@ export function checkAttendance(
   // 6. Check sessions
   if (quota.sessions_used >= quota.sessions_cap) {
     createLog({
-      member_id: member.id,
+      member_id: memberFinal.id,
       scanned_value: scannedValue,
       method,
       status: 'denied',
@@ -182,16 +182,15 @@ export function checkAttendance(
 
     return {
       status: 'denied',
-      reason: 'No sessions remaining',
       reasonCode: 'no_sessions',
-      member,
+      member: memberFinal,
       subscription,
       quota
     }
   }
 
   // 7. Calculate warnings
-  const warnings: string[] = []
+  const warnings: Array<{ key: string; params?: Record<string, unknown> }> = []
   const warningDays = getSetting<number>('warning_days_before_expiry', 3)
   const warningSessions = getSetting<number>('warning_sessions_remaining', 3)
 
@@ -199,12 +198,12 @@ export function checkAttendance(
   const sessionsRemaining = quota.sessions_cap - quota.sessions_used
 
   if (daysRemaining <= warningDays) {
-    warnings.push(`Subscription expires in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}`)
+    warnings.push({ key: 'attendance.expiresIn', params: { count: daysRemaining } })
   }
 
   // Check sessions AFTER this check-in (so we use sessionsRemaining - 1)
   if (sessionsRemaining - 1 < warningSessions) {
-    warnings.push(`Only ${sessionsRemaining - 1} session${sessionsRemaining - 1 === 1 ? '' : 's'} remaining after this visit`)
+    warnings.push({ key: 'attendance.sessionsAfterVisit', params: { count: sessionsRemaining - 1 } })
   }
 
   // 8. Consume session
@@ -220,7 +219,7 @@ export function checkAttendance(
   const status = warnings.length > 0 ? 'warning' : 'allowed'
 
   createLog({
-    member_id: member.id,
+    member_id: memberFinal.id,
     scanned_value: scannedValue,
     method,
     status,
@@ -230,9 +229,8 @@ export function checkAttendance(
   // 10. Return result
   return {
     status,
-    reason: status === 'warning' ? warnings.join('; ') : 'Access granted',
     reasonCode: 'ok',
-    member,
+    member: memberFinal,
     subscription,
     quota: updatedQuota,
     warnings: warnings.length > 0 ? warnings : undefined
@@ -254,8 +252,17 @@ function isWithinAccessHours(windows: TimeWindow[]): boolean {
     const startMinutes = startHour * 60 + startMin
     const endMinutes = endHour * 60 + endMin
 
-    if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
-      return true
+    // Handle midnight crossing (e.g., 22:00-02:00)
+    if (endMinutes < startMinutes) {
+      // Window crosses midnight
+      if (currentMinutes >= startMinutes || currentMinutes < endMinutes) {
+        return true
+      }
+    } else {
+      // Normal window (same day)
+      if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
+        return true
+      }
     }
   }
 

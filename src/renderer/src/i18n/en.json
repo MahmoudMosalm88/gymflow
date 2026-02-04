@@ -5,7 +5,8 @@
     "subscriptions": "Subscriptions",
     "reports": "Reports",
     "import": "Import",
-    "settings": "Settings"
+    "settings": "Settings",
+    "logout": "Logout"
   },
   "dashboard": {
     "title": "Scanner Dashboard",
@@ -46,6 +47,17 @@
     "tier": "Access Tier",
     "tierA": "Tier A - Full Access",
     "tierB": "Tier B - Weights Only",
+    "cardCode": "Card QR Code",
+    "cardPlaceholder": "Scan or type card code",
+    "scanCard": "Scan Card",
+    "cardHint": "Assign a QR card now, or you can do it later.",
+    "cardRequired": "Please scan a card to assign",
+    "subscription": "Initial Subscription",
+    "createSubscription": "Create subscription now",
+    "planMonths": "Duration",
+    "month": "month",
+    "months": "months",
+    "pricePaid": "Price Paid",
     "photo": "Photo",
     "capturePhoto": "Capture Photo",
     "uploadPhoto": "Upload Photo",
@@ -58,27 +70,44 @@
     "active": "Active",
     "expiring": "Expiring Soon",
     "expired": "Expired",
-    "noSubscriptions": "No subscriptions found"
+    "noSubscriptions": "No subscriptions found",
+    "selectMember": "Select a member to manage subscriptions",
+    "searchMembers": "Search members by name or phone...",
+    "renew": "Renew Subscription",
+    "cancel": "Cancel Subscription",
+    "recordPayment": "Record Payment",
+    "current": "Current Subscription",
+    "starts": "Starts",
+    "paymentHistory": "Payment History",
+    "noHistory": "No payment history yet",
+    "date": "Date",
+    "cashOnly": "Manual cash entry only",
+    "invalidAmount": "Enter a valid amount"
   },
   "attendance": {
     "allowed": "Access Granted",
     "warning": "Access Granted (Warning)",
     "denied": "Access Denied",
     "ignored": "Already Checked In",
+    "warningsTitle": "Warnings",
     "reasons": {
       "ok": "Valid membership",
       "unknown_qr": "Unknown QR code",
       "expired": "Subscription expired",
       "no_sessions": "No sessions remaining",
       "outside_hours": "Outside access hours",
-      "cooldown": "Already checked in recently"
+      "cooldown": "Already checked in recently",
+      "not_started": "Subscription has not started yet",
+      "no_quota": "Unable to create session quota"
     },
     "sessionsRemaining_one": "{{count}} session remaining",
     "sessionsRemaining_other": "{{count}} sessions remaining",
     "daysRemaining_one": "{{count}} day remaining",
     "daysRemaining_other": "{{count}} days remaining",
     "expiresIn_one": "Expires in {{count}} day",
-    "expiresIn_other": "Expires in {{count}} days"
+    "expiresIn_other": "Expires in {{count}} days",
+    "sessionsAfterVisit_one": "Only {{count}} session remaining after this visit",
+    "sessionsAfterVisit_other": "Only {{count}} sessions remaining after this visit"
   },
   "settings": {
     "title": "Settings",
@@ -136,9 +165,42 @@
     "success": "Successfully imported {{count}} members",
     "sendQRCodes": "Send QR codes via WhatsApp"
   },
+  "reports": {
+    "title": "Reports",
+    "dailyAttendance": "Daily Attendance",
+    "hourlyDistribution": "Today's Hourly Distribution",
+    "topMembers": "Most Active Members",
+    "noData": "No data available",
+    "visits": "visits",
+    "legend": {
+      "allowed": "Allowed",
+      "warning": "Warning",
+      "denied": "Denied"
+    },
+    "overview": {
+      "members": "Total Members",
+      "active": "Active Subscriptions",
+      "todayCheckins": "Today's Check-ins",
+      "todayDenied": "Today's Denied"
+    },
+    "range": {
+      "7days": "Last 7 days",
+      "30days": "Last 30 days",
+      "90days": "Last 90 days"
+    },
+    "reason": {
+      "unknownQr": "Unknown QR",
+      "expired": "Expired Subscription",
+      "outsideHours": "Outside Access Hours",
+      "noSessions": "No Sessions Left",
+      "noQuota": "No Quota",
+      "notStarted": "Not Started Yet"
+    }
+  },
   "common": {
     "loading": "Loading...",
     "error": "An error occurred",
+    "close": "Close",
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
@@ -163,11 +225,32 @@
     "title": "QR Code",
     "scanInstructions": "Scan this code at the gym entrance",
     "printCard": "Print Card",
-    "sendViaWhatsApp": "Send via WhatsApp"
+    "sendViaWhatsApp": "Send via WhatsApp",
+    "codeLabel": "Code",
+    "copyCode": "Copy Code",
+    "copied": "Copied",
+    "copyFailed": "Copy failed"
   },
   "auth": {
     "loginTitle": "Sign in to GymFlow",
     "onboardingTitle": "Create owner account",
+    "connectWhatsAppTitle": "Connect WhatsApp",
+    "connectWhatsAppHelp": "Connect WhatsApp first so we can send you verification codes.",
+    "continue": "Continue",
+    "fullName": "Full name",
+    "namePlaceholder": "Owner name",
+    "stepAccount": "Account",
+    "stepVerify": "Verify",
+    "stepSettings": "Settings",
+    "stepWhatsApp": "WhatsApp",
+    "accountHelp": "Use your phone to sign in and manage the gym.",
+    "verifyHelp": "Enter the code we sent to your phone.",
+    "settingsHelp": "You can change these settings later in Settings.",
+    "phoneHint": "Include country code, e.g. +201...",
+    "passwordHint": "Use at least 8 characters.",
+    "whatsappOtpHelp": "Connect WhatsApp to receive verification and reset codes.",
+    "whatsappScanQr": "Scan the QR below",
+    "whatsappNotConnected": "WhatsApp not connected",
     "createAccount": "Create Account",
     "verifyTitle": "Verify phone",
     "setupSettings": "Set up your gym settings",

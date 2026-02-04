@@ -46,28 +46,31 @@ export function getSubscriptionById(id: number): Subscription | null {
 
 export function createSubscription(input: CreateSubscriptionInput): Subscription {
   const db = getDatabase()
-  const now = Math.floor(Date.now() / 1000)
-  const startDate = input.start_date || now
+  const transaction = db.transaction(() => {
+    const now = Math.floor(Date.now() / 1000)
+    const startDate = input.start_date || now
 
-  // Calculate end date based on plan months (30 days per month)
-  const durationDays = input.plan_months * DAYS_PER_MONTH
-  const endDate = startDate + durationDays * SECONDS_PER_DAY
+    // Calculate end date based on plan months (30 days per month)
+    const durationDays = input.plan_months * DAYS_PER_MONTH
+    const endDate = startDate + durationDays * SECONDS_PER_DAY
 
-  // Deactivate any existing active subscriptions for this member
-  db.prepare('UPDATE subscriptions SET is_active = 0 WHERE member_id = ? AND is_active = 1').run(
-    input.member_id
-  )
-
-  // Create new subscription
-  const result = db
-    .prepare(
-      `INSERT INTO subscriptions (member_id, start_date, end_date, plan_months, price_paid, is_active, created_at)
-       VALUES (?, ?, ?, ?, ?, 1, ?)`
+    // Deactivate any existing active subscriptions for this member
+    db.prepare('UPDATE subscriptions SET is_active = 0 WHERE member_id = ? AND is_active = 1').run(
+      input.member_id
     )
-    .run(input.member_id, startDate, endDate, input.plan_months, input.price_paid || null, now)
 
-  const subscriptionId = result.lastInsertRowid as number
+    // Create new subscription
+    const result = db
+      .prepare(
+        `INSERT INTO subscriptions (member_id, start_date, end_date, plan_months, price_paid, is_active, created_at)
+         VALUES (?, ?, ?, ?, ?, 1, ?)`
+      )
+      .run(input.member_id, startDate, endDate, input.plan_months, input.price_paid || null, now)
 
+    return result.lastInsertRowid as number
+  })
+
+  const subscriptionId = transaction()
   return getSubscriptionById(subscriptionId)!
 }
 
@@ -145,6 +148,12 @@ export function renewSubscription(
 export function cancelSubscription(id: number): void {
   const db = getDatabase()
   db.prepare('UPDATE subscriptions SET is_active = 0 WHERE id = ?').run(id)
+}
+
+export function updateSubscriptionPricePaid(id: number, pricePaid: number | null): Subscription | null {
+  const db = getDatabase()
+  db.prepare('UPDATE subscriptions SET price_paid = ? WHERE id = ?').run(pricePaid, id)
+  return getSubscriptionById(id)
 }
 
 export function getExpiringSubscriptions(daysThreshold: number): Subscription[] {

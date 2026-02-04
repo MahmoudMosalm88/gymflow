@@ -4,6 +4,7 @@ import { initDatabase, closeDatabase } from './database/connection'
 import { registerIpcHandlers } from './ipc/handlers'
 import { logToFile } from './utils/logger'
 import { whatsappService } from './services/whatsapp'
+import { startAutoUpdater } from './services/autoUpdater'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -117,6 +118,7 @@ app.whenReady().then(() => {
 
   // Create window
   createWindow()
+  startAutoUpdater()
 
   app.on('activate', function () {
     // On macOS re-create window when dock icon is clicked and no other windows open

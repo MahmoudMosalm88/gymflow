@@ -1,15 +1,21 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import AuthLayout from '../components/AuthLayout'
+import WhatsAppConnectPanel from '../components/WhatsAppConnectPanel'
 
 interface LoginProps {
   onSuccess: (token: string) => void
   onEnableTestMode?: () => void
+  onGoToSignUp?: () => void
 }
 
 type Mode = 'login' | 'requestReset' | 'reset'
 
-export default function Login({ onSuccess, onEnableTestMode }: LoginProps): JSX.Element {
+export default function Login({
+  onSuccess,
+  onEnableTestMode,
+  onGoToSignUp
+}: LoginProps): JSX.Element {
   const { t } = useTranslation()
   const [mode, setMode] = useState<Mode>('login')
   const [phone, setPhone] = useState('')
@@ -89,26 +95,26 @@ export default function Login({ onSuccess, onEnableTestMode }: LoginProps): JSX.
   return (
     <AuthLayout title={t('auth.loginTitle', 'Sign in to GymFlow')}>
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg animate-slide-up">
           {error}
         </div>
       )}
       {successMessage && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg">
+        <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-200 rounded-lg animate-slide-up">
           {successMessage}
         </div>
       )}
 
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
             {t('auth.phone', 'Phone')}
           </label>
           <input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
+            className="input-field"
             placeholder="+201xxxxxxxxx"
           />
         </div>
@@ -116,35 +122,51 @@ export default function Login({ onSuccess, onEnableTestMode }: LoginProps): JSX.
         {mode === 'login' && (
           <>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
                 {t('auth.password', 'Password')}
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
+                className="input-field"
               />
             </div>
 
             <button
               onClick={handleLogin}
               disabled={isLoading}
-              className="w-full py-3 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+              className="btn btn-primary w-full"
             >
-              {isLoading ? t('common.loading', 'Loading...') : t('auth.login', 'Login')}
+              {isLoading ? (
+                <>
+                  <div className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  {t('common.loading', 'Loading...')}
+                </>
+              ) : (
+                t('auth.login', 'Login')
+              )}
             </button>
+
+            {onGoToSignUp && (
+              <button
+                onClick={onGoToSignUp}
+                className="btn btn-secondary w-full"
+              >
+                {t('auth.createAccount', 'Create Account')}
+              </button>
+            )}
 
             <button
               onClick={() => setMode('requestReset')}
-              className="w-full text-sm text-gym-primary hover:underline"
+              className="w-full text-sm text-brand-primary dark:text-brand-light hover:underline font-medium"
             >
               {t('auth.forgotPassword', 'Forgot password?')}
             </button>
-            {onEnableTestMode && (
+            {import.meta.env.DEV && onEnableTestMode && (
               <button
                 onClick={onEnableTestMode}
-                className="w-full text-sm text-gray-600 hover:underline"
+                className="w-full text-sm text-gray-600 dark:text-gray-400 hover:underline"
               >
                 {t('auth.enableTestMode', 'Enable test mode')}
               </button>
@@ -157,13 +179,20 @@ export default function Login({ onSuccess, onEnableTestMode }: LoginProps): JSX.
             <button
               onClick={handleRequestReset}
               disabled={isLoading}
-              className="w-full py-3 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+              className="btn btn-primary w-full"
             >
-              {isLoading ? t('common.loading', 'Loading...') : t('auth.sendResetCode', 'Send reset code')}
+              {isLoading ? (
+                <>
+                  <div className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  {t('common.loading', 'Loading...')}
+                </>
+              ) : (
+                t('auth.sendResetCode', 'Send reset code')
+              )}
             </button>
             <button
               onClick={() => setMode('login')}
-              className="w-full text-sm text-gray-600 hover:underline"
+              className="w-full text-sm text-gray-600 dark:text-gray-400 hover:underline"
             >
               {t('auth.backToLogin', 'Back to login')}
             </button>
@@ -172,60 +201,69 @@ export default function Login({ onSuccess, onEnableTestMode }: LoginProps): JSX.
 
         {mode === 'reset' && (
           <>
-            {otpSentVia === 'manual' && manualCode && (
-              <div className="p-3 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg">
-                {t('auth.otpManual', 'Your code is')}: <strong>{manualCode}</strong>
+            {import.meta.env.DEV && otpSentVia === 'manual' && manualCode && (
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-200 rounded-lg">
+                {t('auth.otpManual', 'Your code is')}: <strong className="font-heading font-bold text-lg">{manualCode}</strong>
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
                 {t('auth.otpCode', 'Verification Code')}
               </label>
               <input
                 type="text"
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
+                className="input-field"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
                 {t('auth.newPassword', 'New Password')}
               </label>
               <input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
+                className="input-field"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
                 {t('auth.confirmPassword', 'Confirm Password')}
               </label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
+                className="input-field"
               />
             </div>
             <button
               onClick={handleResetPassword}
               disabled={isLoading}
-              className="w-full py-3 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+              className="btn btn-primary w-full"
             >
-              {isLoading ? t('common.loading', 'Loading...') : t('auth.resetPassword', 'Reset Password')}
+              {isLoading ? (
+                <>
+                  <div className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  {t('common.loading', 'Loading...')}
+                </>
+              ) : (
+                t('auth.resetPassword', 'Reset Password')
+              )}
             </button>
             <button
               onClick={() => setMode('login')}
-              className="w-full text-sm text-gray-600 hover:underline"
+              className="w-full text-sm text-gray-600 dark:text-gray-400 hover:underline"
             >
               {t('auth.backToLogin', 'Back to login')}
             </button>
           </>
         )}
       </div>
+
+      {!import.meta.env.DEV && <WhatsAppConnectPanel />}
     </AuthLayout>
   )
 }

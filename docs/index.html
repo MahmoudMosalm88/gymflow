@@ -117,6 +117,21 @@
             margin-bottom: 3rem;
         }
 
+        .download-meta {
+            margin-top: 2rem;
+            font-size: 0.95rem;
+            color: #999;
+        }
+
+        .download-meta a {
+            color: var(--primary-orange);
+            text-decoration: none;
+        }
+
+        .download-meta a:hover {
+            text-decoration: underline;
+        }
+
         .btn {
             padding: 1rem 2rem;
             font-size: 1rem;
@@ -232,7 +247,7 @@
         }
     </style>
 </head>
-<body>
+<body data-version="1.0.0">
     <!-- Navigation -->
     <nav>
         <div class="logo">GymFlow</div>
@@ -244,14 +259,15 @@
         <h1>GymFlow</h1>
         <p>Transform Your Gym with Effortless Attendance Management</p>
         <div class="download-buttons">
-            <a href="https://github.com/MahmoudMosalm88/gymflow/releases/download/v1.0.0/GymFlow-arm64.dmg" class="btn btn-primary">
-                🍎 Download for Mac
+            <a id="downloadMac" data-os="mac" href="#" class="btn btn-secondary" download>
+                🍎 Download for Mac (Apple Silicon)
             </a>
-            <a href="https://github.com/MahmoudMosalm88/gymflow/releases/download/v1.0.0/gymflow-1.0.0-setup.exe" class="btn btn-primary">
+            <a id="downloadWin" data-os="win" href="#" class="btn btn-secondary" download>
                 🪟 Download for Windows
             </a>
         </div>
-        <p style="margin-top: 2rem; font-size: 0.9rem; color: #999;">Free desktop app for gym owners</p>
+        <p class="download-meta">Latest: v<span id="releaseVersion">1.0.0</span> • Windows 10/11 • macOS Apple Silicon</p>
+        <p class="download-meta">Direct links: <a id="downloadMacVersioned" href="#" download>Mac v1.0.0</a> • <a id="downloadWinVersioned" href="#" download>Windows v1.0.0</a></p>
     </section>
 
     <!-- Features Section -->
@@ -314,6 +330,50 @@
             if (savedTheme === 'dark') {
                 document.documentElement.classList.add('dark');
                 document.getElementById('themeToggle').textContent = '☀️';
+            }
+
+            // Download button OS detection + version labels
+            const macBtn = document.getElementById('downloadMac');
+            const winBtn = document.getElementById('downloadWin');
+            const macVersioned = document.getElementById('downloadMacVersioned');
+            const winVersioned = document.getElementById('downloadWinVersioned');
+            const releaseVersion = document.getElementById('releaseVersion');
+            const appVersion = document.body.getAttribute('data-version') || '1.0.0';
+            const repoBase = 'https://github.com/MahmoudMosalm88/gymflow';
+            const latestBase = `${repoBase}/releases/latest/download`;
+            const versionedBase = `${repoBase}/releases/download/v${appVersion}`;
+
+            if (macBtn) macBtn.setAttribute('href', `${latestBase}/GymFlow-arm64.dmg`);
+            if (winBtn) winBtn.setAttribute('href', `${latestBase}/gymflow-${appVersion}-setup.exe`);
+            if (macVersioned) macVersioned.setAttribute('href', `${versionedBase}/GymFlow-arm64.dmg`);
+            if (winVersioned) winVersioned.setAttribute('href', `${versionedBase}/gymflow-${appVersion}-setup.exe`);
+            if (releaseVersion) {
+                releaseVersion.textContent = appVersion;
+            }
+            if (macVersioned) {
+                macVersioned.textContent = `Mac v${appVersion}`;
+            }
+            if (winVersioned) {
+                winVersioned.textContent = `Windows v${appVersion}`;
+                winVersioned.setAttribute('href', `downloads/gymflow-${appVersion}-setup.exe`);
+            }
+            const platform = navigator.platform || '';
+            const ua = navigator.userAgent || '';
+            const isMac = /Mac|Macintosh|MacIntel/i.test(platform) || /Mac OS X/i.test(ua);
+            const isWin = /Win|Windows/i.test(platform) || /Windows/i.test(ua);
+
+            if (isMac && macBtn) {
+                macBtn.classList.remove('btn-secondary');
+                macBtn.classList.add('btn-primary');
+            } else if (isWin && winBtn) {
+                winBtn.classList.remove('btn-secondary');
+                winBtn.classList.add('btn-primary');
+            } else {
+                // Default to Windows highlight for unknown platforms
+                if (winBtn) {
+                    winBtn.classList.remove('btn-secondary');
+                    winBtn.classList.add('btn-primary');
+                }
             }
         });
     </script>

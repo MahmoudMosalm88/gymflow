@@ -1,5 +1,73 @@
 import { getDatabase } from '../connection'
 
+const DEFAULT_SETTINGS = {
+  language: 'en',
+  session_cap_male: 26,
+  session_cap_female: 30,
+  test_mode: false,
+  access_hours_enabled: false,
+  access_hours_male: [{ start: '06:00', end: '23:00' }],
+  access_hours_female: [
+    { start: '10:00', end: '14:00' },
+    { start: '18:00', end: '22:00' }
+  ],
+  warning_days_before_expiry: 3,
+  warning_sessions_remaining: 3,
+  scan_cooldown_seconds: 30,
+  whatsapp_enabled: false,
+  whatsapp_batch_delay_min: 10,
+  whatsapp_batch_delay_max: 15,
+  whatsapp_template_welcome: 'Welcome to GymFlow, {{name}}! Your QR code is attached.',
+  whatsapp_template_renewal:
+    'Hi {{name}}, your subscription expires in {{days}} days. Please renew soon!',
+  whatsapp_template_low_sessions:
+    'Hi {{name}}, you have only {{sessions}} sessions remaining this cycle.'
+} as const
+
+type DefaultSettings = typeof DEFAULT_SETTINGS
+
+function isAccessHours(value: unknown): value is Array<{ start: string; end: string }> {
+  if (!Array.isArray(value)) return false
+  return value.every(
+    (entry) =>
+      entry &&
+      typeof entry === 'object' &&
+      typeof (entry as { start?: unknown }).start === 'string' &&
+      typeof (entry as { end?: unknown }).end === 'string'
+  )
+}
+
+function validateSettingValue(
+  key: string,
+  value: unknown,
+  fallback: unknown
+): unknown {
+  switch (key) {
+    case 'language':
+    case 'whatsapp_template_welcome':
+    case 'whatsapp_template_renewal':
+    case 'whatsapp_template_low_sessions':
+      return typeof value === 'string' ? value : fallback
+    case 'session_cap_male':
+    case 'session_cap_female':
+    case 'warning_days_before_expiry':
+    case 'warning_sessions_remaining':
+    case 'scan_cooldown_seconds':
+    case 'whatsapp_batch_delay_min':
+    case 'whatsapp_batch_delay_max':
+      return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+    case 'test_mode':
+    case 'access_hours_enabled':
+    case 'whatsapp_enabled':
+      return typeof value === 'boolean' ? value : fallback
+    case 'access_hours_male':
+    case 'access_hours_female':
+      return isAccessHours(value) ? value : fallback
+    default:
+      return value
+  }
+}
+
 export function getSetting<T>(key: string, defaultValue?: T): T {
   const db = getDatabase()
   const result = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
@@ -7,12 +75,31 @@ export function getSetting<T>(key: string, defaultValue?: T): T {
     | undefined
 
   if (!result) {
-    return defaultValue as T
+    const fallback =
+      defaultValue !== undefined
+        ? defaultValue
+        : (DEFAULT_SETTINGS as Record<string, unknown>)[key]
+    return fallback as T
   }
 
   try {
-    return JSON.parse(result.value) as T
+    const parsed = JSON.parse(result.value) as T
+    if (Object.prototype.hasOwnProperty.call(DEFAULT_SETTINGS, key)) {
+      const fallback =
+        defaultValue !== undefined
+          ? defaultValue
+          : (DEFAULT_SETTINGS as Record<string, unknown>)[key]
+      return validateSettingValue(key, parsed, fallback) as T
+    }
+    return parsed
   } catch {
+    if (Object.prototype.hasOwnProperty.call(DEFAULT_SETTINGS, key)) {
+      const fallback =
+        defaultValue !== undefined
+          ? defaultValue
+          : (DEFAULT_SETTINGS as Record<string, unknown>)[key]
+      return validateSettingValue(key, result.value, fallback) as T
+    }
     return result.value as T
   }
 }
@@ -21,14 +108,11 @@ export function setSetting(key: string, value: unknown): void {
   const db = getDatabase()
   const serialized = typeof value === 'string' ? value : JSON.stringify(value)
 
-  db.prepare(
-    'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)'
-  ).run(key, serialized)
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, serialized)
 }
 
 export function setSettings(settings: Record<string, unknown>): void {
   const db = getDatabase()
-
   const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
   const transaction = db.transaction((entries: Array<[string, unknown]>) => {
     for (const [key, value] of entries) {
@@ -52,7 +136,6 @@ export function getAllSettings(): Record<string, unknown> {
   }>
 
   const settings: Record<string, unknown> = {}
-
   for (const row of rows) {
     try {
       settings[row.key] = JSON.parse(row.value)
@@ -61,7 +144,20 @@ export function getAllSettings(): Record<string, unknown> {
     }
   }
 
-  return settings
+  const validated: Record<string, unknown> = { ...DEFAULT_SETTINGS }
+  for (const [key, value] of Object.entries(settings)) {
+    if (Object.prototype.hasOwnProperty.call(DEFAULT_SETTINGS, key)) {
+      validated[key] = validateSettingValue(
+        key,
+        value,
+        (DEFAULT_SETTINGS as Record<string, unknown>)[key]
+      )
+    } else {
+      validated[key] = value
+    }
+  }
+
+  return validated
 }
 
 export function deleteSetting(key: string): void {
@@ -72,34 +168,8 @@ export function deleteSetting(key: string): void {
 export function resetToDefaults(): void {
   const db = getDatabase()
 
-  const defaultSettings: Record<string, unknown> = {
-    language: 'en',
-    session_cap_male: 26,
-    session_cap_female: 30,
-    test_mode: false,
-    access_hours_enabled: false,
-    access_hours_male: [{ start: '06:00', end: '23:00' }],
-    access_hours_female: [
-      { start: '10:00', end: '14:00' },
-      { start: '18:00', end: '22:00' }
-    ],
-    warning_days_before_expiry: 3,
-    warning_sessions_remaining: 3,
-    scan_cooldown_seconds: 30,
-    whatsapp_enabled: false,
-    whatsapp_batch_delay_min: 10,
-    whatsapp_batch_delay_max: 15,
-    whatsapp_template_welcome:
-      'Welcome to GymFlow, {{name}}! Your QR code is attached.',
-    whatsapp_template_renewal:
-      'Hi {{name}}, your subscription expires in {{days}} days. Please renew soon!',
-    whatsapp_template_low_sessions:
-      'Hi {{name}}, you have only {{sessions}} sessions remaining this cycle.'
-  }
-
   const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
-
-  for (const [key, value] of Object.entries(defaultSettings)) {
+  for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
     stmt.run(key, JSON.stringify(value))
   }
 }

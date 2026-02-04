@@ -7,6 +7,27 @@ import GlobalErrorOverlay from './components/GlobalErrorOverlay'
 import './index.css'
 import './i18n'
 
+// Initialize dark mode on app load
+const initializeDarkMode = () => {
+  try {
+    const savedDarkMode = localStorage.getItem('darkMode')
+    if (savedDarkMode !== null) {
+      const isDarkMode = JSON.parse(savedDarkMode)
+      if (isDarkMode) {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.classList.add('dark')
+    }
+  } catch {
+    // ignore
+  }
+}
+
+initializeDarkMode()
+
 const rootElement = document.getElementById('root') as HTMLElement
 
 const showFatal = (message: string) => {

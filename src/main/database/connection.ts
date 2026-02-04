@@ -1,13 +1,20 @@
 import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
-import { existsSync, mkdirSync, readFileSync } from 'fs'
+import { existsSync, mkdirSync } from 'fs'
 
 let db: Database.Database | null = null
 
+export function getUserDataPath(): string {
+  return app.getPath('userData')
+}
+
+export function getPhotosPath(): string {
+  return join(getUserDataPath(), 'photos')
+}
+
 export function getDatabase(): Database.Database {
   if (!db) {
-    // Lazily initialize if app is ready
     if (app.isReady()) {
       return initDatabase()
     }
@@ -17,27 +24,20 @@ export function getDatabase(): Database.Database {
 }
 
 export function initDatabase(): Database.Database {
-  const userDataPath = app.getPath('userData')
+  const userDataPath = getUserDataPath()
   const dbPath = join(userDataPath, 'gymflow.db')
 
-  // Ensure directory exists
   if (!existsSync(userDataPath)) {
     mkdirSync(userDataPath, { recursive: true })
   }
 
-  // Create photos directory
-  const photosPath = join(userDataPath, 'photos')
+  const photosPath = getPhotosPath()
   if (!existsSync(photosPath)) {
     mkdirSync(photosPath, { recursive: true })
   }
 
-  // Initialize database
   db = new Database(dbPath)
-
-  // Enable foreign keys
   db.pragma('foreign_keys = ON')
-
-  // Run migrations
   runMigrations(db)
 
   return db
@@ -51,7 +51,6 @@ export function closeDatabase(): void {
 }
 
 function runMigrations(database: Database.Database): void {
-  // Create migrations tracking table
   database.exec(`
     CREATE TABLE IF NOT EXISTS migrations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,18 +59,12 @@ function runMigrations(database: Database.Database): void {
     )
   `)
 
-  // Get applied migrations
-  const appliedMigrations = database
+  const appliedMigrations = (database
     .prepare('SELECT name FROM migrations')
-    .all()
-    .map((row: { name: string }) => row.name)
+    .all() as Array<{ name: string }>).map((row) => row.name)
 
-  // Migration: Initial schema
   if (!appliedMigrations.includes('001_initial_schema')) {
-    console.log('Applying migration: 001_initial_schema')
-
     database.exec(`
-      -- Members table
       CREATE TABLE IF NOT EXISTS members (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -83,7 +76,6 @@ function runMigrations(database: Database.Database): void {
         updated_at INTEGER DEFAULT (unixepoch())
       );
 
-      -- Subscriptions table
       CREATE TABLE IF NOT EXISTS subscriptions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         member_id TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
@@ -95,11 +87,9 @@ function runMigrations(database: Database.Database): void {
         created_at INTEGER DEFAULT (unixepoch())
       );
 
-      -- Enforce ONE active subscription per member
       CREATE UNIQUE INDEX IF NOT EXISTS idx_one_active_subscription
         ON subscriptions(member_id) WHERE is_active = 1;
 
-      -- Session quotas (per billing cycle)
       CREATE TABLE IF NOT EXISTS quotas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         member_id TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
@@ -111,7 +101,6 @@ function runMigrations(database: Database.Database): void {
         UNIQUE(subscription_id, cycle_start)
       );
 
-      -- Attendance logs (supports unknown scans)
       CREATE TABLE IF NOT EXISTS logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         member_id TEXT REFERENCES members(id),
@@ -122,7 +111,6 @@ function runMigrations(database: Database.Database): void {
         reason_code TEXT
       );
 
-      -- WhatsApp message queue
       CREATE TABLE IF NOT EXISTS message_queue (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         member_id TEXT NOT NULL REFERENCES members(id),
@@ -137,13 +125,11 @@ function runMigrations(database: Database.Database): void {
         last_error TEXT
       );
 
-      -- App settings (key-value store)
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
 
-      -- Indexes
       CREATE INDEX IF NOT EXISTS idx_members_phone ON members(phone);
       CREATE INDEX IF NOT EXISTS idx_subscriptions_member ON subscriptions(member_id);
       CREATE INDEX IF NOT EXISTS idx_subscriptions_dates ON subscriptions(end_date);
@@ -153,15 +139,10 @@ function runMigrations(database: Database.Database): void {
       CREATE INDEX IF NOT EXISTS idx_queue_status ON message_queue(status, scheduled_at);
     `)
 
-    // Record migration
     database.prepare('INSERT INTO migrations (name) VALUES (?)').run('001_initial_schema')
-    console.log('Migration 001_initial_schema applied successfully')
   }
 
-  // Migration: Owner authentication + sessions
   if (!appliedMigrations.includes('002_owner_auth')) {
-    console.log('Applying migration: 002_owner_auth')
-
     database.exec(`
       CREATE TABLE IF NOT EXISTS owners (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -198,43 +179,22 @@ function runMigrations(database: Database.Database): void {
     `)
 
     database.prepare('INSERT INTO migrations (name) VALUES (?)').run('002_owner_auth')
-    console.log('Migration 002_owner_auth applied successfully')
   }
 
-  // Insert default settings if not exist
-  const insertSetting = database.prepare(
-    'INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)'
-  )
+  if (!appliedMigrations.includes('003_member_card_code')) {
+    database.exec(`
+      ALTER TABLE members ADD COLUMN card_code TEXT;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_members_card_code ON members(card_code);
+    `)
 
-  const defaultSettings = [
-    ['language', '"en"'],
-    ['session_cap_male', '26'],
-    ['session_cap_female', '30'],
-    ['test_mode', 'false'],
-    ['onboarding_complete', 'false'],
-    ['access_hours_enabled', 'false'],
-    ['access_hours_male', '[{"start": "06:00", "end": "23:00"}]'],
-    ['access_hours_female', '[{"start": "10:00", "end": "14:00"}, {"start": "18:00", "end": "22:00"}]'],
-    ['warning_days_before_expiry', '3'],
-    ['warning_sessions_remaining', '3'],
-    ['scan_cooldown_seconds', '30'],
-    ['whatsapp_enabled', 'false'],
-    ['whatsapp_batch_delay_min', '10'],
-    ['whatsapp_batch_delay_max', '15'],
-    ['whatsapp_template_welcome', '"Welcome to GymFlow, {{name}}! Your QR code is attached."'],
-    ['whatsapp_template_renewal', '"Hi {{name}}, your subscription expires in {{days}} days. Please renew soon!"'],
-    ['whatsapp_template_low_sessions', '"Hi {{name}}, you have only {{sessions}} sessions remaining this cycle."']
-  ]
-
-  for (const [key, value] of defaultSettings) {
-    insertSetting.run(key, value)
+    database.prepare('INSERT INTO migrations (name) VALUES (?)').run('003_member_card_code')
   }
-}
 
-export function getPhotosPath(): string {
-  return join(app.getPath('userData'), 'photos')
-}
+  if (!appliedMigrations.includes('004_owner_name')) {
+    database.exec(`
+      ALTER TABLE owners ADD COLUMN name TEXT;
+    `)
 
-export function getUserDataPath(): string {
-  return app.getPath('userData')
+    database.prepare('INSERT INTO migrations (name) VALUES (?)').run('004_owner_name')
+  }
 }

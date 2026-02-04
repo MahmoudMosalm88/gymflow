@@ -7,7 +7,7 @@ import ScannerInput from '../components/ScannerInput'
 
 interface AttendanceResult {
   status: 'allowed' | 'warning' | 'denied' | 'ignored'
-  reason?: string
+  reasonCode?: string
   member?: {
     id: string
     name: string
@@ -20,7 +20,7 @@ interface AttendanceResult {
     sessions_used: number
     sessions_cap: number
   }
-  warnings?: string[]
+  warnings?: Array<{ key: string; params?: Record<string, unknown> }>
 }
 
 interface TodayStats {
@@ -38,35 +38,38 @@ export default function Dashboard(): JSX.Element {
     denied: 0
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const clearTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Load today's stats on mount
-  useEffect(() => {
-    loadTodayStats()
-  }, [])
-
-  const loadTodayStats = async () => {
+  const loadTodayStats = useCallback(async () => {
     try {
-      const logs = await window.api.attendance.getTodayLogs()
-      const stats = logs.reduce(
-        (acc: TodayStats, log: { status: string }) => {
-          if (log.status === 'allowed') acc.checkIns++
-          else if (log.status === 'warning') acc.warnings++
-          else if (log.status === 'denied') acc.denied++
-          return acc
-        },
-        { checkIns: 0, warnings: 0, denied: 0 }
-      )
-      setTodayStats(stats)
+      const stats = await window.api.attendance.getTodayStats()
+      setTodayStats({
+        checkIns: stats.allowed + stats.warning,
+        warnings: stats.warning,
+        denied: stats.denied
+      })
     } catch (error) {
       console.error('Failed to load today stats:', error)
     }
-  }
+  }, [])
+
+  // Load today's stats on mount and cleanup
+  useEffect(() => {
+    loadTodayStats()
+
+    return () => {
+      if (clearTimeoutRef.current) clearTimeout(clearTimeoutRef.current)
+      if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current)
+    }
+  }, [loadTodayStats])
 
   const handleScan = useCallback(async (scannedValue: string, method: 'scan' | 'manual' = 'scan') => {
     if (isLoading) return
 
     setIsLoading(true)
+    setError(null)
     try {
       const result = await window.api.attendance.check(scannedValue, method)
       setLastResult(result)
@@ -75,7 +78,11 @@ export default function Dashboard(): JSX.Element {
       if (result.status === 'allowed') {
         setTodayStats((prev) => ({ ...prev, checkIns: prev.checkIns + 1 }))
       } else if (result.status === 'warning') {
-        setTodayStats((prev) => ({ ...prev, warnings: prev.warnings + 1 }))
+        setTodayStats((prev) => ({
+          ...prev,
+          checkIns: prev.checkIns + 1,
+          warnings: prev.warnings + 1
+        }))
       } else if (result.status === 'denied') {
         setTodayStats((prev) => ({ ...prev, denied: prev.denied + 1 }))
       }
@@ -87,32 +94,57 @@ export default function Dashboard(): JSX.Element {
       clearTimeoutRef.current = setTimeout(() => {
         setLastResult(null)
       }, 5000)
-    } catch (error) {
-      console.error('Scan error:', error)
-      setLastResult({
-        status: 'denied',
-        reason: 'error'
-      })
+    } catch (err) {
+      console.error('Scan error:', err)
+      const errorMsg = String(err) || t('common.error')
+      setError(errorMsg)
+      setLastResult(null)
+      
+      // Clear error after 5 seconds
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current)
+      }
+      errorTimeoutRef.current = setTimeout(() => {
+        setError(null)
+      }, 5000)
     } finally {
       setIsLoading(false)
     }
-  }, [isLoading])
+  }, [isLoading, t])
 
   const handleQuickSearch = (memberId: string) => {
     handleScan(memberId, 'manual')
   }
 
   return (
-    <div className="h-full flex flex-col p-6">
+    <div className="min-h-full flex flex-col p-4 md:p-8 bg-gray-50 dark:bg-gray-950">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">{t('dashboard.title')}</h1>
+      <div className="mb-8">
+        <h1 className="text-4xl font-heading font-bold text-gray-900 dark:text-white">
+          {t('dashboard.title')}
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-2">
+          {t('dashboard.subtitle') || 'Manage member check-ins and attendance'}
+        </p>
       </div>
 
+      {/* Error Alert */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-200 flex justify-between items-center animate-slide-up shadow-md">
+          <span>{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-bold text-lg leading-none"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Main Content */}
-      <div className="flex-1 flex gap-6">
+      <div className="flex-1 flex flex-col lg:flex-row gap-8">
         {/* Left: Traffic Light + Member Display */}
-        <div className="flex-1 flex flex-col items-center justify-center bg-white rounded-2xl shadow-lg p-8">
+        <div className="flex-1 flex flex-col items-center justify-center card">
           <TrafficLight status={lastResult?.status || 'ready'} />
 
           {lastResult?.member ? (
@@ -123,44 +155,56 @@ export default function Dashboard(): JSX.Element {
               status={lastResult.status}
             />
           ) : (
-            <div className="mt-8 text-center">
-              <p className="text-xl text-gray-500">{t('dashboard.ready')}</p>
-              <p className="text-sm text-gray-400 mt-2">{t('dashboard.scanInstructions')}</p>
+            <div className="mt-12 text-center">
+              <div className="w-20 h-20 mx-auto mb-6 bg-brand-gradient rounded-2xl flex items-center justify-center">
+                <span className="text-4xl">📱</span>
+              </div>
+              <p className="text-2xl font-semibold text-gray-900 dark:text-white">
+                {t('dashboard.ready')}
+              </p>
+              <p className="text-base text-gray-600 dark:text-gray-400 mt-3 max-w-md mx-auto">
+                {t('dashboard.scanInstructions')}
+              </p>
             </div>
           )}
         </div>
 
         {/* Right: Quick Search + Stats */}
-        <div className="w-80 flex flex-col gap-6">
+        <div className="w-full lg:w-96 flex flex-col gap-6">
           {/* Quick Search */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="card">
+            <h2 className="text-lg font-heading font-semibold text-gray-900 dark:text-white mb-4">
               {t('dashboard.quickSearch')}
             </h2>
             <QuickSearch onSelect={handleQuickSearch} />
           </div>
 
           {/* Today's Stats */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="card">
+            <h2 className="text-lg font-heading font-semibold text-gray-900 dark:text-white mb-6">
               {t('dashboard.todayStats')}
             </h2>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">{t('dashboard.checkIns')}</span>
-                <span className="text-2xl font-bold text-traffic-green">
+            <div className="space-y-5">
+              {/* Check-ins Stat */}
+              <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                <span className="text-gray-700 dark:text-gray-200 font-medium">{t('dashboard.checkIns')}</span>
+                <span className="text-3xl font-bold text-traffic-green">
                   {todayStats.checkIns}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">{t('dashboard.warnings')}</span>
-                <span className="text-2xl font-bold text-traffic-yellow">
+
+              {/* Warnings Stat */}
+              <div className="flex items-center justify-between p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                <span className="text-gray-700 dark:text-gray-200 font-medium">{t('dashboard.warnings')}</span>
+                <span className="text-3xl font-bold text-traffic-yellow">
                   {todayStats.warnings}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">{t('dashboard.denied')}</span>
-                <span className="text-2xl font-bold text-traffic-red">
+
+              {/* Denied Stat */}
+              <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                <span className="text-gray-700 dark:text-gray-200 font-medium">{t('dashboard.denied')}</span>
+                <span className="text-3xl font-bold text-traffic-red">
                   {todayStats.denied}
                 </span>
               </div>

@@ -5,6 +5,7 @@ import { normalizePhone } from './memberRepository'
 export interface Owner {
   id: number
   phone: string
+  name: string | null
   password_hash: string
   created_at: number
   verified_at: number | null
@@ -32,6 +33,11 @@ export interface OwnerOtp {
 }
 
 const OTP_TTL_SECONDS = 10 * 60
+const OTP_REQUEST_WINDOW_SECONDS = 60
+const OTP_REQUEST_LIMIT = 3
+const OTP_MAX_ATTEMPTS = 5
+const OTP_ATTEMPT_WINDOW_SECONDS = 15 * 60
+const OTP_ATTEMPT_LIMIT = 3
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
 
 export function getOwnerCount(): number {
@@ -53,17 +59,18 @@ export function getOwnerById(id: number): Owner | null {
   return (result as Owner) || null
 }
 
-export function createOwner(phone: string, passwordHash: string): Owner {
+export function createOwner(phone: string, passwordHash: string, name?: string | null): Owner {
   const db = getDatabase()
   const now = Math.floor(Date.now() / 1000)
   const normalized = normalizePhone(phone)
+  const normalizedName = name?.trim() || null
 
   const result = db
     .prepare(
-      `INSERT INTO owners (phone, password_hash, created_at)
-       VALUES (?, ?, ?)`
+      `INSERT INTO owners (phone, name, password_hash, created_at)
+       VALUES (?, ?, ?, ?)`
     )
-    .run(normalized, passwordHash, now)
+    .run(normalized, normalizedName, passwordHash, now)
 
   return getOwnerById(result.lastInsertRowid as number)!
 }
@@ -121,10 +128,32 @@ export function revokeSession(token: string): void {
   db.prepare('UPDATE owner_sessions SET revoked_at = ? WHERE token = ?').run(now, token)
 }
 
+export function deleteOwnerById(ownerId: number): void {
+  const db = getDatabase()
+  db.prepare('DELETE FROM owners WHERE id = ?').run(ownerId)
+}
+
+export function deleteOtpById(otpId: number): void {
+  const db = getDatabase()
+  db.prepare('DELETE FROM owner_otps WHERE id = ?').run(otpId)
+}
+
 export function createOtp(phone: string, purpose: 'verify' | 'reset'): OwnerOtp {
   const db = getDatabase()
   const now = Math.floor(Date.now() / 1000)
   const normalized = normalizePhone(phone)
+
+  const recentCount = db
+    .prepare(
+      `SELECT COUNT(*) as count
+       FROM owner_otps
+       WHERE phone = ? AND purpose = ? AND created_at > ?`
+    )
+    .get(normalized, purpose, now - OTP_REQUEST_WINDOW_SECONDS) as { count: number }
+
+  if (recentCount.count >= OTP_REQUEST_LIMIT) {
+    throw new Error('Too many OTP requests. Please wait before trying again.')
+  }
   const code = String(randomInt(100000, 1000000))
   const expiresAt = now + OTP_TTL_SECONDS
 
@@ -149,6 +178,18 @@ export function verifyOtp(phone: string, code: string, purpose: 'verify' | 'rese
   const now = Math.floor(Date.now() / 1000)
   const normalized = normalizePhone(phone)
 
+  const attemptCount = db
+    .prepare(
+      `SELECT COALESCE(SUM(attempts), 0) as count
+       FROM owner_otps
+       WHERE phone = ? AND created_at > ?`
+    )
+    .get(normalized, now - OTP_ATTEMPT_WINDOW_SECONDS) as { count: number }
+
+  if (attemptCount.count >= OTP_ATTEMPT_LIMIT) {
+    return false
+  }
+
   const otp = db
     .prepare(
       `SELECT * FROM owner_otps
@@ -160,8 +201,17 @@ export function verifyOtp(phone: string, code: string, purpose: 'verify' | 'rese
 
   if (!otp) return false
 
+  if (otp.attempts >= OTP_MAX_ATTEMPTS) {
+    db.prepare('UPDATE owner_otps SET used_at = ? WHERE id = ?').run(now, otp.id)
+    return false
+  }
+
   if (otp.code !== code) {
-    db.prepare('UPDATE owner_otps SET attempts = attempts + 1 WHERE id = ?').run(otp.id)
+    const newAttempts = otp.attempts + 1
+    db.prepare('UPDATE owner_otps SET attempts = ? WHERE id = ?').run(newAttempts, otp.id)
+    if (newAttempts >= OTP_MAX_ATTEMPTS) {
+      db.prepare('UPDATE owner_otps SET used_at = ? WHERE id = ?').run(now, otp.id)
+    }
     return false
   }
 
