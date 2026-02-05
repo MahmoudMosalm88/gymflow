@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '../components/Modal'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { Button } from '../components/ui/button'
+import { Input } from '../components/ui/input'
+import { Label } from '../components/ui/label'
+import { Select } from '../components/ui/select'
 
 export default function Subscriptions(): JSX.Element {
   const { t } = useTranslation()
@@ -162,15 +167,15 @@ export default function Subscriptions(): JSX.Element {
   }
 
   return (
-    <div className="p-6 h-full flex flex-col">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">{t('subscriptions.title')}</h1>
+    <div className="p-6 h-full flex flex-col bg-muted/30">
+      <h1 className="text-3xl font-bold text-foreground mb-6">{t('subscriptions.title')}</h1>
 
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex justify-between items-center">
+        <div className="mb-4 p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive flex justify-between items-center">
           <span>{error}</span>
           <button
             onClick={() => setError(null)}
-            className="text-red-500 hover:text-red-700 font-bold"
+            className="text-destructive hover:text-destructive/80 font-bold"
             aria-label={t('common.close')}
           >
             ✕
@@ -180,191 +185,194 @@ export default function Subscriptions(): JSX.Element {
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
         {/* Members List */}
-        <div className="bg-white rounded-xl shadow-lg p-4 flex flex-col min-h-0">
-          <div className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t('common.search')}
-            </label>
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('subscriptions.searchMembers')}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
-            />
-          </div>
+        <Card className="flex flex-col min-h-0">
+          <CardHeader>
+            <CardTitle>{t('subscriptions.searchMembers')}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 min-h-0">
+            <div className="space-y-2">
+              <Label>{t('common.search')}</Label>
+              <Input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('subscriptions.searchMembers')}
+              />
+            </div>
 
-          {isLoadingMembers ? (
-            <div className="flex-1 flex items-center justify-center text-gray-500">
-              {t('common.loading')}
-            </div>
-          ) : (
-            <div className="flex-1 overflow-auto border border-gray-100 rounded-lg">
-              {filteredMembers.length === 0 ? (
-                <div className="p-4 text-center text-gray-500">{t('common.noResults')}</div>
-              ) : (
-                <ul className="divide-y divide-gray-100">
-                  {filteredMembers.map((m) => {
-                    const active = m.id === selectedMemberId
-                    return (
-                      <li key={m.id}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedMemberId(m.id)}
-                          className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${
-                            active ? 'bg-blue-50' : ''
-                          }`}
-                        >
-                          <div className="font-medium text-gray-900">{m.name}</div>
-                          <div className="text-sm text-gray-500">{m.phone}</div>
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
+            {isLoadingMembers ? (
+              <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                {t('common.loading')}
+              </div>
+            ) : (
+              <div className="flex-1 overflow-auto border border-border rounded-lg">
+                {filteredMembers.length === 0 ? (
+                  <div className="p-4 text-center text-muted-foreground">{t('common.noResults')}</div>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {filteredMembers.map((m) => {
+                      const active = m.id === selectedMemberId
+                      return (
+                        <li key={m.id}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedMemberId(m.id)}
+                            className={`w-full text-left px-4 py-3 hover:bg-muted ${
+                              active ? 'bg-muted' : ''
+                            }`}
+                          >
+                            <div className="font-medium text-foreground">{m.name}</div>
+                            <div className="text-sm text-muted-foreground">{m.phone}</div>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Details */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-lg p-6 min-h-0 overflow-auto">
-          {!selectedMember ? (
-            <div className="h-full flex items-center justify-center text-gray-500">
-              {t('subscriptions.selectMember')}
-            </div>
-          ) : isLoadingSubs ? (
-            <div className="h-full flex items-center justify-center text-gray-500">
-              {t('common.loading')}
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="flex items-start justify-between gap-4">
+        <Card className="lg:col-span-2 min-h-0 overflow-auto">
+          <CardContent>
+            {!selectedMember ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                {t('subscriptions.selectMember')}
+              </div>
+            ) : isLoadingSubs ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                {t('common.loading')}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground">{selectedMember.name}</h2>
+                    <p className="text-muted-foreground">{selectedMember.phone}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setError(null)
+                        setPricePaid('')
+                        setShowRenewModal(true)
+                      }}
+                    >
+                      {t('subscriptions.renew')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setError(null)
+                        setPricePaid(activeSubscription?.price_paid?.toString() || '')
+                        setShowPaymentModal(true)
+                      }}
+                      disabled={!activeSubscription}
+                    >
+                      {t('subscriptions.recordPayment')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={handleCancel}
+                      disabled={!activeSubscription}
+                    >
+                      {t('subscriptions.cancel')}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="bg-muted/50 rounded-xl p-4">
+                  <h3 className="text-lg font-semibold text-foreground mb-3">
+                    {t('subscriptions.current')}
+                  </h3>
+                  {activeSubscription ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                      <div className="flex justify-between sm:block">
+                        <span className="text-muted-foreground">{t('memberDetail.status')}</span>
+                        <div className="font-medium text-foreground">{statusLabel(activeSubscription)}</div>
+                      </div>
+                      <div className="flex justify-between sm:block">
+                        <span className="text-muted-foreground">{t('memberDetail.plan')}</span>
+                        <div className="font-medium text-foreground">
+                          {activeSubscription.plan_months} {t('memberDetail.months')}
+                        </div>
+                      </div>
+                      <div className="flex justify-between sm:block">
+                        <span className="text-muted-foreground">{t('subscriptions.starts')}</span>
+                        <div className="font-medium text-foreground">
+                          {new Date(activeSubscription.start_date * 1000).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div className="flex justify-between sm:block">
+                        <span className="text-muted-foreground">{t('memberDetail.expires')}</span>
+                        <div className="font-medium text-foreground">
+                          {new Date(activeSubscription.end_date * 1000).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div className="flex justify-between sm:block">
+                        <span className="text-muted-foreground">{t('memberForm.pricePaid')}</span>
+                        <div className="font-medium text-foreground">
+                          {activeSubscription.price_paid ?? '-'}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">{t('subscriptions.noSubscriptions')}</p>
+                  )}
+                </div>
+
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">{selectedMember.name}</h2>
-                  <p className="text-gray-500">{selectedMember.phone}</p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError(null)
-                      setPricePaid('')
-                      setShowRenewModal(true)
-                    }}
-                    className="px-4 py-2 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors"
-                  >
-                    {t('subscriptions.renew')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError(null)
-                      setPricePaid(activeSubscription?.price_paid?.toString() || '')
-                      setShowPaymentModal(true)
-                    }}
-                    disabled={!activeSubscription}
-                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-                  >
-                    {t('subscriptions.recordPayment')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCancel}
-                    disabled={!activeSubscription}
-                    className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
-                  >
-                    {t('subscriptions.cancel')}
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                  {t('subscriptions.current')}
-                </h3>
-                {activeSubscription ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    <div className="flex justify-between sm:block">
-                      <span className="text-gray-500">{t('memberDetail.status')}</span>
-                      <div className="font-medium text-gray-900">{statusLabel(activeSubscription)}</div>
-                    </div>
-                    <div className="flex justify-between sm:block">
-                      <span className="text-gray-500">{t('memberDetail.plan')}</span>
-                      <div className="font-medium text-gray-900">
-                        {activeSubscription.plan_months} {t('memberDetail.months')}
-                      </div>
-                    </div>
-                    <div className="flex justify-between sm:block">
-                      <span className="text-gray-500">{t('subscriptions.starts')}</span>
-                      <div className="font-medium text-gray-900">
-                        {new Date(activeSubscription.start_date * 1000).toLocaleDateString()}
-                      </div>
-                    </div>
-                    <div className="flex justify-between sm:block">
-                      <span className="text-gray-500">{t('memberDetail.expires')}</span>
-                      <div className="font-medium text-gray-900">
-                        {new Date(activeSubscription.end_date * 1000).toLocaleDateString()}
-                      </div>
-                    </div>
-                    <div className="flex justify-between sm:block">
-                      <span className="text-gray-500">{t('memberForm.pricePaid')}</span>
-                      <div className="font-medium text-gray-900">
-                        {activeSubscription.price_paid ?? '-'}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-gray-500">{t('subscriptions.noSubscriptions')}</p>
-                )}
-              </div>
-
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                  {t('subscriptions.paymentHistory')}
-                </h3>
-                {subscriptions.length === 0 ? (
-                  <p className="text-gray-500">{t('subscriptions.noHistory')}</p>
-                ) : (
-                  <div className="overflow-auto border border-gray-100 rounded-lg">
-                    <table className="min-w-full text-sm">
-                      <thead className="bg-gray-50 text-gray-600">
-                        <tr>
-                          <th className="text-left px-4 py-2">{t('subscriptions.date')}</th>
-                          <th className="text-left px-4 py-2">{t('memberDetail.plan')}</th>
-                          <th className="text-left px-4 py-2">{t('memberDetail.expires')}</th>
-                          <th className="text-left px-4 py-2">{t('memberForm.pricePaid')}</th>
-                          <th className="text-left px-4 py-2">{t('memberDetail.status')}</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {subscriptions.map((s) => (
-                          <tr key={s.id}>
-                            <td className="px-4 py-2 text-gray-700">
-                              {new Date(s.created_at * 1000).toLocaleDateString()}
-                            </td>
-                            <td className="px-4 py-2 text-gray-700">
-                              {s.plan_months} {t('memberDetail.months')}
-                            </td>
-                            <td className="px-4 py-2 text-gray-700">
-                              {new Date(s.end_date * 1000).toLocaleDateString()}
-                            </td>
-                            <td className="px-4 py-2 text-gray-700">{s.price_paid ?? '-'}</td>
-                            <td className="px-4 py-2">
-                              <span className="inline-flex px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">
-                                {statusLabel(s)}
-                              </span>
-                            </td>
+                  <h3 className="text-lg font-semibold text-foreground mb-3">
+                    {t('subscriptions.paymentHistory')}
+                  </h3>
+                  {subscriptions.length === 0 ? (
+                    <p className="text-muted-foreground">{t('subscriptions.noHistory')}</p>
+                  ) : (
+                    <div className="overflow-auto border border-border rounded-lg">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-muted text-muted-foreground">
+                          <tr>
+                            <th className="text-left px-4 py-2">{t('subscriptions.date')}</th>
+                            <th className="text-left px-4 py-2">{t('memberDetail.plan')}</th>
+                            <th className="text-left px-4 py-2">{t('memberDetail.expires')}</th>
+                            <th className="text-left px-4 py-2">{t('memberForm.pricePaid')}</th>
+                            <th className="text-left px-4 py-2">{t('memberDetail.status')}</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {subscriptions.map((s) => (
+                            <tr key={s.id}>
+                              <td className="px-4 py-2 text-foreground">
+                                {new Date(s.created_at * 1000).toLocaleDateString()}
+                              </td>
+                              <td className="px-4 py-2 text-foreground">
+                                {s.plan_months} {t('memberDetail.months')}
+                              </td>
+                              <td className="px-4 py-2 text-foreground">
+                                {new Date(s.end_date * 1000).toLocaleDateString()}
+                              </td>
+                              <td className="px-4 py-2 text-foreground">{s.price_paid ?? '-'}</td>
+                              <td className="px-4 py-2">
+                                <span className="inline-flex px-2 py-1 rounded-full text-xs bg-muted text-foreground">
+                                  {statusLabel(s)}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {showRenewModal && selectedMember && (
@@ -376,49 +384,39 @@ export default function Subscriptions(): JSX.Element {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('memberForm.planMonths')}
-              </label>
-              <select
+              <Label className="mb-2 block">{t('memberForm.planMonths')}</Label>
+              <Select
                 value={planMonths}
                 onChange={(e) => setPlanMonths(Number(e.target.value) as 1 | 3 | 6 | 12)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
               >
                 <option value={1}>1 {t('memberForm.month')}</option>
                 <option value={3}>3 {t('memberForm.months')}</option>
                 <option value={6}>6 {t('memberForm.months')}</option>
                 <option value={12}>12 {t('memberForm.months')}</option>
-              </select>
+              </Select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('memberForm.pricePaid')}
-              </label>
-              <input
+              <Label className="mb-2 block">{t('memberForm.pricePaid')}</Label>
+              <Input
                 type="number"
                 min="0"
                 value={pricePaid}
                 onChange={(e) => setPricePaid(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
               />
-              <p className="text-xs text-gray-500 mt-2">{t('subscriptions.cashOnly')}</p>
+              <p className="text-xs text-muted-foreground mt-2">{t('subscriptions.cashOnly')}</p>
             </div>
             <div className="flex gap-3 pt-2">
-              <button
-                ref={renewPrimaryRef}
-                type="button"
-                onClick={handleRenew}
-                className="flex-1 py-2.5 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors"
-              >
+              <Button ref={renewPrimaryRef} type="button" onClick={handleRenew} className="flex-1">
                 {t('common.save')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => setShowRenewModal(false)}
-                className="flex-1 py-2.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                className="flex-1"
               >
                 {t('common.cancel')}
-              </button>
+              </Button>
             </div>
           </div>
         </Modal>
@@ -434,34 +432,27 @@ export default function Subscriptions(): JSX.Element {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('memberForm.pricePaid')}
-              </label>
-              <input
+              <Label className="mb-2 block">{t('memberForm.pricePaid')}</Label>
+              <Input
                 type="number"
                 min="0"
                 value={pricePaid}
                 onChange={(e) => setPricePaid(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
               />
-              <p className="text-xs text-gray-500 mt-2">{t('subscriptions.cashOnly')}</p>
+              <p className="text-xs text-muted-foreground mt-2">{t('subscriptions.cashOnly')}</p>
             </div>
             <div className="flex gap-3 pt-2">
-              <button
-                ref={paymentPrimaryRef}
-                type="button"
-                onClick={handleRecordPayment}
-                className="flex-1 py-2.5 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors"
-              >
+              <Button ref={paymentPrimaryRef} type="button" onClick={handleRecordPayment} className="flex-1">
                 {t('common.save')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => setShowPaymentModal(false)}
-                className="flex-1 py-2.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                className="flex-1"
               >
                 {t('common.cancel')}
-              </button>
+              </Button>
             </div>
           </div>
         </Modal>

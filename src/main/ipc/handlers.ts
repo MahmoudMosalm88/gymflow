@@ -1,5 +1,5 @@
 import { ipcMain, shell, dialog, app, BrowserWindow } from 'electron'
-import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, writeFileSync, readdirSync, statSync, rmSync } from 'fs'
 import { join, resolve, relative, isAbsolute } from 'path'
 import * as QRCode from 'qrcode'
 import { compareSync, hashSync } from 'bcryptjs'
@@ -75,7 +75,8 @@ function parseStartDate(value: unknown): number | undefined {
 async function sendOtpMessage(
   phone: string,
   code: string,
-  purpose: 'verify' | 'reset'
+  purpose: 'verify' | 'reset',
+  allowManualInProduction: boolean = false
 ): Promise<{ sentVia: 'whatsapp' | 'manual'; code?: string }> {
   const status = whatsappService.getStatus()
   const message =
@@ -92,8 +93,8 @@ async function sendOtpMessage(
     }
   }
 
-  // Never leak OTP codes in packaged builds.
-  if (app.isPackaged) return { sentVia: 'manual' }
+  // Only allow manual OTP in production during first-time onboarding.
+  if (app.isPackaged && !allowManualInProduction) return { sentVia: 'manual' }
 
   return { sentVia: 'manual', code }
 }
@@ -118,6 +119,26 @@ function ensurePathInBaseDir(baseDir: string, targetPath: string): void {
   const relativePath = relative(resolvedBase, resolvedTarget)
   if (relativePath.startsWith('..') || isAbsolute(relativePath)) {
     throw new Error('Invalid photo path')
+  }
+}
+
+function copyDirSync(source: string, destination: string): void {
+  if (!existsSync(source)) return
+  if (existsSync(destination)) {
+    rmSync(destination, { recursive: true, force: true })
+  }
+  mkdirSync(destination, { recursive: true })
+
+  const entries = readdirSync(source)
+  for (const entry of entries) {
+    const srcPath = join(source, entry)
+    const destPath = join(destination, entry)
+    const stat = statSync(srcPath)
+    if (stat.isDirectory()) {
+      copyDirSync(srcPath, destPath)
+    } else {
+      copyFileSync(srcPath, destPath)
+    }
   }
 }
 
@@ -160,16 +181,16 @@ export function registerIpcHandlers(): void {
     const existing = ownerRepo.getOwnerByPhone(phone)
     if (existing) return { success: false, error: 'Owner already exists' }
 
-    if (app.isPackaged && !whatsappService.getStatus().authenticated) {
-      return { success: false, error: 'WhatsApp not connected' }
-    }
+    const hasOwner = ownerRepo.getOwnerCount() > 0
+    const onboardingComplete = settingsRepo.getSetting<boolean>('onboarding_complete', false)
+    const allowManualOtp = !hasOwner && !onboardingComplete
 
     const passwordHash = hashSync(password, 10)
     const owner = ownerRepo.createOwner(phone, passwordHash, name)
     const otp = ownerRepo.createOtp(phone, 'verify')
-    const sent = await sendOtpMessage(phone, otp.code, 'verify')
+    const sent = await sendOtpMessage(phone, otp.code, 'verify', allowManualOtp)
 
-    if (app.isPackaged && sent.sentVia !== 'whatsapp') {
+    if (app.isPackaged && sent.sentVia !== 'whatsapp' && !allowManualOtp) {
       // Don't leave behind unverifiable accounts or OTPs in production if delivery failed.
       try {
         ownerRepo.deleteOtpById(otp.id)
@@ -253,7 +274,7 @@ export function registerIpcHandlers(): void {
     }
 
     const otp = ownerRepo.createOtp(phone, 'reset')
-    const sent = await sendOtpMessage(phone, otp.code, 'reset')
+    const sent = await sendOtpMessage(phone, otp.code, 'reset', false)
 
     if (app.isPackaged && sent.sentVia !== 'whatsapp') {
       try {
@@ -291,6 +312,7 @@ export function registerIpcHandlers(): void {
   // ============== MEMBERS ==============
   ipcMain.handle('members:getAll', () => memberRepo.getAllMembers())
   ipcMain.handle('members:getById', (_event, id: string) => memberRepo.getMemberById(id))
+  ipcMain.handle('members:getNextSerial', () => memberRepo.generateNextCardCode())
   ipcMain.handle('members:create', (_event, data) => memberRepo.createMember(data))
   ipcMain.handle('members:update', (_event, id: string, data) => memberRepo.updateMember(id, data))
   ipcMain.handle('members:delete', (_event, id: string) => memberRepo.deleteMember(id))
@@ -420,7 +442,13 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(
     'whatsapp:sendQRCode',
-    async (_event, memberId: string, memberName: string, qrDataUrl: string) => {
+    async (
+      _event,
+      memberId: string,
+      memberName: string,
+      qrDataUrl: string,
+      code?: string
+    ) => {
       try {
         const member = memberRepo.getMemberById(memberId)
         if (!member) return { success: false, error: 'Member not found' }
@@ -434,7 +462,8 @@ export function registerIpcHandlers(): void {
         const base64Data = qrDataUrl.replace(/^data:image\/\w+;base64,/, '')
         writeFileSync(filePath, Buffer.from(base64Data, 'base64'))
 
-        const ok = await whatsappService.sendMembershipQR(member.phone, memberName, filePath)
+        const cardCode = (code && code.trim()) || member.card_code?.trim() || memberId
+        const ok = await whatsappService.sendMembershipQR(member.phone, memberName, filePath, cardCode)
         return { success: ok }
       } catch (error) {
         return { success: false, error: String(error) }
@@ -610,9 +639,15 @@ export function registerIpcHandlers(): void {
     return { success: true }
   })
 
+  ipcMain.handle('app:openExternal', (_event, url: string) => {
+    shell.openExternal(url)
+    return { success: true }
+  })
+
   ipcMain.handle('app:backup', async (_event, destPath?: string) => {
     const userDataPath = getUserDataPath()
     const dbPath = join(userDataPath, 'gymflow.db')
+    const photosPath = getPhotosPath()
 
     if (!destPath) {
       const result = await dialog.showSaveDialog({
@@ -630,7 +665,12 @@ export function registerIpcHandlers(): void {
     try {
       const database = getDatabase()
       await database.backup(destPath)
-      return { success: true, path: destPath }
+      // Backup photos to a sidecar folder
+      const photosBackupPath = `${destPath}.photos`
+      if (existsSync(photosPath)) {
+        copyDirSync(photosPath, photosBackupPath)
+      }
+      return { success: true, path: destPath, photosPath: photosBackupPath }
     } catch (error) {
       return { success: false, error: String(error) }
     }
@@ -652,6 +692,7 @@ export function registerIpcHandlers(): void {
 
     const userDataPath = getUserDataPath()
     const dbPath = join(userDataPath, 'gymflow.db')
+    const photosPath = getPhotosPath()
 
     try {
       const backupPath = join(userDataPath, `gymflow-pre-restore-${Date.now()}.db`)
@@ -663,6 +704,11 @@ export function registerIpcHandlers(): void {
       closeDatabase()
       copyFileSync(srcPath, dbPath)
       initDatabase()
+
+      const photosBackupPath = `${srcPath}.photos`
+      if (existsSync(photosBackupPath)) {
+        copyDirSync(photosBackupPath, photosPath)
+      }
 
       return { success: true, backupPath }
     } catch (error) {
@@ -686,13 +732,13 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('qrcode:generate', async (_event, memberId: string) => {
     try {
       const member = memberRepo.getMemberById(memberId)
-      const qrValue = member?.card_code || memberId
+      const qrValue = member?.card_code?.trim() || memberId
       const dataUrl = await QRCode.toDataURL(qrValue, {
         width: 300,
         margin: 2,
         color: { dark: '#000000', light: '#ffffff' }
       })
-      return { success: true, dataUrl }
+      return { success: true, dataUrl, code: qrValue }
     } catch (error) {
       return { success: false, error: String(error) }
     }

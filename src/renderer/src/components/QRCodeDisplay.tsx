@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PrinterIcon, ShareIcon } from '@heroicons/react/24/outline'
 import Modal from './Modal'
+import { Button } from './ui/button'
+import { Badge } from './ui/badge'
 
 interface QRCodeDisplayProps {
   memberId: string
@@ -16,20 +18,41 @@ export default function QRCodeDisplay({
 }: QRCodeDisplayProps): JSX.Element {
   const { t } = useTranslation()
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
+  const [qrValue, setQrValue] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false)
   const [whatsAppError, setWhatsAppError] = useState<string | null>(null)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const [whatsAppStatus, setWhatsAppStatus] = useState<{ authenticated: boolean } | null>(null)
 
   useEffect(() => {
     generateQR()
   }, [memberId])
+
+  useEffect(() => {
+    const loadStatus = async () => {
+      try {
+        const status = await window.api.whatsapp.getStatus()
+        setWhatsAppStatus(status as { authenticated: boolean })
+      } catch {
+        setWhatsAppStatus({ authenticated: false })
+      }
+    }
+    loadStatus()
+    const unsubscribe = window.api.whatsapp.onStatusChange((status: any) => {
+      setWhatsAppStatus(status as { authenticated: boolean })
+    })
+    return () => {
+      unsubscribe()
+    }
+  }, [])
 
   const generateQR = async () => {
     try {
       const result = await window.api.qrcode.generate(memberId)
       if (result.success && result.dataUrl) {
         setQrDataUrl(result.dataUrl)
+        setQrValue(result.code || memberId)
       } else {
         throw new Error(result.error || 'Failed to generate QR')
       }
@@ -77,6 +100,12 @@ export default function QRCodeDisplay({
               width: 120px;
               height: 120px;
             }
+            .serial {
+              font-size: 12px;
+              margin-top: 8px;
+              font-family: monospace;
+              letter-spacing: 1px;
+            }
             .brand {
               font-size: 12px;
               color: #666;
@@ -88,6 +117,7 @@ export default function QRCodeDisplay({
           <div class="card">
             <div class="name">${memberName}</div>
             <img src="${qrDataUrl}" class="qr" alt="QR Code" />
+            <div class="serial">${qrValue || memberId}</div>
             <div class="brand">GymFlow</div>
           </div>
           <script>
@@ -103,11 +133,25 @@ export default function QRCodeDisplay({
   }
 
   const handleSendWhatsApp = async () => {
+    if (!whatsAppStatus?.authenticated) {
+      setWhatsAppError(
+        t(
+          'qrCodeDisplay.whatsappNotConnected',
+          'WhatsApp is not connected. Connect it in Settings first.'
+        )
+      )
+      try {
+        await window.api.app.openExternal('https://web.whatsapp.com')
+      } catch {
+        // ignore
+      }
+      return
+    }
     setIsSendingWhatsApp(true)
     setWhatsAppError(null)
 
     try {
-      await window.api.whatsapp.sendQRCode(memberId, memberName, qrDataUrl)
+      await window.api.whatsapp.sendQRCode(memberId, memberName, qrDataUrl, qrValue || memberId)
       // Close modal after successful send
       setTimeout(() => onClose(), 1500)
     } catch (error) {
@@ -121,7 +165,7 @@ export default function QRCodeDisplay({
   const handleCopyCode = async () => {
     setCopyStatus('idle')
     try {
-      await navigator.clipboard.writeText(memberId)
+      await navigator.clipboard.writeText(qrValue || memberId)
       setCopyStatus('copied')
       setTimeout(() => setCopyStatus('idle'), 1500)
     } catch (error) {
@@ -142,55 +186,63 @@ export default function QRCodeDisplay({
 
       {/* Content */}
       <div className="text-center">
-        <p className="text-lg font-medium text-gray-900 mb-4">{memberName}</p>
+        <p className="text-lg font-medium text-foreground mb-2">{memberName}</p>
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <Badge variant={whatsAppStatus?.authenticated ? 'success' : 'secondary'}>
+            {whatsAppStatus?.authenticated
+              ? t('settings.connected')
+              : t('settings.disconnected')}
+          </Badge>
+        </div>
 
         {isLoading ? (
-          <div className="w-[300px] h-[300px] mx-auto bg-gray-100 rounded-lg flex items-center justify-center">
+          <div className="w-[300px] h-[300px] mx-auto bg-muted rounded-lg flex items-center justify-center">
             <div className="animate-spin w-8 h-8 border-4 border-gym-primary border-t-transparent rounded-full" />
           </div>
         ) : (
-          <div className="inline-block p-4 bg-white border-2 border-gray-200 rounded-xl">
+          <div className="inline-block p-4 bg-background border-2 border-border rounded-xl">
             <img src={qrDataUrl} alt={t('qrCodeDisplay.title')} className="w-[250px] h-[250px]" />
           </div>
         )}
 
-        <p className="text-sm text-gray-500 mt-4">{t('qrCodeDisplay.scanInstructions')}</p>
-        <div className="mt-3 text-sm text-gray-600">
+        <p className="text-sm text-muted-foreground mt-4">{t('qrCodeDisplay.scanInstructions')}</p>
+        <div className="mt-3 text-sm text-muted-foreground">
           <span className="font-medium">{t('qrCodeDisplay.codeLabel', 'Code')}:</span>{' '}
-          <span className="font-mono break-all">{memberId}</span>
+          <span className="font-mono break-all text-foreground">{qrValue || memberId}</span>
         </div>
         <div className="mt-3">
-          <button
+          <Button
             onClick={handleCopyCode}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            variant="outline"
           >
             {copyStatus === 'copied'
               ? t('qrCodeDisplay.copied', 'Copied')
               : copyStatus === 'failed'
                 ? t('qrCodeDisplay.copyFailed', 'Copy failed')
                 : t('qrCodeDisplay.copyCode', 'Copy Code')}
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* Actions */}
       <div className="flex gap-4 mt-6">
-        <button
+        <Button
           onClick={handlePrint}
           disabled={isLoading}
-          className="flex-1 flex items-center justify-center gap-2 py-3 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+          className="flex-1"
         >
           <PrinterIcon className="w-5 h-5" />
           {t('qrCodeDisplay.printCard')}
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={handleSendWhatsApp}
           disabled={isLoading || isSendingWhatsApp}
-          className="flex-1 flex items-center justify-center gap-2 py-3 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
+          variant="secondary"
+          className="flex-1"
         >
           <ShareIcon className="w-5 h-5" />
           {isSendingWhatsApp ? t('common.loading') : t('qrCodeDisplay.sendViaWhatsApp')}
-        </button>
+        </Button>
       </div>
     </Modal>
   )

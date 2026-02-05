@@ -29,15 +29,15 @@ export default class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100 p-6">
-          <div className="bg-white rounded-xl shadow-lg p-6 max-w-md w-full text-center">
-            <h1 className="text-xl font-semibold text-gray-900 mb-2">Something went wrong</h1>
+        <div className="min-h-screen flex items-center justify-center bg-muted/30 p-6">
+          <div className="bg-card rounded-xl shadow-lg p-6 max-w-md w-full text-center border border-border">
+            <h1 className="text-xl font-semibold text-foreground mb-2">Something went wrong</h1>
             {this.state.message && (
-              <p className="text-sm text-gray-600 mb-4">{this.state.message}</p>
+              <p className="text-sm text-muted-foreground mb-4">{this.state.message}</p>
             )}
             <button
               onClick={this.handleReload}
-              className="px-4 py-2 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors"
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
             >
               Reload
             </button>

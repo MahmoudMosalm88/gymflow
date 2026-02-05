@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 350">
+  <defs>
+    <linearGradient id="gymflowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF8C00;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF4500;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <g transform="translate(150, 50) scale(0.8)">
+    <path fill="url(#gymflowGradient)" d="M160,40 C190,40 215,55 230,80 L200,100 C190,80 175,70 160,70 C110,70 70,110 70,160 C70,210 110,250 160,250 C190,250 215,235 230,210 L190,210 L190,180 L270,180 L270,220 C250,260 210,290 160,290 C88,290 30,232 30,160 C30,88 88,30 160,30 Z" />
+    <circle cx="200" cy="30" r="25" fill="url(#gymflowGradient)" />
+    <path fill="#333" d="M20,130 L50,130 L50,190 L20,190 Z" />
+    <path fill="#333" d="M50,150 L110,150 L110,170 L50,170 Z" />
+    <rect x="55" y="150" width="10" height="20" fill="#333" transform="rotate(-15 60 160)"/>
+  </g>
+  
+  <g transform="translate(50, 280)">
+    <text x="200" y="0" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="60" text-anchor="middle" fill="#000000" letter-spacing="-2">
+      GYMFLOW
+    </text>
+    <path fill="none" stroke="#000000" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M50,15 L160,15 L175,-10 L190,30 L205,15 L350,15" />
+  </g>
+</svg>

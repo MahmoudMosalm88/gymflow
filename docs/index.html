@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GymFlow - Gym Attendance Made Simple</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -23,17 +23,8 @@
             --border-dark: #2a2a2a;
         }
 
-        html.dark {
-            --text-dark: #f5f5f5;
-            --text-light: #1a1a1a;
-            --bg-light: #0a0a0a;
-            --bg-dark: #ffffff;
-            --border-light: #2a2a2a;
-            --border-dark: #e5e5e5;
-        }
-
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Manrope', sans-serif;
             background-color: var(--bg-light);
             color: var(--text-dark);
             transition: background-color 0.3s, color 0.3s;
@@ -41,7 +32,7 @@
         }
 
         h1, h2, h3, h4, h5, h6 {
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-family: 'Sora', sans-serif;
             font-weight: 700;
         }
 
@@ -67,18 +58,6 @@
             background-clip: text;
         }
 
-        .theme-toggle {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 0.5rem;
-        }
-
-        .theme-toggle:hover {
-            background-color: var(--border-light);
-        }
 
         /* Hero Section */
         .hero {
@@ -105,9 +84,6 @@
             max-width: 600px;
         }
 
-        html.dark .hero p {
-            color: #999;
-        }
 
         .download-buttons {
             display: flex;
@@ -205,9 +181,6 @@
             color: #666;
         }
 
-        html.dark .feature-card p {
-            color: #999;
-        }
 
         /* Footer */
         footer {
@@ -218,9 +191,6 @@
             margin-top: 4rem;
         }
 
-        html.dark footer {
-            color: #999;
-        }
 
         /* Responsive */
         @media (max-width: 768px) {
@@ -251,7 +221,6 @@
     <!-- Navigation -->
     <nav>
         <div class="logo">GymFlow</div>
-        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">🌙</button>
     </nav>
 
     <!-- Hero Section -->
@@ -308,55 +277,55 @@
     </footer>
 
     <script>
-        // Dark mode toggle
-        function toggleTheme() {
-            const html = document.documentElement;
-            const isDark = html.classList.contains('dark');
-            
-            if (isDark) {
-                html.classList.remove('dark');
-                localStorage.setItem('theme', 'light');
-                document.getElementById('themeToggle').textContent = '🌙';
-            } else {
-                html.classList.add('dark');
-                localStorage.setItem('theme', 'dark');
-                document.getElementById('themeToggle').textContent = '☀️';
-            }
-        }
-
-        // Load saved theme preference
-        window.addEventListener('DOMContentLoaded', () => {
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'dark') {
-                document.documentElement.classList.add('dark');
-                document.getElementById('themeToggle').textContent = '☀️';
-            }
-
-            // Download button OS detection + version labels
+        async function hydrateDownloads() {
             const macBtn = document.getElementById('downloadMac');
             const winBtn = document.getElementById('downloadWin');
             const macVersioned = document.getElementById('downloadMacVersioned');
             const winVersioned = document.getElementById('downloadWinVersioned');
             const releaseVersion = document.getElementById('releaseVersion');
-            const appVersion = document.body.getAttribute('data-version') || '1.0.0';
-            const repoBase = 'https://github.com/MahmoudMosalm88/gymflow';
-            const latestBase = `${repoBase}/releases/latest/download`;
-            const versionedBase = `${repoBase}/releases/download/v${appVersion}`;
+            const fallbackVersion = document.body.getAttribute('data-version') || '1.0.0';
+            const repo = 'MahmoudMosalm88/gymflow';
+            const latestBase = `https://github.com/${repo}/releases/latest/download`;
 
-            if (macBtn) macBtn.setAttribute('href', `${latestBase}/GymFlow-arm64.dmg`);
-            if (winBtn) winBtn.setAttribute('href', `${latestBase}/gymflow-${appVersion}-setup.exe`);
-            if (macVersioned) macVersioned.setAttribute('href', `${versionedBase}/GymFlow-arm64.dmg`);
-            if (winVersioned) winVersioned.setAttribute('href', `${versionedBase}/gymflow-${appVersion}-setup.exe`);
-            if (releaseVersion) {
-                releaseVersion.textContent = appVersion;
+            const applyLinks = (version, macUrl, winUrl) => {
+                if (macBtn) macBtn.setAttribute('href', macUrl);
+                if (winBtn) winBtn.setAttribute('href', winUrl);
+                if (macVersioned) {
+                    macVersioned.setAttribute('href', macUrl);
+                    macVersioned.textContent = `Mac v${version}`;
+                }
+                if (winVersioned) {
+                    winVersioned.setAttribute('href', winUrl);
+                    winVersioned.textContent = `Windows v${version}`;
+                }
+                if (releaseVersion) {
+                    releaseVersion.textContent = version;
+                }
+            };
+
+            try {
+                const response = await fetch(`https://api.github.com/repos/${repo}/releases/latest`);
+                if (!response.ok) throw new Error('Failed to fetch release');
+                const data = await response.json();
+                const version = (data.tag_name || fallbackVersion).replace(/^v/i, '');
+                const assets = Array.isArray(data.assets) ? data.assets : [];
+                const macAsset = assets.find((asset) => /\.dmg$/i.test(asset.name));
+                const winAsset = assets.find((asset) => /setup\.exe$/i.test(asset.name));
+                const macUrl = macAsset?.browser_download_url || `${latestBase}/GymFlow-arm64.dmg`;
+                const winUrl = winAsset?.browser_download_url || `${latestBase}/gymflow-${version}-setup.exe`;
+                applyLinks(version, macUrl, winUrl);
+            } catch (err) {
+                applyLinks(
+                    fallbackVersion,
+                    `${latestBase}/GymFlow-arm64.dmg`,
+                    `${latestBase}/gymflow-${fallbackVersion}-setup.exe`
+                );
             }
-            if (macVersioned) {
-                macVersioned.textContent = `Mac v${appVersion}`;
-            }
-            if (winVersioned) {
-                winVersioned.textContent = `Windows v${appVersion}`;
-                winVersioned.setAttribute('href', `downloads/gymflow-${appVersion}-setup.exe`);
-            }
+        }
+
+        function highlightPlatform() {
+            const macBtn = document.getElementById('downloadMac');
+            const winBtn = document.getElementById('downloadWin');
             const platform = navigator.platform || '';
             const ua = navigator.userAgent || '';
             const isMac = /Mac|Macintosh|MacIntel/i.test(platform) || /Mac OS X/i.test(ua);
@@ -368,13 +337,15 @@
             } else if (isWin && winBtn) {
                 winBtn.classList.remove('btn-secondary');
                 winBtn.classList.add('btn-primary');
-            } else {
-                // Default to Windows highlight for unknown platforms
-                if (winBtn) {
-                    winBtn.classList.remove('btn-secondary');
-                    winBtn.classList.add('btn-primary');
-                }
+            } else if (winBtn) {
+                winBtn.classList.remove('btn-secondary');
+                winBtn.classList.add('btn-primary');
             }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            hydrateDownloads();
+            highlightPlatform();
         });
     </script>
 </body>

@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import AuthLayout from '../components/AuthLayout'
 import WhatsAppConnectPanel from '../components/WhatsAppConnectPanel'
+import { Button } from '../components/ui/button'
+import { Input } from '../components/ui/input'
+import { Label } from '../components/ui/label'
+import { Select } from '../components/ui/select'
+import { Switch } from '../components/ui/switch'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 
 interface OnboardingProps {
   onComplete: (token: string) => void
@@ -54,6 +60,7 @@ export default function Onboarding({
   const [settings, setSettings] = useState<SettingsData>(defaultSettings)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [warning, setWarning] = useState<string | null>(null)
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -70,12 +77,21 @@ export default function Onboarding({
   const handleWhatsAppContinue = async () => {
     setIsLoading(true)
     setError(null)
+    setWarning(null)
     try {
       const status = await window.api.whatsapp.getStatus()
       if (!status?.authenticated) {
-        setError(t('auth.whatsappNotConnected', 'WhatsApp not connected'))
+        setSettings((prev) => ({ ...prev, whatsapp_enabled: false }))
+        setWarning(
+          t(
+            'auth.whatsappSkipWarning',
+            'WhatsApp is not connected. You can continue and connect it later in Settings.'
+          )
+        )
+        setStep('account')
         return
       }
+      setSettings((prev) => ({ ...prev, whatsapp_enabled: true }))
       setStep('account')
     } catch (err) {
       setError(String(err))
@@ -186,7 +202,7 @@ export default function Onboarding({
 
   const renderStepper = () => (
     <div className="mb-6">
-      <div className="flex items-center justify-between text-sm text-gray-500">
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
         {steps.map((item, index) => {
           const isActive = index === currentStepIndex
           const isComplete = index < currentStepIndex
@@ -200,24 +216,24 @@ export default function Onboarding({
                 <div
                   className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold ${
                     isComplete
-                      ? 'bg-gym-primary text-white'
+                      ? 'bg-primary text-primary-foreground'
                       : isActive
-                        ? 'border border-gym-primary text-gym-primary'
-                        : 'border border-gray-300 text-gray-400'
+                        ? 'border border-primary text-primary'
+                        : 'border border-border text-muted-foreground'
                   }`}
                 >
                   {index + 1}
                 </div>
                 <span
                   className={`font-medium ${
-                    isActive || isComplete ? 'text-gray-800' : 'text-gray-400'
+                    isActive || isComplete ? 'text-foreground' : 'text-muted-foreground'
                   }`}
                 >
                   {item.label}
                 </span>
               </div>
               {index < steps.length - 1 && (
-                <div className="flex-1 mx-3 h-px bg-gray-200" />
+                <div className="flex-1 mx-3 h-px bg-border" />
               )}
             </div>
           )
@@ -230,33 +246,31 @@ export default function Onboarding({
     return (
       <AuthLayout title={t('auth.connectWhatsAppTitle', 'Connect WhatsApp')}>
         {renderStepper()}
-        <p className="mb-4 text-sm text-gray-600">
+        <p className="mb-4 text-sm text-muted-foreground">
           {t(
             'auth.connectWhatsAppHelp',
             'Connect WhatsApp first so we can send you verification codes.'
           )}
         </p>
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+          <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg">
             {error}
+          </div>
+        )}
+        {warning && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg">
+            {warning}
           </div>
         )}
         <WhatsAppConnectPanel />
         <div className="mt-4 space-y-3">
-          <button
-            onClick={handleWhatsAppContinue}
-            disabled={isLoading}
-            className="w-full py-3 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
-          >
+          <Button onClick={handleWhatsAppContinue} disabled={isLoading} className="w-full">
             {isLoading ? t('common.loading', 'Loading...') : t('auth.continue', 'Continue')}
-          </button>
+          </Button>
           {onGoToLogin && (
-            <button
-              onClick={onGoToLogin}
-              className="w-full text-sm text-gray-600 hover:underline"
-            >
+            <Button onClick={onGoToLogin} variant="link" className="w-full">
               {t('auth.alreadyHaveAccount', 'Already have an account?')}
-            </button>
+            </Button>
           )}
         </div>
       </AuthLayout>
@@ -267,89 +281,67 @@ export default function Onboarding({
     return (
       <AuthLayout title={t('auth.onboardingTitle', 'Create owner account')}>
         {renderStepper()}
-        <p className="mb-4 text-sm text-gray-600">
+        <p className="mb-4 text-sm text-muted-foreground">
           {t('auth.accountHelp', 'Use your phone to sign in and manage the gym.')}
         </p>
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+          <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg">
             {error}
           </div>
         )}
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('auth.fullName', 'Full name')}
-            </label>
-            <input
+            <Label className="mb-1 block">{t('auth.fullName', 'Full name')}</Label>
+            <Input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
               placeholder={t('auth.namePlaceholder', 'Owner name')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('auth.phone', 'Phone')}
-            </label>
-            <input
+            <Label className="mb-1 block">{t('auth.phone', 'Phone')}</Label>
+            <Input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
               placeholder="+201xxxxxxxxx"
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               {t('auth.phoneHint', 'Include country code, e.g. +201...')}
             </p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('auth.password', 'Password')}
-            </label>
-            <input
+            <Label className="mb-1 block">{t('auth.password', 'Password')}</Label>
+            <Input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               {t('auth.passwordHint', 'Use at least 8 characters.')}
             </p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('auth.confirmPassword', 'Confirm Password')}
-            </label>
-            <input
+            <Label className="mb-1 block">{t('auth.confirmPassword', 'Confirm Password')}</Label>
+            <Input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
             />
           </div>
-          <button
-            onClick={handleRegister}
-            disabled={isLoading}
-            className="w-full py-3 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
-          >
+          <Button onClick={handleRegister} disabled={isLoading} className="w-full">
             {isLoading ? t('common.loading', 'Loading...') : t('auth.createAccount', 'Create Account')}
-          </button>
+          </Button>
           {onGoToLogin && (
-            <button
-              onClick={onGoToLogin}
-              className="w-full text-sm text-gray-600 hover:underline"
-            >
+            <Button onClick={onGoToLogin} variant="link" className="w-full">
               {t('auth.alreadyHaveAccount', 'Already have an account?')}
-            </button>
+            </Button>
           )}
           {import.meta.env.DEV && onEnableTestMode && (
-            <button
-              onClick={onEnableTestMode}
-              className="w-full text-sm text-gray-600 hover:underline"
-            >
+            <Button onClick={onEnableTestMode} variant="link" className="w-full">
               {t('auth.enableTestMode', 'Enable test mode')}
-            </button>
+            </Button>
           )}
         </div>
       </AuthLayout>
@@ -360,38 +352,31 @@ export default function Onboarding({
     return (
       <AuthLayout title={t('auth.verifyTitle', 'Verify phone')}>
         {renderStepper()}
-        <p className="mb-4 text-sm text-gray-600">
+        <p className="mb-4 text-sm text-muted-foreground">
           {t('auth.verifyHelp', 'Enter the code we sent to your phone.')}
         </p>
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+          <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg">
             {error}
           </div>
         )}
-        {import.meta.env.DEV && otpSentVia === 'manual' && manualCode && (
+        {otpSentVia === 'manual' && manualCode && (
           <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg">
             {t('auth.otpManual', 'Your code is')}: <strong>{manualCode}</strong>
           </div>
         )}
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('auth.otpCode', 'Verification Code')}
-            </label>
-            <input
+            <Label className="mb-1 block">{t('auth.otpCode', 'Verification Code')}</Label>
+            <Input
               type="text"
               value={otpCode}
               onChange={(e) => setOtpCode(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
             />
           </div>
-          <button
-            onClick={handleVerify}
-            disabled={isLoading}
-            className="w-full py-3 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
-          >
+          <Button onClick={handleVerify} disabled={isLoading} className="w-full">
             {isLoading ? t('common.loading', 'Loading...') : t('auth.verify', 'Verify')}
-          </button>
+          </Button>
         </div>
 
       </AuthLayout>
@@ -399,184 +384,176 @@ export default function Onboarding({
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
-      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-xl p-8">
-        {renderStepper()}
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">
-          {t('auth.setupSettings', 'Set up your gym settings')}
-        </h2>
-        <p className="mb-6 text-sm text-gray-600">
-          {t('auth.settingsHelp', 'You can change these settings later in Settings.')}
-        </p>
-
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-            {error}
+    <div className="min-h-screen bg-muted/30 flex items-center justify-center p-6">
+      <Card className="w-full max-w-4xl">
+        <CardHeader className="space-y-4">
+          {renderStepper()}
+          <div>
+            <CardTitle className="text-2xl">
+              {t('auth.setupSettings', 'Set up your gym settings')}
+            </CardTitle>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {t('auth.settingsHelp', 'You can change these settings later in Settings.')}
+            </p>
           </div>
-        )}
-
-        <div className="space-y-6">
-          <section className="bg-gray-50 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('settings.testMode')}</h3>
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={settings.test_mode}
-                onChange={(e) => setSettings({ ...settings, test_mode: e.target.checked })}
-                className="h-4 w-4"
-              />
-              <span className="text-gray-700">{t('settings.enableTestMode')}</span>
-            </label>
-          </section>
-          <section className="bg-gray-50 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('settings.general')}</h3>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('settings.language')}
-              </label>
-              <select
-                value={settings.language}
-                onChange={(e) => setSettings({ ...settings, language: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
-              >
-                <option value="en">{t('settings.english')}</option>
-                <option value="ar">{t('settings.arabic')}</option>
-              </select>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {error && (
+            <div className="p-3 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg">
+              {error}
             </div>
-          </section>
+          )}
 
-          <section className="bg-gray-50 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('settings.sessionRules')}</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('settings.maleSessionCap')}
-                </label>
-                <input
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('settings.testMode')}</CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">{t('settings.enableTestMode')}</span>
+                <Switch
+                  checked={settings.test_mode}
+                  onCheckedChange={(checked) => setSettings({ ...settings, test_mode: checked })}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('settings.general')}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Label>{t('settings.language')}</Label>
+                <Select
+                  value={settings.language}
+                  onChange={(e) => setSettings({ ...settings, language: e.target.value })}
+                >
+                  <option value="en">{t('settings.english')}</option>
+                  <option value="ar">{t('settings.arabic')}</option>
+                </Select>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('settings.sessionRules')}</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{t('settings.maleSessionCap')}</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={settings.session_cap_male}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        session_cap_male: parseInt(e.target.value) || 26
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('settings.femaleSessionCap')}</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={settings.session_cap_female}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        session_cap_female: parseInt(e.target.value) || 30
+                      })
+                    }
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('settings.warnings')}</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{t('settings.daysBeforeExpiry')}</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={settings.warning_days_before_expiry}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        warning_days_before_expiry: parseInt(e.target.value) || 3
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('settings.sessionsRemaining')}</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={settings.warning_sessions_remaining}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        warning_sessions_remaining: parseInt(e.target.value) || 3
+                      })
+                    }
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('settings.scanner')}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Label>{t('settings.cooldownSeconds')}</Label>
+                <Input
                   type="number"
-                  min="1"
-                  max="100"
-                  value={settings.session_cap_male}
+                  min="10"
+                  max="120"
+                  value={settings.scan_cooldown_seconds}
                   onChange={(e) =>
                     setSettings({
                       ...settings,
-                      session_cap_male: parseInt(e.target.value) || 26
+                      scan_cooldown_seconds: parseInt(e.target.value) || 30
                     })
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
+                  className="max-w-xs"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('settings.femaleSessionCap')}
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={settings.session_cap_female}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      session_cap_female: parseInt(e.target.value) || 30
-                    })
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('settings.whatsapp')}</CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">{t('settings.enableWhatsApp')}</span>
+                <Switch
+                  checked={settings.whatsapp_enabled}
+                  onCheckedChange={(checked) =>
+                    setSettings({ ...settings, whatsapp_enabled: checked })
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
                 />
-              </div>
-            </div>
-          </section>
-
-          <section className="bg-gray-50 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('settings.warnings')}</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('settings.daysBeforeExpiry')}
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="30"
-                  value={settings.warning_days_before_expiry}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      warning_days_before_expiry: parseInt(e.target.value) || 3
-                    })
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('settings.sessionsRemaining')}
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={settings.warning_sessions_remaining}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      warning_sessions_remaining: parseInt(e.target.value) || 3
-                    })
-                  }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
-                />
-              </div>
-            </div>
-          </section>
-
-          <section className="bg-gray-50 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('settings.scanner')}</h3>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('settings.cooldownSeconds')}
-              </label>
-              <input
-                type="number"
-                min="10"
-                max="120"
-                value={settings.scan_cooldown_seconds}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    scan_cooldown_seconds: parseInt(e.target.value) || 30
-                  })
-                }
-                className="w-full max-w-xs px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
-              />
-            </div>
-          </section>
-
-          <section className="bg-gray-50 rounded-xl p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('settings.whatsapp')}</h3>
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={settings.whatsapp_enabled}
-                onChange={(e) =>
-                  setSettings({ ...settings, whatsapp_enabled: e.target.checked })
-                }
-                className="h-4 w-4"
-              />
-              <span className="text-gray-700">{t('settings.enableWhatsApp')}</span>
-            </label>
-          </section>
-        </div>
-
-        <div className="mt-6 flex justify-end">
-          <button
-            onClick={handleComplete}
-            disabled={isLoading}
-            className="px-6 py-3 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
-          >
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+        <CardContent className="flex justify-end pt-0">
+          <Button onClick={handleComplete} disabled={isLoading}>
             {isLoading ? t('common.loading', 'Loading...') : t('auth.finishSetup', 'Finish Setup')}
-          </button>
-        </div>
-      </div>
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   )
 }

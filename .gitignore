@@ -6,6 +6,12 @@ out/
 dist/
 docs/downloads/
 
+# Runtime caches
+.backups/
+.wwebjs_auth/
+.wwebjs_cache/
+*.tsbuildinfo
+
 # IDE
 .vscode/
 .idea/

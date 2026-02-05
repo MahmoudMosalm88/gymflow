@@ -52,6 +52,11 @@
     "scanCard": "Scan Card",
     "cardHint": "Assign a QR card now, or you can do it later.",
     "cardRequired": "Please scan a card to assign",
+    "serialCode": "Member Serial",
+    "serialPlaceholder": "Auto-generated serial",
+    "serialHint": "Serial is auto-generated and used for the QR code.",
+    "regenerate": "Regenerate",
+    "regenerateConfirm": "Regenerate serial? Old QR codes will stop working.",
     "subscription": "Initial Subscription",
     "createSubscription": "Create subscription now",
     "planMonths": "Duration",
@@ -143,13 +148,18 @@
     "openDataFolder": "Open Data Folder",
     "backup": "Backup Database",
     "restore": "Restore Database",
-    "save": "Save Settings"
-    ,
+    "save": "Save Settings",
     "testMode": "Test Mode",
     "enableTestMode": "Enable test mode (skip owner login)",
     "showQr": "Show QR",
     "qrTitle": "Scan QR",
-    "qrHint": "Open WhatsApp → Linked Devices → Scan this QR"
+    "qrHint": "Open WhatsApp → Linked Devices → Scan this QR",
+    "accessHoursHint": "If disabled, check-ins are allowed any time.",
+    "whatsappBatchMin": "Batch delay min (minutes)",
+    "whatsappBatchMax": "Batch delay max (minutes)",
+    "whatsappTemplateHint": "Use {{name}} for member name.",
+    "whatsappTemplateRenewalHint": "Use {{name}} and {{days}}.",
+    "whatsappTemplateSessionsHint": "Use {{name}} and {{sessions}}."
   },
   "import": {
     "title": "Import Members",
@@ -210,7 +220,8 @@
     "noResults": "No results found",
     "confirm": "Confirm",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "remove": "Remove"
   },
   "memberDetail": {
     "qrCode": "QR Code",
@@ -219,6 +230,7 @@
     "plan": "Plan",
     "expires": "Expires",
     "months": "months",
+    "serial": "Serial",
     "noActiveQuota": "No active session quota"
   },
   "qrCodeDisplay": {
@@ -229,13 +241,14 @@
     "codeLabel": "Code",
     "copyCode": "Copy Code",
     "copied": "Copied",
-    "copyFailed": "Copy failed"
+    "copyFailed": "Copy failed",
+    "whatsappNotConnected": "WhatsApp is not connected. Connect it in Settings first."
   },
   "auth": {
     "loginTitle": "Sign in to GymFlow",
     "onboardingTitle": "Create owner account",
     "connectWhatsAppTitle": "Connect WhatsApp",
-    "connectWhatsAppHelp": "Connect WhatsApp first so we can send you verification codes.",
+    "connectWhatsAppHelp": "Connect WhatsApp to receive verification codes. You can connect later in Settings.",
     "continue": "Continue",
     "fullName": "Full name",
     "namePlaceholder": "Owner name",
@@ -251,6 +264,7 @@
     "whatsappOtpHelp": "Connect WhatsApp to receive verification and reset codes.",
     "whatsappScanQr": "Scan the QR below",
     "whatsappNotConnected": "WhatsApp not connected",
+    "whatsappSkipWarning": "WhatsApp is not connected. You can continue and connect it later in Settings.",
     "createAccount": "Create Account",
     "verifyTitle": "Verify phone",
     "setupSettings": "Set up your gym settings",

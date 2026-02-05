@@ -257,8 +257,14 @@ export class WhatsAppService extends EventEmitter {
     return { ...this.status }
   }
 
-  async sendMembershipQR(phone: string, memberName: string, qrCodePath: string): Promise<boolean> {
-    const message = `مرحباً ${memberName}!\n\nهذا هو رمز QR الخاص بعضويتك.\nيرجى إظهاره عند الدخول للنادي.`
+  async sendMembershipQR(
+    phone: string,
+    memberName: string,
+    qrCodePath: string,
+    cardCode?: string
+  ): Promise<boolean> {
+    const codeLine = cardCode ? `\nرقم العضوية: ${cardCode}` : ''
+    const message = `مرحباً ${memberName}!\n\nهذا هو رمز QR الخاص بعضويتك.${codeLine}\nيرجى إظهاره عند الدخول للنادي.`
     return await this.sendImage(phone, qrCodePath, message)
   }
 

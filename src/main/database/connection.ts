@@ -197,4 +197,32 @@ function runMigrations(database: Database.Database): void {
 
     database.prepare('INSERT INTO migrations (name) VALUES (?)').run('004_owner_name')
   }
+
+  if (!appliedMigrations.includes('005_member_serials')) {
+    const rows = database
+      .prepare(
+        `SELECT id FROM members
+         WHERE card_code IS NULL OR TRIM(card_code) = ''
+         ORDER BY created_at ASC`
+      )
+      .all() as Array<{ id: string }>
+
+    const maxRow = database
+      .prepare(
+        `SELECT MAX(CAST(SUBSTR(card_code, 4) AS INTEGER)) as max
+         FROM members
+         WHERE card_code LIKE 'GF-%'`
+      )
+      .get() as { max: number | null } | undefined
+
+    let nextNumber = (maxRow?.max ? Number(maxRow.max) : 0) + 1
+
+    for (const row of rows) {
+      const code = `GF-${String(nextNumber).padStart(6, '0')}`
+      database.prepare('UPDATE members SET card_code = ? WHERE id = ?').run(code, row.id)
+      nextNumber += 1
+    }
+
+    database.prepare('INSERT INTO migrations (name) VALUES (?)').run('005_member_serials')
+  }
 }

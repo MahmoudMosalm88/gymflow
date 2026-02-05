@@ -5,17 +5,54 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))'
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))'
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))'
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))'
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))'
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))'
+        },
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))'
+        },
+
         // Gym brand colors - Orange/Red gradient
         'brand-primary': '#FF8C00',      // Orange
         'brand-secondary': '#FF6B35',    // Red-Orange
         'brand-accent': '#FF4500',       // Dark Red-Orange
         'brand-light': '#FFB366',        // Light Orange
-        
+        // Legacy alias (used across UI)
+        'gym-primary': '#FF8C00',
+        'gym-secondary': '#FF6B35',
+
         // Traffic light colors (keep for backwards compatibility)
         'traffic-green': '#22c55e',
         'traffic-yellow': '#eab308',
         'traffic-red': '#ef4444',
-        
+
         // Extended palette
         'gray-50': '#f9fafb',
         'gray-100': '#f3f4f6',
@@ -28,7 +65,7 @@ module.exports = {
         'gray-800': '#1f2937',
         'gray-900': '#111827',
         'gray-950': '#030712',
-        
+
         // Semantic colors
         'success': '#10b981',
         'warning': '#f59e0b',
@@ -36,9 +73,9 @@ module.exports = {
         'info': '#3b82f6',
       },
       fontFamily: {
-        'sans': ['Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
-        'body': ['Inter', 'system-ui', 'sans-serif'],
-        'heading': ['Plus Jakarta Sans', 'system-ui', 'sans-serif']
+        'sans': ['Manrope', 'system-ui', 'sans-serif'],
+        'body': ['Manrope', 'system-ui', 'sans-serif'],
+        'heading': ['Sora', 'system-ui', 'sans-serif']
       },
       spacing: {
         '0': '0px',
@@ -58,7 +95,7 @@ module.exports = {
         'sm': '0.25rem',
         'base': '0.375rem',
         'md': '0.5rem',
-        'lg': '0.75rem',
+        'lg': 'var(--radius)',
         'xl': '1rem',
         '2xl': '1.5rem',
         '3xl': '2rem',
@@ -94,6 +131,7 @@ module.exports = {
     }
   },
   plugins: [
-    require('@tailwindcss/forms')
+    require('@tailwindcss/forms'),
+    require('tailwindcss-animate')
   ]
 }

@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { Button, buttonVariants } from '../components/ui/button'
+import { Input } from '../components/ui/input'
+import { Card, CardContent } from '../components/ui/card'
 
 interface Member {
   id: string
@@ -75,21 +78,18 @@ export default function Members(): JSX.Element {
   const filteredMembers = members
 
   return (
-    <div className="min-h-full p-4 md:p-8 bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-full p-4 md:p-8 bg-muted/30">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8">
         <div>
-          <h1 className="text-4xl font-heading font-bold text-gray-900 dark:text-white">
+          <h1 className="text-4xl font-heading font-bold text-foreground">
             {t('members.title')}
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
+          <p className="text-muted-foreground mt-2">
             {t('members.subtitle') || `Manage ${filteredMembers.length} members`}
           </p>
         </div>
-        <Link
-          to="/members/new"
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-gradient text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all duration-200 font-medium whitespace-nowrap"
-        >
+        <Link to="/members/new" className={buttonVariants({ className: 'gap-2' })}>
           <PlusIcon className="w-5 h-5" />
           {t('members.addMember')}
         </Link>
@@ -97,55 +97,56 @@ export default function Members(): JSX.Element {
 
       {/* Search */}
       <div className="relative mb-8">
-        <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input
+        <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+        <Input
           type="text"
           placeholder={t('members.searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => handleSearch(e.target.value)}
-          className="input-field pl-12 w-full"
+          className="pl-12 w-full"
         />
       </div>
 
       {/* Members Table */}
-      <div className="card overflow-hidden">
+      <Card className="overflow-hidden">
+        <CardContent className="p-0">
         {isLoading ? (
           <div className="p-12 text-center">
-            <div className="inline-block w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
+            <div className="inline-block w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+            <p className="text-muted-foreground">{t('common.loading')}</p>
           </div>
         ) : filteredMembers.length === 0 ? (
           <div className="p-12 text-center">
             <div className="text-5xl mb-4">👥</div>
-            <p className="text-gray-600 dark:text-gray-400 text-lg">{t('members.noMembers')}</p>
+            <p className="text-muted-foreground text-lg">{t('members.noMembers')}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+              <thead className="bg-muted border-b border-border">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-heading font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider">
                     {t('members.name')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-heading font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider">
                     {t('members.phone')}
                   </th>
-                  <th className="hidden sm:table-cell px-6 py-4 text-left text-xs font-heading font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="hidden sm:table-cell px-6 py-4 text-left text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider">
                     {t('members.gender')}
                   </th>
-                  <th className="hidden sm:table-cell px-6 py-4 text-left text-xs font-heading font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="hidden sm:table-cell px-6 py-4 text-left text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider">
                     {t('members.tier')}
                   </th>
-                  <th className="px-6 py-4 text-right text-xs font-heading font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-right text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider">
                     {t('members.actions')}
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+              <tbody className="divide-y divide-border">
                 {filteredMembers.map((member) => (
                   <tr
                     key={member.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                    className="hover:bg-muted/60 transition-colors"
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
@@ -167,33 +168,27 @@ export default function Members(): JSX.Element {
                           )}
                         </div>
                         <div>
-                          <div className="text-sm font-heading font-semibold text-gray-900 dark:text-white">
+                          <div className="text-sm font-heading font-semibold text-foreground">
                             {member.name}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                       {member.phone}
                     </td>
-                    <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                    <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                       {t(`members.${member.gender}`)}
                     </td>
                     <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`badge text-xs ${
-                          member.access_tier === 'A'
-                            ? 'badge-success'
-                            : 'badge-warning'
-                        }`}
-                      >
+                      <span className={`badge text-xs ${member.access_tier === 'A' ? 'badge-success' : 'badge-warning'}`}>
                         {t(`members.tier${member.access_tier}`)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <Link
                         to={`/members/${member.id}`}
-                        className="inline-block px-4 py-2 text-sm font-medium text-brand-primary dark:text-brand-light hover:bg-brand-light/10 dark:hover:bg-brand-light/10 rounded-lg transition-colors"
+                        className={buttonVariants({ variant: 'link', className: 'px-0' })}
                       >
                         {t('common.view')}
                       </Link>
@@ -204,7 +199,8 @@ export default function Members(): JSX.Element {
             </table>
           </div>
         )}
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

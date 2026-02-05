@@ -2,7 +2,13 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import PhotoCapture from '../components/PhotoCapture'
-import ScannerInput from '../components/ScannerInput'
+import QRCodeDisplay from '../components/QRCodeDisplay'
+import { Button } from '../components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { Input } from '../components/ui/input'
+import { Label } from '../components/ui/label'
+import { Select } from '../components/ui/select'
+import { Checkbox } from '../components/ui/checkbox'
 
 interface MemberFormData {
   name: string
@@ -31,11 +37,16 @@ export default function MemberForm(): JSX.Element {
   const [planMonths, setPlanMonths] = useState<1 | 3 | 6 | 12>(1)
   const [pricePaid, setPricePaid] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isSerialLoading, setIsSerialLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [createdMember, setCreatedMember] = useState<{ id: string; name: string } | null>(null)
+  const [showQrModal, setShowQrModal] = useState(false)
 
   useEffect(() => {
     if (isEditing) {
       loadMember()
+    } else {
+      loadNextSerial()
     }
   }, [id])
 
@@ -55,6 +66,20 @@ export default function MemberForm(): JSX.Element {
     } catch (error) {
       console.error('Failed to load member:', error)
       setError(t('common.error'))
+    }
+  }
+
+  const loadNextSerial = async () => {
+    setIsSerialLoading(true)
+    try {
+      const next = await window.api.members.getNextSerial()
+      if (next) {
+        setFormData((prev) => ({ ...prev, card_code: String(next) }))
+      }
+    } catch (error) {
+      console.error('Failed to generate serial:', error)
+    } finally {
+      setIsSerialLoading(false)
     }
   }
 
@@ -90,39 +115,41 @@ export default function MemberForm(): JSX.Element {
           photo_path: photoPath ?? null,
           card_code: formData.card_code.trim() || null
         })
-      } else {
-        // Create member first (without photo), then save photo using generated member ID
-        const created = await window.api.members.create({
-          name: formData.name,
-          phone: formData.phone,
-          gender: formData.gender as 'male' | 'female',
-          access_tier: formData.access_tier,
-          card_code: formData.card_code.trim() || null
-        })
 
-        if (formData.photo_path) {
-          let photoPath: string | null = formData.photo_path
-          if (isDataUrl(photoPath)) {
-            const saveResult = await window.api.photos.save(photoPath, created.id)
-            if (!saveResult.success || !saveResult.path) {
-              throw new Error(saveResult.error || 'Failed to save photo')
-            }
-            photoPath = saveResult.path
-          }
-
-          await window.api.members.update(created.id, { photo_path: photoPath })
-        }
-
-        if (createSubscription) {
-          await window.api.subscriptions.create({
-            member_id: created.id,
-            plan_months: planMonths,
-            price_paid: pricePaid ? Number(pricePaid) : undefined
-          })
-        }
+        navigate('/members')
+        return
       }
 
-      navigate('/members')
+      const created = await window.api.members.create({
+        name: formData.name,
+        phone: formData.phone,
+        gender: formData.gender as 'male' | 'female',
+        access_tier: formData.access_tier,
+        card_code: formData.card_code.trim() || null
+      })
+
+      if (formData.photo_path) {
+        let photoPath: string | null = formData.photo_path
+        if (isDataUrl(photoPath)) {
+          const saveResult = await window.api.photos.save(photoPath, created.id)
+          if (!saveResult.success || !saveResult.path) {
+            throw new Error(saveResult.error || 'Failed to save photo')
+          }
+          photoPath = saveResult.path
+        }
+        await window.api.members.update(created.id, { photo_path: photoPath })
+      }
+
+      if (createSubscription) {
+        await window.api.subscriptions.create({
+          member_id: created.id,
+          plan_months: planMonths,
+          price_paid: pricePaid ? Number(pricePaid) : undefined
+        })
+      }
+
+      setCreatedMember({ id: created.id, name: created.name })
+      setShowQrModal(true)
     } catch (error) {
       console.error('Failed to save member:', error)
       setError(t('common.error'))
@@ -135,218 +162,190 @@ export default function MemberForm(): JSX.Element {
     setFormData({ ...formData, photo_path: photoPath })
   }
 
-  const handleCardScan = (value: string) => {
-    setFormData((prev) => ({ ...prev, card_code: value }))
-    setError(null)
-  }
-
   return (
-    <div className="min-h-full p-4 md:p-8 bg-gray-50 dark:bg-gray-950 max-w-3xl mx-auto">
-      <h1 className="text-4xl font-heading font-bold text-gray-900 dark:text-white mb-2">
-        {isEditing ? t('memberForm.editTitle') : t('memberForm.addTitle')}
-      </h1>
-      <p className="text-gray-600 dark:text-gray-400 mb-8">
-        {isEditing ? 'Update member information' : 'Create a new gym member'}
-      </p>
+    <div className="min-h-full p-4 md:p-8 max-w-3xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-foreground">
+          {isEditing ? t('memberForm.editTitle') : t('memberForm.addTitle')}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {isEditing ? 'Update member information' : 'Create a new gym member'}
+        </p>
+      </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-200 animate-slide-up">
+        <div className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-sm">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="card space-y-6">
-        {/* Photo */}
-        <div>
-          <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-3">
-            {t('memberForm.photo')}
-          </label>
-          <PhotoCapture
-            currentPhoto={formData.photo_path}
-            onCapture={handlePhotoCapture}
-            onRemove={() => setFormData({ ...formData, photo_path: null })}
-          />
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('memberForm.addTitle')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <Label>{t('memberForm.photo')}</Label>
+              <div className="mt-3">
+                <PhotoCapture
+                  currentPhoto={formData.photo_path}
+                  onCapture={handlePhotoCapture}
+                  onRemove={() => setFormData({ ...formData, photo_path: null })}
+                />
+              </div>
+            </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Name */}
-          <div>
-            <label htmlFor="name" className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
-              {t('memberForm.name')} *
-            </label>
-            <input
-              type="text"
-              id="name"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="input-field"
-              placeholder="Full name"
-            />
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="name">{t('memberForm.name')} *</Label>
+                <Input
+                  id="name"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Full name"
+                />
+              </div>
 
-          {/* Phone */}
-          <div>
-            <label htmlFor="phone" className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
-              {t('memberForm.phone')} *
-            </label>
-            <input
-              type="tel"
-              id="phone"
-              required
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="+201xxxxxxxxx"
-              className="input-field"
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">{t('memberForm.phone')} *</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  required
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="+201xxxxxxxxx"
+                />
+              </div>
 
-          {/* Gender */}
-          <div>
-            <label htmlFor="gender" className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
-              {t('memberForm.gender')} *
-            </label>
-            <select
-              id="gender"
-              required
-              value={formData.gender}
-              onChange={(e) =>
-                setFormData({ ...formData, gender: e.target.value as 'male' | 'female' | '' })
-              }
-              className="input-field"
-            >
-              <option value="">{t('memberForm.selectGender')}</option>
-              <option value="male">{t('memberForm.male')}</option>
-              <option value="female">{t('memberForm.female')}</option>
-            </select>
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="gender">{t('memberForm.gender')} *</Label>
+                <Select
+                  id="gender"
+                  required
+                  value={formData.gender}
+                  onChange={(e) =>
+                    setFormData({ ...formData, gender: e.target.value as 'male' | 'female' | '' })
+                  }
+                >
+                  <option value="">{t('memberForm.selectGender')}</option>
+                  <option value="male">{t('memberForm.male')}</option>
+                  <option value="female">{t('memberForm.female')}</option>
+                </Select>
+              </div>
 
-          {/* Access Tier */}
-          <div>
-            <label htmlFor="tier" className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
-              {t('memberForm.tier')} *
-            </label>
-            <select
-              id="tier"
-              value={formData.access_tier}
-              onChange={(e) =>
-                setFormData({ ...formData, access_tier: e.target.value as 'A' | 'B' })
-              }
-              className="input-field"
-            >
-              <option value="A">{t('memberForm.tierA')}</option>
-              <option value="B">{t('memberForm.tierB')}</option>
-            </select>
-          </div>
-        </div>
+              <div className="space-y-2">
+                <Label htmlFor="tier">{t('memberForm.tier')} *</Label>
+                <Select
+                  id="tier"
+                  value={formData.access_tier}
+                  onChange={(e) =>
+                    setFormData({ ...formData, access_tier: e.target.value as 'A' | 'B' })
+                  }
+                >
+                  <option value="A">{t('memberForm.tierA')}</option>
+                  <option value="B">{t('memberForm.tierB')}</option>
+                </Select>
+              </div>
+            </div>
 
-        {/* Card Code */}
-        <div>
-          <label htmlFor="card_code" className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
-            {t('memberForm.cardCode', 'Card QR Code')}
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              id="card_code"
-              value={formData.card_code}
-              onChange={(e) => setFormData({ ...formData, card_code: e.target.value })}
-              placeholder={t('memberForm.cardPlaceholder', 'Scan or type card code')}
-              className="input-field flex-1"
-            />
-            <button
-              type="button"
-              onClick={() => document.querySelector<HTMLInputElement>('.scanner-input')?.focus()}
-              className="btn btn-secondary"
-            >
-              {t('memberForm.scanCard', 'Scan Card')}
-            </button>
-          </div>
-          <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-            {t('memberForm.cardHint', 'Assign a QR card now, or you can do it later.')}
-          </p>
-        </div>
+            <div className="space-y-2">
+              <Label htmlFor="card_code">{t('memberForm.serialCode', 'Member Serial')}</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="card_code"
+                  value={formData.card_code}
+                  readOnly
+                  placeholder={t('memberForm.serialPlaceholder', 'Auto-generated serial')}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    if (isEditing && !confirm(t('memberForm.regenerateConfirm', 'Regenerate serial? Old QR codes will stop working.'))) {
+                      return
+                    }
+                    loadNextSerial()
+                  }}
+                  disabled={isSerialLoading}
+                >
+                  {isSerialLoading ? t('common.loading', 'Loading...') : t('memberForm.regenerate', 'Regenerate')}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t('memberForm.serialHint', 'Serial is auto-generated and used for the QR code.')}
+              </p>
+            </div>
 
-        {!isEditing && (
-          <div className="border-t border-gray-300 dark:border-gray-700 pt-6">
-            <h3 className="text-base font-heading font-semibold text-gray-900 dark:text-white mb-4">
-              {t('memberForm.subscription', 'Initial Subscription')}
-            </h3>
-            <label className="flex items-center gap-3 mb-5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={createSubscription}
-                onChange={(e) => setCreateSubscription(e.target.checked)}
-                className="w-5 h-5 accent-brand-primary rounded"
-              />
-              <span className="text-gray-700 dark:text-gray-300 font-medium">
-                {t('memberForm.createSubscription', 'Create subscription now')}
-              </span>
-            </label>
-
-            {createSubscription && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-100 dark:bg-gray-800/50 rounded-lg">
-                <div>
-                  <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
-                    {t('memberForm.planMonths', 'Duration')}
-                  </label>
-                  <select
-                    value={planMonths}
-                    onChange={(e) => setPlanMonths(Number(e.target.value) as 1 | 3 | 6 | 12)}
-                    className="input-field"
-                  >
-                    <option value={1}>1 {t('memberForm.month', 'month')}</option>
-                    <option value={3}>3 {t('memberForm.months', 'months')}</option>
-                    <option value={6}>6 {t('memberForm.months', 'months')}</option>
-                    <option value={12}>12 {t('memberForm.months', 'months')}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
-                    {t('memberForm.pricePaid', 'Price Paid')}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={pricePaid}
-                    onChange={(e) => setPricePaid(e.target.value)}
-                    className="input-field"
-                    placeholder="0.00"
+            {!isEditing && (
+              <div className="border-t pt-6">
+                <h3 className="text-base font-semibold text-foreground mb-4">
+                  {t('memberForm.subscription', 'Initial Subscription')}
+                </h3>
+                <div className="flex items-center gap-3 mb-5">
+                  <Checkbox
+                    id="create-subscription"
+                    checked={createSubscription}
+                    onCheckedChange={(checked) => setCreateSubscription(Boolean(checked))}
                   />
+                  <Label htmlFor="create-subscription" className="text-sm font-medium">
+                    {t('memberForm.createSubscription', 'Create subscription now')}
+                  </Label>
                 </div>
+
+                {createSubscription && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label>{t('memberForm.planMonths', 'Duration')}</Label>
+                      <Select
+                        value={planMonths}
+                        onChange={(e) => setPlanMonths(Number(e.target.value) as 1 | 3 | 6 | 12)}
+                      >
+                        <option value={1}>1 {t('memberForm.month', 'month')}</option>
+                        <option value={3}>3 {t('memberForm.months', 'months')}</option>
+                        <option value={6}>6 {t('memberForm.months', 'months')}</option>
+                        <option value={12}>12 {t('memberForm.months', 'months')}</option>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t('memberForm.pricePaid', 'Price Paid')}</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={pricePaid}
+                        onChange={(e) => setPricePaid(e.target.value)}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
 
-        {/* Actions */}
-        <div className="flex gap-4 pt-6 border-t border-gray-300 dark:border-gray-700">
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="btn btn-primary flex-1"
-          >
-            {isLoading ? (
-              <>
-                <div className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                {t('common.loading')}
-              </>
-            ) : (
-              t('memberForm.save')
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/members')}
-            className="btn btn-secondary flex-1"
-          >
-            {t('memberForm.cancel')}
-          </button>
-        </div>
-      </form>
+            <div className="flex gap-4 pt-6 border-t">
+              <Button type="submit" disabled={isLoading} className="flex-1">
+                {isLoading ? t('common.loading') : t('memberForm.save')}
+              </Button>
+              <Button type="button" variant="secondary" className="flex-1" onClick={() => navigate('/members')}>
+                {t('memberForm.cancel')}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
-      {/* Hidden scanner input for card assignment */}
-      <ScannerInput onScan={(value) => handleCardScan(value)} autoFocus={false} />
+      {showQrModal && createdMember && (
+        <QRCodeDisplay
+          memberId={createdMember.id}
+          memberName={createdMember.name}
+          onClose={() => {
+            setShowQrModal(false)
+            navigate(`/members/${createdMember.id}`)
+          }}
+        />
+      )}
     </div>
   )
 }

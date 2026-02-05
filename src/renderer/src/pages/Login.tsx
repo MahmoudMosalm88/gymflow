@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import AuthLayout from '../components/AuthLayout'
 import WhatsAppConnectPanel from '../components/WhatsAppConnectPanel'
+import { Button } from '../components/ui/button'
+import { Input } from '../components/ui/input'
+import { Label } from '../components/ui/label'
 
 interface LoginProps {
   onSuccess: (token: string) => void
@@ -95,26 +98,23 @@ export default function Login({
   return (
     <AuthLayout title={t('auth.loginTitle', 'Sign in to GymFlow')}>
       {error && (
-        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg animate-slide-up">
+        <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-lg animate-slide-up">
           {error}
         </div>
       )}
       {successMessage && (
-        <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-200 rounded-lg animate-slide-up">
+        <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg animate-slide-up">
           {successMessage}
         </div>
       )}
 
       <div className="space-y-5">
         <div>
-          <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
-            {t('auth.phone', 'Phone')}
-          </label>
-          <input
+          <Label className="mb-2 block">{t('auth.phone', 'Phone')}</Label>
+          <Input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="input-field"
             placeholder="+201xxxxxxxxx"
           />
         </div>
@@ -122,22 +122,15 @@ export default function Login({
         {mode === 'login' && (
           <>
             <div>
-              <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
-                {t('auth.password', 'Password')}
-              </label>
-              <input
+              <Label className="mb-2 block">{t('auth.password', 'Password')}</Label>
+              <Input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="input-field"
               />
             </div>
 
-            <button
-              onClick={handleLogin}
-              disabled={isLoading}
-              className="btn btn-primary w-full"
-            >
+            <Button onClick={handleLogin} disabled={isLoading} className="w-full">
               {isLoading ? (
                 <>
                   <div className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
@@ -146,41 +139,32 @@ export default function Login({
               ) : (
                 t('auth.login', 'Login')
               )}
-            </button>
+            </Button>
 
             {onGoToSignUp && (
-              <button
-                onClick={onGoToSignUp}
-                className="btn btn-secondary w-full"
-              >
+              <Button onClick={onGoToSignUp} variant="secondary" className="w-full">
                 {t('auth.createAccount', 'Create Account')}
-              </button>
+              </Button>
             )}
 
-            <button
+            <Button
               onClick={() => setMode('requestReset')}
-              className="w-full text-sm text-brand-primary dark:text-brand-light hover:underline font-medium"
+              variant="link"
+              className="w-full"
             >
               {t('auth.forgotPassword', 'Forgot password?')}
-            </button>
+            </Button>
             {import.meta.env.DEV && onEnableTestMode && (
-              <button
-                onClick={onEnableTestMode}
-                className="w-full text-sm text-gray-600 dark:text-gray-400 hover:underline"
-              >
+              <Button onClick={onEnableTestMode} variant="link" className="w-full">
                 {t('auth.enableTestMode', 'Enable test mode')}
-              </button>
+              </Button>
             )}
           </>
         )}
 
         {mode === 'requestReset' && (
           <>
-            <button
-              onClick={handleRequestReset}
-              disabled={isLoading}
-              className="btn btn-primary w-full"
-            >
+            <Button onClick={handleRequestReset} disabled={isLoading} className="w-full">
               {isLoading ? (
                 <>
                   <div className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
@@ -189,61 +173,45 @@ export default function Login({
               ) : (
                 t('auth.sendResetCode', 'Send reset code')
               )}
-            </button>
-            <button
-              onClick={() => setMode('login')}
-              className="w-full text-sm text-gray-600 dark:text-gray-400 hover:underline"
-            >
+            </Button>
+            <Button onClick={() => setMode('login')} variant="link" className="w-full">
               {t('auth.backToLogin', 'Back to login')}
-            </button>
+            </Button>
           </>
         )}
 
         {mode === 'reset' && (
           <>
             {import.meta.env.DEV && otpSentVia === 'manual' && manualCode && (
-              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-200 rounded-lg">
+              <div className="p-4 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg">
                 {t('auth.otpManual', 'Your code is')}: <strong className="font-heading font-bold text-lg">{manualCode}</strong>
               </div>
             )}
             <div>
-              <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
-                {t('auth.otpCode', 'Verification Code')}
-              </label>
-              <input
+              <Label className="mb-2 block">{t('auth.otpCode', 'Verification Code')}</Label>
+              <Input
                 type="text"
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value)}
-                className="input-field"
               />
             </div>
             <div>
-              <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
-                {t('auth.newPassword', 'New Password')}
-              </label>
-              <input
+              <Label className="mb-2 block">{t('auth.newPassword', 'New Password')}</Label>
+              <Input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="input-field"
               />
             </div>
             <div>
-              <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
-                {t('auth.confirmPassword', 'Confirm Password')}
-              </label>
-              <input
+              <Label className="mb-2 block">{t('auth.confirmPassword', 'Confirm Password')}</Label>
+              <Input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="input-field"
               />
             </div>
-            <button
-              onClick={handleResetPassword}
-              disabled={isLoading}
-              className="btn btn-primary w-full"
-            >
+            <Button onClick={handleResetPassword} disabled={isLoading} className="w-full">
               {isLoading ? (
                 <>
                   <div className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
@@ -252,13 +220,10 @@ export default function Login({
               ) : (
                 t('auth.resetPassword', 'Reset Password')
               )}
-            </button>
-            <button
-              onClick={() => setMode('login')}
-              className="w-full text-sm text-gray-600 dark:text-gray-400 hover:underline"
-            >
+            </Button>
+            <Button onClick={() => setMode('login')} variant="link" className="w-full">
               {t('auth.backToLogin', 'Back to login')}
-            </button>
+            </Button>
           </>
         )}
       </div>

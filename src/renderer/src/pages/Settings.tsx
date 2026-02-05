@@ -1,6 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import * as QRCode from 'qrcode'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
+import { Button } from '../components/ui/button'
+import { Input } from '../components/ui/input'
+import { Label } from '../components/ui/label'
+import { Switch } from '../components/ui/switch'
+import { Select } from '../components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog'
+import { Badge } from '../components/ui/badge'
+import { Textarea } from '../components/ui/textarea'
+import { Separator } from '../components/ui/separator'
 
 interface SettingsData {
   language: string
@@ -8,10 +19,17 @@ interface SettingsData {
   session_cap_female: number
   test_mode: boolean
   access_hours_enabled: boolean
+  access_hours_male: Array<{ start: string; end: string }>
+  access_hours_female: Array<{ start: string; end: string }>
   warning_days_before_expiry: number
   warning_sessions_remaining: number
   scan_cooldown_seconds: number
   whatsapp_enabled: boolean
+  whatsapp_batch_delay_min: number
+  whatsapp_batch_delay_max: number
+  whatsapp_template_welcome: string
+  whatsapp_template_renewal: string
+  whatsapp_template_low_sessions: string
 }
 
 const defaultSettings: SettingsData = {
@@ -20,10 +38,21 @@ const defaultSettings: SettingsData = {
   session_cap_female: 30,
   test_mode: false,
   access_hours_enabled: false,
+  access_hours_male: [{ start: '06:00', end: '23:00' }],
+  access_hours_female: [
+    { start: '10:00', end: '14:00' },
+    { start: '18:00', end: '22:00' }
+  ],
   warning_days_before_expiry: 3,
   warning_sessions_remaining: 3,
   scan_cooldown_seconds: 30,
-  whatsapp_enabled: false
+  whatsapp_enabled: false,
+  whatsapp_batch_delay_min: 10,
+  whatsapp_batch_delay_max: 15,
+  whatsapp_template_welcome: 'Welcome to GymFlow, {{name}}! Your QR code is attached.',
+  whatsapp_template_renewal: 'Hi {{name}}, your subscription expires in {{days}} days. Please renew soon!',
+  whatsapp_template_low_sessions:
+    'Hi {{name}}, you have only {{sessions}} sessions remaining this cycle.'
 }
 
 export default function Settings(): JSX.Element {
@@ -73,7 +102,6 @@ export default function Settings(): JSX.Element {
 
     const unsubscribeStatus = window.api.whatsapp.onStatusChange((status: any) => {
       setWhatsappStatus(status as any)
-      // Close QR modal when authenticated, after a brief delay to show success
       if ((status as any).authenticated) {
         setTimeout(() => {
           setShowQr(false)
@@ -109,15 +137,21 @@ export default function Settings(): JSX.Element {
         session_cap_female: settings.session_cap_female,
         test_mode: settings.test_mode,
         access_hours_enabled: settings.access_hours_enabled,
+        access_hours_male: settings.access_hours_male,
+        access_hours_female: settings.access_hours_female,
         warning_days_before_expiry: settings.warning_days_before_expiry,
         warning_sessions_remaining: settings.warning_sessions_remaining,
         scan_cooldown_seconds: settings.scan_cooldown_seconds,
-        whatsapp_enabled: settings.whatsapp_enabled
+        whatsapp_enabled: settings.whatsapp_enabled,
+        whatsapp_batch_delay_min: settings.whatsapp_batch_delay_min,
+        whatsapp_batch_delay_max: settings.whatsapp_batch_delay_max,
+        whatsapp_template_welcome: settings.whatsapp_template_welcome,
+        whatsapp_template_renewal: settings.whatsapp_template_renewal,
+        whatsapp_template_low_sessions: settings.whatsapp_template_low_sessions
       }
 
       await window.api.settings.setAll(settingsToSave)
 
-      // Reload to apply language change cleanly
       if (languageChanged) {
         setSaveMessage('Reloading to apply language...')
         setTimeout(() => window.location.reload(), 200)
@@ -144,6 +178,7 @@ export default function Settings(): JSX.Element {
 
   const handleWhatsAppConnect = async () => {
     try {
+      await window.api.app.openExternal('https://web.whatsapp.com')
       await window.api.whatsapp.connect()
     } catch (error) {
       console.error('WhatsApp connect failed:', error)
@@ -186,265 +221,497 @@ export default function Settings(): JSX.Element {
     }
   }
 
+  const updateAccessHours = (
+    gender: 'male' | 'female',
+    index: number,
+    field: 'start' | 'end',
+    value: string
+  ) => {
+    const key = gender === 'male' ? 'access_hours_male' : 'access_hours_female'
+    setSettings((prev) => {
+      const next = [...prev[key]]
+      next[index] = { ...next[index], [field]: value }
+      return { ...prev, [key]: next }
+    })
+  }
+
+  const addAccessHours = (gender: 'male' | 'female') => {
+    const key = gender === 'male' ? 'access_hours_male' : 'access_hours_female'
+    const newSlot = gender === 'male' ? { start: '06:00', end: '23:00' } : { start: '18:00', end: '22:00' }
+    setSettings((prev) => ({ ...prev, [key]: [...prev[key], newSlot] }))
+  }
+
+  const removeAccessHours = (gender: 'male' | 'female', index: number) => {
+    const key = gender === 'male' ? 'access_hours_male' : 'access_hours_female'
+    setSettings((prev) => ({
+      ...prev,
+      [key]: prev[key].filter((_, i) => i !== index)
+    }))
+  }
+
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">{t('settings.title')}</h1>
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-foreground">{t('settings.title')}</h1>
+        <p className="text-sm text-muted-foreground">Manage GymFlow preferences and integrations.</p>
+      </div>
 
       {saveMessage && (
         <div
-          className={`mb-6 p-4 rounded-lg ${
+          className={`rounded-md border px-4 py-3 text-sm ${
             saveMessage.includes('success')
-              ? 'bg-green-50 border border-green-200 text-green-700'
-              : 'bg-red-50 border border-red-200 text-red-700'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              : 'border-red-200 bg-red-50 text-red-700'
           }`}
         >
           {saveMessage}
         </div>
       )}
 
-      <div className="space-y-6">
-        {/* General */}
-        <section className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('settings.general')}</h2>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t('settings.language')}
-            </label>
-            <select
-              value={settings.language}
-              onChange={(e) => setSettings({ ...settings, language: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
-            >
-              <option value="en">{t('settings.english')}</option>
-              <option value="ar">{t('settings.arabic')}</option>
-            </select>
-          </div>
-        </section>
+      <Tabs defaultValue="general">
+        <TabsList>
+          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="rules">Rules</TabsTrigger>
+          <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
+          <TabsTrigger value="data">Data</TabsTrigger>
+        </TabsList>
 
-        {/* Test Mode */}
-        <section className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('settings.testMode')}</h2>
-          <label className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              checked={settings.test_mode}
-              onChange={(e) => setSettings({ ...settings, test_mode: e.target.checked })}
-              className="h-4 w-4"
-            />
-            <span className="text-gray-700">{t('settings.enableTestMode')}</span>
-          </label>
-        </section>
+        <TabsContent value="general">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('settings.general')}</CardTitle>
+              <CardDescription>Language and account settings.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <Label>{t('settings.language')}</Label>
+                <Select
+                  value={settings.language}
+                  onChange={(e) => setSettings({ ...settings, language: e.target.value })}
+                >
+                  <option value="en">{t('settings.english')}</option>
+                  <option value="ar">{t('settings.arabic')}</option>
+                </Select>
+              </div>
 
-        {/* Session Rules */}
-        <section className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('settings.sessionRules')}</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('settings.maleSessionCap')}
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="100"
-                value={settings.session_cap_male}
-                onChange={(e) =>
-                  setSettings({ ...settings, session_cap_male: parseInt(e.target.value) || 26 })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('settings.femaleSessionCap')}
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="100"
-                value={settings.session_cap_female}
-                onChange={(e) =>
-                  setSettings({ ...settings, session_cap_female: parseInt(e.target.value) || 30 })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
-              />
-            </div>
-          </div>
-        </section>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>{t('settings.testMode')}</Label>
+                  <p className="text-xs text-muted-foreground">Development only</p>
+                </div>
+                <Switch
+                  checked={settings.test_mode}
+                  onCheckedChange={(checked) => setSettings({ ...settings, test_mode: checked })}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        {/* Warnings */}
-        <section className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('settings.warnings')}</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('settings.daysBeforeExpiry')}
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="30"
-                value={settings.warning_days_before_expiry}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    warning_days_before_expiry: parseInt(e.target.value) || 3
-                  })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('settings.sessionsRemaining')}
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="20"
-                value={settings.warning_sessions_remaining}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    warning_sessions_remaining: parseInt(e.target.value) || 3
-                  })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
-              />
-            </div>
-          </div>
-        </section>
+        <TabsContent value="rules">
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('settings.sessionRules')}</CardTitle>
+                <CardDescription>Default limits by gender.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{t('settings.maleSessionCap')}</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={settings.session_cap_male}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        session_cap_male: parseInt(e.target.value) || 26
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('settings.femaleSessionCap')}</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={settings.session_cap_female}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        session_cap_female: parseInt(e.target.value) || 30
+                      })
+                    }
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Scanner */}
-        <section className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('settings.scanner')}</h2>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t('settings.cooldownSeconds')}
-            </label>
-            <input
-              type="number"
-              min="10"
-              max="120"
-              value={settings.scan_cooldown_seconds}
-              onChange={(e) =>
-                setSettings({ ...settings, scan_cooldown_seconds: parseInt(e.target.value) || 30 })
-              }
-              className="w-full max-w-xs px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gym-primary focus:border-transparent"
-            />
-          </div>
-        </section>
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('settings.warnings')}</CardTitle>
+                <CardDescription>When to show yellow warnings.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>{t('settings.daysBeforeExpiry')}</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={settings.warning_days_before_expiry}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        warning_days_before_expiry: parseInt(e.target.value) || 3
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('settings.sessionsRemaining')}</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={settings.warning_sessions_remaining}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        warning_sessions_remaining: parseInt(e.target.value) || 3
+                      })
+                    }
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* WhatsApp */}
-        <section className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('settings.whatsapp')}</h2>
-          <div className="flex items-center justify-between mb-4">
-            <label className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={settings.whatsapp_enabled}
-                onChange={(e) => setSettings({ ...settings, whatsapp_enabled: e.target.checked })}
-                className="h-4 w-4"
-              />
-              <span className="text-gray-700">{t('settings.enableWhatsApp')}</span>
-            </label>
-            <span
-              className={`text-sm font-medium ${
-                whatsappStatus.authenticated ? 'text-green-600' : 'text-gray-500'
-              }`}
-            >
-              {whatsappStatus.authenticated ? t('settings.connected') : t('settings.disconnected')}
-            </span>
-          </div>
-          <div className="flex gap-3">
-            {!whatsappStatus.authenticated ? (
-              <button
-                onClick={handleWhatsAppConnect}
-                className="px-4 py-2 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors"
-              >
-                {t('settings.connect')}
-              </button>
-            ) : (
-              <button
-                onClick={handleWhatsAppDisconnect}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                {t('settings.disconnect')}
-              </button>
-            )}
-            {whatsappStatus.qrCode && !whatsappStatus.authenticated && (
-              <button
-                onClick={() => setShowQr(true)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                {t('settings.showQr', 'Show QR')}
-              </button>
-            )}
-          </div>
-          {whatsappStatus.error && (
-            <p className="mt-3 text-sm text-red-600">{whatsappStatus.error}</p>
-          )}
-        </section>
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('settings.scanner')}</CardTitle>
+                <CardDescription>Scan cooldown and access control.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>{t('settings.cooldownSeconds')}</Label>
+                  <Input
+                    type="number"
+                    min="10"
+                    max="120"
+                    value={settings.scan_cooldown_seconds}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        scan_cooldown_seconds: parseInt(e.target.value) || 30
+                      })
+                    }
+                    className="max-w-xs"
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Data Management */}
-        <section className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('settings.data')}</h2>
-          <div className="flex gap-4">
-            <button
-              onClick={handleOpenDataFolder}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              {t('settings.openDataFolder')}
-            </button>
-            <button
-              onClick={handleBackup}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              {t('settings.backup')}
-            </button>
-            <button
-              onClick={handleRestore}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              {t('settings.restore')}
-            </button>
-          </div>
-        </section>
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('settings.accessHours', 'Access Hours')}</CardTitle>
+                <CardDescription>Control when members can check in.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                  <Label>{t('settings.enableAccessHours', 'Enable access hours')}</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {t('settings.accessHoursHint', 'If disabled, check-ins are allowed any time.')}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.access_hours_enabled}
+                    onCheckedChange={(checked) =>
+                      setSettings({ ...settings, access_hours_enabled: checked })
+                    }
+                  />
+                </div>
 
-        {/* Save Button */}
-        <div className="flex justify-end">
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-6 py-3 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
-          >
-            {isSaving ? t('common.loading') : t('settings.save')}
-          </button>
-        </div>
+                {settings.access_hours_enabled && (
+                  <>
+                    <Separator />
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label>{t('settings.maleHours', 'Male Hours')}</Label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => addAccessHours('male')}
+                          >
+                            {t('settings.addWindow', 'Add Time Window')}
+                          </Button>
+                        </div>
+                        {settings.access_hours_male.map((slot, index) => (
+                          <div key={`male-${index}`} className="flex items-center gap-3">
+                            <Input
+                              type="time"
+                              value={slot.start}
+                              onChange={(e) =>
+                                updateAccessHours('male', index, 'start', e.target.value)
+                              }
+                            />
+                            <span className="text-xs text-muted-foreground">to</span>
+                            <Input
+                              type="time"
+                              value={slot.end}
+                              onChange={(e) =>
+                                updateAccessHours('male', index, 'end', e.target.value)
+                              }
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeAccessHours('male', index)}
+                            >
+                              {t('common.remove', 'Remove')}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label>{t('settings.femaleHours', 'Female Hours')}</Label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => addAccessHours('female')}
+                          >
+                            {t('settings.addWindow', 'Add Time Window')}
+                          </Button>
+                        </div>
+                        {settings.access_hours_female.map((slot, index) => (
+                          <div key={`female-${index}`} className="flex items-center gap-3">
+                            <Input
+                              type="time"
+                              value={slot.start}
+                              onChange={(e) =>
+                                updateAccessHours('female', index, 'start', e.target.value)
+                              }
+                            />
+                            <span className="text-xs text-muted-foreground">to</span>
+                            <Input
+                              type="time"
+                              value={slot.end}
+                              onChange={(e) =>
+                                updateAccessHours('female', index, 'end', e.target.value)
+                              }
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeAccessHours('female', index)}
+                            >
+                              {t('common.remove', 'Remove')}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="whatsapp">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('settings.whatsapp')}</CardTitle>
+              <CardDescription>Connect WhatsApp Web and manage QR access.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={settings.whatsapp_enabled}
+                    onCheckedChange={(checked) =>
+                      setSettings({ ...settings, whatsapp_enabled: checked })
+                    }
+                  />
+                  <div>
+                    <Label>{t('settings.enableWhatsApp')}</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Enable WhatsApp automation and QR delivery
+                    </p>
+                  </div>
+                </div>
+                <Badge variant={whatsappStatus.authenticated ? 'success' : 'secondary'}>
+                  {whatsappStatus.authenticated ? t('settings.connected') : t('settings.disconnected')}
+                </Badge>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                {!whatsappStatus.authenticated ? (
+                  <Button onClick={handleWhatsAppConnect}>{t('settings.connect')}</Button>
+                ) : (
+                  <Button variant="secondary" onClick={handleWhatsAppDisconnect}>
+                    {t('settings.disconnect')}
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => window.api.app.openExternal('https://web.whatsapp.com')}>
+                  Open WhatsApp Web
+                </Button>
+                {whatsappStatus.qrCode && !whatsappStatus.authenticated && (
+                  <Button variant="outline" onClick={() => setShowQr(true)}>
+                    {t('settings.showQr', 'Show QR')}
+                  </Button>
+                )}
+              </div>
+
+              {whatsappStatus.error && (
+                <div className="text-sm text-red-600">{whatsappStatus.error}</div>
+              )}
+
+              {whatsappStatus.qrCode && !whatsappStatus.authenticated && (
+                <div className="rounded-lg border p-4 flex flex-col items-center gap-3">
+                  {qrDataUrl ? (
+                    <img src={qrDataUrl} alt="WhatsApp QR" className="w-64 h-64" />
+                  ) : (
+                    <div className="w-64 h-64 flex items-center justify-center bg-muted text-sm">
+                      {t('common.loading')}
+                    </div>
+                  )}
+                  <p className="text-sm text-muted-foreground text-center">
+                    {t('settings.qrHint', 'Open WhatsApp → Linked Devices → Scan this QR')}
+                  </p>
+                </div>
+              )}
+
+              <Separator />
+
+              <div className="grid gap-5">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                  <Label>{t('settings.whatsappBatchMin', 'Batch delay min (minutes)')}</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={settings.whatsapp_batch_delay_min}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          whatsapp_batch_delay_min: parseInt(e.target.value) || 10
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                  <Label>{t('settings.whatsappBatchMax', 'Batch delay max (minutes)')}</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={settings.whatsapp_batch_delay_max}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          whatsapp_batch_delay_max: parseInt(e.target.value) || 15
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{t('settings.welcomeTemplate', 'Welcome message template')}</Label>
+                  <Textarea
+                    value={settings.whatsapp_template_welcome}
+                    onChange={(e) =>
+                      setSettings({ ...settings, whatsapp_template_welcome: e.target.value })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings.whatsappTemplateHint', 'Use {{name}} for member name.')}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{t('settings.renewalTemplate', 'Renewal reminder template')}</Label>
+                  <Textarea
+                    value={settings.whatsapp_template_renewal}
+                    onChange={(e) =>
+                      setSettings({ ...settings, whatsapp_template_renewal: e.target.value })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings.whatsappTemplateRenewalHint', 'Use {{name}} and {{days}}.')}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{t('settings.lowSessionsTemplate', 'Low sessions template')}</Label>
+                  <Textarea
+                    value={settings.whatsapp_template_low_sessions}
+                    onChange={(e) =>
+                      setSettings({ ...settings, whatsapp_template_low_sessions: e.target.value })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings.whatsappTemplateSessionsHint', 'Use {{name}} and {{sessions}}.')}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="data">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('settings.data')}</CardTitle>
+              <CardDescription>Backup, restore, and data location.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-3">
+              <Button variant="outline" onClick={handleOpenDataFolder}>
+                {t('settings.openDataFolder')}
+              </Button>
+              <Button variant="outline" onClick={handleBackup}>
+                {t('settings.backup')}
+              </Button>
+              <Button variant="outline" onClick={handleRestore}>
+                {t('settings.restore')}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? t('common.loading') : t('settings.save')}
+        </Button>
       </div>
 
-      {showQr && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">{t('settings.qrTitle', 'Scan QR')}</h3>
-              <button onClick={() => setShowQr(false)} className="text-gray-500 hover:text-gray-700">
-                ✕
-              </button>
+      <Dialog open={showQr} onOpenChange={setShowQr}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('settings.qrTitle', 'Scan QR')}</DialogTitle>
+          </DialogHeader>
+          {qrDataUrl ? (
+            <img src={qrDataUrl} alt="WhatsApp QR" className="mx-auto w-64 h-64" />
+          ) : (
+            <div className="w-64 h-64 mx-auto flex items-center justify-center bg-muted rounded-lg">
+              {t('common.loading')}
             </div>
-            {qrDataUrl ? (
-              <img src={qrDataUrl} alt="WhatsApp QR" className="mx-auto w-64 h-64" />
-            ) : (
-              <div className="w-64 h-64 mx-auto flex items-center justify-center bg-gray-100 rounded-lg">
-                {t('common.loading')}
-              </div>
-            )}
-            <p className="text-sm text-gray-600 mt-3 text-center">
-              {t('settings.qrHint', 'Open WhatsApp → Linked Devices → Scan this QR')}
-            </p>
-          </div>
-        </div>
-      )}
+          )}
+          <p className="text-sm text-muted-foreground mt-3 text-center">
+            {t('settings.qrHint', 'Open WhatsApp → Linked Devices → Scan this QR')}
+          </p>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

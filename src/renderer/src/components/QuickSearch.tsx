@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { Input } from './ui/input'
 
 interface Member {
   id: string
@@ -88,7 +89,7 @@ export default function QuickSearch({ onSelect }: QuickSearchProps): JSX.Element
     <div className="relative">
       <div className="relative">
         <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input
+        <Input
           ref={inputRef}
           type="text"
           value={query}
@@ -104,30 +105,28 @@ export default function QuickSearch({ onSelect }: QuickSearchProps): JSX.Element
             }
           }}
           placeholder={t('dashboard.searchPlaceholder')}
-          className="input-field pl-12"
+          className="pl-12"
         />
       </div>
 
       {isOpen && results.length > 0 && (
-        <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-xl max-h-72 overflow-auto">
+        <div className="absolute z-10 w-full mt-2 bg-background border border-border rounded-lg shadow-xl max-h-72 overflow-auto">
           {results.map((member, index) => (
             <button
               key={member.id}
               onClick={() => handleSelect(member)}
               className={`w-full px-4 py-3 text-left flex items-center gap-3 transition-colors ${
-                index === selectedIndex
-                  ? 'bg-brand-light/20 dark:bg-brand-light/10'
-                  : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                index === selectedIndex ? 'bg-brand-light/20' : 'hover:bg-muted'
               }`}
             >
               <div className="w-10 h-10 rounded-full bg-brand-gradient flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
                 {member.name.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-heading font-semibold text-gray-900 dark:text-white truncate">
+                <div className="font-heading font-semibold text-foreground truncate">
                   {member.name}
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">{member.phone}</div>
+                <div className="text-sm text-muted-foreground">{member.phone}</div>
               </div>
             </button>
           ))}
@@ -135,7 +134,7 @@ export default function QuickSearch({ onSelect }: QuickSearchProps): JSX.Element
       )}
 
       {isOpen && results.length === 0 && query.length >= 2 && (
-        <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg shadow-xl p-6 text-center text-gray-600 dark:text-gray-400">
+        <div className="absolute z-10 w-full mt-2 bg-background border border-border rounded-lg shadow-xl p-6 text-center text-muted-foreground">
           {t('common.noResults')}
         </div>
       )}

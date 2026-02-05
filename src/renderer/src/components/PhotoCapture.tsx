@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CameraIcon, ArrowUpTrayIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { Button } from './ui/button'
 
 interface PhotoCaptureProps {
   currentPhoto: string | null
@@ -89,7 +90,7 @@ export default function PhotoCapture({
       {/* Current Photo or Placeholder */}
       {!isCapturing && (
         <div className="relative w-40 h-40 mx-auto">
-          <div className="w-full h-full rounded-full bg-gray-200 overflow-hidden border-4 border-white shadow-lg">
+          <div className="w-full h-full rounded-full bg-muted overflow-hidden border-4 border-background shadow-lg">
             {currentPhoto ? (
               <img
                 src={currentPhoto.startsWith('data:') ? currentPhoto : `file://${currentPhoto}`}
@@ -97,7 +98,7 @@ export default function PhotoCapture({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-400">
+              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                 <CameraIcon className="w-12 h-12" />
               </div>
             )}
@@ -131,22 +132,19 @@ export default function PhotoCapture({
       <div className="flex justify-center gap-4">
         {!isCapturing ? (
           <>
-            <button
-              type="button"
-              onClick={startCamera}
-              className="flex items-center gap-2 px-4 py-2 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
+            <Button type="button" onClick={startCamera} className="gap-2">
               <CameraIcon className="w-5 h-5" />
               {t('memberForm.capturePhoto')}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              className="gap-2"
             >
               <ArrowUpTrayIcon className="w-5 h-5" />
               {t('memberForm.uploadPhoto')}
-            </button>
+            </Button>
             <input
               ref={fileInputRef}
               type="file"
@@ -157,22 +155,14 @@ export default function PhotoCapture({
           </>
         ) : (
           <>
-            <button
-              type="button"
-              onClick={capturePhoto}
-              className="flex items-center gap-2 px-4 py-2 bg-traffic-green text-white rounded-lg hover:bg-green-600 transition-colors"
-            >
+            <Button type="button" onClick={capturePhoto} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
               <CameraIcon className="w-5 h-5" />
               Capture
-            </button>
-            <button
-              type="button"
-              onClick={stopCamera}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-            >
+            </Button>
+            <Button type="button" variant="secondary" onClick={stopCamera} className="gap-2">
               <XMarkIcon className="w-5 h-5" />
               Cancel
-            </button>
+            </Button>
           </>
         )}
       </div>

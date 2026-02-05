@@ -1,6 +1,9 @@
 import { v4 as uuidv4 } from 'uuid'
 import { getDatabase } from '../connection'
 
+const SERIAL_PREFIX = 'GF-'
+const SERIAL_PAD = 6
+
 export interface Member {
   id: string
   name: string
@@ -29,6 +32,28 @@ export interface UpdateMemberInput {
   access_tier?: 'A' | 'B'
   photo_path?: string | null
   card_code?: string | null
+}
+
+function formatSerial(num: number): string {
+  return `${SERIAL_PREFIX}${String(num).padStart(SERIAL_PAD, '0')}`
+}
+
+export function getMaxSerialNumber(): number {
+  const db = getDatabase()
+  const result = db
+    .prepare(
+      `SELECT MAX(CAST(SUBSTR(card_code, ${SERIAL_PREFIX.length + 1}) AS INTEGER)) as max
+       FROM members
+       WHERE card_code LIKE ?`
+    )
+    .get(`${SERIAL_PREFIX}%`) as { max: number | null } | undefined
+
+  return result?.max ? Number(result.max) : 0
+}
+
+export function generateNextCardCode(): string {
+  const next = getMaxSerialNumber() + 1
+  return formatSerial(next)
 }
 
 export function normalizePhone(phone: string): string {
@@ -68,11 +93,18 @@ export function createMember(input: CreateMemberInput): Member {
   const id = uuidv4()
   const now = Math.floor(Date.now() / 1000)
   const normalizedPhone = normalizePhone(input.phone)
-  const cardCode = input.card_code ? input.card_code.trim() : null
+  let cardCode = input.card_code ? input.card_code.trim() : null
+  if (!cardCode) {
+    cardCode = generateNextCardCode()
+  }
   if (cardCode) {
-    const existing = getMemberByCardCode(cardCode)
-    if (existing) {
-      throw new Error(`Card code already in use: ${cardCode}`)
+    let existing = getMemberByCardCode(cardCode)
+    // Handle rare collision by incrementing serial until unique.
+    while (existing) {
+      const match = /^GF-(\d+)$/.exec(cardCode)
+      const nextNumber = match ? Number(match[1]) + 1 : getMaxSerialNumber() + 1
+      cardCode = formatSerial(nextNumber)
+      existing = getMemberByCardCode(cardCode)
     }
   }
 
@@ -161,8 +193,15 @@ export function updateMember(id: string, input: UpdateMemberInput): Member {
     values.push(input.photo_path)
   }
   if (input.card_code !== undefined) {
+    const nextCardCode = input.card_code ? input.card_code.trim() : null
+    if (nextCardCode) {
+      const existing = getMemberByCardCode(nextCardCode)
+      if (existing && existing.id !== id) {
+        throw new Error(`Card code already in use: ${nextCardCode}`)
+      }
+    }
     fields.push('card_code = ?')
-    values.push(input.card_code ? input.card_code.trim() : null)
+    values.push(nextCardCode)
   }
 
   fields.push('updated_at = ?')

@@ -52,6 +52,11 @@
     "scanCard": "مسح البطاقة",
     "cardHint": "يمكنك تعيين بطاقة QR الآن أو لاحقًا.",
     "cardRequired": "يرجى مسح بطاقة لتخصيصها",
+    "serialCode": "الرقم التسلسلي للعضو",
+    "serialPlaceholder": "رقم تسلسلي تلقائي",
+    "serialHint": "يتم إنشاء الرقم التسلسلي تلقائيًا ويستخدم لرمز QR.",
+    "regenerate": "إعادة توليد",
+    "regenerateConfirm": "إعادة توليد الرقم؟ ستتوقف رموز QR القديمة عن العمل.",
     "subscription": "اشتراك مبدئي",
     "createSubscription": "إنشاء اشتراك الآن",
     "planMonths": "المدة",
@@ -143,13 +148,18 @@
     "openDataFolder": "فتح مجلد البيانات",
     "backup": "نسخ احتياطي للقاعدة",
     "restore": "استعادة القاعدة",
-    "save": "حفظ الإعدادات"
-    ,
+    "save": "حفظ الإعدادات",
     "testMode": "وضع الاختبار",
     "enableTestMode": "تفعيل وضع الاختبار (تجاوز تسجيل المالك)",
     "showQr": "عرض QR",
     "qrTitle": "امسح رمز QR",
-    "qrHint": "افتح واتساب → الأجهزة المرتبطة → امسح هذا الرمز"
+    "qrHint": "افتح واتساب → الأجهزة المرتبطة → امسح هذا الرمز",
+    "accessHoursHint": "إذا تم تعطيله، يسمح بالدخول في أي وقت.",
+    "whatsappBatchMin": "الحد الأدنى لتأخير الدفعة (دقائق)",
+    "whatsappBatchMax": "الحد الأقصى لتأخير الدفعة (دقائق)",
+    "whatsappTemplateHint": "استخدم {{name}} لاسم العضو.",
+    "whatsappTemplateRenewalHint": "استخدم {{name}} و {{days}}.",
+    "whatsappTemplateSessionsHint": "استخدم {{name}} و {{sessions}}."
   },
   "import": {
     "title": "استيراد الأعضاء",
@@ -210,7 +220,8 @@
     "noResults": "لا توجد نتائج",
     "confirm": "تأكيد",
     "yes": "نعم",
-    "no": "لا"
+    "no": "لا",
+    "remove": "إزالة"
   },
   "memberDetail": {
     "qrCode": "رمز QR",
@@ -219,6 +230,7 @@
     "plan": "الخطة",
     "expires": "ينتهي",
     "months": "أشهر",
+    "serial": "الرقم التسلسلي",
     "noActiveQuota": "لا توجد حصة جلسات نشطة"
   },
   "qrCodeDisplay": {
@@ -229,13 +241,14 @@
     "codeLabel": "الكود",
     "copyCode": "نسخ الكود",
     "copied": "تم النسخ",
-    "copyFailed": "فشل النسخ"
+    "copyFailed": "فشل النسخ",
+    "whatsappNotConnected": "واتساب غير متصل. قم بربطه من الإعدادات أولاً."
   },
   "auth": {
     "loginTitle": "تسجيل الدخول إلى GymFlow",
     "onboardingTitle": "إنشاء حساب المالك",
     "connectWhatsAppTitle": "ربط واتساب",
-    "connectWhatsAppHelp": "قم بربط واتساب أولاً حتى نرسل لك رموز التحقق.",
+    "connectWhatsAppHelp": "قم بربط واتساب لاستلام رموز التحقق. يمكنك ربطه لاحقًا من الإعدادات.",
     "continue": "متابعة",
     "fullName": "الاسم الكامل",
     "namePlaceholder": "اسم المالك",
@@ -251,6 +264,7 @@
     "whatsappOtpHelp": "قم بربط واتساب لاستلام رموز التحقق وإعادة التعيين.",
     "whatsappScanQr": "امسح رمز QR أدناه",
     "whatsappNotConnected": "واتساب غير متصل",
+    "whatsappSkipWarning": "واتساب غير متصل. يمكنك المتابعة وربطه لاحقًا من الإعدادات.",
     "createAccount": "إنشاء حساب",
     "verifyTitle": "تأكيد رقم الهاتف",
     "setupSettings": "إعدادات الجيم",

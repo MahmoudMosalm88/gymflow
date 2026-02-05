@@ -4,6 +4,12 @@ import { useTranslation } from 'react-i18next'
 import { PencilIcon, TrashIcon, QrCodeIcon } from '@heroicons/react/24/outline'
 import QRCodeDisplay from '../components/QRCodeDisplay'
 import Modal from '../components/Modal'
+import { Button, buttonVariants } from '../components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { Badge } from '../components/ui/badge'
+import { Input } from '../components/ui/input'
+import { Label } from '../components/ui/label'
+import { Select } from '../components/ui/select'
 
 interface Member {
   id: string
@@ -12,6 +18,7 @@ interface Member {
   gender: 'male' | 'female'
   photo_path: string | null
   access_tier: 'A' | 'B'
+  card_code: string | null
   created_at: number
 }
 
@@ -158,7 +165,7 @@ export default function MemberDetail(): JSX.Element {
   if (isLoading) {
     return (
       <div className="p-6 flex items-center justify-center">
-        <p className="text-gray-600 dark:text-gray-400">{t('common.loading')}</p>
+        <p className="text-muted-foreground">{t('common.loading')}</p>
       </div>
     )
   }
@@ -166,7 +173,7 @@ export default function MemberDetail(): JSX.Element {
   if (!member) {
     return (
       <div className="p-6 flex items-center justify-center">
-        <p className="text-gray-600 dark:text-gray-400">{t('common.error')}</p>
+        <p className="text-muted-foreground">{t('common.error')}</p>
       </div>
     )
   }
@@ -176,13 +183,13 @@ export default function MemberDetail(): JSX.Element {
     : 0
 
   return (
-    <div className="min-h-full p-4 md:p-8 bg-gray-50 dark:bg-gray-950 max-w-5xl mx-auto">
+    <div className="min-h-full p-4 md:p-8 bg-muted/30 max-w-5xl mx-auto">
       {error && (
-        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-200 flex justify-between items-center animate-slide-up">
+        <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive flex justify-between items-center animate-slide-up">
           <span>{error}</span>
           <button
             onClick={() => setError(null)}
-            className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-bold text-lg leading-none"
+            className="text-destructive hover:text-destructive/80 font-bold text-lg leading-none"
             aria-label={t('common.close')}
           >
             ✕
@@ -192,36 +199,30 @@ export default function MemberDetail(): JSX.Element {
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-        <h1 className="text-4xl font-heading font-bold text-gray-900 dark:text-white">{member.name}</h1>
+        <h1 className="text-4xl font-heading font-bold text-foreground">{member.name}</h1>
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setShowQR(true)}
-            className="btn btn-secondary flex items-center gap-2"
-          >
+          <Button onClick={() => setShowQR(true)} variant="outline" className="gap-2">
             <QrCodeIcon className="w-5 h-5" />
             {t('memberDetail.qrCode')}
-          </button>
+          </Button>
           <Link
             to={`/members/${id}/edit`}
-            className="btn btn-secondary flex items-center gap-2"
+            className={buttonVariants({ variant: 'secondary', className: 'gap-2' })}
           >
             <PencilIcon className="w-5 h-5" />
             {t('common.edit')}
           </Link>
-          <button
-            onClick={handleDelete}
-            className="btn text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-center gap-2"
-          >
+          <Button onClick={handleDelete} variant="destructive" className="gap-2">
             <TrashIcon className="w-5 h-5" />
             {t('common.delete')}
-          </button>
+          </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Profile Card */}
-        <div className="card">
-          <div className="flex flex-col items-center">
+        <Card>
+          <CardContent className="flex flex-col items-center">
             <div className="w-32 h-32 rounded-full bg-brand-gradient overflow-hidden mb-4 shadow-lg">
               {member.photo_path ? (
                 <img
@@ -239,135 +240,145 @@ export default function MemberDetail(): JSX.Element {
                 </div>
               )}
             </div>
-            <h2 className="text-xl font-heading font-semibold text-gray-900 dark:text-white">{member.name}</h2>
-            <p className="text-gray-600 dark:text-gray-400">{member.phone}</p>
+            <h2 className="text-xl font-heading font-semibold text-foreground">{member.name}</h2>
+            <p className="text-muted-foreground">{member.phone}</p>
+            {member.card_code && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {t('memberDetail.serial', 'Serial')}: <span className="font-mono text-foreground">{member.card_code}</span>
+              </p>
+            )}
             <div className="flex gap-2 mt-3">
-              <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                {t(`members.${member.gender}`)}
-              </span>
-              <span
-                className={`px-3 py-1 rounded-full text-sm ${
-                  member.access_tier === 'A'
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-yellow-100 text-yellow-800'
-                }`}
-              >
+              <Badge variant="secondary">{t(`members.${member.gender}`)}</Badge>
+              <Badge variant={member.access_tier === 'A' ? 'success' : 'warning'}>
                 {t(`members.tier${member.access_tier}`)}
-              </span>
+              </Badge>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Subscription Card */}
-        <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            {t('subscriptions.title')}
-          </h3>
-          {subscription ? (
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">{t('memberDetail.status')}</span>
-                <span
-                  className={`font-medium ${
-                    daysRemaining > 3 ? 'text-green-600' : daysRemaining > 0 ? 'text-yellow-600' : 'text-red-600'
-                  }`}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('subscriptions.title')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {subscription ? (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{t('memberDetail.status')}</span>
+                  <span
+                    className={`font-medium ${
+                      daysRemaining > 3
+                        ? 'text-emerald-600'
+                        : daysRemaining > 0
+                          ? 'text-amber-600'
+                          : 'text-red-600'
+                    }`}
+                  >
+                    {daysRemaining > 0 ? t('subscriptions.active') : t('subscriptions.expired')}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{t('memberDetail.plan')}</span>
+                  <span className="font-medium">
+                    {subscription.plan_months} {t('memberDetail.months')}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">{t('memberDetail.expires')}</span>
+                  <span className="font-medium">
+                    {new Date(subscription.end_date * 1000).toLocaleDateString()}
+                  </span>
+                </div>
+                {daysRemaining > 0 && (
+                  <div className="pt-2 border-t border-border">
+                    <div
+                      className={`text-center font-semibold ${
+                        daysRemaining <= 3 ? 'text-amber-600' : 'text-foreground'
+                      }`}
+                    >
+                      {t('attendance.daysRemaining', { count: daysRemaining })}
+                    </div>
+                  </div>
+                )}
+                <div className="pt-4 border-t border-border flex gap-2">
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setError(null)
+                      setPricePaid('')
+                      setShowRenewModal(true)
+                    }}
+                    className="flex-1"
+                  >
+                    {t('subscriptions.renew')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setError(null)
+                      setPricePaid(subscription.price_paid?.toString() || '')
+                      setShowPaymentModal(true)
+                    }}
+                    className="flex-1"
+                  >
+                    {t('subscriptions.recordPayment')}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-muted-foreground">{t('subscriptions.noSubscriptions')}</p>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setError(null)
+                    setPricePaid('')
+                    setShowRenewModal(true)
+                  }}
+                  className="w-full"
                 >
-                  {daysRemaining > 0 ? t('subscriptions.active') : t('subscriptions.expired')}
-                </span>
+                  {t('subscriptions.renew')}
+                </Button>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">{t('memberDetail.plan')}</span>
-                <span className="font-medium">{subscription.plan_months} {t('memberDetail.months')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">{t('memberDetail.expires')}</span>
-                <span className="font-medium">
-                  {new Date(subscription.end_date * 1000).toLocaleDateString()}
-                </span>
-              </div>
-	              {daysRemaining > 0 && (
-	                <div className="pt-2 border-t border-gray-200">
-	                  <div
-	                    className={`text-center font-semibold ${
-	                      daysRemaining <= 3 ? 'text-yellow-600' : 'text-gray-700'
-	                    }`}
-	                  >
-	                    {t('attendance.daysRemaining', { count: daysRemaining })}
-	                  </div>
-	                </div>
-	              )}
-	              <div className="pt-4 border-t border-gray-200 flex gap-2">
-	                <button
-	                  type="button"
-	                  onClick={() => {
-	                    setError(null)
-	                    setPricePaid('')
-	                    setShowRenewModal(true)
-	                  }}
-	                  className="flex-1 px-3 py-2 btn btn-primary"
-	                >
-	                  {t('subscriptions.renew')}
-	                </button>
-	                <button
-	                  type="button"
-	                  onClick={() => {
-	                    setError(null)
-	                    setPricePaid(subscription.price_paid?.toString() || '')
-	                    setShowPaymentModal(true)
-	                  }}
-	                  className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-	                >
-	                  {t('subscriptions.recordPayment')}
-	                </button>
-	              </div>
-	            </div>
-	          ) : (
-	            <div className="space-y-4">
-	              <p className="text-gray-600 dark:text-gray-400">{t('subscriptions.noSubscriptions')}</p>
-	              <button
-	                type="button"
-	                onClick={() => {
-	                  setError(null)
-	                  setPricePaid('')
-	                  setShowRenewModal(true)
-	                }}
-	                className="w-full px-3 py-2 btn btn-primary"
-	              >
-	                {t('subscriptions.renew')}
-	              </button>
-	            </div>
-	          )}
-	        </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Sessions Card */}
-        <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('memberDetail.sessions')}</h3>
-          {quota ? (
-            <div className="space-y-4">
-              <div className="text-center">
-                <span className="text-4xl font-bold text-gym-primary">
-                  {quota.sessions_cap - quota.sessions_used}
-                </span>
-                <span className="text-gray-500 text-lg"> / {quota.sessions_cap}</span>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('memberDetail.sessions')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {quota ? (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <span className="text-4xl font-bold text-primary">
+                    {quota.sessions_cap - quota.sessions_used}
+                  </span>
+                  <span className="text-muted-foreground text-lg"> / {quota.sessions_cap}</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-3">
+                  <div
+                    className="bg-primary h-3 rounded-full transition-all"
+                    style={{
+                      width: `${((quota.sessions_cap - quota.sessions_used) / quota.sessions_cap) * 100}%`
+                    }}
+                  />
+                </div>
+                <p className="text-center text-sm text-muted-foreground">
+                  {t('attendance.sessionsRemaining', {
+                    count: quota.sessions_cap - quota.sessions_used
+                  })}
+                </p>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
-                <div
-                  className="bg-gym-primary h-3 rounded-full transition-all"
-                  style={{
-                    width: `${((quota.sessions_cap - quota.sessions_used) / quota.sessions_cap) * 100}%`
-                  }}
-                />
-              </div>
-              <p className="text-center text-sm text-gray-500">
-                {t('attendance.sessionsRemaining', {
-                  count: quota.sessions_cap - quota.sessions_used
-                })}
-              </p>
-            </div>
-          ) : (
-            <p className="text-gray-600 dark:text-gray-400">{t('memberDetail.noActiveQuota')}</p>
-          )}
-        </div>
+            ) : (
+              <p className="text-muted-foreground">{t('memberDetail.noActiveQuota')}</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* QR Code Modal */}
@@ -384,48 +395,39 @@ export default function MemberDetail(): JSX.Element {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
-                {t('memberForm.planMonths')}
-              </label>
-              <select
+              <Label className="mb-2 block">{t('memberForm.planMonths')}</Label>
+              <Select
                 value={planMonths}
                 onChange={(e) => setPlanMonths(Number(e.target.value) as 1 | 3 | 6 | 12)}
-                className="w-full input-field"
               >
                 <option value={1}>1 {t('memberForm.month')}</option>
                 <option value={3}>3 {t('memberForm.months')}</option>
                 <option value={6}>6 {t('memberForm.months')}</option>
                 <option value={12}>12 {t('memberForm.months')}</option>
-              </select>
+              </Select>
             </div>
             <div>
-              <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
-                {t('memberForm.pricePaid')}
-              </label>
-              <input
+              <Label className="mb-2 block">{t('memberForm.pricePaid')}</Label>
+              <Input
                 type="number"
                 min="0"
                 value={pricePaid}
                 onChange={(e) => setPricePaid(e.target.value)}
-                className="w-full input-field"
               />
-              <p className="text-xs text-gray-500 mt-2">{t('subscriptions.cashOnly')}</p>
+              <p className="text-xs text-muted-foreground mt-2">{t('subscriptions.cashOnly')}</p>
             </div>
             <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={handleRenew}
-                className="flex-1 py-2.5 btn btn-primary"
-              >
+              <Button type="button" onClick={handleRenew} className="flex-1">
                 {t('common.save')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => setShowRenewModal(false)}
-                className="flex-1 py-2.5 btn btn-secondary"
+                className="flex-1"
               >
                 {t('common.cancel')}
-              </button>
+              </Button>
             </div>
           </div>
         </Modal>
@@ -440,33 +442,27 @@ export default function MemberDetail(): JSX.Element {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-heading font-semibold text-gray-900 dark:text-white mb-2">
-                {t('memberForm.pricePaid')}
-              </label>
-              <input
+              <Label className="mb-2 block">{t('memberForm.pricePaid')}</Label>
+              <Input
                 type="number"
                 min="0"
                 value={pricePaid}
                 onChange={(e) => setPricePaid(e.target.value)}
-                className="w-full input-field"
               />
-              <p className="text-xs text-gray-500 mt-2">{t('subscriptions.cashOnly')}</p>
+              <p className="text-xs text-muted-foreground mt-2">{t('subscriptions.cashOnly')}</p>
             </div>
             <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={handleRecordPayment}
-                className="flex-1 py-2.5 btn btn-primary"
-              >
+              <Button type="button" onClick={handleRecordPayment} className="flex-1">
                 {t('common.save')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => setShowPaymentModal(false)}
-                className="flex-1 py-2.5 btn btn-secondary"
+                className="flex-1"
               >
                 {t('common.cancel')}
-              </button>
+              </Button>
             </div>
           </div>
         </Modal>

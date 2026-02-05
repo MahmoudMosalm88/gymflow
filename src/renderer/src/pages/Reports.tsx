@@ -8,6 +8,8 @@ import {
   ChartBarIcon,
   ArrowTrendingUpIcon
 } from '@heroicons/react/24/outline'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { Select } from '../components/ui/select'
 
 interface DailyStat {
   date: string
@@ -129,26 +131,25 @@ export default function Reports() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
       </div>
     )
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 bg-muted/30 min-h-full">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-2xl font-bold text-foreground">
           {t('reports.title', 'Reports')}
         </h1>
-        <select
+        <Select
           value={dateRange}
           onChange={(e) => setDateRange(Number(e.target.value))}
-          className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2"
         >
           <option value={7}>{t('reports.range.7days', 'Last 7 days')}</option>
           <option value={30}>{t('reports.range.30days', 'Last 30 days')}</option>
           <option value={90}>{t('reports.range.90days', 'Last 90 days')}</option>
-        </select>
+        </Select>
       </div>
 
       {/* Overview Cards */}
@@ -183,264 +184,284 @@ export default function Reports() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Daily Attendance Chart */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <ChartBarIcon className="w-5 h-5" />
-            {t('reports.dailyAttendance', 'Daily Attendance')}
-          </h2>
-          {dailyStats.length === 0 ? (
-            <div className="h-64 flex items-center justify-center bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <p className="text-gray-500 dark:text-gray-400">
-                {t('reports.noData', 'No data available')}
-              </p>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <ChartBarIcon className="w-5 h-5" />
+              {t('reports.dailyAttendance', 'Daily Attendance')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {dailyStats.length === 0 ? (
+              <div className="h-64 flex items-center justify-center bg-muted rounded-lg">
+                <p className="text-muted-foreground">
+                  {t('reports.noData', 'No data available')}
+                </p>
+              </div>
+            ) : (
+              <div className="h-64 flex items-end gap-1">
+                {dailyStats.slice(-14).map((day) => {
+                  const dayTotal = day.allowed + day.warning + day.denied
+                  return (
+                    <div key={day.date} className="flex-1 flex flex-col items-center">
+                      {dayTotal === 0 ? (
+                        <div className="w-full h-2 bg-muted rounded" title={`${formatDate(day.date)}: No data`} />
+                      ) : (
+                        <>
+                          {day.allowed > 0 && (
+                            <div
+                              className="w-full bg-green-500 rounded-t"
+                              style={{ height: `${(day.allowed / maxDailyTotal) * 100}%` }}
+                              title={`Allowed: ${day.allowed}`}
+                            />
+                          )}
+                          {day.warning > 0 && (
+                            <div
+                              className="w-full bg-yellow-500"
+                              style={{ height: `${(day.warning / maxDailyTotal) * 100}%` }}
+                              title={`Warning: ${day.warning}`}
+                            />
+                          )}
+                          {day.denied > 0 && (
+                            <div
+                              className="w-full bg-red-500 rounded-b"
+                              style={{ height: `${(day.denied / maxDailyTotal) * 100}%` }}
+                              title={`Denied: ${day.denied}`}
+                            />
+                          )}
+                        </>
+                      )}
+                      <span className="text-xs text-muted-foreground mt-1 transform -rotate-45 origin-top-left whitespace-nowrap">
+                        {formatDate(day.date)}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <div className="flex justify-center gap-4 mt-4 text-sm">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-green-500 rounded" />
+                <span className="text-muted-foreground">
+                  {t('reports.legend.allowed', 'Allowed')}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-yellow-500 rounded" />
+                <span className="text-muted-foreground">
+                  {t('reports.legend.warning', 'Warning')}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-red-500 rounded" />
+                <span className="text-muted-foreground">
+                  {t('reports.legend.denied', 'Denied')}
+                </span>
+              </div>
             </div>
-          ) : (
-            <div className="h-64 flex items-end gap-1">
-              {dailyStats.slice(-14).map((day) => {
-                const dayTotal = day.allowed + day.warning + day.denied
-                return (
-                  <div key={day.date} className="flex-1 flex flex-col items-center">
-                    {dayTotal === 0 ? (
-                      <div className="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded" title={`${formatDate(day.date)}: No data`} />
-                    ) : (
-                      <>
-                        {day.allowed > 0 && (
-                          <div
-                            className="w-full bg-green-500 rounded-t"
-                            style={{ height: `${(day.allowed / maxDailyTotal) * 100}%` }}
-                            title={`Allowed: ${day.allowed}`}
-                          />
-                        )}
-                        {day.warning > 0 && (
-                          <div
-                            className="w-full bg-yellow-500"
-                            style={{ height: `${(day.warning / maxDailyTotal) * 100}%` }}
-                            title={`Warning: ${day.warning}`}
-                          />
-                        )}
-                        {day.denied > 0 && (
-                          <div
-                            className="w-full bg-red-500 rounded-b"
-                            style={{ height: `${(day.denied / maxDailyTotal) * 100}%` }}
-                            title={`Denied: ${day.denied}`}
-                          />
-                        )}
-                      </>
-                    )}
-                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 transform -rotate-45 origin-top-left whitespace-nowrap">
-                      {formatDate(day.date)}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-          <div className="flex justify-center gap-4 mt-4 text-sm">
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-green-500 rounded" />
-              <span className="text-gray-600 dark:text-gray-400">
-                {t('reports.legend.allowed', 'Allowed')}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-yellow-500 rounded" />
-              <span className="text-gray-600 dark:text-gray-400">
-                {t('reports.legend.warning', 'Warning')}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-red-500 rounded" />
-              <span className="text-gray-600 dark:text-gray-400">
-                {t('reports.legend.denied', 'Denied')}
-              </span>
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Hourly Distribution */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <ClockIcon className="w-5 h-5" />
-            {t('reports.hourlyDistribution', "Today's Hourly Distribution")}
-          </h2>
-          {hourlyStats.length === 0 ? (
-            <div className="h-64 flex items-center justify-center bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <p className="text-gray-500 dark:text-gray-400">
-                {t('reports.noData', 'No data available')}
-              </p>
-            </div>
-          ) : (
-            <div className="h-64 flex items-end gap-1">
-              {Array.from({ length: 24 }, (_, hour) => {
-                const stat = hourlyStats.find((h) => h.hour === hour)
-                const count = stat?.count || 0
-                const height = (count / maxHourlyCount) * 100
-                return (
-                  <div key={hour} className="flex-1 flex flex-col items-center">
-                    {count === 0 ? (
-                      <div className="w-full h-1 bg-gray-200 dark:bg-gray-600 rounded" title={`${hour}:00: No data`} />
-                    ) : (
-                      <div
-                        className="w-full bg-blue-500 rounded-t transition-all hover:bg-blue-600"
-                        style={{ height: `${height}%`, minHeight: '4px' }}
-                        title={`${hour}:00: ${count} check-ins`}
-                      />
-                    )}
-                    {hour % 3 === 0 && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{hour}</span>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <ClockIcon className="w-5 h-5" />
+              {t('reports.hourlyDistribution', "Today's Hourly Distribution")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {hourlyStats.length === 0 ? (
+              <div className="h-64 flex items-center justify-center bg-muted rounded-lg">
+                <p className="text-muted-foreground">
+                  {t('reports.noData', 'No data available')}
+                </p>
+              </div>
+            ) : (
+              <div className="h-64 flex items-end gap-1">
+                {Array.from({ length: 24 }, (_, hour) => {
+                  const stat = hourlyStats.find((h) => h.hour === hour)
+                  const count = stat?.count || 0
+                  const height = (count / maxHourlyCount) * 100
+                  return (
+                    <div key={hour} className="flex-1 flex flex-col items-center">
+                      {count === 0 ? (
+                        <div className="w-full h-1 bg-muted rounded" title={`${hour}:00: No data`} />
+                      ) : (
+                        <div
+                          className="w-full bg-blue-500 rounded-t transition-all hover:bg-blue-600"
+                          style={{ height: `${height}%`, minHeight: '4px' }}
+                          title={`${hour}:00: ${count} check-ins`}
+                        />
+                      )}
+                      {hour % 3 === 0 && (
+                        <span className="text-xs text-muted-foreground mt-1">{hour}</span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Top Members */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            {t('reports.topMembers', 'Most Active Members')}
-          </h2>
-          {topMembers.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">
-              {t('reports.noData', 'No data available')}
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {topMembers.map((member, index) => (
-                <div
-                  key={member.member_id}
-                  className="flex items-center gap-3 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
-                  <span
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                      index < 3
-                        ? 'bg-yellow-400 text-yellow-900'
-                        : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
-                    }`}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle>{t('reports.topMembers', 'Most Active Members')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {topMembers.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">
+                {t('reports.noData', 'No data available')}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {topMembers.map((member, index) => (
+                  <div
+                    key={member.member_id}
+                    className="flex items-center gap-3 p-2 rounded hover:bg-muted"
                   >
-                    {index + 1}
-                  </span>
-                  <span className="flex-1 text-gray-900 dark:text-white">{member.name}</span>
-                  <span className="text-sm font-medium text-blue-600">
-                    {member.visits} {t('reports.visits', 'visits')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                    <span
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        index < 3
+                          ? 'bg-yellow-400 text-yellow-900'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {index + 1}
+                    </span>
+                    <span className="flex-1 text-foreground">{member.name}</span>
+                    <span className="text-sm font-medium text-blue-600">
+                      {member.visits} {t('reports.visits', 'visits')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Denial Reasons */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            {t('reports.denialReasons', 'Denial Reasons')}
-          </h2>
-          {denialReasons.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">
-              {t('reports.noDenials', 'No denials in this period')}
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {denialReasons.map((reason) => {
-                const total = denialReasons.reduce((sum, r) => sum + r.count, 0)
-                const percentage = Math.round((reason.count / total) * 100)
-                return (
-                  <div key={reason.reason_code}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-700 dark:text-gray-300">
-                        {getReasonLabel(reason.reason_code)}
-                      </span>
-                      <span className="text-gray-500">
-                        {reason.count} ({percentage}%)
-                      </span>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle>{t('reports.denialReasons', 'Denial Reasons')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {denialReasons.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">
+                {t('reports.noDenials', 'No denials in this period')}
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {denialReasons.map((reason) => {
+                  const total = denialReasons.reduce((sum, r) => sum + r.count, 0)
+                  const percentage = Math.round((reason.count / total) * 100)
+                  return (
+                    <div key={reason.reason_code}>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-foreground">
+                          {getReasonLabel(reason.reason_code)}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {reason.count} ({percentage}%)
+                        </span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-red-500 rounded-full"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-red-500 rounded-full"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Alerts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Expiring Subscriptions */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500" />
-            {t('reports.expiringSubscriptions', 'Expiring This Week')}
-          </h2>
-          {expiringSubscriptions.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">
-              {t('reports.noExpiring', 'No subscriptions expiring soon')}
-            </p>
-          ) : (
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {expiringSubscriptions.map((sub) => {
-                const daysLeft = Math.ceil(
-                  (sub.end_date - Math.floor(Date.now() / 1000)) / 86400
-                )
-                return (
-                  <div
-                    key={sub.id}
-                    className="flex items-center justify-between p-2 rounded bg-yellow-50 dark:bg-yellow-900/20"
-                  >
-                    <div>
-                      <div className="font-medium text-gray-900 dark:text-white">{sub.name}</div>
-                      <div className="text-xs text-gray-500">{sub.phone}</div>
-                    </div>
-                    <span
-                      className={`text-sm font-medium px-2 py-1 rounded ${
-                        daysLeft <= 1
-                          ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
-                          : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400'
-                      }`}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500" />
+              {t('reports.expiringSubscriptions', 'Expiring This Week')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {expiringSubscriptions.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">
+                {t('reports.noExpiring', 'No subscriptions expiring soon')}
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {expiringSubscriptions.map((sub) => {
+                  const daysLeft = Math.ceil(
+                    (sub.end_date - Math.floor(Date.now() / 1000)) / 86400
+                  )
+                  return (
+                    <div
+                      key={sub.id}
+                      className="flex items-center justify-between p-2 rounded bg-yellow-50"
                     >
-                      {daysLeft} {t('reports.daysLeft', 'days left')}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+                      <div>
+                        <div className="font-medium text-foreground">{sub.name}</div>
+                        <div className="text-xs text-muted-foreground">{sub.phone}</div>
+                      </div>
+                      <span
+                        className={`text-sm font-medium px-2 py-1 rounded ${
+                          daysLeft <= 1
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                        }`}
+                      >
+                        {daysLeft} {t('reports.daysLeft', 'days left')}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Low Sessions */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <ExclamationTriangleIcon className="w-5 h-5 text-orange-500" />
-            {t('reports.lowSessions', 'Low Sessions Remaining')}
-          </h2>
-          {lowSessionMembers.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">
-              {t('reports.noLowSessions', 'No members with low sessions')}
-            </p>
-          ) : (
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {lowSessionMembers.map((member) => (
-                <div
-                  key={member.member_id}
-                  className="flex items-center justify-between p-2 rounded bg-orange-50 dark:bg-orange-900/20"
-                >
-                  <div>
-                    <div className="font-medium text-gray-900 dark:text-white">{member.name}</div>
-                    <div className="text-xs text-gray-500">{member.phone}</div>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <ExclamationTriangleIcon className="w-5 h-5 text-orange-500" />
+              {t('reports.lowSessions', 'Low Sessions Remaining')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {lowSessionMembers.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">
+                {t('reports.noLowSessions', 'No members with low sessions')}
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {lowSessionMembers.map((member) => (
+                  <div
+                    key={member.member_id}
+                    className="flex items-center justify-between p-2 rounded bg-orange-50"
+                  >
+                    <div>
+                      <div className="font-medium text-foreground">{member.name}</div>
+                      <div className="text-xs text-muted-foreground">{member.phone}</div>
+                    </div>
+                    <span className="text-sm font-medium px-2 py-1 rounded bg-orange-100 text-orange-700">
+                      {member.sessions_remaining} {t('reports.sessionsLeft', 'sessions')}
+                    </span>
                   </div>
-                  <span className="text-sm font-medium px-2 py-1 rounded bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">
-                    {member.sessions_remaining} {t('reports.sessionsLeft', 'sessions')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
@@ -458,23 +479,23 @@ function OverviewCard({
   color: 'blue' | 'green' | 'purple' | 'red'
 }) {
   const colors = {
-    blue: 'bg-blue-50 dark:bg-blue-900/20 text-blue-600',
-    green: 'bg-green-50 dark:bg-green-900/20 text-green-600',
-    purple: 'bg-purple-50 dark:bg-purple-900/20 text-purple-600',
-    red: 'bg-red-50 dark:bg-red-900/20 text-red-600'
+    blue: 'bg-blue-50 text-blue-600',
+    green: 'bg-green-50 text-green-600',
+    purple: 'bg-purple-50 text-purple-600',
+    red: 'bg-red-50 text-red-600'
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-      <div className="flex items-center gap-3">
+    <Card>
+      <CardContent className="flex items-center gap-3">
         <div className={`p-2 rounded-lg ${colors[color]}`}>
           <Icon className="w-6 h-6" />
         </div>
         <div>
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">{value}</div>
-          <div className="text-sm text-gray-500">{label}</div>
+          <div className="text-2xl font-bold text-foreground">{value}</div>
+          <div className="text-sm text-muted-foreground">{label}</div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }

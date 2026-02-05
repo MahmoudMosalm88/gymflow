@@ -30,12 +30,12 @@ export default function GlobalErrorOverlay(): JSX.Element | null {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]">
-      <div className="bg-white rounded-xl p-6 max-w-lg w-full">
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">Error</h2>
-        <p className="text-sm text-gray-700 mb-4">{message}</p>
+      <div className="bg-card rounded-xl p-6 max-w-lg w-full border border-border shadow-lg">
+        <h2 className="text-lg font-semibold text-foreground mb-2">Error</h2>
+        <p className="text-sm text-muted-foreground mb-4">{message}</p>
         <button
           onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-gym-primary text-white rounded-lg hover:bg-blue-600 transition-colors"
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
         >
           Reload
         </button>

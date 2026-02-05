@@ -6,6 +6,7 @@ const api = {
   members: {
     getAll: () => ipcRenderer.invoke('members:getAll'),
     getById: (id: string) => ipcRenderer.invoke('members:getById', id),
+    getNextSerial: () => ipcRenderer.invoke('members:getNextSerial'),
     create: (data: unknown) => ipcRenderer.invoke('members:create', data),
     update: (id: string, data: unknown) => ipcRenderer.invoke('members:update', id, data),
     delete: (id: string) => ipcRenderer.invoke('members:delete', id),
@@ -83,8 +84,8 @@ const api = {
     disconnect: () => ipcRenderer.invoke('whatsapp:disconnect'),
     sendMessage: (memberId: string, type: string) =>
       ipcRenderer.invoke('whatsapp:sendMessage', memberId, type),
-    sendQRCode: (memberId: string, memberName: string, qrDataUrl: string) =>
-      ipcRenderer.invoke('whatsapp:sendQRCode', memberId, memberName, qrDataUrl),
+    sendQRCode: (memberId: string, memberName: string, qrDataUrl: string, code?: string) =>
+      ipcRenderer.invoke('whatsapp:sendQRCode', memberId, memberName, qrDataUrl, code),
     sendImmediate: (memberId: string) => ipcRenderer.invoke('whatsapp:sendImmediate', memberId),
     getQueueStatus: () => ipcRenderer.invoke('whatsapp:getQueueStatus'),
     getQueueMessages: (limit?: number) => ipcRenderer.invoke('whatsapp:getQueueMessages', limit),
@@ -113,6 +114,7 @@ const api = {
   // App operations
   app: {
     openDataFolder: () => ipcRenderer.invoke('app:openDataFolder'),
+    openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
     backup: (destPath?: string) => ipcRenderer.invoke('app:backup', destPath),
     restore: (srcPath?: string) => ipcRenderer.invoke('app:restore', srcPath),
     getVersion: () => ipcRenderer.invoke('app:getVersion'),
