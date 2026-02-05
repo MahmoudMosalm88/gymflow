@@ -9,6 +9,7 @@ export interface Subscription {
   end_date: number
   plan_months: 1 | 3 | 6 | 12
   price_paid: number | null
+  sessions_per_month: number | null
   is_active: number
   created_at: number
 }
@@ -17,6 +18,7 @@ export interface CreateSubscriptionInput {
   member_id: string
   plan_months: 1 | 3 | 6 | 12
   price_paid?: number
+  sessions_per_month?: number
   start_date?: number // Unix timestamp, defaults to now
 }
 
@@ -49,6 +51,12 @@ export function createSubscription(input: CreateSubscriptionInput): Subscription
   const transaction = db.transaction(() => {
     const now = Math.floor(Date.now() / 1000)
     const startDate = input.start_date || now
+    if (
+      input.sessions_per_month !== undefined &&
+      (!Number.isFinite(input.sessions_per_month) || input.sessions_per_month < 1)
+    ) {
+      throw new Error('Sessions per month must be a positive number')
+    }
 
     // Calculate end date based on plan months (30 days per month)
     const durationDays = input.plan_months * DAYS_PER_MONTH
@@ -62,10 +70,18 @@ export function createSubscription(input: CreateSubscriptionInput): Subscription
     // Create new subscription
     const result = db
       .prepare(
-        `INSERT INTO subscriptions (member_id, start_date, end_date, plan_months, price_paid, is_active, created_at)
-         VALUES (?, ?, ?, ?, ?, 1, ?)`
+        `INSERT INTO subscriptions (member_id, start_date, end_date, plan_months, price_paid, sessions_per_month, is_active, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, 1, ?)`
       )
-      .run(input.member_id, startDate, endDate, input.plan_months, input.price_paid || null, now)
+      .run(
+        input.member_id,
+        startDate,
+        endDate,
+        input.plan_months,
+        input.price_paid || null,
+        input.sessions_per_month || null,
+        now
+      )
 
     return result.lastInsertRowid as number
   })
@@ -77,10 +93,17 @@ export function createSubscription(input: CreateSubscriptionInput): Subscription
 export function renewSubscription(
   memberId: string,
   planMonths: 1 | 3 | 6 | 12,
-  pricePaid?: number
+  pricePaid?: number,
+  sessionsPerMonth?: number
 ): Subscription {
   const db = getDatabase()
   const now = Math.floor(Date.now() / 1000)
+  if (
+    sessionsPerMonth !== undefined &&
+    (!Number.isFinite(sessionsPerMonth) || sessionsPerMonth < 1)
+  ) {
+    throw new Error('Sessions per month must be a positive number')
+  }
   
   // Use a transaction to ensure atomicity
   const transaction = db.transaction(() => {
@@ -110,10 +133,10 @@ export function renewSubscription(
     // 5. Create the new subscription
     const result = db
       .prepare(
-        `INSERT INTO subscriptions (member_id, start_date, end_date, plan_months, price_paid, is_active, created_at)
-         VALUES (?, ?, ?, ?, ?, 1, ?)`
+        `INSERT INTO subscriptions (member_id, start_date, end_date, plan_months, price_paid, sessions_per_month, is_active, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, 1, ?)`
       )
-      .run(memberId, startDate, endDate, planMonths, pricePaid || null, now)
+      .run(memberId, startDate, endDate, planMonths, pricePaid || null, sessionsPerMonth || null, now)
     
     const newSubscriptionId = result.lastInsertRowid as number
     
@@ -128,9 +151,11 @@ export function renewSubscription(
     
     // Get session cap based on gender
     const sessionCap =
-      member.gender === 'male'
-        ? getSetting<number>('session_cap_male', 26)
-        : getSetting<number>('session_cap_female', 30)
+      sessionsPerMonth && sessionsPerMonth > 0
+        ? sessionsPerMonth
+        : member.gender === 'male'
+          ? getSetting<number>('session_cap_male', 26)
+          : getSetting<number>('session_cap_female', 30)
     
     db.prepare(
       `INSERT INTO quotas (member_id, subscription_id, cycle_start, cycle_end, sessions_used, sessions_cap)

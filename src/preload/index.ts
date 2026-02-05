@@ -48,7 +48,11 @@ const api = {
       ipcRenderer.invoke('subscriptions:renew', memberId, data),
     cancel: (id: number) => ipcRenderer.invoke('subscriptions:cancel', id),
     updatePricePaid: (id: number, pricePaid: number | null) =>
-      ipcRenderer.invoke('subscriptions:updatePricePaid', id, pricePaid)
+      ipcRenderer.invoke('subscriptions:updatePricePaid', id, pricePaid),
+    freeze: (subscriptionId: number, days: number) =>
+      ipcRenderer.invoke('subscriptions:freeze', subscriptionId, days),
+    getFreezes: (subscriptionId: number) =>
+      ipcRenderer.invoke('subscriptions:getFreezes', subscriptionId)
   },
 
   // Attendance operations
@@ -66,6 +70,14 @@ const api = {
     getCurrentByMember: (memberId: string) =>
       ipcRenderer.invoke('quotas:getCurrentByMember', memberId),
     getHistory: (memberId: string) => ipcRenderer.invoke('quotas:getHistory', memberId)
+  },
+
+  // Guest pass operations
+  guestpasses: {
+    create: (data: unknown) => ipcRenderer.invoke('guestpasses:create', data),
+    list: (limit?: number) => ipcRenderer.invoke('guestpasses:list', limit),
+    getByCode: (code: string) => ipcRenderer.invoke('guestpasses:getByCode', code),
+    markUsed: (code: string) => ipcRenderer.invoke('guestpasses:markUsed', code)
   },
 
   // Settings operations
@@ -145,6 +157,12 @@ const api = {
       ipcRenderer.invoke('reports:getExpiringSubscriptions', days),
     getLowSessionMembers: (threshold?: number) =>
       ipcRenderer.invoke('reports:getLowSessionMembers', threshold)
+  },
+
+  // Income operations
+  income: {
+    getSummary: () => ipcRenderer.invoke('income:getSummary'),
+    getRecent: (limit?: number) => ipcRenderer.invoke('income:getRecent', limit)
   }
 }
 

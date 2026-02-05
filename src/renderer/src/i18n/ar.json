@@ -3,7 +3,9 @@
     "dashboard": "لوحة التحكم",
     "members": "الأعضاء",
     "subscriptions": "الاشتراكات",
+    "guestPasses": "تصاريح التجربة",
     "reports": "التقارير",
+    "income": "الدخل",
     "import": "استيراد",
     "settings": "الإعدادات",
     "logout": "تسجيل الخروج"
@@ -67,6 +69,10 @@
     "capturePhoto": "التقاط صورة",
     "uploadPhoto": "رفع صورة",
     "removePhoto": "إزالة الصورة",
+    "address": "العنوان",
+    "addressPlaceholder": "الشارع، المنطقة، المدينة",
+    "sessionsPerMonth": "عدد الجلسات شهريًا",
+    "sessionsRequired": "أدخل عدد الجلسات شهريًا",
     "save": "حفظ العضو",
     "cancel": "إلغاء"
   },
@@ -100,10 +106,13 @@
       "unknown_qr": "رمز QR غير معروف",
       "expired": "الاشتراك منتهي",
       "no_sessions": "لا توجد جلسات متبقية",
-      "outside_hours": "خارج ساعات الدخول",
       "cooldown": "تم تسجيل الدخول مؤخراً",
       "not_started": "لم يبدأ الاشتراك بعد",
-      "no_quota": "تعذر إنشاء حصة الجلسات"
+      "no_quota": "تعذر إنشاء حصة الجلسات",
+      "guest_used": "تم استخدام تصريح التجربة",
+      "guest_expired": "تصريح التجربة منتهي",
+      "guest_pass": "دخول بتصريح تجربة",
+      "frozen": "الاشتراك مجمد"
     },
     "sessionsRemaining_one": "{{count}} جلسة متبقية",
     "sessionsRemaining_other": "{{count}} جلسات متبقية",
@@ -201,10 +210,12 @@
     "reason": {
       "unknownQr": "رمز QR غير معروف",
       "expired": "اشتراك منتهي",
-      "outsideHours": "خارج ساعات الدخول",
       "noSessions": "لا توجد جلسات متبقية",
       "noQuota": "لا توجد حصة",
-      "notStarted": "لم يبدأ بعد"
+      "notStarted": "لم يبدأ بعد",
+      "frozen": "الاشتراك مجمد",
+      "guestUsed": "تم استخدام تصريح التجربة",
+      "guestExpired": "تصريح التجربة منتهي"
     }
   },
   "common": {
@@ -231,7 +242,15 @@
     "expires": "ينتهي",
     "months": "أشهر",
     "serial": "الرقم التسلسلي",
-    "noActiveQuota": "لا توجد حصة جلسات نشطة"
+    "noActiveQuota": "لا توجد حصة جلسات نشطة",
+    "address": "العنوان",
+    "sessionsPerMonth": "جلسات / شهر",
+    "freeze": "تجميد",
+    "frozen": "مجمد",
+    "freezeTitle": "تجميد الاشتراك",
+    "freezeDays": "أيام التجميد",
+    "freezeHint": "سيتم تمديد نهاية العضوية بعدد أيام التجميد.",
+    "frozenUntil": "مجمد حتى"
   },
   "qrCodeDisplay": {
     "title": "رمز QR",
@@ -243,6 +262,47 @@
     "copied": "تم النسخ",
     "copyFailed": "فشل النسخ",
     "whatsappNotConnected": "واتساب غير متصل. قم بربطه من الإعدادات أولاً."
+  },
+  "guestPasses": {
+    "title": "تصاريح التجربة",
+    "subtitle": "أنشئ تصاريح تجربة لمرة واحدة وتابع الاستخدام.",
+    "create": "إنشاء تصريح تجربة",
+    "createHint": "إنشاء رمز QR لدخول تجربة واحدة.",
+    "name": "اسم الزائر",
+    "phone": "رقم الهاتف (اختياري)",
+    "validity": "مدة الصلاحية (أيام)",
+    "price": "المبلغ المدفوع",
+    "generate": "إنشاء QR",
+    "recent": "أحدث التصاريح",
+    "recentHint": "آخر التصاريح وحالتها.",
+    "none": "لا توجد تصاريح بعد.",
+    "active": "نشط",
+    "used": "مستخدم",
+    "expired": "منتهي",
+    "code": "الكود",
+    "expires": "ينتهي",
+    "qrTitle": "رمز تصريح التجربة",
+    "share": "مشاركة عبر واتساب",
+    "shareText": "تصريح تجربة",
+    "nameRequired": "اسم الزائر مطلوب"
+  },
+  "income": {
+    "title": "الدخل",
+    "subtitle": "تتبع إجمالي الإيرادات والدخل المتوقع شهريًا.",
+    "total": "إجمالي الإيراد",
+    "totalHint": "جميع المدفوعات المسجلة",
+    "expected": "المتوقع شهريًا",
+    "expectedHint": "الاشتراكات النشطة فقط",
+    "recent": "المدفوعات الأخيرة",
+    "recentHint": "الاشتراكات وتصاريح التجربة",
+    "none": "لا توجد سجلات دخل بعد.",
+    "date": "التاريخ",
+    "type": "النوع",
+    "name": "الاسم",
+    "amount": "المبلغ",
+    "details": "التفاصيل",
+    "subscription": "اشتراك",
+    "guestPass": "تصريح تجربة"
   },
   "auth": {
     "loginTitle": "تسجيل الدخول إلى GymFlow",

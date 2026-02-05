@@ -21,7 +21,6 @@ interface SettingsData {
   session_cap_male: number
   session_cap_female: number
   test_mode: boolean
-  access_hours_enabled: boolean
   warning_days_before_expiry: number
   warning_sessions_remaining: number
   scan_cooldown_seconds: number
@@ -33,7 +32,6 @@ const defaultSettings: SettingsData = {
   session_cap_male: 26,
   session_cap_female: 30,
   test_mode: false,
-  access_hours_enabled: false,
   warning_days_before_expiry: 3,
   warning_sessions_remaining: 3,
   scan_cooldown_seconds: 30,

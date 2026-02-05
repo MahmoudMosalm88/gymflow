@@ -12,6 +12,7 @@ export function createTestDatabase(): Database.Database {
       photo_path TEXT,
       access_tier TEXT CHECK(access_tier IN ('A', 'B')) DEFAULT 'A',
       card_code TEXT,
+      address TEXT,
       created_at INTEGER DEFAULT (unixepoch()),
       updated_at INTEGER DEFAULT (unixepoch())
     );
@@ -23,6 +24,7 @@ export function createTestDatabase(): Database.Database {
       end_date INTEGER NOT NULL,
       plan_months INTEGER CHECK(plan_months IN (1, 3, 6, 12)) NOT NULL,
       price_paid REAL,
+      sessions_per_month INTEGER,
       is_active INTEGER DEFAULT 1,
       created_at INTEGER DEFAULT (unixepoch())
     );
@@ -53,6 +55,26 @@ export function createTestDatabase(): Database.Database {
     CREATE TABLE settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
+    );
+
+    CREATE TABLE guest_passes (
+      id TEXT PRIMARY KEY,
+      code TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      phone TEXT,
+      price_paid REAL,
+      created_at INTEGER DEFAULT (unixepoch()),
+      expires_at INTEGER NOT NULL,
+      used_at INTEGER
+    );
+
+    CREATE TABLE subscription_freezes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      subscription_id INTEGER NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
+      start_date INTEGER NOT NULL,
+      end_date INTEGER NOT NULL,
+      days INTEGER NOT NULL,
+      created_at INTEGER DEFAULT (unixepoch())
     );
 
     CREATE TABLE owners (
@@ -89,7 +111,6 @@ export function createTestDatabase(): Database.Database {
   db.prepare("INSERT INTO settings (key, value) VALUES ('session_cap_male', '26')").run()
   db.prepare("INSERT INTO settings (key, value) VALUES ('session_cap_female', '30')").run()
   db.prepare("INSERT INTO settings (key, value) VALUES ('scan_cooldown_seconds', '30')").run()
-  db.prepare("INSERT INTO settings (key, value) VALUES ('access_hours_enabled', 'false')").run()
   db.prepare("INSERT INTO settings (key, value) VALUES ('warning_days_before_expiry', '3')").run()
   db.prepare("INSERT INTO settings (key, value) VALUES ('warning_sessions_remaining', '3')").run()
 

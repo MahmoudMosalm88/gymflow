@@ -88,9 +88,11 @@ export function getOrCreateCurrentQuota(memberId: string): Quota | null {
 
     // Get session cap based on gender
     const sessionCap =
-      member.gender === 'male'
-        ? getSetting<number>('session_cap_male', 26)
-        : getSetting<number>('session_cap_female', 30)
+      subscription.sessions_per_month && subscription.sessions_per_month > 0
+        ? subscription.sessions_per_month
+        : member.gender === 'male'
+          ? getSetting<number>('session_cap_male', 26)
+          : getSetting<number>('session_cap_female', 30)
 
     const result = db
       .prepare(

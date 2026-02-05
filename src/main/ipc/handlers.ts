@@ -11,6 +11,9 @@ import * as logRepo from '../database/repositories/logRepository'
 import * as settingsRepo from '../database/repositories/settingsRepository'
 import * as messageQueueRepo from '../database/repositories/messageQueueRepository'
 import * as ownerRepo from '../database/repositories/ownerRepository'
+import * as guestPassRepo from '../database/repositories/guestPassRepository'
+import * as freezeRepo from '../database/repositories/subscriptionFreezeRepository'
+import * as incomeRepo from '../database/repositories/incomeRepository'
 
 import { checkAttendance } from '../services/attendance'
 import { getDatabase, getUserDataPath, getPhotosPath, closeDatabase, initDatabase } from '../database/connection'
@@ -322,15 +325,39 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('subscriptions:getByMemberId', (_event, memberId: string) =>
     subscriptionRepo.getSubscriptionsByMemberId(memberId)
   )
-  ipcMain.handle('subscriptions:create', (_event, data) => subscriptionRepo.createSubscription(data))
-  ipcMain.handle('subscriptions:renew', (_event, memberId: string, data) =>
-    subscriptionRepo.renewSubscription(memberId, data.plan_months, data.price_paid)
-  )
+  ipcMain.handle('subscriptions:create', (_event, data) => {
+    const sessionsPerMonth =
+      data?.sessions_per_month !== undefined && Number.isFinite(Number(data.sessions_per_month))
+        ? Number(data.sessions_per_month)
+        : undefined
+    return subscriptionRepo.createSubscription({
+      ...data,
+      sessions_per_month: sessionsPerMonth
+    })
+  })
+  ipcMain.handle('subscriptions:renew', (_event, memberId: string, data) => {
+    const sessionsPerMonth =
+      data?.sessions_per_month !== undefined && Number.isFinite(Number(data.sessions_per_month))
+        ? Number(data.sessions_per_month)
+        : undefined
+    return subscriptionRepo.renewSubscription(
+      memberId,
+      data.plan_months,
+      data.price_paid,
+      sessionsPerMonth
+    )
+  })
   ipcMain.handle('subscriptions:cancel', (_event, id: number) =>
     subscriptionRepo.cancelSubscription(id)
   )
   ipcMain.handle('subscriptions:updatePricePaid', (_event, id: number, pricePaid: number | null) =>
     subscriptionRepo.updateSubscriptionPricePaid(id, pricePaid)
+  )
+  ipcMain.handle('subscriptions:freeze', (_event, subscriptionId: number, days: number) =>
+    freezeRepo.createSubscriptionFreeze(subscriptionId, days)
+  )
+  ipcMain.handle('subscriptions:getFreezes', (_event, subscriptionId: number) =>
+    freezeRepo.getFreezesBySubscriptionId(subscriptionId)
   )
 
   // ============== ATTENDANCE ==============
@@ -349,6 +376,18 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('quotas:getHistory', (_event, memberId: string) =>
     quotaRepo.getQuotaHistory(memberId)
+  )
+
+  // ============== GUEST PASSES ==============
+  ipcMain.handle('guestpasses:create', (_event, data) => guestPassRepo.createGuestPass(data))
+  ipcMain.handle('guestpasses:list', (_event, limit?: number) =>
+    guestPassRepo.listGuestPasses(limit || 50)
+  )
+  ipcMain.handle('guestpasses:getByCode', (_event, code: string) =>
+    guestPassRepo.getGuestPassByCode(code)
+  )
+  ipcMain.handle('guestpasses:markUsed', (_event, code: string) =>
+    guestPassRepo.markGuestPassUsed(code)
   )
 
   // ============== SETTINGS ==============
@@ -504,26 +543,34 @@ export function registerIpcHandlers(): void {
         const getValue = (key: string) =>
           row[key] ?? row[key.toLowerCase()] ?? row[key.toUpperCase()]
 
-        const name = (getValue('name') ?? getValue('Name') ?? row['الاسم']) as string
-        const phone = (getValue('phone') ?? getValue('Phone') ?? row['رقم الهاتف']) as string
+        const name = (getValue('name') ?? getValue('Name') ?? getValue('Full_Name') ?? row['الاسم']) as string
+        const phone = (getValue('phone') ?? getValue('Phone') ?? getValue('Phone_Number') ?? row['رقم الهاتف']) as string
         const genderRaw = (getValue('gender') ?? getValue('Gender')) as string
         const accessTierRaw = (getValue('access_tier') ?? getValue('Access_Tier')) as string
-        const planMonthsRaw = getValue('plan_months') ?? getValue('Plan_Months')
+        const planMonthsRaw =
+          getValue('plan_months') ?? getValue('Plan_Months') ?? getValue('Plan_Duration_Months')
+        const sessionsPerMonthRaw = getValue('sessions_per_month') ?? getValue('Sessions_Per_Month')
         const startDateRaw = getValue('start_date') ?? getValue('Start_Date')
         const priceRaw = getValue('price_paid') ?? getValue('Price_Paid')
         const cardCodeRaw = getValue('card_code') ?? getValue('Card_Code') ?? row['رمز البطاقة']
+        const addressRaw = getValue('address') ?? getValue('Address') ?? row['العنوان']
 
         const errors: string[] = []
 
         const gender = String(genderRaw || '').toLowerCase()
         const access_tier = String(accessTierRaw || 'A').toUpperCase()
         const plan_months = Number(planMonthsRaw)
+        const sessions_per_month =
+          sessionsPerMonthRaw !== undefined && sessionsPerMonthRaw !== null && String(sessionsPerMonthRaw).trim() !== ''
+            ? Number(sessionsPerMonthRaw)
+            : undefined
         const start_date = parseStartDate(startDateRaw)
         const price_paid =
           priceRaw !== undefined && priceRaw !== null && String(priceRaw).trim() !== ''
             ? Number(priceRaw)
             : undefined
         const card_code = cardCodeRaw ? String(cardCodeRaw).trim() : ''
+        const address = addressRaw ? String(addressRaw).trim() : ''
 
         if (!name) errors.push('Name is required')
         if (!phone) errors.push('Phone is required')
@@ -531,6 +578,12 @@ export function registerIpcHandlers(): void {
         if (!['A', 'B'].includes(access_tier)) errors.push('Access tier must be A or B')
         if (![1, 3, 6, 12].includes(plan_months))
           errors.push('Plan months must be 1, 3, 6, or 12')
+        if (
+          sessions_per_month !== undefined &&
+          (!Number.isFinite(sessions_per_month) || sessions_per_month < 1)
+        ) {
+          errors.push('Sessions per month must be a positive number')
+        }
 
         if (errors.length > 0) {
           invalid.push({ row: rowNumber, errors })
@@ -544,9 +597,11 @@ export function registerIpcHandlers(): void {
           gender,
           access_tier,
           plan_months,
+          sessions_per_month,
           start_date,
           price_paid,
-          card_code
+          card_code,
+          address
         })
       })
 
@@ -573,7 +628,8 @@ export function registerIpcHandlers(): void {
             phone: row.phone as string,
             gender: row.gender as 'male' | 'female',
             access_tier: (row.access_tier as 'A' | 'B') || 'A',
-            card_code: (row.card_code as string) || undefined
+            card_code: (row.card_code as string) || undefined,
+            address: (row.address as string) || undefined
           })
           memberId = updated.id
         } else {
@@ -582,7 +638,8 @@ export function registerIpcHandlers(): void {
             phone: row.phone as string,
             gender: row.gender as 'male' | 'female',
             access_tier: (row.access_tier as 'A' | 'B') || 'A',
-            card_code: (row.card_code as string) || undefined
+            card_code: (row.card_code as string) || undefined,
+            address: (row.address as string) || undefined
           })
           memberId = created.id
         }
@@ -591,7 +648,8 @@ export function registerIpcHandlers(): void {
           member_id: memberId,
           plan_months: row.plan_months as 1 | 3 | 6 | 12,
           price_paid: row.price_paid as number | undefined,
-          start_date: row.start_date as number | undefined
+          start_date: row.start_date as number | undefined,
+          sessions_per_month: row.sessions_per_month as number | undefined
         })
 
         success++
@@ -786,5 +844,11 @@ export function registerIpcHandlers(): void {
   )
   ipcMain.handle('reports:getLowSessionMembers', (_event, threshold: number = 3) =>
     quotaRepo.getMembersWithLowSessions(threshold)
+  )
+
+  // ============== INCOME ==============
+  ipcMain.handle('income:getSummary', () => incomeRepo.getIncomeSummary())
+  ipcMain.handle('income:getRecent', (_event, limit?: number) =>
+    incomeRepo.getRecentIncome(limit || 20)
   )
 }

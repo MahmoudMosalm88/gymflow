@@ -27,6 +27,7 @@ export default function Subscriptions(): JSX.Element {
       end_date: number
       plan_months: number
       price_paid: number | null
+      sessions_per_month: number | null
       is_active: number
       created_at: number
     }>
@@ -39,6 +40,7 @@ export default function Subscriptions(): JSX.Element {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [planMonths, setPlanMonths] = useState<1 | 3 | 6 | 12>(1)
   const [pricePaid, setPricePaid] = useState<string>('')
+  const [sessionsPerMonth, setSessionsPerMonth] = useState<string>('')
   const renewPrimaryRef = useRef<HTMLButtonElement>(null)
   const paymentPrimaryRef = useRef<HTMLButtonElement>(null)
 
@@ -86,9 +88,17 @@ export default function Subscriptions(): JSX.Element {
       try {
         const data = await window.api.subscriptions.getByMemberId(selectedMemberId)
         setSubscriptions(data || [])
-        const active = (data || []).find((s: { is_active: number; plan_months: number }) => s.is_active)
+        const active = (data || []).find(
+          (s: { is_active: number; plan_months: number; sessions_per_month?: number | null }) =>
+            s.is_active
+        )
         if (active) {
           setPlanMonths(active.plan_months as 1 | 3 | 6 | 12)
+          setSessionsPerMonth(
+            active.sessions_per_month !== null && active.sessions_per_month !== undefined
+              ? String(active.sessions_per_month)
+              : ''
+          )
         }
       } catch (e) {
         console.error('Failed to load subscriptions:', e)
@@ -113,12 +123,18 @@ export default function Subscriptions(): JSX.Element {
       setError(t('subscriptions.invalidAmount'))
       return
     }
+    const parsedSessions = sessionsPerMonth.trim() ? Number(sessionsPerMonth) : NaN
+    if (!Number.isFinite(parsedSessions) || parsedSessions <= 0) {
+      setError(t('memberForm.sessionsRequired', 'Enter sessions per month'))
+      return
+    }
 
     setError(null)
     try {
       await window.api.subscriptions.renew(selectedMember.id, {
         plan_months: planMonths,
-        price_paid: amount
+        price_paid: amount,
+        sessions_per_month: parsedSessions
       })
       setShowRenewModal(false)
       setPricePaid('')
@@ -339,6 +355,9 @@ export default function Subscriptions(): JSX.Element {
                           <tr>
                             <th className="text-left px-4 py-2">{t('subscriptions.date')}</th>
                             <th className="text-left px-4 py-2">{t('memberDetail.plan')}</th>
+                            <th className="text-left px-4 py-2">
+                              {t('memberDetail.sessionsPerMonth', 'Sessions / month')}
+                            </th>
                             <th className="text-left px-4 py-2">{t('memberDetail.expires')}</th>
                             <th className="text-left px-4 py-2">{t('memberForm.pricePaid')}</th>
                             <th className="text-left px-4 py-2">{t('memberDetail.status')}</th>
@@ -352,6 +371,9 @@ export default function Subscriptions(): JSX.Element {
                               </td>
                               <td className="px-4 py-2 text-foreground">
                                 {s.plan_months} {t('memberDetail.months')}
+                              </td>
+                              <td className="px-4 py-2 text-foreground">
+                                {s.sessions_per_month ?? '-'}
                               </td>
                               <td className="px-4 py-2 text-foreground">
                                 {new Date(s.end_date * 1000).toLocaleDateString()}
@@ -394,6 +416,15 @@ export default function Subscriptions(): JSX.Element {
                 <option value={6}>6 {t('memberForm.months')}</option>
                 <option value={12}>12 {t('memberForm.months')}</option>
               </Select>
+            </div>
+            <div>
+              <Label className="mb-2 block">{t('memberForm.sessionsPerMonth', 'Sessions per month')}</Label>
+              <Input
+                type="number"
+                min="1"
+                value={sessionsPerMonth}
+                onChange={(e) => setSessionsPerMonth(e.target.value)}
+              />
             </div>
             <div>
               <Label className="mb-2 block">{t('memberForm.pricePaid')}</Label>

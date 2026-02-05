@@ -3,6 +3,8 @@ import {
   getActiveSubscription,
   Subscription
 } from '../database/repositories/subscriptionRepository'
+import { getGuestPassByCode, markGuestPassUsed, GuestPass } from '../database/repositories/guestPassRepository'
+import { getActiveFreeze, SubscriptionFreeze } from '../database/repositories/subscriptionFreezeRepository'
 import {
   getOrCreateCurrentQuota,
   incrementSessionsUsed,
@@ -17,12 +19,9 @@ export interface AttendanceResult {
   member?: Member
   subscription?: Subscription
   quota?: Quota
+  guestPass?: GuestPass
+  freeze?: SubscriptionFreeze
   warnings?: Array<{ key: string; params?: Record<string, unknown> }>
-}
-
-interface TimeWindow {
-  start: string // HH:MM format
-  end: string
 }
 
 export function checkAttendance(
@@ -30,10 +29,61 @@ export function checkAttendance(
   method: 'scan' | 'manual' = 'scan'
 ): AttendanceResult {
   const now = Math.floor(Date.now() / 1000)
+  const normalized = scannedValue.trim()
+  const scanKey = normalized || scannedValue
+
+  // 0. Guest pass check (single-session trial)
+  if (normalized) {
+    const guestPass = getGuestPassByCode(normalized)
+    if (guestPass) {
+      if (guestPass.used_at) {
+        createLog({
+          member_id: null,
+          scanned_value: normalized,
+          method,
+          status: 'denied',
+          reason_code: 'guest_used'
+        })
+        return {
+          status: 'denied',
+          reasonCode: 'guest_used',
+          guestPass
+        }
+      }
+      if (guestPass.expires_at <= now) {
+        createLog({
+          member_id: null,
+          scanned_value: normalized,
+          method,
+          status: 'denied',
+          reason_code: 'guest_expired'
+        })
+        return {
+          status: 'denied',
+          reasonCode: 'guest_expired',
+          guestPass
+        }
+      }
+
+      const updated = markGuestPassUsed(normalized) || guestPass
+      createLog({
+        member_id: null,
+        scanned_value: normalized,
+        method,
+        status: 'allowed',
+        reason_code: 'guest_pass'
+      })
+      return {
+        status: 'allowed',
+        reasonCode: 'guest_pass',
+        guestPass: updated
+      }
+    }
+  }
 
   // 1. Check cooldown - don't log or consume session if within cooldown
   const cooldownSeconds = getSetting<number>('scan_cooldown_seconds', 30)
-  const lastScan = getLastSuccessfulScan(scannedValue, cooldownSeconds)
+  const lastScan = getLastSuccessfulScan(scanKey, cooldownSeconds)
 
   if (lastScan) {
     return {
@@ -44,18 +94,18 @@ export function checkAttendance(
 
   // 2. Find member by card code (scan) or member id (manual)
   const member =
-    method === 'manual' ? getMemberById(scannedValue) : getMemberByCardCode(scannedValue)
+    method === 'manual' ? getMemberById(scanKey) : getMemberByCardCode(scanKey)
 
   let resolvedMember = member
   if (!resolvedMember && method !== 'manual') {
-    resolvedMember = getMemberById(scannedValue) || null
+    resolvedMember = getMemberById(scanKey) || null
   }
 
   if (!resolvedMember) {
     // Log unknown QR
     createLog({
       member_id: null,
-      scanned_value: scannedValue,
+      scanned_value: scanKey,
       method,
       status: 'denied',
       reason_code: 'unknown_qr'
@@ -73,13 +123,13 @@ export function checkAttendance(
   const subscription = getActiveSubscription(memberFinal.id)
 
   if (!subscription) {
-    createLog({
-      member_id: memberFinal.id,
-      scanned_value: scannedValue,
-      method,
-      status: 'denied',
-      reason_code: 'expired'
-    })
+      createLog({
+        member_id: memberFinal.id,
+        scanned_value: scanKey,
+        method,
+        status: 'denied',
+        reason_code: 'expired'
+      })
 
     return {
       status: 'denied',
@@ -92,7 +142,7 @@ export function checkAttendance(
   if (subscription.end_date <= now) {
     createLog({
       member_id: memberFinal.id,
-      scanned_value: scannedValue,
+      scanned_value: scanKey,
       method,
       status: 'denied',
       reason_code: 'expired'
@@ -110,7 +160,7 @@ export function checkAttendance(
   if (subscription.start_date > now) {
     createLog({
       member_id: memberFinal.id,
-      scanned_value: scannedValue,
+      scanned_value: scanKey,
       method,
       status: 'denied',
       reason_code: 'not_started'
@@ -125,28 +175,22 @@ export function checkAttendance(
   }
 
   // 4. Check access hours (if enabled)
-  const accessHoursEnabled = getSetting<boolean>('access_hours_enabled', false)
+  const activeFreeze = getActiveFreeze(subscription.id, now)
+  if (activeFreeze) {
+    createLog({
+      member_id: memberFinal.id,
+      scanned_value: scanKey,
+      method,
+      status: 'denied',
+      reason_code: 'frozen'
+    })
 
-  if (accessHoursEnabled) {
-    const accessHoursKey =
-      memberFinal.gender === 'male' ? 'access_hours_male' : 'access_hours_female'
-    const accessHours = getSetting<TimeWindow[]>(accessHoursKey, [])
-
-    if (!isWithinAccessHours(accessHours)) {
-      createLog({
-        member_id: memberFinal.id,
-        scanned_value: scannedValue,
-        method,
-        status: 'denied',
-        reason_code: 'outside_hours'
-      })
-
-      return {
-        status: 'denied',
-        reasonCode: 'outside_hours',
-        member: memberFinal,
-        subscription
-      }
+    return {
+      status: 'denied',
+      reasonCode: 'frozen',
+      member: memberFinal,
+      subscription,
+      freeze: activeFreeze
     }
   }
 
@@ -156,7 +200,7 @@ export function checkAttendance(
   if (!quota) {
     createLog({
       member_id: memberFinal.id,
-      scanned_value: scannedValue,
+      scanned_value: scanKey,
       method,
       status: 'denied',
       reason_code: 'no_quota'
@@ -174,7 +218,7 @@ export function checkAttendance(
   if (quota.sessions_used >= quota.sessions_cap) {
     createLog({
       member_id: memberFinal.id,
-      scanned_value: scannedValue,
+      scanned_value: scanKey,
       method,
       status: 'denied',
       reason_code: 'no_sessions'
@@ -220,7 +264,7 @@ export function checkAttendance(
 
   createLog({
     member_id: memberFinal.id,
-    scanned_value: scannedValue,
+    scanned_value: scanKey,
     method,
     status,
     reason_code: 'ok'
@@ -235,38 +279,6 @@ export function checkAttendance(
     quota: updatedQuota,
     warnings: warnings.length > 0 ? warnings : undefined
   }
-}
-
-function isWithinAccessHours(windows: TimeWindow[]): boolean {
-  if (!windows || windows.length === 0) {
-    return true // No restrictions
-  }
-
-  const now = new Date()
-  const currentMinutes = now.getHours() * 60 + now.getMinutes()
-
-  for (const window of windows) {
-    const [startHour, startMin] = window.start.split(':').map(Number)
-    const [endHour, endMin] = window.end.split(':').map(Number)
-
-    const startMinutes = startHour * 60 + startMin
-    const endMinutes = endHour * 60 + endMin
-
-    // Handle midnight crossing (e.g., 22:00-02:00)
-    if (endMinutes < startMinutes) {
-      // Window crosses midnight
-      if (currentMinutes >= startMinutes || currentMinutes < endMinutes) {
-        return true
-      }
-    } else {
-      // Normal window (same day)
-      if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
-        return true
-      }
-    }
-  }
-
-  return false
 }
 
 export function manualCheckIn(memberId: string): AttendanceResult {

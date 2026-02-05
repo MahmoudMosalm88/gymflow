@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import TrafficLight from '../components/TrafficLight'
 import MemberCard from '../components/MemberCard'
+import GuestPassCard from '../components/GuestPassCard'
 import QuickSearch from '../components/QuickSearch'
 import ScannerInput from '../components/ScannerInput'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
@@ -16,6 +17,13 @@ interface AttendanceResult {
     gender: 'male' | 'female'
     photo_path: string | null
     access_tier: 'A' | 'B'
+  }
+  guestPass?: {
+    name: string
+    phone: string | null
+    code: string
+    expires_at: number
+    used_at: number | null
   }
   quota?: {
     sessions_used: number
@@ -149,7 +157,9 @@ export default function Dashboard(): JSX.Element {
           <CardContent className="w-full flex flex-col items-center justify-center py-10">
             <TrafficLight status={lastResult?.status || 'ready'} />
 
-            {lastResult?.member ? (
+            {lastResult?.guestPass ? (
+              <GuestPassCard guestPass={lastResult.guestPass} status={lastResult.status} />
+            ) : lastResult?.member ? (
               <MemberCard
                 member={lastResult.member}
                 quota={lastResult.quota}

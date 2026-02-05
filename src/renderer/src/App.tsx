@@ -8,6 +8,8 @@ import MemberForm from './pages/MemberForm'
 import MemberDetail from './pages/MemberDetail'
 import Subscriptions from './pages/Subscriptions'
 import Reports from './pages/Reports'
+import GuestPasses from './pages/GuestPasses'
+import Income from './pages/Income'
 import Settings from './pages/Settings'
 import Import from './pages/Import'
 import Onboarding from './pages/Onboarding'
@@ -184,7 +186,9 @@ function App(): JSX.Element {
         <Route path="/members/:id" element={<MemberDetail />} />
         <Route path="/members/:id/edit" element={<MemberForm />} />
         <Route path="/subscriptions" element={<Subscriptions />} />
+        <Route path="/guest-passes" element={<GuestPasses />} />
         <Route path="/reports" element={<Reports />} />
+        <Route path="/income" element={<Income />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/import" element={<Import />} />
       </Routes>

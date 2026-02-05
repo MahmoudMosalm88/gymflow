@@ -117,10 +117,12 @@ export default function Reports() {
     const labels: Record<string, string> = {
       unknown_qr: t('reports.reason.unknownQr', 'Unknown QR'),
       expired: t('reports.reason.expired', 'Expired Subscription'),
-      outside_hours: t('reports.reason.outsideHours', 'Outside Access Hours'),
       no_sessions: t('reports.reason.noSessions', 'No Sessions Left'),
       no_quota: t('reports.reason.noQuota', 'No Quota'),
-      not_started: t('reports.reason.notStarted', 'Not Started Yet')
+      not_started: t('reports.reason.notStarted', 'Not Started Yet'),
+      frozen: t('reports.reason.frozen', 'Subscription Frozen'),
+      guest_used: t('reports.reason.guestUsed', 'Guest Pass Used'),
+      guest_expired: t('reports.reason.guestExpired', 'Guest Pass Expired')
     }
     return labels[code] || code
   }

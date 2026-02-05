@@ -3,7 +3,9 @@
     "dashboard": "Dashboard",
     "members": "Members",
     "subscriptions": "Subscriptions",
+    "guestPasses": "Guest Passes",
     "reports": "Reports",
+    "income": "Income",
     "import": "Import",
     "settings": "Settings",
     "logout": "Logout"
@@ -67,6 +69,10 @@
     "capturePhoto": "Capture Photo",
     "uploadPhoto": "Upload Photo",
     "removePhoto": "Remove Photo",
+    "address": "Address",
+    "addressPlaceholder": "Street, area, city",
+    "sessionsPerMonth": "Sessions per month",
+    "sessionsRequired": "Enter sessions per month",
     "save": "Save Member",
     "cancel": "Cancel"
   },
@@ -100,10 +106,13 @@
       "unknown_qr": "Unknown QR code",
       "expired": "Subscription expired",
       "no_sessions": "No sessions remaining",
-      "outside_hours": "Outside access hours",
       "cooldown": "Already checked in recently",
       "not_started": "Subscription has not started yet",
-      "no_quota": "Unable to create session quota"
+      "no_quota": "Unable to create session quota",
+      "guest_used": "Guest pass already used",
+      "guest_expired": "Guest pass expired",
+      "guest_pass": "Guest pass entry",
+      "frozen": "Subscription is frozen"
     },
     "sessionsRemaining_one": "{{count}} session remaining",
     "sessionsRemaining_other": "{{count}} sessions remaining",
@@ -201,10 +210,12 @@
     "reason": {
       "unknownQr": "Unknown QR",
       "expired": "Expired Subscription",
-      "outsideHours": "Outside Access Hours",
       "noSessions": "No Sessions Left",
       "noQuota": "No Quota",
-      "notStarted": "Not Started Yet"
+      "notStarted": "Not Started Yet",
+      "frozen": "Subscription Frozen",
+      "guestUsed": "Guest Pass Used",
+      "guestExpired": "Guest Pass Expired"
     }
   },
   "common": {
@@ -231,7 +242,15 @@
     "expires": "Expires",
     "months": "months",
     "serial": "Serial",
-    "noActiveQuota": "No active session quota"
+    "noActiveQuota": "No active session quota",
+    "address": "Address",
+    "sessionsPerMonth": "Sessions / month",
+    "freeze": "Freeze",
+    "frozen": "Frozen",
+    "freezeTitle": "Freeze Subscription",
+    "freezeDays": "Freeze days",
+    "freezeHint": "Membership end date will extend by the frozen days.",
+    "frozenUntil": "Frozen until"
   },
   "qrCodeDisplay": {
     "title": "QR Code",
@@ -243,6 +262,47 @@
     "copied": "Copied",
     "copyFailed": "Copy failed",
     "whatsappNotConnected": "WhatsApp is not connected. Connect it in Settings first."
+  },
+  "guestPasses": {
+    "title": "Guest Passes",
+    "subtitle": "Create single-session trial passes and track usage.",
+    "create": "Create Guest Pass",
+    "createHint": "Generate a one-time QR for trial entry.",
+    "name": "Guest Name",
+    "phone": "Phone (optional)",
+    "validity": "Validity (days)",
+    "price": "Price Paid",
+    "generate": "Generate QR",
+    "recent": "Recent Guest Passes",
+    "recentHint": "Latest passes and their status.",
+    "none": "No guest passes yet.",
+    "active": "Active",
+    "used": "Used",
+    "expired": "Expired",
+    "code": "Code",
+    "expires": "Expires",
+    "qrTitle": "Guest Pass QR",
+    "share": "Share via WhatsApp",
+    "shareText": "Guest pass",
+    "nameRequired": "Guest name is required"
+  },
+  "income": {
+    "title": "Income",
+    "subtitle": "Track total revenue and expected monthly income.",
+    "total": "Total Revenue",
+    "totalHint": "All recorded payments",
+    "expected": "Expected Monthly",
+    "expectedHint": "Active subscriptions only",
+    "recent": "Recent Payments",
+    "recentHint": "Subscriptions and guest passes",
+    "none": "No income records yet.",
+    "date": "Date",
+    "type": "Type",
+    "name": "Name",
+    "amount": "Amount",
+    "details": "Details",
+    "subscription": "Subscription",
+    "guestPass": "Guest Pass"
   },
   "auth": {
     "loginTitle": "Sign in to GymFlow",

@@ -225,4 +225,82 @@ function runMigrations(database: Database.Database): void {
 
     database.prepare('INSERT INTO migrations (name) VALUES (?)').run('005_member_serials')
   }
+
+  if (!appliedMigrations.includes('006_member_address_sessions')) {
+    database.exec(`
+      ALTER TABLE members ADD COLUMN address TEXT;
+      ALTER TABLE subscriptions ADD COLUMN sessions_per_month INTEGER;
+    `)
+
+    const readSettingNumber = (key: string, fallback: number): number => {
+      try {
+        const row = database
+          .prepare('SELECT value FROM settings WHERE key = ?')
+          .get(key) as { value?: string } | undefined
+        if (!row || row.value === undefined) return fallback
+        try {
+          const parsed = JSON.parse(row.value)
+          return typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : fallback
+        } catch {
+          const num = Number(row.value)
+          return Number.isFinite(num) ? num : fallback
+        }
+      } catch {
+        return fallback
+      }
+    }
+
+    const maleDefault = readSettingNumber('session_cap_male', 26)
+    const femaleDefault = readSettingNumber('session_cap_female', 30)
+
+    database
+      .prepare(
+        `UPDATE subscriptions
+         SET sessions_per_month = ?
+         WHERE sessions_per_month IS NULL
+           AND member_id IN (SELECT id FROM members WHERE gender = 'male')`
+      )
+      .run(maleDefault)
+
+    database
+      .prepare(
+        `UPDATE subscriptions
+         SET sessions_per_month = ?
+         WHERE sessions_per_month IS NULL
+           AND member_id IN (SELECT id FROM members WHERE gender = 'female')`
+      )
+      .run(femaleDefault)
+
+    database.prepare('INSERT INTO migrations (name) VALUES (?)').run('006_member_address_sessions')
+  }
+
+  if (!appliedMigrations.includes('007_guest_passes_freezes')) {
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS guest_passes (
+        id TEXT PRIMARY KEY,
+        code TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        phone TEXT,
+        price_paid REAL,
+        created_at INTEGER DEFAULT (unixepoch()),
+        expires_at INTEGER NOT NULL,
+        used_at INTEGER
+      );
+
+      CREATE TABLE IF NOT EXISTS subscription_freezes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subscription_id INTEGER NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
+        start_date INTEGER NOT NULL,
+        end_date INTEGER NOT NULL,
+        days INTEGER NOT NULL,
+        created_at INTEGER DEFAULT (unixepoch())
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_guest_passes_code ON guest_passes(code);
+      CREATE INDEX IF NOT EXISTS idx_subscription_freezes_subscription
+        ON subscription_freezes(subscription_id);
+    `)
+
+    database.prepare('INSERT INTO migrations (name) VALUES (?)').run('007_guest_passes_freezes')
+  }
 }

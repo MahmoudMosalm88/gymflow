@@ -5,12 +5,6 @@ const DEFAULT_SETTINGS = {
   session_cap_male: 26,
   session_cap_female: 30,
   test_mode: false,
-  access_hours_enabled: false,
-  access_hours_male: [{ start: '06:00', end: '23:00' }],
-  access_hours_female: [
-    { start: '10:00', end: '14:00' },
-    { start: '18:00', end: '22:00' }
-  ],
   warning_days_before_expiry: 3,
   warning_sessions_remaining: 3,
   scan_cooldown_seconds: 30,
@@ -25,17 +19,6 @@ const DEFAULT_SETTINGS = {
 } as const
 
 type DefaultSettings = typeof DEFAULT_SETTINGS
-
-function isAccessHours(value: unknown): value is Array<{ start: string; end: string }> {
-  if (!Array.isArray(value)) return false
-  return value.every(
-    (entry) =>
-      entry &&
-      typeof entry === 'object' &&
-      typeof (entry as { start?: unknown }).start === 'string' &&
-      typeof (entry as { end?: unknown }).end === 'string'
-  )
-}
 
 function validateSettingValue(
   key: string,
@@ -57,12 +40,8 @@ function validateSettingValue(
     case 'whatsapp_batch_delay_max':
       return typeof value === 'number' && Number.isFinite(value) ? value : fallback
     case 'test_mode':
-    case 'access_hours_enabled':
     case 'whatsapp_enabled':
       return typeof value === 'boolean' ? value : fallback
-    case 'access_hours_male':
-    case 'access_hours_female':
-      return isAccessHours(value) ? value : fallback
     default:
       return value
   }

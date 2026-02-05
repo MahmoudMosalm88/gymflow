@@ -37,6 +37,7 @@ function setupTestDatabase() {
       photo_path TEXT,
       access_tier TEXT CHECK(access_tier IN ('A', 'B')) DEFAULT 'A',
       card_code TEXT,
+      address TEXT,
       created_at INTEGER DEFAULT (unixepoch()),
       updated_at INTEGER DEFAULT (unixepoch())
     );
@@ -48,6 +49,7 @@ function setupTestDatabase() {
       end_date INTEGER NOT NULL,
       plan_months INTEGER CHECK(plan_months IN (1, 3, 6, 12)) NOT NULL,
       price_paid REAL,
+      sessions_per_month INTEGER,
       is_active INTEGER DEFAULT 1,
       created_at INTEGER DEFAULT (unixepoch())
     );

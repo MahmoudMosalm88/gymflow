@@ -38,6 +38,8 @@ function setupTestDatabase() {
       gender TEXT CHECK(gender IN ('male', 'female')) NOT NULL,
       photo_path TEXT,
       access_tier TEXT CHECK(access_tier IN ('A', 'B')) DEFAULT 'A',
+      card_code TEXT,
+      address TEXT,
       created_at INTEGER DEFAULT (unixepoch()),
       updated_at INTEGER DEFAULT (unixepoch())
     );
@@ -49,6 +51,7 @@ function setupTestDatabase() {
       end_date INTEGER NOT NULL,
       plan_months INTEGER CHECK(plan_months IN (1, 3, 6, 12)) NOT NULL,
       price_paid REAL,
+      sessions_per_month INTEGER,
       is_active INTEGER DEFAULT 1,
       created_at INTEGER DEFAULT (unixepoch())
     );
@@ -132,6 +135,23 @@ describe('Quota Repository', () => {
 
       expect(quota).not.toBeNull()
       expect(quota!.sessions_cap).toBe(30)
+    })
+
+    it('should use subscription sessions_per_month when provided', () => {
+      const memberId = uuidv4()
+      const now = Math.floor(Date.now() / 1000)
+
+      db.prepare(
+        "INSERT INTO members (id, name, phone, gender) VALUES (?, 'Custom User', '+201234567899', 'male')"
+      ).run(memberId)
+
+      db.prepare(
+        'INSERT INTO subscriptions (member_id, start_date, end_date, plan_months, sessions_per_month, is_active) VALUES (?, ?, ?, 1, ?, 1)'
+      ).run(memberId, now, now + 30 * SECONDS_PER_DAY, 12)
+
+      const quota = getOrCreateCurrentQuota(memberId)
+      expect(quota).not.toBeNull()
+      expect(quota!.sessions_cap).toBe(12)
     })
 
     it('should return existing quota instead of creating new one', () => {

@@ -18,9 +18,6 @@ interface SettingsData {
   session_cap_male: number
   session_cap_female: number
   test_mode: boolean
-  access_hours_enabled: boolean
-  access_hours_male: Array<{ start: string; end: string }>
-  access_hours_female: Array<{ start: string; end: string }>
   warning_days_before_expiry: number
   warning_sessions_remaining: number
   scan_cooldown_seconds: number
@@ -37,12 +34,6 @@ const defaultSettings: SettingsData = {
   session_cap_male: 26,
   session_cap_female: 30,
   test_mode: false,
-  access_hours_enabled: false,
-  access_hours_male: [{ start: '06:00', end: '23:00' }],
-  access_hours_female: [
-    { start: '10:00', end: '14:00' },
-    { start: '18:00', end: '22:00' }
-  ],
   warning_days_before_expiry: 3,
   warning_sessions_remaining: 3,
   scan_cooldown_seconds: 30,
@@ -136,9 +127,6 @@ export default function Settings(): JSX.Element {
         session_cap_male: settings.session_cap_male,
         session_cap_female: settings.session_cap_female,
         test_mode: settings.test_mode,
-        access_hours_enabled: settings.access_hours_enabled,
-        access_hours_male: settings.access_hours_male,
-        access_hours_female: settings.access_hours_female,
         warning_days_before_expiry: settings.warning_days_before_expiry,
         warning_sessions_remaining: settings.warning_sessions_remaining,
         scan_cooldown_seconds: settings.scan_cooldown_seconds,
@@ -221,33 +209,6 @@ export default function Settings(): JSX.Element {
     }
   }
 
-  const updateAccessHours = (
-    gender: 'male' | 'female',
-    index: number,
-    field: 'start' | 'end',
-    value: string
-  ) => {
-    const key = gender === 'male' ? 'access_hours_male' : 'access_hours_female'
-    setSettings((prev) => {
-      const next = [...prev[key]]
-      next[index] = { ...next[index], [field]: value }
-      return { ...prev, [key]: next }
-    })
-  }
-
-  const addAccessHours = (gender: 'male' | 'female') => {
-    const key = gender === 'male' ? 'access_hours_male' : 'access_hours_female'
-    const newSlot = gender === 'male' ? { start: '06:00', end: '23:00' } : { start: '18:00', end: '22:00' }
-    setSettings((prev) => ({ ...prev, [key]: [...prev[key], newSlot] }))
-  }
-
-  const removeAccessHours = (gender: 'male' | 'female', index: number) => {
-    const key = gender === 'male' ? 'access_hours_male' : 'access_hours_female'
-    setSettings((prev) => ({
-      ...prev,
-      [key]: prev[key].filter((_, i) => i !== index)
-    }))
-  }
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -391,7 +352,7 @@ export default function Settings(): JSX.Element {
             <Card>
               <CardHeader>
                 <CardTitle>{t('settings.scanner')}</CardTitle>
-                <CardDescription>Scan cooldown and access control.</CardDescription>
+                <CardDescription>Scan cooldown settings.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -413,117 +374,6 @@ export default function Settings(): JSX.Element {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('settings.accessHours', 'Access Hours')}</CardTitle>
-                <CardDescription>Control when members can check in.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                  <Label>{t('settings.enableAccessHours', 'Enable access hours')}</Label>
-                    <p className="text-xs text-muted-foreground">
-                      {t('settings.accessHoursHint', 'If disabled, check-ins are allowed any time.')}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.access_hours_enabled}
-                    onCheckedChange={(checked) =>
-                      setSettings({ ...settings, access_hours_enabled: checked })
-                    }
-                  />
-                </div>
-
-                {settings.access_hours_enabled && (
-                  <>
-                    <Separator />
-                    <div className="grid gap-6 md:grid-cols-2">
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Label>{t('settings.maleHours', 'Male Hours')}</Label>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => addAccessHours('male')}
-                          >
-                            {t('settings.addWindow', 'Add Time Window')}
-                          </Button>
-                        </div>
-                        {settings.access_hours_male.map((slot, index) => (
-                          <div key={`male-${index}`} className="flex items-center gap-3">
-                            <Input
-                              type="time"
-                              value={slot.start}
-                              onChange={(e) =>
-                                updateAccessHours('male', index, 'start', e.target.value)
-                              }
-                            />
-                            <span className="text-xs text-muted-foreground">to</span>
-                            <Input
-                              type="time"
-                              value={slot.end}
-                              onChange={(e) =>
-                                updateAccessHours('male', index, 'end', e.target.value)
-                              }
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeAccessHours('male', index)}
-                            >
-                              {t('common.remove', 'Remove')}
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Label>{t('settings.femaleHours', 'Female Hours')}</Label>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => addAccessHours('female')}
-                          >
-                            {t('settings.addWindow', 'Add Time Window')}
-                          </Button>
-                        </div>
-                        {settings.access_hours_female.map((slot, index) => (
-                          <div key={`female-${index}`} className="flex items-center gap-3">
-                            <Input
-                              type="time"
-                              value={slot.start}
-                              onChange={(e) =>
-                                updateAccessHours('female', index, 'start', e.target.value)
-                              }
-                            />
-                            <span className="text-xs text-muted-foreground">to</span>
-                            <Input
-                              type="time"
-                              value={slot.end}
-                              onChange={(e) =>
-                                updateAccessHours('female', index, 'end', e.target.value)
-                              }
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeAccessHours('female', index)}
-                            >
-                              {t('common.remove', 'Remove')}
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
           </div>
         </TabsContent>
 

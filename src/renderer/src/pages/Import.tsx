@@ -18,8 +18,10 @@ interface ParsedRow {
   gender: 'male' | 'female'
   access_tier: 'A' | 'B'
   plan_months: 1 | 3 | 6 | 12
+  sessions_per_month?: number
   start_date?: string
   price_paid?: number
+  address?: string
 }
 
 interface InvalidRow {
@@ -213,7 +215,7 @@ export default function Import() {
               <p className="mt-4 text-sm text-muted-foreground">
                 {t(
                   'import.upload.optional',
-                  'Optional: access_tier (A/B), start_date, price_paid, card_code'
+                  'Optional: access_tier (A/B), start_date, price_paid, card_code, sessions_per_month, address'
                 )}
               </p>
             </div>

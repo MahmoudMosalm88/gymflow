@@ -17,6 +17,7 @@ interface MemberFormData {
   access_tier: 'A' | 'B'
   photo_path: string | null
   card_code: string
+  address: string
 }
 
 export default function MemberForm(): JSX.Element {
@@ -31,11 +32,18 @@ export default function MemberForm(): JSX.Element {
     gender: '',
     access_tier: 'A',
     photo_path: null,
-    card_code: ''
+    card_code: '',
+    address: ''
   })
   const [createSubscription, setCreateSubscription] = useState(true)
   const [planMonths, setPlanMonths] = useState<1 | 3 | 6 | 12>(1)
   const [pricePaid, setPricePaid] = useState<string>('')
+  const [sessionsPerMonth, setSessionsPerMonth] = useState<string>('')
+  const [sessionsTouched, setSessionsTouched] = useState(false)
+  const [sessionCaps, setSessionCaps] = useState<{ male: number; female: number }>({
+    male: 26,
+    female: 30
+  })
   const [isLoading, setIsLoading] = useState(false)
   const [isSerialLoading, setIsSerialLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,6 +58,29 @@ export default function MemberForm(): JSX.Element {
     }
   }, [id])
 
+  useEffect(() => {
+    const loadCaps = async () => {
+      try {
+        const settings = await window.api.settings.getAll()
+        const male = typeof settings.session_cap_male === 'number' ? settings.session_cap_male : 26
+        const female = typeof settings.session_cap_female === 'number' ? settings.session_cap_female : 30
+        setSessionCaps({ male, female })
+      } catch {
+        // ignore
+      }
+    }
+    loadCaps()
+  }, [])
+
+  useEffect(() => {
+    if (isEditing || !createSubscription || sessionsTouched) return
+    if (formData.gender === 'male') {
+      setSessionsPerMonth(String(sessionCaps.male))
+    } else if (formData.gender === 'female') {
+      setSessionsPerMonth(String(sessionCaps.female))
+    }
+  }, [formData.gender, createSubscription, sessionCaps, sessionsTouched, isEditing])
+
   const loadMember = async () => {
     try {
       const member = await window.api.members.getById(id!)
@@ -60,7 +91,8 @@ export default function MemberForm(): JSX.Element {
           gender: member.gender,
           access_tier: member.access_tier,
           photo_path: member.photo_path,
-          card_code: member.card_code || ''
+          card_code: member.card_code || '',
+          address: member.address || ''
         })
       }
     } catch (error) {
@@ -89,6 +121,13 @@ export default function MemberForm(): JSX.Element {
       setError('Please select a gender')
       return
     }
+    if (!isEditing && createSubscription) {
+      const parsedSessions = sessionsPerMonth.trim() ? Number(sessionsPerMonth) : NaN
+      if (!Number.isFinite(parsedSessions) || parsedSessions <= 0) {
+        setError(t('memberForm.sessionsRequired', 'Enter sessions per month'))
+        return
+      }
+    }
 
     setIsLoading(true)
     setError(null)
@@ -113,7 +152,8 @@ export default function MemberForm(): JSX.Element {
           gender: formData.gender as 'male' | 'female',
           access_tier: formData.access_tier,
           photo_path: photoPath ?? null,
-          card_code: formData.card_code.trim() || null
+          card_code: formData.card_code.trim() || null,
+          address: formData.address.trim() || null
         })
 
         navigate('/members')
@@ -125,7 +165,8 @@ export default function MemberForm(): JSX.Element {
         phone: formData.phone,
         gender: formData.gender as 'male' | 'female',
         access_tier: formData.access_tier,
-        card_code: formData.card_code.trim() || null
+        card_code: formData.card_code.trim() || null,
+        address: formData.address.trim() || null
       })
 
       if (formData.photo_path) {
@@ -141,10 +182,14 @@ export default function MemberForm(): JSX.Element {
       }
 
       if (createSubscription) {
+        const parsedSessions = sessionsPerMonth.trim() ? Number(sessionsPerMonth) : NaN
+        const sessionsValue =
+          Number.isFinite(parsedSessions) && parsedSessions > 0 ? parsedSessions : undefined
         await window.api.subscriptions.create({
           member_id: created.id,
           plan_months: planMonths,
-          price_paid: pricePaid ? Number(pricePaid) : undefined
+          price_paid: pricePaid ? Number(pricePaid) : undefined,
+          sessions_per_month: sessionsValue
         })
       }
 
@@ -252,6 +297,16 @@ export default function MemberForm(): JSX.Element {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="address">{t('memberForm.address', 'Address')}</Label>
+              <Input
+                id="address"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                placeholder={t('memberForm.addressPlaceholder', 'Street, area, city')}
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="card_code">{t('memberForm.serialCode', 'Member Serial')}</Label>
               <div className="flex gap-2">
                 <Input
@@ -308,6 +363,19 @@ export default function MemberForm(): JSX.Element {
                         <option value={6}>6 {t('memberForm.months', 'months')}</option>
                         <option value={12}>12 {t('memberForm.months', 'months')}</option>
                       </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t('memberForm.sessionsPerMonth', 'Sessions per month')}</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={sessionsPerMonth}
+                        onChange={(e) => {
+                          setSessionsTouched(true)
+                          setSessionsPerMonth(e.target.value)
+                        }}
+                        placeholder="26"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>{t('memberForm.pricePaid', 'Price Paid')}</Label>

@@ -6,6 +6,8 @@ import {
   UsersIcon,
   CreditCardIcon,
   ChartBarIcon,
+  TicketIcon,
+  BanknotesIcon,
   Cog6ToothIcon,
   ArrowDownTrayIcon,
   ArrowRightOnRectangleIcon,
@@ -28,7 +30,9 @@ const navItems: NavItem[] = [
   { path: '/', labelKey: 'nav.dashboard', icon: HomeIcon },
   { path: '/members', labelKey: 'nav.members', icon: UsersIcon },
   { path: '/subscriptions', labelKey: 'nav.subscriptions', icon: CreditCardIcon },
+  { path: '/guest-passes', labelKey: 'nav.guestPasses', icon: TicketIcon },
   { path: '/reports', labelKey: 'nav.reports', icon: ChartBarIcon },
+  { path: '/income', labelKey: 'nav.income', icon: BanknotesIcon },
   { path: '/import', labelKey: 'nav.import', icon: ArrowDownTrayIcon },
   { path: '/settings', labelKey: 'nav.settings', icon: Cog6ToothIcon }
 ]

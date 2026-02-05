@@ -19,6 +19,7 @@ interface Member {
   photo_path: string | null
   access_tier: 'A' | 'B'
   card_code: string | null
+  address: string | null
   created_at: number
 }
 
@@ -28,6 +29,7 @@ interface Subscription {
   end_date: number
   plan_months: number
   price_paid: number | null
+  sessions_per_month: number | null
   is_active: number
 }
 
@@ -36,6 +38,15 @@ interface Quota {
   sessions_cap: number
   cycle_start: number
   cycle_end: number
+}
+
+interface SubscriptionFreeze {
+  id: number
+  subscription_id: number
+  start_date: number
+  end_date: number
+  days: number
+  created_at: number
 }
 
 const toSafeFileUrl = (pathOrUrl: string): string => {
@@ -70,6 +81,7 @@ export default function MemberDetail(): JSX.Element {
   const [member, setMember] = useState<Member | null>(null)
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
   const [subscription, setSubscription] = useState<Subscription | null>(null)
+  const [freezes, setFreezes] = useState<SubscriptionFreeze[]>([])
   const [quota, setQuota] = useState<Quota | null>(null)
   const [showQR, setShowQR] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -77,8 +89,11 @@ export default function MemberDetail(): JSX.Element {
 
   const [showRenewModal, setShowRenewModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [showFreezeModal, setShowFreezeModal] = useState(false)
   const [planMonths, setPlanMonths] = useState<1 | 3 | 6 | 12>(1)
   const [pricePaid, setPricePaid] = useState<string>('')
+  const [sessionsPerMonth, setSessionsPerMonth] = useState<string>('')
+  const [freezeDays, setFreezeDays] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7>(1)
 
   useEffect(() => {
     loadMemberData()
@@ -98,6 +113,19 @@ export default function MemberDetail(): JSX.Element {
       setSubscription(active)
       if (active) {
         setPlanMonths(active.plan_months as 1 | 3 | 6 | 12)
+        setSessionsPerMonth(
+          active.sessions_per_month !== null && active.sessions_per_month !== undefined
+            ? String(active.sessions_per_month)
+            : ''
+        )
+        try {
+          const freezeData = await window.api.subscriptions.getFreezes(active.id)
+          setFreezes(freezeData || [])
+        } catch {
+          setFreezes([])
+        }
+      } else {
+        setFreezes([])
       }
       setQuota(quotaData)
     } catch (error) {
@@ -115,12 +143,18 @@ export default function MemberDetail(): JSX.Element {
       setError(t('subscriptions.invalidAmount'))
       return
     }
+    const parsedSessions = sessionsPerMonth.trim() ? Number(sessionsPerMonth) : NaN
+    if (!Number.isFinite(parsedSessions) || parsedSessions <= 0) {
+      setError(t('memberForm.sessionsRequired', 'Enter sessions per month'))
+      return
+    }
 
     setError(null)
     try {
       await window.api.subscriptions.renew(member.id, {
         plan_months: planMonths,
-        price_paid: amount
+        price_paid: amount,
+        sessions_per_month: parsedSessions
       })
       setShowRenewModal(false)
       setPricePaid('')
@@ -147,6 +181,19 @@ export default function MemberDetail(): JSX.Element {
       await loadMemberData()
     } catch (e) {
       console.error('Failed to record payment:', e)
+      setError(t('common.error'))
+    }
+  }
+
+  const handleFreeze = async () => {
+    if (!subscription) return
+    setError(null)
+    try {
+      await window.api.subscriptions.freeze(subscription.id, freezeDays)
+      setShowFreezeModal(false)
+      await loadMemberData()
+    } catch (e) {
+      console.error('Failed to freeze subscription:', e)
       setError(t('common.error'))
     }
   }
@@ -181,6 +228,10 @@ export default function MemberDetail(): JSX.Element {
   const daysRemaining = subscription
     ? Math.ceil((subscription.end_date * 1000 - Date.now()) / (1000 * 60 * 60 * 24))
     : 0
+  const activeFreeze = freezes.find((freeze) => {
+    const now = Date.now() / 1000
+    return freeze.start_date <= now && freeze.end_date > now
+  })
 
   return (
     <div className="min-h-full p-4 md:p-8 bg-muted/30 max-w-5xl mx-auto">
@@ -247,6 +298,11 @@ export default function MemberDetail(): JSX.Element {
                 {t('memberDetail.serial', 'Serial')}: <span className="font-mono text-foreground">{member.card_code}</span>
               </p>
             )}
+            {member.address && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {t('memberDetail.address', 'Address')}: {member.address}
+              </p>
+            )}
             <div className="flex gap-2 mt-3">
               <Badge variant="secondary">{t(`members.${member.gender}`)}</Badge>
               <Badge variant={member.access_tier === 'A' ? 'success' : 'warning'}>
@@ -285,11 +341,24 @@ export default function MemberDetail(): JSX.Element {
                   </span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    {t('memberDetail.sessionsPerMonth', 'Sessions / month')}
+                  </span>
+                  <span className="font-medium">
+                    {subscription.sessions_per_month ?? quota?.sessions_cap ?? '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">{t('memberDetail.expires')}</span>
                   <span className="font-medium">
                     {new Date(subscription.end_date * 1000).toLocaleDateString()}
                   </span>
                 </div>
+                {activeFreeze && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    {t('memberDetail.frozenUntil', 'Frozen until')} {new Date(activeFreeze.end_date * 1000).toLocaleDateString()}
+                  </div>
+                )}
                 {daysRemaining > 0 && (
                   <div className="pt-2 border-t border-border">
                     <div
@@ -324,6 +393,21 @@ export default function MemberDetail(): JSX.Element {
                     className="flex-1"
                   >
                     {t('subscriptions.recordPayment')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setError(null)
+                      setFreezeDays(1)
+                      setShowFreezeModal(true)
+                    }}
+                    className="flex-1"
+                    disabled={!!activeFreeze}
+                  >
+                    {activeFreeze
+                      ? t('memberDetail.frozen', 'Frozen')
+                      : t('memberDetail.freeze', 'Freeze')}
                   </Button>
                 </div>
               </>
@@ -407,6 +491,15 @@ export default function MemberDetail(): JSX.Element {
               </Select>
             </div>
             <div>
+              <Label className="mb-2 block">{t('memberForm.sessionsPerMonth', 'Sessions per month')}</Label>
+              <Input
+                type="number"
+                min="1"
+                value={sessionsPerMonth}
+                onChange={(e) => setSessionsPerMonth(e.target.value)}
+              />
+            </div>
+            <div>
               <Label className="mb-2 block">{t('memberForm.pricePaid')}</Label>
               <Input
                 type="number"
@@ -459,6 +552,49 @@ export default function MemberDetail(): JSX.Element {
                 type="button"
                 variant="secondary"
                 onClick={() => setShowPaymentModal(false)}
+                className="flex-1"
+              >
+                {t('common.cancel')}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {showFreezeModal && subscription && (
+        <Modal
+          title={t('memberDetail.freezeTitle', 'Freeze Subscription')}
+          onClose={() => setShowFreezeModal(false)}
+          size="sm"
+          closeLabel={t('common.close')}
+        >
+          <div className="space-y-4">
+            <div>
+              <Label className="mb-2 block">{t('memberDetail.freezeDays', 'Freeze days')}</Label>
+              <Select
+                value={freezeDays}
+                onChange={(e) => setFreezeDays(Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6 | 7)}
+              >
+                <option value={1}>1</option>
+                <option value={2}>2</option>
+                <option value={3}>3</option>
+                <option value={4}>4</option>
+                <option value={5}>5</option>
+                <option value={6}>6</option>
+                <option value={7}>7</option>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-2">
+                {t('memberDetail.freezeHint', 'Membership end date will extend by the frozen days.')}
+              </p>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button type="button" onClick={handleFreeze} className="flex-1">
+                {t('memberDetail.freeze', 'Freeze')}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowFreezeModal(false)}
                 className="flex-1"
               >
                 {t('common.cancel')}

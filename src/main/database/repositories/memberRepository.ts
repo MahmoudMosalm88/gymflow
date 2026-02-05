@@ -12,6 +12,7 @@ export interface Member {
   photo_path: string | null
   access_tier: 'A' | 'B'
   card_code: string | null
+  address: string | null
   created_at: number
   updated_at: number
 }
@@ -23,6 +24,7 @@ export interface CreateMemberInput {
   access_tier?: 'A' | 'B'
   photo_path?: string | null
   card_code?: string | null
+  address?: string | null
 }
 
 export interface UpdateMemberInput {
@@ -32,6 +34,7 @@ export interface UpdateMemberInput {
   access_tier?: 'A' | 'B'
   photo_path?: string | null
   card_code?: string | null
+  address?: string | null
 }
 
 function formatSerial(num: number): string {
@@ -109,8 +112,8 @@ export function createMember(input: CreateMemberInput): Member {
   }
 
   db.prepare(
-    `INSERT INTO members (id, name, phone, gender, photo_path, access_tier, card_code, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO members (id, name, phone, gender, photo_path, access_tier, card_code, address, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     input.name,
@@ -119,6 +122,7 @@ export function createMember(input: CreateMemberInput): Member {
     input.photo_path || null,
     input.access_tier || 'A',
     cardCode || null,
+    input.address || null,
     now,
     now
   )
@@ -202,6 +206,10 @@ export function updateMember(id: string, input: UpdateMemberInput): Member {
     }
     fields.push('card_code = ?')
     values.push(nextCardCode)
+  }
+  if (input.address !== undefined) {
+    fields.push('address = ?')
+    values.push(input.address || null)
   }
 
   fields.push('updated_at = ?')
