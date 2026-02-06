@@ -13,6 +13,12 @@ const api = {
     search: (query: string) => ipcRenderer.invoke('members:search', query)
   },
 
+  // Card batch operations
+  cards: {
+    getNextPreview: () => ipcRenderer.invoke('cards:getNextPreview'),
+    generateBatch: (data: { count: number }) => ipcRenderer.invoke('cards:generateBatch', data)
+  },
+
   // Owner auth operations
   owner: {
     getStatus: (token?: string) => ipcRenderer.invoke('owner:getStatus', token),
@@ -126,6 +132,7 @@ const api = {
   // App operations
   app: {
     openDataFolder: () => ipcRenderer.invoke('app:openDataFolder'),
+    showItemInFolder: (filePath: string) => ipcRenderer.invoke('app:showItemInFolder', filePath),
     openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
     backup: (destPath?: string) => ipcRenderer.invoke('app:backup', destPath),
     restore: (srcPath?: string) => ipcRenderer.invoke('app:restore', srcPath),

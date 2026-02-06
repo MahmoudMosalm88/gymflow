@@ -45,7 +45,6 @@ export default function MemberForm(): JSX.Element {
     female: 30
   })
   const [isLoading, setIsLoading] = useState(false)
-  const [isSerialLoading, setIsSerialLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [createdMember, setCreatedMember] = useState<{ id: string; name: string } | null>(null)
   const [showQrModal, setShowQrModal] = useState(false)
@@ -53,8 +52,6 @@ export default function MemberForm(): JSX.Element {
   useEffect(() => {
     if (isEditing) {
       loadMember()
-    } else {
-      loadNextSerial()
     }
   }, [id])
 
@@ -101,25 +98,23 @@ export default function MemberForm(): JSX.Element {
     }
   }
 
-  const loadNextSerial = async () => {
-    setIsSerialLoading(true)
-    try {
-      const next = await window.api.members.getNextSerial()
-      if (next) {
-        setFormData((prev) => ({ ...prev, card_code: String(next) }))
-      }
-    } catch (error) {
-      console.error('Failed to generate serial:', error)
-    } finally {
-      setIsSerialLoading(false)
-    }
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.gender) {
       setError('Please select a gender')
       return
+    }
+    if (!isEditing) {
+      const cardCode = formData.card_code.trim()
+      if (!cardCode) {
+        setError(t('memberForm.cardCodeRequired', 'Card code is required'))
+        return
+      }
+      const cardCodePattern = /^GF-\d{6}$/
+      if (!cardCodePattern.test(cardCode)) {
+        setError(t('memberForm.cardCodeFormat', 'Card code must match GF-000001'))
+        return
+      }
     }
     if (!isEditing && createSubscription) {
       const parsedSessions = sessionsPerMonth.trim() ? Number(sessionsPerMonth) : NaN
@@ -307,30 +302,21 @@ export default function MemberForm(): JSX.Element {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="card_code">{t('memberForm.serialCode', 'Member Serial')}</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="card_code"
-                  value={formData.card_code}
-                  readOnly
-                  placeholder={t('memberForm.serialPlaceholder', 'Auto-generated serial')}
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    if (isEditing && !confirm(t('memberForm.regenerateConfirm', 'Regenerate serial? Old QR codes will stop working.'))) {
-                      return
-                    }
-                    loadNextSerial()
-                  }}
-                  disabled={isSerialLoading}
-                >
-                  {isSerialLoading ? t('common.loading', 'Loading...') : t('memberForm.regenerate', 'Regenerate')}
-                </Button>
-              </div>
+              <Label htmlFor="card_code">
+                {t('memberForm.cardCode', 'Card Code')} {!isEditing && '*'}
+              </Label>
+              <Input
+                id="card_code"
+                value={formData.card_code}
+                onChange={(e) => setFormData({ ...formData, card_code: e.target.value })}
+                readOnly={isEditing}
+                required={!isEditing}
+                placeholder={t('memberForm.cardCodePlaceholder', 'Scan printed card code')}
+              />
               <p className="text-xs text-muted-foreground">
-                {t('memberForm.serialHint', 'Serial is auto-generated and used for the QR code.')}
+                {isEditing
+                  ? t('memberForm.cardCodeEditHint', 'Use Replace Card Code in the member profile to update.')
+                  : t('memberForm.cardCodeHint', 'Scan or type the printed card code (e.g. GF-000123).')}
               </p>
             </div>
 

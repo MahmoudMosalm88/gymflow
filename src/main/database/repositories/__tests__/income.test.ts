@@ -26,7 +26,8 @@ describe('Income Repository', () => {
     const member = createMember({
       name: 'Paying Member',
       phone: '+201111111111',
-      gender: 'female'
+      gender: 'female',
+      card_code: 'GF-000101'
     })
 
     createSubscription({
@@ -51,7 +52,8 @@ describe('Income Repository', () => {
     const member = createMember({
       name: 'Member Two',
       phone: '+201222222222',
-      gender: 'male'
+      gender: 'male',
+      card_code: 'GF-000102'
     })
 
     createSubscription({

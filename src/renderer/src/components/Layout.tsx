@@ -66,11 +66,10 @@ export default function Layout({ children, onLogout }: LayoutProps): JSX.Element
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                  isActive
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${isActive
                     ? 'bg-brand-gradient text-white shadow-md'
                     : 'text-muted-foreground hover:bg-muted'
-                }`}
+                  }`}
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
                 <span className="font-medium">{t(item.labelKey)}</span>
@@ -145,11 +144,10 @@ export default function Layout({ children, onLogout }: LayoutProps): JSX.Element
                   key={item.path}
                   to={item.path}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                    isActive
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${isActive
                       ? 'bg-brand-gradient text-white shadow-md'
                       : 'text-muted-foreground hover:bg-muted'
-                  }`}
+                    }`}
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
                   <span className="font-medium">{t(item.labelKey)}</span>

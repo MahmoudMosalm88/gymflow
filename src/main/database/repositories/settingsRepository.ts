@@ -8,6 +8,7 @@ const DEFAULT_SETTINGS = {
   warning_days_before_expiry: 3,
   warning_sessions_remaining: 3,
   scan_cooldown_seconds: 30,
+  next_card_serial: 1,
   whatsapp_enabled: false,
   whatsapp_batch_delay_min: 10,
   whatsapp_batch_delay_max: 15,
@@ -36,6 +37,7 @@ function validateSettingValue(
     case 'warning_days_before_expiry':
     case 'warning_sessions_remaining':
     case 'scan_cooldown_seconds':
+    case 'next_card_serial':
     case 'whatsapp_batch_delay_min':
     case 'whatsapp_batch_delay_max':
       return typeof value === 'number' && Number.isFinite(value) ? value : fallback

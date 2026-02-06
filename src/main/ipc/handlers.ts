@@ -16,6 +16,8 @@ import * as freezeRepo from '../database/repositories/subscriptionFreezeReposito
 import * as incomeRepo from '../database/repositories/incomeRepository'
 
 import { checkAttendance } from '../services/attendance'
+import { allocateCardCodes, getNextCardSerialPreview } from '../services/cardCodeService'
+import { generateCardBatchFiles } from '../services/cardBatchPdf'
 import { getDatabase, getUserDataPath, getPhotosPath, closeDatabase, initDatabase } from '../database/connection'
 import { whatsappService } from '../services/whatsapp'
 import { logToFile } from '../utils/logger'
@@ -571,6 +573,7 @@ export function registerIpcHandlers(): void {
             : undefined
         const card_code = cardCodeRaw ? String(cardCodeRaw).trim() : ''
         const address = addressRaw ? String(addressRaw).trim() : ''
+        const cardCodePattern = /^GF-\d{6}$/
 
         if (!name) errors.push('Name is required')
         if (!phone) errors.push('Phone is required')
@@ -578,6 +581,9 @@ export function registerIpcHandlers(): void {
         if (!['A', 'B'].includes(access_tier)) errors.push('Access tier must be A or B')
         if (![1, 3, 6, 12].includes(plan_months))
           errors.push('Plan months must be 1, 3, 6, or 12')
+        if (!card_code) errors.push('Card code is required')
+        if (card_code && !cardCodePattern.test(card_code))
+          errors.push('Card code must match format GF-000001')
         if (
           sessions_per_month !== undefined &&
           (!Number.isFinite(sessions_per_month) || sessions_per_month < 1)
@@ -691,9 +697,35 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  // ============== CARDS ==============
+  ipcMain.handle('cards:getNextPreview', () => {
+    try {
+      const next = getNextCardSerialPreview()
+      return { success: true, next }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('cards:generateBatch', async (_event, payload: { count: number }) => {
+    try {
+      const count = Number(payload?.count)
+      const { codes, from, to } = allocateCardCodes(count)
+      const { pdfPath, csvPath } = await generateCardBatchFiles(codes, from, to)
+      return { success: true, from, to, codes, pdfPath, csvPath }
+    } catch (error) {
+      return { success: false, error: String(error) }
+    }
+  })
+
   // ============== APP ==============
   ipcMain.handle('app:openDataFolder', () => {
     shell.openPath(getUserDataPath())
+    return { success: true }
+  })
+
+  ipcMain.handle('app:showItemInFolder', (_event, filePath: string) => {
+    shell.showItemInFolder(filePath)
     return { success: true }
   })
 

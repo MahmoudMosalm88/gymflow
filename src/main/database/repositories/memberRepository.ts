@@ -96,19 +96,13 @@ export function createMember(input: CreateMemberInput): Member {
   const id = uuidv4()
   const now = Math.floor(Date.now() / 1000)
   const normalizedPhone = normalizePhone(input.phone)
-  let cardCode = input.card_code ? input.card_code.trim() : null
+  const cardCode = input.card_code ? input.card_code.trim() : ''
   if (!cardCode) {
-    cardCode = generateNextCardCode()
+    throw new Error('Card code is required')
   }
-  if (cardCode) {
-    let existing = getMemberByCardCode(cardCode)
-    // Handle rare collision by incrementing serial until unique.
-    while (existing) {
-      const match = /^GF-(\d+)$/.exec(cardCode)
-      const nextNumber = match ? Number(match[1]) + 1 : getMaxSerialNumber() + 1
-      cardCode = formatSerial(nextNumber)
-      existing = getMemberByCardCode(cardCode)
-    }
+  const existing = getMemberByCardCode(cardCode)
+  if (existing) {
+    throw new Error(`Card code already in use: ${cardCode}`)
   }
 
   db.prepare(
@@ -121,7 +115,7 @@ export function createMember(input: CreateMemberInput): Member {
     input.gender,
     input.photo_path || null,
     input.access_tier || 'A',
-    cardCode || null,
+    cardCode,
     input.address || null,
     now,
     now

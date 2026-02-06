@@ -23,11 +23,12 @@
     "rebuild:node": "npm rebuild better-sqlite3 --build-from-source"
   },
   "dependencies": {
-    "better-sqlite3": "^11.7.0",
     "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.7.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "i18next": "^24.2.2",
+    "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
     "react-i18next": "^15.4.0",
     "react-router-dom": "^7.1.1",

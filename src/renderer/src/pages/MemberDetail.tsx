@@ -90,10 +90,12 @@ export default function MemberDetail(): JSX.Element {
   const [showRenewModal, setShowRenewModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [showFreezeModal, setShowFreezeModal] = useState(false)
+  const [showReplaceCardModal, setShowReplaceCardModal] = useState(false)
   const [planMonths, setPlanMonths] = useState<1 | 3 | 6 | 12>(1)
   const [pricePaid, setPricePaid] = useState<string>('')
   const [sessionsPerMonth, setSessionsPerMonth] = useState<string>('')
   const [freezeDays, setFreezeDays] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7>(1)
+  const [replaceCardCode, setReplaceCardCode] = useState('')
 
   useEffect(() => {
     loadMemberData()
@@ -198,6 +200,31 @@ export default function MemberDetail(): JSX.Element {
     }
   }
 
+  const handleReplaceCard = async () => {
+    if (!member) return
+    const code = replaceCardCode.trim()
+    if (!code) {
+      setError(t('memberDetail.cardRequired', 'Card code is required'))
+      return
+    }
+    const cardCodePattern = /^GF-\d{6}$/
+    if (!cardCodePattern.test(code)) {
+      setError(t('memberDetail.cardFormat', 'Card code must match GF-000001'))
+      return
+    }
+
+    setError(null)
+    try {
+      await window.api.members.update(member.id, { card_code: code })
+      setShowReplaceCardModal(false)
+      setReplaceCardCode('')
+      await loadMemberData()
+    } catch (e) {
+      console.error('Failed to replace card code:', e)
+      setError(t('common.error'))
+    }
+  }
+
   const handleDelete = async () => {
     if (!confirm(t('common.confirm'))) return
 
@@ -255,6 +282,17 @@ export default function MemberDetail(): JSX.Element {
           <Button onClick={() => setShowQR(true)} variant="outline" className="gap-2">
             <QrCodeIcon className="w-5 h-5" />
             {t('memberDetail.qrCode')}
+          </Button>
+          <Button
+            onClick={() => {
+              setError(null)
+              setReplaceCardCode(member.card_code || '')
+              setShowReplaceCardModal(true)
+            }}
+            variant="secondary"
+            className="gap-2"
+          >
+            {t('memberDetail.replaceCard', 'Replace Card')}
           </Button>
           <Link
             to={`/members/${id}/edit`}
@@ -595,6 +633,45 @@ export default function MemberDetail(): JSX.Element {
                 type="button"
                 variant="secondary"
                 onClick={() => setShowFreezeModal(false)}
+                className="flex-1"
+              >
+                {t('common.cancel')}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {showReplaceCardModal && (
+        <Modal
+          title={t('memberDetail.replaceCard', 'Replace Card')}
+          onClose={() => setShowReplaceCardModal(false)}
+          size="sm"
+          closeLabel={t('common.close')}
+        >
+          <div className="space-y-4">
+            <div>
+              <Label className="mb-2 block">{t('memberDetail.cardCodeLabel', 'Card Code')}</Label>
+              <Input
+                value={replaceCardCode}
+                onChange={(e) => setReplaceCardCode(e.target.value)}
+                placeholder={t('memberDetail.cardCodePlaceholder', 'Scan printed card code')}
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                {t(
+                  'memberDetail.cardCodeHint',
+                  'Scan or type the printed card code (e.g. GF-000123).'
+                )}
+              </p>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button type="button" onClick={handleReplaceCard} className="flex-1">
+                {t('common.save')}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowReplaceCardModal(false)}
                 className="flex-1"
               >
                 {t('common.cancel')}

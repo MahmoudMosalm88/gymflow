@@ -51,6 +51,16 @@ export default function Settings(): JSX.Element {
   const [settings, setSettings] = useState<SettingsData>(defaultSettings)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [cardCount, setCardCount] = useState<string>('100')
+  const [cardPreview, setCardPreview] = useState<string>('')
+  const [cardBatch, setCardBatch] = useState<{
+    from: string
+    to: string
+    pdfPath: string
+    csvPath?: string
+  } | null>(null)
+  const [cardBatchLoading, setCardBatchLoading] = useState(false)
+  const [cardBatchError, setCardBatchError] = useState<string | null>(null)
   const [whatsappStatus, setWhatsappStatus] = useState<{
     connected: boolean
     authenticated: boolean
@@ -62,6 +72,20 @@ export default function Settings(): JSX.Element {
 
   useEffect(() => {
     loadSettings()
+  }, [])
+
+  useEffect(() => {
+    const loadPreview = async () => {
+      try {
+        const result = await window.api.cards.getNextPreview()
+        if (result?.success && result.next) {
+          setCardPreview(String(result.next))
+        }
+      } catch {
+        // ignore
+      }
+    }
+    loadPreview()
   }, [])
 
   useEffect(() => {
@@ -206,6 +230,47 @@ export default function Settings(): JSX.Element {
     } catch (error) {
       console.error('Failed to restore database:', error)
       setSaveMessage('Restore failed')
+    }
+  }
+
+  const handleGenerateCards = async () => {
+    setCardBatchError(null)
+    const count = Number(cardCount)
+    if (!Number.isFinite(count) || count <= 0) {
+      setCardBatchError(t('settings.cardsCountError', 'Enter a valid count'))
+      return
+    }
+    setCardBatchLoading(true)
+    try {
+      const result = await window.api.cards.generateBatch({ count })
+      if (result?.success) {
+        setCardBatch({
+          from: result.from,
+          to: result.to,
+          pdfPath: result.pdfPath,
+          csvPath: result.csvPath
+        })
+        const preview = await window.api.cards.getNextPreview()
+        if (preview?.success && preview.next) {
+          setCardPreview(String(preview.next))
+        }
+      } else {
+        setCardBatchError(result?.error || t('common.error'))
+      }
+    } catch (error) {
+      console.error('Failed to generate card batch:', error)
+      setCardBatchError(t('common.error'))
+    } finally {
+      setCardBatchLoading(false)
+    }
+  }
+
+  const handleOpenBatchFolder = async () => {
+    if (!cardBatch?.pdfPath) return
+    try {
+      await window.api.app.showItemInFolder(cardBatch.pdfPath)
+    } catch (error) {
+      console.error('Failed to open batch folder:', error)
     }
   }
 
@@ -519,23 +584,75 @@ export default function Settings(): JSX.Element {
         </TabsContent>
 
         <TabsContent value="data">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('settings.data')}</CardTitle>
-              <CardDescription>Backup, restore, and data location.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-3">
-              <Button variant="outline" onClick={handleOpenDataFolder}>
-                {t('settings.openDataFolder')}
-              </Button>
-              <Button variant="outline" onClick={handleBackup}>
-                {t('settings.backup')}
-              </Button>
-              <Button variant="outline" onClick={handleRestore}>
-                {t('settings.restore')}
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('settings.cardsTitle', 'Pre-Printed Cards')}</CardTitle>
+                <CardDescription>
+                  {t('settings.cardsDescription', 'Generate A4 QR code sheets for printing.')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{t('settings.cardsCount', 'How many codes?')}</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={cardCount}
+                      onChange={(e) => setCardCount(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t('settings.cardsNext', 'Next code')}</Label>
+                    <Input value={cardPreview} readOnly placeholder="GF-000001" />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <Button onClick={handleGenerateCards} disabled={cardBatchLoading}>
+                    {cardBatchLoading
+                      ? t('common.loading')
+                      : t('settings.cardsGenerate', 'Generate PDF')}
+                  </Button>
+                  {cardBatch?.pdfPath && (
+                    <Button variant="outline" onClick={handleOpenBatchFolder}>
+                      {t('settings.cardsOpenFolder', 'Open folder')}
+                    </Button>
+                  )}
+                </div>
+
+                {cardBatch && (
+                  <div className="text-sm text-muted-foreground">
+                    {t('settings.cardsGenerated', 'Generated')} {cardBatch.from} → {cardBatch.to}
+                    {cardBatch.csvPath ? ` (${t('settings.cardsCsv', 'CSV included')})` : ''}
+                  </div>
+                )}
+
+                {cardBatchError && (
+                  <div className="text-sm text-red-600">{cardBatchError}</div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('settings.data')}</CardTitle>
+                <CardDescription>Backup, restore, and data location.</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-wrap gap-3">
+                <Button variant="outline" onClick={handleOpenDataFolder}>
+                  {t('settings.openDataFolder')}
+                </Button>
+                <Button variant="outline" onClick={handleBackup}>
+                  {t('settings.backup')}
+                </Button>
+                <Button variant="outline" onClick={handleRestore}>
+                  {t('settings.restore')}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 
