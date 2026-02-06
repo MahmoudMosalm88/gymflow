@@ -29,7 +29,7 @@ describe('Attendance by serial', () => {
       name: 'Serial Member',
       phone: '+201234567800',
       gender: 'male',
-      card_code: 'GF-000123'
+      card_code: '00001'
     })
 
     createSubscription({
@@ -38,7 +38,7 @@ describe('Attendance by serial', () => {
       start_date: now - 60
     })
 
-    const result = checkAttendance('GF-000123', 'scan')
+    const result = checkAttendance('00001', 'scan')
     expect(result.status).toBe('allowed')
     expect(result.member?.id).toBe(member.id)
   })
@@ -49,7 +49,7 @@ describe('Attendance by serial', () => {
       name: 'Expired Member',
       phone: '+201234567801',
       gender: 'female',
-      card_code: 'GF-000124'
+      card_code: '00002'
     })
 
     createSubscription({
@@ -58,7 +58,7 @@ describe('Attendance by serial', () => {
       start_date: now - 60 * SECONDS_PER_DAY
     })
 
-    const result = checkAttendance('GF-000124', 'scan')
+    const result = checkAttendance('00002', 'scan')
     expect(result.status).toBe('denied')
     expect(result.reasonCode).toBe('expired')
   })
@@ -69,7 +69,7 @@ describe('Attendance by serial', () => {
       name: 'Cooldown Member',
       phone: '+201234567802',
       gender: 'male',
-      card_code: 'GF-000125'
+      card_code: '00003'
     })
 
     createSubscription({
@@ -78,8 +78,8 @@ describe('Attendance by serial', () => {
       start_date: now - 60
     })
 
-    const first = checkAttendance('GF-000125', 'scan')
-    const second = checkAttendance('GF-000125', 'scan')
+    const first = checkAttendance('00003', 'scan')
+    const second = checkAttendance('00003', 'scan')
 
     expect(first.status).toBe('allowed')
     expect(second.status).toBe('ignored')

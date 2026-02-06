@@ -24,9 +24,9 @@ describe('Card code batch allocation', () => {
   it('allocates contiguous codes and increments next_card_serial', () => {
     setSetting('next_card_serial', 1)
     const batch = allocateCardCodes(3)
-    expect(batch.from).toBe('GF-000001')
-    expect(batch.to).toBe('GF-000003')
-    expect(batch.codes).toEqual(['GF-000001', 'GF-000002', 'GF-000003'])
+    expect(batch.from).toBe('00001')
+    expect(batch.to).toBe('00003')
+    expect(batch.codes).toEqual(['00001', '00002', '00003'])
     expect(getSetting<number>('next_card_serial')).toBe(4)
   })
 
@@ -35,15 +35,15 @@ describe('Card code batch allocation', () => {
       name: 'Member',
       phone: '+201234567811',
       gender: 'male',
-      card_code: 'GF-000010'
+      card_code: '00010'
     })
     setSetting('next_card_serial', 1)
     const preview = getNextCardSerialPreview()
-    expect(preview).toBe('GF-000011')
+    expect(preview).toBe('00011')
 
     const batch = allocateCardCodes(2)
-    expect(batch.from).toBe('GF-000011')
-    expect(batch.to).toBe('GF-000012')
+    expect(batch.from).toBe('00011')
+    expect(batch.to).toBe('00012')
     expect(getSetting<number>('next_card_serial')).toBe(13)
   })
 })

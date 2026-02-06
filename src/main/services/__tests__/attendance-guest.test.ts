@@ -52,7 +52,7 @@ describe('Attendance - guest passes and freezes', () => {
       name: 'Frozen Member',
       phone: '+201234560000',
       gender: 'male',
-      card_code: 'GF-000301'
+      card_code: '00004'
     })
 
     const subscription = createSubscription({

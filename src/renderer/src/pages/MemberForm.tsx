@@ -110,9 +110,9 @@ export default function MemberForm(): JSX.Element {
         setError(t('memberForm.cardCodeRequired', 'Card code is required'))
         return
       }
-      const cardCodePattern = /^GF-\d{6}$/
+      const cardCodePattern = /^\d{5}$/
       if (!cardCodePattern.test(cardCode)) {
-        setError(t('memberForm.cardCodeFormat', 'Card code must match GF-000001'))
+        setError(t('memberForm.cardCodeFormat', 'Card code must match 00000'))
         return
       }
     }
@@ -316,7 +316,7 @@ export default function MemberForm(): JSX.Element {
               <p className="text-xs text-muted-foreground">
                 {isEditing
                   ? t('memberForm.cardCodeEditHint', 'Use Replace Card Code in the member profile to update.')
-                  : t('memberForm.cardCodeHint', 'Scan or type the printed card code (e.g. GF-000123).')}
+                  : t('memberForm.cardCodeHint', 'Scan or type the printed card code (e.g. 00001).')}
               </p>
             </div>
 

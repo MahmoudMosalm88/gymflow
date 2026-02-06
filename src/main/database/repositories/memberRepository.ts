@@ -1,8 +1,8 @@
 import { v4 as uuidv4 } from 'uuid'
 import { getDatabase } from '../connection'
 
-const SERIAL_PREFIX = 'GF-'
-const SERIAL_PAD = 6
+const SERIAL_PREFIX = ''
+const SERIAL_PAD = 5
 
 export interface Member {
   id: string
@@ -45,11 +45,11 @@ export function getMaxSerialNumber(): number {
   const db = getDatabase()
   const result = db
     .prepare(
-      `SELECT MAX(CAST(SUBSTR(card_code, ${SERIAL_PREFIX.length + 1}) AS INTEGER)) as max
+      `SELECT MAX(CAST(card_code AS INTEGER)) as max
        FROM members
-       WHERE card_code LIKE ?`
+       WHERE card_code GLOB '[0-9][0-9][0-9][0-9][0-9]'`
     )
-    .get(`${SERIAL_PREFIX}%`) as { max: number | null } | undefined
+    .get() as { max: number | null } | undefined
 
   return result?.max ? Number(result.max) : 0
 }

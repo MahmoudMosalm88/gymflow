@@ -1,8 +1,8 @@
 import { getSetting, setSetting } from '../database/repositories/settingsRepository'
 import { getMaxSerialNumber } from '../database/repositories/memberRepository'
 
-const SERIAL_PREFIX = 'GF-'
-const SERIAL_PAD = 6
+const SERIAL_PREFIX = ''
+const SERIAL_PAD = 5
 
 function formatSerial(num: number): string {
   return `${SERIAL_PREFIX}${String(num).padStart(SERIAL_PAD, '0')}`

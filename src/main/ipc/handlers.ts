@@ -573,7 +573,7 @@ export function registerIpcHandlers(): void {
             : undefined
         const card_code = cardCodeRaw ? String(cardCodeRaw).trim() : ''
         const address = addressRaw ? String(addressRaw).trim() : ''
-        const cardCodePattern = /^GF-\d{6}$/
+        const cardCodePattern = /^\d{5}$/
 
         if (!name) errors.push('Name is required')
         if (!phone) errors.push('Phone is required')
@@ -583,7 +583,7 @@ export function registerIpcHandlers(): void {
           errors.push('Plan months must be 1, 3, 6, or 12')
         if (!card_code) errors.push('Card code is required')
         if (card_code && !cardCodePattern.test(card_code))
-          errors.push('Card code must match format GF-000001')
+          errors.push('Card code must match format 00000')
         if (
           sessions_per_month !== undefined &&
           (!Number.isFinite(sessions_per_month) || sessions_per_month < 1)

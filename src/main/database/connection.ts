@@ -209,16 +209,16 @@ function runMigrations(database: Database.Database): void {
 
     const maxRow = database
       .prepare(
-        `SELECT MAX(CAST(SUBSTR(card_code, 4) AS INTEGER)) as max
+        `SELECT MAX(CAST(card_code AS INTEGER)) as max
          FROM members
-         WHERE card_code LIKE 'GF-%'`
+         WHERE card_code GLOB '[0-9][0-9][0-9][0-9][0-9]'`
       )
       .get() as { max: number | null } | undefined
 
     let nextNumber = (maxRow?.max ? Number(maxRow.max) : 0) + 1
 
     for (const row of rows) {
-      const code = `GF-${String(nextNumber).padStart(6, '0')}`
+      const code = `${String(nextNumber).padStart(5, '0')}`
       database.prepare('UPDATE members SET card_code = ? WHERE id = ?').run(code, row.id)
       nextNumber += 1
     }

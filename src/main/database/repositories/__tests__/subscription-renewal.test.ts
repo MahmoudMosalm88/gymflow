@@ -92,7 +92,7 @@ describe('Subscription Renewal - BUG-003 Fix', () => {
       name: 'Test Member',
       phone: '+1234567890',
       gender: 'male',
-      card_code: 'GF-000201'
+      card_code: '00021'
     })
     const memberId = member.id
 
@@ -126,7 +126,7 @@ describe('Subscription Renewal - BUG-003 Fix', () => {
       name: 'Test Member',
       phone: '+1234567891',
       gender: 'female',
-      card_code: 'GF-000202'
+      card_code: '00022'
     })
     const memberId = member.id
 
@@ -190,7 +190,7 @@ describe('Subscription Renewal - BUG-003 Fix', () => {
       name: 'Test Member',
       phone: '+1234567892',
       gender: 'male',
-      card_code: 'GF-000203'
+      card_code: '00023'
     })
     const memberId = member.id
 
@@ -220,7 +220,7 @@ describe('Subscription Renewal - BUG-003 Fix', () => {
       name: 'New Member',
       phone: '+1234567893',
       gender: 'female',
-      card_code: 'GF-000204'
+      card_code: '00024'
     })
     const memberId = member.id
 
@@ -242,7 +242,7 @@ describe('Subscription Renewal - BUG-003 Fix', () => {
       name: 'Test Member',
       phone: '+1234567894',
       gender: 'male',
-      card_code: 'GF-000205'
+      card_code: '00025'
     })
     const memberId = member.id
 
@@ -286,7 +286,7 @@ describe('Subscription Renewal - BUG-003 Fix', () => {
       name: 'Test Member',
       phone: '+1234567895',
       gender: 'male',
-      card_code: 'GF-000206'
+      card_code: '00026'
     })
     const memberId = member.id
 

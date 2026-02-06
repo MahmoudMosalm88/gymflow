@@ -605,7 +605,7 @@ export default function Settings(): JSX.Element {
                   </div>
                   <div className="space-y-2">
                     <Label>{t('settings.cardsNext', 'Next code')}</Label>
-                    <Input value={cardPreview} readOnly placeholder="GF-000001" />
+                    <Input value={cardPreview} readOnly placeholder="00001" />
                   </div>
                 </div>
 

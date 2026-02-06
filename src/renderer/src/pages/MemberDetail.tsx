@@ -207,9 +207,9 @@ export default function MemberDetail(): JSX.Element {
       setError(t('memberDetail.cardRequired', 'Card code is required'))
       return
     }
-    const cardCodePattern = /^GF-\d{6}$/
+    const cardCodePattern = /^\d{5}$/
     if (!cardCodePattern.test(code)) {
-      setError(t('memberDetail.cardFormat', 'Card code must match GF-000001'))
+      setError(t('memberDetail.cardFormat', 'Card code must match 00000'))
       return
     }
 
@@ -660,7 +660,7 @@ export default function MemberDetail(): JSX.Element {
               <p className="text-xs text-muted-foreground mt-2">
                 {t(
                   'memberDetail.cardCodeHint',
-                  'Scan or type the printed card code (e.g. GF-000123).'
+                  'Scan or type the printed card code (e.g. 00001).'
                 )}
               </p>
             </div>

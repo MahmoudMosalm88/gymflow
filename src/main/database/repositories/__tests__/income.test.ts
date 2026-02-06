@@ -27,7 +27,7 @@ describe('Income Repository', () => {
       name: 'Paying Member',
       phone: '+201111111111',
       gender: 'female',
-      card_code: 'GF-000101'
+      card_code: '00010'
     })
 
     createSubscription({
@@ -53,7 +53,7 @@ describe('Income Repository', () => {
       name: 'Member Two',
       phone: '+201222222222',
       gender: 'male',
-      card_code: 'GF-000102'
+      card_code: '00011'
     })
 
     createSubscription({

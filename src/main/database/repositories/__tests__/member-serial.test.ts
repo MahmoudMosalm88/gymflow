@@ -21,7 +21,7 @@ describe('Member serial generation', () => {
 
   it('generates GF-000001 when no members exist', () => {
     const next = generateNextCardCode()
-    expect(next).toBe('GF-000001')
+    expect(next).toBe('00001')
   })
 
   it('requires a card code when creating a member', () => {
@@ -39,11 +39,11 @@ describe('Member serial generation', () => {
       name: 'Member One',
       phone: '+201234567891',
       gender: 'female',
-      card_code: 'GF-000005'
+      card_code: '00005'
     })
 
     const next = generateNextCardCode()
-    expect(next).toBe('GF-000006')
+    expect(next).toBe('00006')
   })
 
   it('creates a member when a card code is provided', () => {
@@ -51,11 +51,11 @@ describe('Member serial generation', () => {
       name: 'Member With Card',
       phone: '+201234567899',
       gender: 'male',
-      card_code: 'GF-000020'
+      card_code: '00020'
     })
 
-    expect(member.card_code).toBe('GF-000020')
-    const fetched = getMemberByCardCode('GF-000020')
+    expect(member.card_code).toBe('00020')
+    const fetched = getMemberByCardCode('00020')
     expect(fetched?.id).toBe(member.id)
   })
 
@@ -64,13 +64,13 @@ describe('Member serial generation', () => {
       name: 'Member A',
       phone: '+201234567892',
       gender: 'male',
-      card_code: 'GF-000010'
+      card_code: '00010'
     })
     const memberB = createMember({
       name: 'Member B',
       phone: '+201234567893',
       gender: 'female',
-      card_code: 'GF-000011'
+      card_code: '00011'
     })
 
     expect(() => updateMember(memberB.id, { card_code: memberA.card_code })).toThrow()
