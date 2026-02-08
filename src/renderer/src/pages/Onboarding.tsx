@@ -12,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 interface OnboardingProps {
   onComplete: (token: string) => void
   onGoToLogin?: () => void
-  onEnableTestMode?: () => void
   mode?: 'initial' | 'signup'
 }
 
@@ -20,7 +19,6 @@ interface SettingsData {
   language: string
   session_cap_male: number
   session_cap_female: number
-  test_mode: boolean
   warning_days_before_expiry: number
   warning_sessions_remaining: number
   scan_cooldown_seconds: number
@@ -31,7 +29,6 @@ const defaultSettings: SettingsData = {
   language: 'en',
   session_cap_male: 26,
   session_cap_female: 30,
-  test_mode: false,
   warning_days_before_expiry: 3,
   warning_sessions_remaining: 3,
   scan_cooldown_seconds: 30,
@@ -43,7 +40,6 @@ type Step = 'whatsapp' | 'account' | 'verify' | 'settings'
 export default function Onboarding({
   onComplete,
   onGoToLogin,
-  onEnableTestMode,
   mode = 'initial'
 }: OnboardingProps): JSX.Element {
   const { t, i18n } = useTranslation()
@@ -208,7 +204,7 @@ export default function Onboarding({
             <div key={item.key} className="flex items-center flex-1">
               <div
                 className={`flex items-center gap-2 ${
-                  index !== 0 ? 'ml-2' : ''
+                  index !== 0 ? 'ms-2' : ''
                 }`}
               >
                 <div
@@ -256,7 +252,7 @@ export default function Onboarding({
           </div>
         )}
         {warning && (
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg">
+          <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg">
             {warning}
           </div>
         )}
@@ -303,7 +299,7 @@ export default function Onboarding({
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="+201xxxxxxxxx"
+              placeholder={t('auth.phonePlaceholder', '+201xxxxxxxxx')}
             />
             <p className="mt-1 text-xs text-muted-foreground">
               {t('auth.phoneHint', 'Include country code, e.g. +201...')}
@@ -336,11 +332,6 @@ export default function Onboarding({
               {t('auth.alreadyHaveAccount', 'Already have an account?')}
             </Button>
           )}
-          {import.meta.env.DEV && onEnableTestMode && (
-            <Button onClick={onEnableTestMode} variant="link" className="w-full">
-              {t('auth.enableTestMode', 'Enable test mode')}
-            </Button>
-          )}
         </div>
       </AuthLayout>
     )
@@ -359,7 +350,7 @@ export default function Onboarding({
           </div>
         )}
         {otpSentVia === 'manual' && manualCode && (
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg">
+          <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg">
             {t('auth.otpManual', 'Your code is')}: <strong>{manualCode}</strong>
           </div>
         )}
@@ -403,19 +394,6 @@ export default function Onboarding({
           )}
 
           <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('settings.testMode')}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">{t('settings.enableTestMode')}</span>
-                <Switch
-                  checked={settings.test_mode}
-                  onCheckedChange={(checked) => setSettings({ ...settings, test_mode: checked })}
-                />
-              </CardContent>
-            </Card>
-
             <Card>
               <CardHeader>
                 <CardTitle>{t('settings.general')}</CardTitle>

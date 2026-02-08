@@ -17,7 +17,6 @@ interface SettingsData {
   language: string
   session_cap_male: number
   session_cap_female: number
-  test_mode: boolean
   warning_days_before_expiry: number
   warning_sessions_remaining: number
   scan_cooldown_seconds: number
@@ -33,7 +32,6 @@ const defaultSettings: SettingsData = {
   language: 'en',
   session_cap_male: 26,
   session_cap_female: 30,
-  test_mode: false,
   warning_days_before_expiry: 3,
   warning_sessions_remaining: 3,
   scan_cooldown_seconds: 30,
@@ -110,7 +108,7 @@ export default function Settings(): JSX.Element {
         setQrDataUrl(null)
         setWhatsappStatus((prev) => ({
           ...prev,
-          error: 'Failed to generate QR code'
+          error: t('settings.qrGenerateFailed', 'Failed to generate QR code')
         }))
       }
     })
@@ -150,7 +148,6 @@ export default function Settings(): JSX.Element {
         language: settings.language,
         session_cap_male: settings.session_cap_male,
         session_cap_female: settings.session_cap_female,
-        test_mode: settings.test_mode,
         warning_days_before_expiry: settings.warning_days_before_expiry,
         warning_sessions_remaining: settings.warning_sessions_remaining,
         scan_cooldown_seconds: settings.scan_cooldown_seconds,
@@ -165,16 +162,16 @@ export default function Settings(): JSX.Element {
       await window.api.settings.setAll(settingsToSave)
 
       if (languageChanged) {
-        setSaveMessage('Reloading to apply language...')
+        setSaveMessage(t('settings.reloading', 'Reloading to apply language...'))
         setTimeout(() => window.location.reload(), 200)
         return
       }
 
-      setSaveMessage('Settings saved successfully!')
+      setSaveMessage(t('settings.saveSuccess', 'Settings saved successfully!'))
       setTimeout(() => setSaveMessage(null), 3000)
     } catch (error) {
       console.error('Failed to save settings:', error)
-      setSaveMessage(`Failed to save settings: ${String(error)}`)
+      setSaveMessage(t('settings.saveFailed', 'Failed to save settings'))
     } finally {
       setIsSaving(false)
     }
@@ -209,13 +206,13 @@ export default function Settings(): JSX.Element {
     try {
       const result = await window.api.app.backup()
       if (result.success) {
-        setSaveMessage('Backup successful')
+        setSaveMessage(t('settings.backupSuccess', 'Backup successful'))
       } else {
-        setSaveMessage(`Backup failed: ${result.error || 'Unknown error'}`)
+        setSaveMessage(t('settings.backupFailed', 'Backup failed'))
       }
     } catch (error) {
       console.error('Failed to backup database:', error)
-      setSaveMessage('Backup failed')
+      setSaveMessage(t('settings.backupFailed', 'Backup failed'))
     }
   }
 
@@ -223,13 +220,13 @@ export default function Settings(): JSX.Element {
     try {
       const result = await window.api.app.restore()
       if (result.success) {
-        setSaveMessage('Restore successful')
+        setSaveMessage(t('settings.restoreSuccess', 'Restore successful'))
       } else {
-        setSaveMessage(`Restore failed: ${result.error || 'Unknown error'}`)
+        setSaveMessage(t('settings.restoreFailed', 'Restore failed'))
       }
     } catch (error) {
       console.error('Failed to restore database:', error)
-      setSaveMessage('Restore failed')
+      setSaveMessage(t('settings.restoreFailed', 'Restore failed'))
     }
   }
 
@@ -279,15 +276,15 @@ export default function Settings(): JSX.Element {
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">{t('settings.title')}</h1>
-        <p className="text-sm text-muted-foreground">Manage GymFlow preferences and integrations.</p>
+        <p className="text-sm text-muted-foreground">{t('settings.subtitle', 'Manage GymFlow preferences and integrations.')}</p>
       </div>
 
       {saveMessage && (
         <div
           className={`rounded-md border px-4 py-3 text-sm ${
             saveMessage.includes('success')
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-              : 'border-red-200 bg-red-50 text-red-700'
+              ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
+              : 'border-red-500/20 bg-red-500/10 text-red-400'
           }`}
         >
           {saveMessage}
@@ -296,17 +293,17 @@ export default function Settings(): JSX.Element {
 
       <Tabs defaultValue="general">
         <TabsList>
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="rules">Rules</TabsTrigger>
-          <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
-          <TabsTrigger value="data">Data</TabsTrigger>
+          <TabsTrigger value="general">{t('settings.tabGeneral', 'General')}</TabsTrigger>
+          <TabsTrigger value="rules">{t('settings.tabRules', 'Rules')}</TabsTrigger>
+          <TabsTrigger value="whatsapp">{t('settings.tabWhatsApp', 'WhatsApp')}</TabsTrigger>
+          <TabsTrigger value="data">{t('settings.tabData', 'Data')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
           <Card>
             <CardHeader>
               <CardTitle>{t('settings.general')}</CardTitle>
-              <CardDescription>Language and account settings.</CardDescription>
+              <CardDescription>{t('settings.generalDesc', 'Language and account settings.')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="space-y-2">
@@ -320,16 +317,6 @@ export default function Settings(): JSX.Element {
                 </Select>
               </div>
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>{t('settings.testMode')}</Label>
-                  <p className="text-xs text-muted-foreground">Development only</p>
-                </div>
-                <Switch
-                  checked={settings.test_mode}
-                  onCheckedChange={(checked) => setSettings({ ...settings, test_mode: checked })}
-                />
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -339,7 +326,7 @@ export default function Settings(): JSX.Element {
             <Card>
               <CardHeader>
                 <CardTitle>{t('settings.sessionRules')}</CardTitle>
-                <CardDescription>Default limits by gender.</CardDescription>
+                <CardDescription>{t('settings.sessionRulesDesc', 'Default limits by gender.')}</CardDescription>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -378,7 +365,7 @@ export default function Settings(): JSX.Element {
             <Card>
               <CardHeader>
                 <CardTitle>{t('settings.warnings')}</CardTitle>
-                <CardDescription>When to show yellow warnings.</CardDescription>
+                <CardDescription>{t('settings.warningsDesc', 'When to show yellow warnings.')}</CardDescription>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -417,7 +404,7 @@ export default function Settings(): JSX.Element {
             <Card>
               <CardHeader>
                 <CardTitle>{t('settings.scanner')}</CardTitle>
-                <CardDescription>Scan cooldown settings.</CardDescription>
+                <CardDescription>{t('settings.scannerDesc', 'Scan cooldown settings.')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -446,7 +433,7 @@ export default function Settings(): JSX.Element {
           <Card>
             <CardHeader>
               <CardTitle>{t('settings.whatsapp')}</CardTitle>
-              <CardDescription>Connect WhatsApp Web and manage QR access.</CardDescription>
+              <CardDescription>{t('settings.whatsappDesc', 'Connect WhatsApp Web and manage QR access.')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -460,7 +447,7 @@ export default function Settings(): JSX.Element {
                   <div>
                     <Label>{t('settings.enableWhatsApp')}</Label>
                     <p className="text-xs text-muted-foreground">
-                      Enable WhatsApp automation and QR delivery
+                      {t('settings.whatsappAutoHint', 'Enable WhatsApp automation and QR delivery')}
                     </p>
                   </div>
                 </div>
@@ -478,7 +465,7 @@ export default function Settings(): JSX.Element {
                   </Button>
                 )}
                 <Button variant="outline" onClick={() => window.api.app.openExternal('https://web.whatsapp.com')}>
-                  Open WhatsApp Web
+                  {t('settings.openWhatsAppWeb', 'Open WhatsApp Web')}
                 </Button>
                 {whatsappStatus.qrCode && !whatsappStatus.authenticated && (
                   <Button variant="outline" onClick={() => setShowQr(true)}>
@@ -488,7 +475,7 @@ export default function Settings(): JSX.Element {
               </div>
 
               {whatsappStatus.error && (
-                <div className="text-sm text-red-600">{whatsappStatus.error}</div>
+                <div className="text-sm text-red-400">{whatsappStatus.error}</div>
               )}
 
               {whatsappStatus.qrCode && !whatsappStatus.authenticated && (
@@ -630,7 +617,7 @@ export default function Settings(): JSX.Element {
                 )}
 
                 {cardBatchError && (
-                  <div className="text-sm text-red-600">{cardBatchError}</div>
+                  <div className="text-sm text-red-400">{cardBatchError}</div>
                 )}
               </CardContent>
             </Card>
@@ -638,7 +625,7 @@ export default function Settings(): JSX.Element {
             <Card>
               <CardHeader>
                 <CardTitle>{t('settings.data')}</CardTitle>
-                <CardDescription>Backup, restore, and data location.</CardDescription>
+                <CardDescription>{t('settings.dataDesc', 'Backup, restore, and data location.')}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-wrap gap-3">
                 <Button variant="outline" onClick={handleOpenDataFolder}>

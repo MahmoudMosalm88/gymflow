@@ -98,11 +98,11 @@ export default function Income(): JSX.Element {
               <table className="w-full text-sm">
                 <thead className="bg-muted text-muted-foreground">
                   <tr>
-                    <th className="text-left px-4 py-2">{t('income.date', 'Date')}</th>
-                    <th className="text-left px-4 py-2">{t('income.type', 'Type')}</th>
-                    <th className="text-left px-4 py-2">{t('income.name', 'Name')}</th>
-                    <th className="text-left px-4 py-2">{t('income.amount', 'Amount')}</th>
-                    <th className="text-left px-4 py-2">{t('income.details', 'Details')}</th>
+                    <th className="text-start px-4 py-2">{t('income.date', 'Date')}</th>
+                    <th className="text-start px-4 py-2">{t('income.type', 'Type')}</th>
+                    <th className="text-start px-4 py-2">{t('income.name', 'Name')}</th>
+                    <th className="text-start px-4 py-2">{t('income.amount', 'Amount')}</th>
+                    <th className="text-start px-4 py-2">{t('income.details', 'Details')}</th>
                   </tr>
                 </thead>
                 <tbody>

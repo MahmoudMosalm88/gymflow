@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
+import gymflowLogo from '../assets/gymflow-logo.png'
 import {
   HomeIcon,
   UsersIcon,
@@ -11,6 +12,7 @@ import {
   Cog6ToothIcon,
   ArrowDownTrayIcon,
   ArrowRightOnRectangleIcon,
+  UserCircleIcon,
   Bars3Icon,
   XMarkIcon
 } from '@heroicons/react/24/outline'
@@ -45,15 +47,10 @@ export default function Layout({ children, onLogout }: LayoutProps): JSX.Element
   return (
     <div className="flex h-screen bg-muted/30">
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex w-64 bg-card shadow-lg flex-col border-r border-border">
+      <aside className="hidden md:flex w-64 bg-card flex-col border-e border-border/50">
         {/* Logo */}
-        <div className="h-16 flex items-center justify-center border-b border-border gap-2">
-          <div className="w-10 h-10 bg-brand-gradient rounded-lg flex items-center justify-center shadow-sm">
-            <span className="text-white font-bold text-lg">GF</span>
-          </div>
-          <h1 className="text-xl font-heading font-bold text-transparent bg-brand-gradient bg-clip-text">
-            GymFlow
-          </h1>
+        <div className="h-16 flex items-center justify-center border-b border-border px-6">
+          <img src={gymflowLogo} alt="GymFlow" className="h-10 w-auto" />
         </div>
 
         {/* Navigation */}
@@ -67,7 +64,7 @@ export default function Layout({ children, onLogout }: LayoutProps): JSX.Element
                 key={item.path}
                 to={item.path}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${isActive
-                    ? 'bg-brand-gradient text-white shadow-md'
+                    ? 'bg-primary/10 text-primary font-medium'
                     : 'text-muted-foreground hover:bg-muted'
                   }`}
               >
@@ -79,7 +76,18 @@ export default function Layout({ children, onLogout }: LayoutProps): JSX.Element
         </nav>
 
         {/* Footer Actions */}
-        <div className="border-t border-border p-4 space-y-3">
+        <div className="border-t border-border p-4 space-y-1">
+          <Link
+            to="/profile"
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              location.pathname === '/profile'
+                ? 'bg-primary/10 text-primary font-medium'
+                : 'text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <UserCircleIcon className="w-5 h-5" />
+            <span className="font-medium">{t('nav.profile')}</span>
+          </Link>
           {/* Logout */}
           {onLogout && (
             <button
@@ -114,21 +122,14 @@ export default function Layout({ children, onLogout }: LayoutProps): JSX.Element
           )}
         </button>
 
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-brand-gradient rounded-lg flex items-center justify-center shadow-sm">
-            <span className="text-white font-bold text-xs">GF</span>
-          </div>
-          <h1 className="text-lg font-heading font-bold text-transparent bg-brand-gradient bg-clip-text">
-            GymFlow
-          </h1>
-        </div>
+        <img src={gymflowLogo} alt="GymFlow" className="h-8 w-auto" />
 
         <div className="w-8 h-8" aria-hidden />
       </div>
 
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 md:hidden z-40" onClick={() => setIsMobileMenuOpen(false)} />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm md:hidden z-40" onClick={() => setIsMobileMenuOpen(false)} />
       )}
 
       {/* Mobile Sidebar */}
@@ -156,7 +157,19 @@ export default function Layout({ children, onLogout }: LayoutProps): JSX.Element
             })}
           </nav>
 
-          <div className="border-t border-border p-3 space-y-2">
+          <div className="border-t border-border p-3 space-y-1">
+            <Link
+              to="/profile"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                location.pathname === '/profile'
+                  ? 'bg-brand-gradient text-white shadow-md'
+                  : 'text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              <UserCircleIcon className="w-5 h-5" />
+              <span className="font-medium">{t('nav.profile')}</span>
+            </Link>
             {onLogout && (
               <button
                 type="button"

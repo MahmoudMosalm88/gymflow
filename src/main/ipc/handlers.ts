@@ -314,6 +314,27 @@ export function registerIpcHandlers(): void {
     return { success: true }
   })
 
+  ipcMain.handle(
+    'owner:changePassword',
+    (_event, token: string, currentPassword: string, newPassword: string) => {
+      const session = ownerRepo.getSessionByToken(token)
+      if (!session || session.revoked_at) return { success: false, error: 'Not authenticated' }
+      const now = Math.floor(Date.now() / 1000)
+      if (session.expires_at && session.expires_at < now)
+        return { success: false, error: 'Session expired' }
+
+      const owner = ownerRepo.getOwnerById(session.owner_id)
+      if (!owner) return { success: false, error: 'Owner not found' }
+
+      const ok = compareSync(currentPassword, owner.password_hash)
+      if (!ok) return { success: false, error: 'wrong_password' }
+
+      const passwordHash = hashSync(newPassword, 10)
+      ownerRepo.updateOwnerPassword(owner.id, passwordHash)
+      return { success: true }
+    }
+  )
+
   // ============== MEMBERS ==============
   ipcMain.handle('members:getAll', () => memberRepo.getAllMembers())
   ipcMain.handle('members:getById', (_event, id: string) => memberRepo.getMemberById(id))

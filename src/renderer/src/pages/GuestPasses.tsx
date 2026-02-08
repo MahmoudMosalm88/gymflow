@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import * as QRCode from 'qrcode'
-import Modal from '../components/Modal'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -22,6 +21,7 @@ interface GuestPass {
 
 export default function GuestPasses(): JSX.Element {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [passes, setPasses] = useState<GuestPass[]>([])
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -29,12 +29,6 @@ export default function GuestPasses(): JSX.Element {
   const [validityDays, setValidityDays] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7>(1)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const [showQr, setShowQr] = useState(false)
-  const [qrDataUrl, setQrDataUrl] = useState('')
-  const [qrCode, setQrCode] = useState('')
-  const [qrName, setQrName] = useState('')
-  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
 
   useEffect(() => {
     loadPasses()
@@ -64,18 +58,12 @@ export default function GuestPasses(): JSX.Element {
     setIsLoading(true)
     setError(null)
     try {
-      const created = await window.api.guestpasses.create({
+      await window.api.guestpasses.create({
         name: name.trim(),
         phone: phone.trim() || undefined,
         price_paid: priceValue,
         validity_days: validityDays
       })
-
-      const dataUrl = await QRCode.toDataURL(created.code, { width: 260, margin: 2 })
-      setQrDataUrl(dataUrl)
-      setQrCode(created.code)
-      setQrName(created.name)
-      setShowQr(true)
 
       setName('')
       setPhone('')
@@ -87,96 +75,6 @@ export default function GuestPasses(): JSX.Element {
       setError(t('common.error'))
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) return
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Guest Pass - ${qrName}</title>
-          <style>
-            body {
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: center;
-              min-height: 100vh;
-              margin: 0;
-              font-family: system-ui, sans-serif;
-            }
-            .card {
-              border: 2px solid #000;
-              border-radius: 8px;
-              padding: 20px;
-              text-align: center;
-              width: 8.5cm;
-              height: 5.5cm;
-              box-sizing: border-box;
-            }
-            .name {
-              font-size: 16px;
-              font-weight: bold;
-              margin-bottom: 10px;
-            }
-            .qr {
-              width: 120px;
-              height: 120px;
-            }
-            .serial {
-              font-size: 12px;
-              margin-top: 8px;
-              font-family: monospace;
-              letter-spacing: 1px;
-            }
-            .brand {
-              font-size: 12px;
-              color: #666;
-              margin-top: 10px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="name">${qrName}</div>
-            <img src="${qrDataUrl}" class="qr" alt="QR Code" />
-            <div class="serial">${qrCode}</div>
-            <div class="brand">GymFlow</div>
-          </div>
-          <script>
-            window.onload = function() {
-              window.print();
-              window.close();
-            }
-          </script>
-        </body>
-      </html>
-    `)
-    printWindow.document.close()
-  }
-
-  const handleShare = async () => {
-    try {
-      const message = `${t('guestPasses.shareText', 'Guest pass')} - ${qrName}\\n${t('guestPasses.code', 'Code')}: ${qrCode}`
-      await window.api.app.openExternal(`https://wa.me/?text=${encodeURIComponent(message)}`)
-    } catch {
-      // ignore
-    }
-  }
-
-  const handleCopyCode = async () => {
-    setCopyStatus('idle')
-    try {
-      await navigator.clipboard.writeText(qrCode)
-      setCopyStatus('copied')
-      setTimeout(() => setCopyStatus('idle'), 1500)
-    } catch {
-      setCopyStatus('failed')
-      setTimeout(() => setCopyStatus('idle'), 1500)
     }
   }
 
@@ -192,7 +90,7 @@ export default function GuestPasses(): JSX.Element {
       </div>
 
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-sm">
+        <div className="rounded-md border border-red-500/20 bg-red-500/10 px-4 py-3 text-red-400 text-sm">
           {error}
         </div>
       )}
@@ -201,16 +99,16 @@ export default function GuestPasses(): JSX.Element {
         <Card>
           <CardHeader>
             <CardTitle>{t('guestPasses.create', 'Create Guest Pass')}</CardTitle>
-            <CardDescription>{t('guestPasses.createHint', 'Generate a one-time QR for trial entry.')}</CardDescription>
+            <CardDescription>{t('guestPasses.createHint', 'Create a one-time trial pass for entry.')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>{t('guestPasses.name', 'Guest Name')} *</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Guest name" />
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('guestPasses.namePlaceholder', 'Guest name')} />
             </div>
             <div className="space-y-2">
               <Label>{t('guestPasses.phone', 'Phone (optional)')}</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+201xxxxxxxxx" />
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('guestPasses.phonePlaceholder', '+201xxxxxxxxx')} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -235,12 +133,12 @@ export default function GuestPasses(): JSX.Element {
                   min="0"
                   value={pricePaid}
                   onChange={(e) => setPricePaid(e.target.value)}
-                  placeholder="0.00"
+                  placeholder={t('guestPasses.pricePlaceholder', '0.00')}
                 />
               </div>
             </div>
             <Button onClick={handleCreate} disabled={isLoading} className="w-full">
-              {isLoading ? t('common.loading') : t('guestPasses.generate', 'Generate QR')}
+              {isLoading ? t('common.loading') : t('guestPasses.confirm', 'Confirm')}
             </Button>
           </CardContent>
         </Card>
@@ -277,6 +175,13 @@ export default function GuestPasses(): JSX.Element {
                       {pass.price_paid !== null && (
                         <span className="text-xs text-muted-foreground">{pass.price_paid}</span>
                       )}
+                      <Button
+                        variant="link"
+                        size="sm"
+                        onClick={() => navigate('/members/new', { state: { guestName: pass.name, guestPhone: pass.phone } })}
+                      >
+                        {t('guestPasses.convertToMember', 'Convert to Member')}
+                      </Button>
                     </div>
                   </div>
                 )
@@ -286,36 +191,6 @@ export default function GuestPasses(): JSX.Element {
         </Card>
       </div>
 
-      {showQr && (
-        <Modal
-          title={t('guestPasses.qrTitle', 'Guest Pass QR')}
-          onClose={() => setShowQr(false)}
-          closeLabel={t('common.close')}
-        >
-          <div className="text-center">
-            <p className="text-lg font-medium text-foreground mb-2">{qrName}</p>
-            <div className="inline-block p-4 bg-background border-2 border-border rounded-xl">
-              <img src={qrDataUrl} alt="QR" className="w-[240px] h-[240px]" />
-            </div>
-            <div className="mt-3 text-sm text-muted-foreground">
-              {t('guestPasses.code', 'Code')}: <span className="font-mono text-foreground">{qrCode}</span>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-3 justify-center">
-              <Button variant="outline" onClick={handleCopyCode}>
-                {copyStatus === 'copied'
-                  ? t('qrCodeDisplay.copied', 'Copied')
-                  : copyStatus === 'failed'
-                    ? t('qrCodeDisplay.copyFailed', 'Copy failed')
-                    : t('qrCodeDisplay.copyCode', 'Copy Code')}
-              </Button>
-              <Button onClick={handlePrint}>{t('qrCodeDisplay.printCard')}</Button>
-              <Button variant="secondary" onClick={handleShare}>
-                {t('guestPasses.share', 'Share via WhatsApp')}
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   )
 }

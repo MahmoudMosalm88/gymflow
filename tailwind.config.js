@@ -1,7 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ['./src/renderer/**/*.{js,ts,jsx,tsx,html}'],
-  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -39,17 +38,17 @@ module.exports = {
           foreground: 'hsl(var(--card-foreground))'
         },
 
-        // Gym brand colors - Orange/Red gradient
-        'brand-primary': '#FF8C00',      // Orange
-        'brand-secondary': '#FF6B35',    // Red-Orange
-        'brand-accent': '#FF4500',       // Dark Red-Orange
-        'brand-light': '#FFB366',        // Light Orange
+        // Gym brand colors — refined gold palette
+        'brand-primary': '#D4A843',      // Gold
+        'brand-secondary': '#B8922E',    // Deep Gold
+        'brand-accent': '#A07D25',       // Dark Gold
+        'brand-light': '#E8C96A',        // Light Gold
         // Legacy alias (used across UI)
-        'gym-primary': '#FF8C00',
-        'gym-secondary': '#FF6B35',
+        'gym-primary': '#D4A843',
+        'gym-secondary': '#B8922E',
 
-        // Traffic light colors (keep for backwards compatibility)
-        'traffic-green': '#22c55e',
+        // Traffic light colors (unchanged)
+        'traffic-green': '#16a34a',
         'traffic-yellow': '#eab308',
         'traffic-red': '#ef4444',
 
@@ -102,12 +101,16 @@ module.exports = {
         'full': '9999px'
       },
       boxShadow: {
-        'xs': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-        'sm': '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-        'base': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-        'md': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-        'lg': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-        'xl': '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        'xs': '0 1px 2px 0 rgba(0, 0, 0, 0.2)',
+        'sm': '0 1px 3px 0 rgba(0, 0, 0, 0.25), 0 1px 2px 0 rgba(0, 0, 0, 0.15)',
+        'base': '0 4px 6px -1px rgba(0, 0, 0, 0.25), 0 2px 4px -1px rgba(0, 0, 0, 0.15)',
+        'md': '0 10px 15px -3px rgba(0, 0, 0, 0.25), 0 4px 6px -2px rgba(0, 0, 0, 0.15)',
+        'lg': '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.15)',
+        'xl': '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
+        '2xl': '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+        /* Gold glow shadows */
+        'glow-sm': '0 0 8px 0 rgba(212, 168, 67, 0.15)',
+        'glow-primary': '0 0 16px 0 rgba(212, 168, 67, 0.2)',
       },
       animation: {
         'pulse-brand': 'pulse-brand 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',

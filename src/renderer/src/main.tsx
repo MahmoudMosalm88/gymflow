@@ -7,14 +7,6 @@ import GlobalErrorOverlay from './components/GlobalErrorOverlay'
 import './index.css'
 import './i18n'
 
-// Force light mode only
-try {
-  document.documentElement.classList.remove('dark')
-  localStorage.removeItem('darkMode')
-} catch {
-  // ignore
-}
-
 const rootElement = document.getElementById('root') as HTMLElement
 
 const showFatal = (message: string) => {

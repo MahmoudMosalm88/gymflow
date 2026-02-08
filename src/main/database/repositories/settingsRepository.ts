@@ -4,7 +4,6 @@ const DEFAULT_SETTINGS = {
   language: 'en',
   session_cap_male: 26,
   session_cap_female: 30,
-  test_mode: false,
   warning_days_before_expiry: 3,
   warning_sessions_remaining: 3,
   scan_cooldown_seconds: 30,
@@ -41,7 +40,6 @@ function validateSettingValue(
     case 'whatsapp_batch_delay_min':
     case 'whatsapp_batch_delay_max':
       return typeof value === 'number' && Number.isFinite(value) ? value : fallback
-    case 'test_mode':
     case 'whatsapp_enabled':
       return typeof value === 'boolean' ? value : fallback
     default:

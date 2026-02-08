@@ -12,6 +12,7 @@ import GuestPasses from './pages/GuestPasses'
 import Income from './pages/Income'
 import Settings from './pages/Settings'
 import Import from './pages/Import'
+import UserProfile from './pages/UserProfile'
 import Onboarding from './pages/Onboarding'
 import Login from './pages/Login'
 
@@ -64,21 +65,6 @@ function App(): JSX.Element {
     const checkAuth = async () => {
       if (!tokenLoaded) return
       try {
-        const testMode = await window.api.settings.get('test_mode')
-        if (testMode === true) {
-          if (import.meta.env.DEV) {
-            setAuthState('app')
-            return
-          }
-
-          // Never allow test mode in packaged builds; it can lock users out of auth flows.
-          try {
-            await window.api.settings.set('test_mode', false)
-          } catch {
-            // ignore
-          }
-        }
-
         const status = await window.api.owner.getStatus(sessionToken || undefined)
         if (!status.hasOwner || !status.onboardingComplete) {
           setAuthState('onboarding')
@@ -129,15 +115,6 @@ function App(): JSX.Element {
     setAuthState('login')
   }
 
-  const handleEnableTestMode = async () => {
-    try {
-      await window.api.settings.set('test_mode', true)
-      window.location.reload()
-    } catch {
-      // ignore
-    }
-  }
-
   if (authState === 'loading' || !tokenLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -151,7 +128,6 @@ function App(): JSX.Element {
       <Onboarding
         onComplete={handleAuthSuccess}
         onGoToLogin={() => setAuthState('login')}
-        onEnableTestMode={handleEnableTestMode}
       />
     )
   }
@@ -162,7 +138,6 @@ function App(): JSX.Element {
         mode="signup"
         onComplete={handleAuthSuccess}
         onGoToLogin={() => setAuthState('login')}
-        onEnableTestMode={handleEnableTestMode}
       />
     )
   }
@@ -172,7 +147,6 @@ function App(): JSX.Element {
       <Login
         onSuccess={handleAuthSuccess}
         onGoToSignUp={handleGoToSignUp}
-        onEnableTestMode={handleEnableTestMode}
       />
     )
   }
@@ -191,6 +165,7 @@ function App(): JSX.Element {
         <Route path="/income" element={<Income />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/import" element={<Import />} />
+        <Route path="/profile" element={<UserProfile />} />
       </Routes>
     </Layout>
   )

@@ -20,7 +20,12 @@ export default function ScannerInput({ onScan, autoFocus = true }: ScannerInputP
         active === document.documentElement
 
       if (isIdle) {
-        inputRef.current?.focus()
+        // Prevent scroll jumps (especially in RTL) when focusing hidden scanner input.
+        try {
+          inputRef.current?.focus({ preventScroll: true })
+        } catch {
+          inputRef.current?.focus()
+        }
       }
     }
 

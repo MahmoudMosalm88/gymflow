@@ -48,6 +48,7 @@ export default function Dashboard(): JSX.Element {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [activeMembers, setActiveMembers] = useState<number | null>(null)
   const clearTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -62,6 +63,19 @@ export default function Dashboard(): JSX.Element {
     } catch (error) {
       console.error('Failed to load today stats:', error)
     }
+  }, [])
+
+  // Load active member count
+  useEffect(() => {
+    const loadOverview = async () => {
+      try {
+        const overview = await window.api.reports.getOverview()
+        setActiveMembers(overview.activeSubscriptions)
+      } catch {
+        // ignore
+      }
+    }
+    loadOverview()
   }, [])
 
   // Load today's stats on mount and cleanup
@@ -133,7 +147,9 @@ export default function Dashboard(): JSX.Element {
           {t('dashboard.title')}
         </h1>
         <p className="text-muted-foreground mt-2">
-          {t('dashboard.subtitle') || 'Manage member check-ins and attendance'}
+          {activeMembers !== null
+            ? t('dashboard.subtitle_active', 'You have {{count}} active members', { count: activeMembers })
+            : t('dashboard.subtitle', 'Manage member check-ins and attendance')}
         </p>
       </div>
 
@@ -168,9 +184,6 @@ export default function Dashboard(): JSX.Element {
               />
             ) : (
               <div className="mt-12 text-center">
-                <div className="w-20 h-20 mx-auto mb-6 bg-brand-gradient rounded-2xl flex items-center justify-center">
-                  <span className="text-4xl">📱</span>
-                </div>
                 <p className="text-2xl font-semibold text-foreground">
                   {t('dashboard.ready')}
                 </p>
@@ -201,7 +214,7 @@ export default function Dashboard(): JSX.Element {
             </CardHeader>
             <CardContent className="space-y-5">
               {/* Check-ins Stat */}
-              <div className="flex items-center justify-between p-4 bg-emerald-50 rounded-lg border border-emerald-100">
+              <div className="flex items-center justify-between p-4 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
                 <span className="text-foreground font-medium">{t('dashboard.checkIns')}</span>
                 <span className="text-3xl font-bold text-traffic-green">
                   {todayStats.checkIns}
@@ -209,7 +222,7 @@ export default function Dashboard(): JSX.Element {
               </div>
 
               {/* Warnings Stat */}
-              <div className="flex items-center justify-between p-4 bg-amber-50 rounded-lg border border-amber-100">
+              <div className="flex items-center justify-between p-4 bg-amber-500/10 rounded-lg border border-amber-500/20">
                 <span className="text-foreground font-medium">{t('dashboard.warnings')}</span>
                 <span className="text-3xl font-bold text-traffic-yellow">
                   {todayStats.warnings}
@@ -217,7 +230,7 @@ export default function Dashboard(): JSX.Element {
               </div>
 
               {/* Denied Stat */}
-              <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-100">
+              <div className="flex items-center justify-between p-4 bg-red-500/10 rounded-lg border border-red-500/20">
                 <span className="text-foreground font-medium">{t('dashboard.denied')}</span>
                 <span className="text-3xl font-bold text-traffic-red">
                   {todayStats.denied}

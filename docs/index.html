@@ -228,15 +228,20 @@
         <h1>GymFlow</h1>
         <p>Transform Your Gym with Effortless Attendance Management</p>
         <div class="download-buttons">
-            <a id="downloadMac" data-os="mac" href="#" class="btn btn-secondary" download>
+            <a id="downloadMac" data-os="mac" href="https://github.com/MahmoudMosalm88/gymflow/releases/latest"
+                class="btn btn-secondary" download>
                 🍎 Download for Mac (Apple Silicon)
             </a>
-            <a id="downloadWin" data-os="win" href="#" class="btn btn-secondary" download>
+            <a id="downloadWin" data-os="win" href="https://github.com/MahmoudMosalm88/gymflow/releases/latest"
+                class="btn btn-secondary" download>
                 🪟 Download for Windows
             </a>
         </div>
         <p class="download-meta">Latest: v<span id="releaseVersion">1.0.0</span> • Windows 10/11 • macOS Apple Silicon</p>
-        <p class="download-meta">Direct links: <a id="downloadMacVersioned" href="#" download>Mac v1.0.0</a> • <a id="downloadWinVersioned" href="#" download>Windows v1.0.0</a></p>
+        <p class="download-meta">Direct links: <a id="downloadMacVersioned"
+                href="https://github.com/MahmoudMosalm88/gymflow/releases/latest" download>Mac v1.0.0</a> • <a
+                id="downloadWinVersioned" href="https://github.com/MahmoudMosalm88/gymflow/releases/latest"
+                download>Windows v1.0.0</a></p>
     </section>
 
     <!-- Features Section -->
@@ -285,7 +290,7 @@
             const releaseVersion = document.getElementById('releaseVersion');
             const fallbackVersion = document.body.getAttribute('data-version') || '1.0.0';
             const repo = 'MahmoudMosalm88/gymflow';
-            const latestBase = `https://github.com/${repo}/releases/latest/download`;
+            const releasesPage = `https://github.com/${repo}/releases/latest`;
 
             const applyLinks = (version, macUrl, winUrl) => {
                 if (macBtn) macBtn.setAttribute('href', macUrl);
@@ -309,38 +314,52 @@
                 const data = await response.json();
                 const version = (data.tag_name || fallbackVersion).replace(/^v/i, '');
                 const assets = Array.isArray(data.assets) ? data.assets : [];
-                const macAsset = assets.find((asset) => /\.dmg$/i.test(asset.name));
-                const winAsset = assets.find((asset) => /setup\.exe$/i.test(asset.name));
-                const macUrl = macAsset?.browser_download_url || `${latestBase}/GymFlow-arm64.dmg`;
-                const winUrl = winAsset?.browser_download_url || `${latestBase}/gymflow-${version}-setup.exe`;
+                const macAsset =
+                    assets.find((asset) => /(?:mac|arm64).*\.dmg$/i.test(asset.name)) ||
+                    assets.find((asset) => /\.dmg$/i.test(asset.name));
+                const winAsset =
+                    assets.find((asset) => /(?:win|setup).*\.exe$/i.test(asset.name)) ||
+                    assets.find((asset) => /\.exe$/i.test(asset.name));
+                const macUrl = macAsset?.browser_download_url || releasesPage;
+                const winUrl = winAsset?.browser_download_url || releasesPage;
                 applyLinks(version, macUrl, winUrl);
             } catch (err) {
                 applyLinks(
                     fallbackVersion,
-                    `${latestBase}/GymFlow-arm64.dmg`,
-                    `${latestBase}/gymflow-${fallbackVersion}-setup.exe`
+                    releasesPage,
+                    releasesPage
                 );
             }
+        }
+
+        function detectOS() {
+            const uaDataPlatform =
+                (navigator.userAgentData && navigator.userAgentData.platform) || '';
+            const platform = navigator.platform || '';
+            const ua = navigator.userAgent || '';
+            const appVersion = navigator.appVersion || '';
+            const fingerprint = `${uaDataPlatform} ${platform} ${ua} ${appVersion}`.toLowerCase();
+
+            if (/(mac|macintosh|mac os x)/.test(fingerprint)) return 'mac';
+            if (/(win|windows|win32|win64|wow64)/.test(fingerprint)) return 'win';
+            return 'win';
+        }
+
+        function setPrimaryButton(primaryBtn, secondaryBtn) {
+            if (primaryBtn) primaryBtn.className = 'btn btn-primary';
+            if (secondaryBtn) secondaryBtn.className = 'btn btn-secondary';
         }
 
         function highlightPlatform() {
             const macBtn = document.getElementById('downloadMac');
             const winBtn = document.getElementById('downloadWin');
-            const platform = navigator.platform || '';
-            const ua = navigator.userAgent || '';
-            const isMac = /Mac|Macintosh|MacIntel/i.test(platform) || /Mac OS X/i.test(ua);
-            const isWin = /Win|Windows/i.test(platform) || /Windows/i.test(ua);
+            const os = detectOS();
 
-            if (isMac && macBtn) {
-                macBtn.classList.remove('btn-secondary');
-                macBtn.classList.add('btn-primary');
-            } else if (isWin && winBtn) {
-                winBtn.classList.remove('btn-secondary');
-                winBtn.classList.add('btn-primary');
-            } else if (winBtn) {
-                winBtn.classList.remove('btn-secondary');
-                winBtn.classList.add('btn-primary');
+            if (os === 'mac') {
+                setPrimaryButton(macBtn, winBtn);
+                return;
             }
+            setPrimaryButton(winBtn, macBtn);
         }
 
         window.addEventListener('DOMContentLoaded', () => {

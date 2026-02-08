@@ -85,4 +85,61 @@ describe('Attendance by serial', () => {
     expect(second.status).toBe('ignored')
     expect(second.reasonCode).toBe('cooldown')
   })
+
+  it('ignores a second successful check-in on the same day', () => {
+    const now = Math.floor(Date.now() / 1000)
+    const member = createMember({
+      name: 'Daily Duplicate Member',
+      phone: '+201234567803',
+      gender: 'male',
+      card_code: '00004'
+    })
+
+    createSubscription({
+      member_id: member.id,
+      plan_months: 1,
+      start_date: now - 60
+    })
+
+    db.prepare("UPDATE settings SET value = '-1' WHERE key = 'scan_cooldown_seconds'").run()
+
+    const first = checkAttendance('00004', 'scan')
+    const second = checkAttendance('00004', 'scan')
+
+    expect(first.status).toBe('allowed')
+    expect(second.status).toBe('ignored')
+    expect(second.reasonCode).toBe('already_today')
+  })
+
+  it('allows check-in again after local day reset', () => {
+    const now = Math.floor(Date.now() / 1000)
+    const member = createMember({
+      name: 'Day Reset Member',
+      phone: '+201234567804',
+      gender: 'female',
+      card_code: '00005'
+    })
+
+    createSubscription({
+      member_id: member.id,
+      plan_months: 1,
+      start_date: now - 60
+    })
+
+    db.prepare("UPDATE settings SET value = '-1' WHERE key = 'scan_cooldown_seconds'").run()
+
+    const first = checkAttendance('00005', 'scan')
+    expect(first.status).toBe('allowed')
+
+    const startOfToday = new Date()
+    startOfToday.setHours(0, 0, 0, 0)
+    const yesterday = Math.floor(startOfToday.getTime() / 1000) - 60
+
+    db.prepare(
+      "UPDATE logs SET timestamp = ? WHERE member_id = ? AND status IN ('allowed', 'warning')"
+    ).run(yesterday, member.id)
+
+    const second = checkAttendance('00005', 'scan')
+    expect(second.status).toBe('allowed')
+  })
 })

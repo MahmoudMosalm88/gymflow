@@ -106,7 +106,7 @@ export default function PhotoCapture({
           {currentPhoto && (
             <button
               onClick={onRemove}
-              className="absolute top-0 right-0 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+              className="absolute top-0 end-0 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
             >
               <XMarkIcon className="w-4 h-4" />
             </button>

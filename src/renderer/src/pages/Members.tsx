@@ -45,9 +45,19 @@ export default function Members(): JSX.Element {
   const [members, setMembers] = useState<Member[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+  const [activeCount, setActiveCount] = useState<number | null>(null)
 
   useEffect(() => {
     loadMembers()
+    const loadOverview = async () => {
+      try {
+        const overview = await window.api.reports.getOverview()
+        setActiveCount(overview.activeSubscriptions)
+      } catch {
+        // ignore
+      }
+    }
+    loadOverview()
   }, [])
 
   const loadMembers = async () => {
@@ -86,7 +96,9 @@ export default function Members(): JSX.Element {
             {t('members.title')}
           </h1>
           <p className="text-muted-foreground mt-2">
-            {t('members.subtitle') || `Manage ${filteredMembers.length} members`}
+            {activeCount !== null
+              ? t('members.subtitle_stats', '{{total}} total members, {{active}} active', { total: filteredMembers.length, active: activeCount })
+              : t('members.subtitle', 'Manage your gym members')}
           </p>
         </div>
         <Link to="/members/new" className={buttonVariants({ className: 'gap-2' })}>
@@ -97,13 +109,13 @@ export default function Members(): JSX.Element {
 
       {/* Search */}
       <div className="relative mb-8">
-        <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+        <MagnifyingGlassIcon className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
         <Input
           type="text"
           placeholder={t('members.searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => handleSearch(e.target.value)}
-          className="pl-12 w-full"
+          className="ps-12 w-full"
         />
       </div>
 
@@ -117,7 +129,6 @@ export default function Members(): JSX.Element {
           </div>
         ) : filteredMembers.length === 0 ? (
           <div className="p-12 text-center">
-            <div className="text-5xl mb-4">👥</div>
             <p className="text-muted-foreground text-lg">{t('members.noMembers')}</p>
           </div>
         ) : (
@@ -125,19 +136,19 @@ export default function Members(): JSX.Element {
             <table className="w-full">
               <thead className="bg-muted border-b border-border">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider">
+                  <th className="px-6 py-4 text-start text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider">
                     {t('members.name')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider">
+                  <th className="px-6 py-4 text-start text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider">
                     {t('members.phone')}
                   </th>
-                  <th className="hidden sm:table-cell px-6 py-4 text-left text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider">
+                  <th className="hidden sm:table-cell px-6 py-4 text-start text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider">
                     {t('members.gender')}
                   </th>
-                  <th className="hidden sm:table-cell px-6 py-4 text-left text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider">
+                  <th className="hidden sm:table-cell px-6 py-4 text-start text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider">
                     {t('members.tier')}
                   </th>
-                  <th className="px-6 py-4 text-right text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider">
+                  <th className="px-6 py-4 text-end text-xs font-heading font-semibold text-muted-foreground uppercase tracking-wider">
                     {t('members.actions')}
                   </th>
                 </tr>
@@ -150,7 +161,7 @@ export default function Members(): JSX.Element {
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-brand-gradient flex items-center justify-center overflow-hidden flex-shrink-0">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center overflow-hidden flex-shrink-0">
                           {member.photo_path ? (
                             <img
                               src={
@@ -185,7 +196,7 @@ export default function Members(): JSX.Element {
                         {t(`members.tier${member.access_tier}`)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <td className="px-6 py-4 whitespace-nowrap text-end">
                       <Link
                         to={`/members/${member.id}`}
                         className={buttonVariants({ variant: 'link', className: 'px-0' })}

@@ -88,7 +88,6 @@ export default function MemberDetail(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
 
   const [showRenewModal, setShowRenewModal] = useState(false)
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [showFreezeModal, setShowFreezeModal] = useState(false)
   const [showReplaceCardModal, setShowReplaceCardModal] = useState(false)
   const [planMonths, setPlanMonths] = useState<1 | 3 | 6 | 12>(1)
@@ -163,26 +162,6 @@ export default function MemberDetail(): JSX.Element {
       await loadMemberData()
     } catch (e) {
       console.error('Failed to renew subscription:', e)
-      setError(t('common.error'))
-    }
-  }
-
-  const handleRecordPayment = async () => {
-    if (!member || !subscription) return
-    const amount = pricePaid.trim() ? Number(pricePaid) : NaN
-    if (!Number.isFinite(amount) || amount < 0) {
-      setError(t('subscriptions.invalidAmount'))
-      return
-    }
-
-    setError(null)
-    try {
-      await window.api.subscriptions.updatePricePaid(subscription.id, amount)
-      setShowPaymentModal(false)
-      setPricePaid('')
-      await loadMemberData()
-    } catch (e) {
-      console.error('Failed to record payment:', e)
       setError(t('common.error'))
     }
   }
@@ -312,7 +291,7 @@ export default function MemberDetail(): JSX.Element {
         {/* Profile Card */}
         <Card>
           <CardContent className="flex flex-col items-center">
-            <div className="w-32 h-32 rounded-full bg-brand-gradient overflow-hidden mb-4 shadow-lg">
+            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-primary to-primary/60 overflow-hidden mb-4 shadow-lg">
               {member.photo_path ? (
                 <img
                   src={
@@ -363,10 +342,10 @@ export default function MemberDetail(): JSX.Element {
                   <span
                     className={`font-medium ${
                       daysRemaining > 3
-                        ? 'text-emerald-600'
+                        ? 'text-emerald-400'
                         : daysRemaining > 0
-                          ? 'text-amber-600'
-                          : 'text-red-600'
+                          ? 'text-amber-400'
+                          : 'text-red-400'
                     }`}
                   >
                     {daysRemaining > 0 ? t('subscriptions.active') : t('subscriptions.expired')}
@@ -393,7 +372,7 @@ export default function MemberDetail(): JSX.Element {
                   </span>
                 </div>
                 {activeFreeze && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-400">
                     {t('memberDetail.frozenUntil', 'Frozen until')} {new Date(activeFreeze.end_date * 1000).toLocaleDateString()}
                   </div>
                 )}
@@ -401,14 +380,14 @@ export default function MemberDetail(): JSX.Element {
                   <div className="pt-2 border-t border-border">
                     <div
                       className={`text-center font-semibold ${
-                        daysRemaining <= 3 ? 'text-amber-600' : 'text-foreground'
+                        daysRemaining <= 3 ? 'text-amber-400' : 'text-foreground'
                       }`}
                     >
                       {t('attendance.daysRemaining', { count: daysRemaining })}
                     </div>
                   </div>
                 )}
-                <div className="pt-4 border-t border-border flex gap-2">
+                <div className="pt-4 border-t border-border grid grid-cols-2 gap-3">
                   <Button
                     type="button"
                     onClick={() => {
@@ -416,7 +395,6 @@ export default function MemberDetail(): JSX.Element {
                       setPricePaid('')
                       setShowRenewModal(true)
                     }}
-                    className="flex-1"
                   >
                     {t('subscriptions.renew')}
                   </Button>
@@ -425,22 +403,10 @@ export default function MemberDetail(): JSX.Element {
                     variant="outline"
                     onClick={() => {
                       setError(null)
-                      setPricePaid(subscription.price_paid?.toString() || '')
-                      setShowPaymentModal(true)
-                    }}
-                    className="flex-1"
-                  >
-                    {t('subscriptions.recordPayment')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => {
-                      setError(null)
                       setFreezeDays(1)
                       setShowFreezeModal(true)
                     }}
-                    className="flex-1"
+                    className="border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
                     disabled={!!activeFreeze}
                   >
                     {activeFreeze
@@ -555,41 +521,6 @@ export default function MemberDetail(): JSX.Element {
                 type="button"
                 variant="secondary"
                 onClick={() => setShowRenewModal(false)}
-                className="flex-1"
-              >
-                {t('common.cancel')}
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {showPaymentModal && subscription && (
-        <Modal
-          title={t('subscriptions.recordPayment')}
-          onClose={() => setShowPaymentModal(false)}
-          size="sm"
-          closeLabel={t('common.close')}
-        >
-          <div className="space-y-4">
-            <div>
-              <Label className="mb-2 block">{t('memberForm.pricePaid')}</Label>
-              <Input
-                type="number"
-                min="0"
-                value={pricePaid}
-                onChange={(e) => setPricePaid(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground mt-2">{t('subscriptions.cashOnly')}</p>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <Button type="button" onClick={handleRecordPayment} className="flex-1">
-                {t('common.save')}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setShowPaymentModal(false)}
                 className="flex-1"
               >
                 {t('common.cancel')}

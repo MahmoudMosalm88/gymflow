@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import PhotoCapture from '../components/PhotoCapture'
 import QRCodeDisplay from '../components/QRCodeDisplay'
@@ -23,6 +23,7 @@ interface MemberFormData {
 export default function MemberForm(): JSX.Element {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const location = useLocation()
   const { id } = useParams()
   const isEditing = !!id
 
@@ -48,6 +49,19 @@ export default function MemberForm(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [createdMember, setCreatedMember] = useState<{ id: string; name: string } | null>(null)
   const [showQrModal, setShowQrModal] = useState(false)
+
+  // Pre-fill from guest pass conversion (navigation state)
+  useEffect(() => {
+    const state = location.state as { guestName?: string; guestPhone?: string } | null
+    if (!isEditing && state) {
+      if (state.guestName) {
+        setFormData((prev) => ({ ...prev, name: state.guestName! }))
+      }
+      if (state.guestPhone) {
+        setFormData((prev) => ({ ...prev, phone: state.guestPhone! }))
+      }
+    }
+  }, [location.state, isEditing])
 
   useEffect(() => {
     if (isEditing) {
@@ -101,7 +115,7 @@ export default function MemberForm(): JSX.Element {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.gender) {
-      setError('Please select a gender')
+      setError(t('memberForm.selectGenderError', 'Please select a gender'))
       return
     }
     if (!isEditing) {
@@ -209,12 +223,12 @@ export default function MemberForm(): JSX.Element {
           {isEditing ? t('memberForm.editTitle') : t('memberForm.addTitle')}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {isEditing ? 'Update member information' : 'Create a new gym member'}
+          {isEditing ? t('memberForm.editSubtitle', 'Update member information') : t('memberForm.addSubtitle', 'Create a new gym member')}
         </p>
       </div>
 
       {error && (
-        <div className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-sm">
+        <div className="mb-6 rounded-md border border-red-500/20 bg-red-500/10 px-4 py-3 text-red-400 text-sm">
           {error}
         </div>
       )}
@@ -244,7 +258,7 @@ export default function MemberForm(): JSX.Element {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Full name"
+                  placeholder={t('memberForm.namePlaceholder', 'Full name')}
                 />
               </div>
 

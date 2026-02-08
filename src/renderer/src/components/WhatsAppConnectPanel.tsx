@@ -71,7 +71,7 @@ export default function WhatsAppConnectPanel(): JSX.Element {
       } catch (error) {
         console.error('Failed to generate WhatsApp QR code:', error)
         setQrDataUrl(null)
-        setStatus((prev) => ({ ...prev, error: 'Failed to generate QR code' }))
+        setStatus((prev) => ({ ...prev, error: t('settings.qrGenerateFailed', 'Failed to generate QR code') }))
       }
     })
 
@@ -140,7 +140,7 @@ export default function WhatsAppConnectPanel(): JSX.Element {
           </div>
           <span
             className={`text-sm font-medium ${
-              status.authenticated ? 'text-emerald-600' : 'text-muted-foreground'
+              status.authenticated ? 'text-emerald-400' : 'text-muted-foreground'
             }`}
           >
             {statusLabel}
@@ -196,7 +196,7 @@ export default function WhatsAppConnectPanel(): JSX.Element {
           </div>
         )}
 
-        {status.error && <p className="mt-3 text-sm text-red-600">{status.error}</p>}
+        {status.error && <p className="mt-3 text-sm text-red-400">{status.error}</p>}
       </CardContent>
     </Card>
   )

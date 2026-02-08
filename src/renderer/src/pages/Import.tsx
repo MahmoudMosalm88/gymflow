@@ -171,12 +171,12 @@ export default function Import() {
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button onClick={handleSelectFile} disabled={isLoading}>
-                  <ArrowUpTrayIcon className="w-5 h-5 mr-2" />
+                  <ArrowUpTrayIcon className="w-5 h-5 me-2" />
                   {t('import.upload.select', 'Select File')}
                 </Button>
 
                 <Button variant="outline" onClick={handleDownloadTemplate}>
-                  <DocumentArrowDownIcon className="w-5 h-5 mr-2" />
+                  <DocumentArrowDownIcon className="w-5 h-5 me-2" />
                   {t('import.upload.template', 'Download Template')}
                 </Button>
               </div>
@@ -238,16 +238,16 @@ export default function Import() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-emerald-50 border-emerald-100">
+            <Card className="bg-emerald-500/10 border-emerald-500/20">
               <CardContent className="p-4 text-center">
-                <div className="text-3xl font-bold text-emerald-600">{validRows.length}</div>
-                <div className="text-sm text-emerald-600">{t('import.preview.valid', 'Valid')}</div>
+                <div className="text-3xl font-bold text-emerald-400">{validRows.length}</div>
+                <div className="text-sm text-emerald-400">{t('import.preview.valid', 'Valid')}</div>
               </CardContent>
             </Card>
-            <Card className="bg-red-50 border-red-100">
+            <Card className="bg-red-500/10 border-red-500/20">
               <CardContent className="p-4 text-center">
-                <div className="text-3xl font-bold text-red-600">{invalidRows.length}</div>
-                <div className="text-sm text-red-600">{t('import.preview.invalid', 'Invalid')}</div>
+                <div className="text-3xl font-bold text-red-400">{invalidRows.length}</div>
+                <div className="text-sm text-red-400">{t('import.preview.invalid', 'Invalid')}</div>
               </CardContent>
             </Card>
           </div>
@@ -256,7 +256,7 @@ export default function Import() {
           {invalidRows.length > 0 && (
             <Card>
               <CardContent className="p-4">
-                <h3 className="font-semibold text-red-600 mb-3 flex items-center gap-2">
+                <h3 className="font-semibold text-red-400 mb-3 flex items-center gap-2">
                   <ExclamationTriangleIcon className="w-5 h-5" />
                   {t('import.preview.invalidRows', 'Rows with Errors')}
                 </h3>
@@ -266,7 +266,7 @@ export default function Import() {
                       key={row.row}
                       className="flex items-start gap-3 py-2 border-b border-border last:border-0"
                     >
-                      <span className="text-sm font-mono bg-red-100 text-red-700 px-2 py-0.5 rounded">
+                      <span className="text-sm font-mono bg-red-500/15 text-red-400 px-2 py-0.5 rounded">
                         Row {row.row}
                       </span>
                       <span className="text-sm text-muted-foreground">
@@ -290,17 +290,17 @@ export default function Import() {
                   <table className="w-full text-sm">
                     <thead className="bg-muted">
                       <tr>
-                        <th className="px-4 py-2 text-left">#</th>
-                        <th className="px-4 py-2 text-left">
+                        <th className="px-4 py-2 text-start">#</th>
+                        <th className="px-4 py-2 text-start">
                           {t('import.table.name', 'Name')}
                         </th>
-                        <th className="px-4 py-2 text-left">
+                        <th className="px-4 py-2 text-start">
                           {t('import.table.phone', 'Phone')}
                         </th>
-                        <th className="px-4 py-2 text-left">
+                        <th className="px-4 py-2 text-start">
                           {t('import.table.gender', 'Gender')}
                         </th>
-                        <th className="px-4 py-2 text-left">
+                        <th className="px-4 py-2 text-start">
                           {t('import.table.plan', 'Plan')}
                         </th>
                       </tr>
@@ -353,7 +353,7 @@ export default function Import() {
             <Button
               onClick={handleImport}
               disabled={validRows.length === 0 || isLoading}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-emerald-600 hover:bg-emerald-500"
             >
               {t('import.preview.import', 'Import {{count}} Members', { count: validRows.length })}
             </Button>
@@ -388,26 +388,26 @@ export default function Import() {
             </div>
 
             <div className="grid grid-cols-2 gap-4 max-w-md mx-auto mb-8">
-              <div className="bg-green-50 rounded-lg p-4 text-center">
-                <div className="text-3xl font-bold text-green-600">{importResult.success}</div>
-                <div className="text-sm text-green-600">
+              <div className="bg-emerald-500/10 rounded-lg p-4 text-center">
+                <div className="text-3xl font-bold text-emerald-400">{importResult.success}</div>
+                <div className="text-sm text-emerald-400">
                   {t('import.complete.success', 'Imported')}
                 </div>
               </div>
-              <div className="bg-red-50 rounded-lg p-4 text-center">
-                <div className="text-3xl font-bold text-red-600">{importResult.failed}</div>
-                <div className="text-sm text-red-600">{t('import.complete.failed', 'Failed')}</div>
+              <div className="bg-red-500/10 rounded-lg p-4 text-center">
+                <div className="text-3xl font-bold text-red-400">{importResult.failed}</div>
+                <div className="text-sm text-red-400">{t('import.complete.failed', 'Failed')}</div>
               </div>
             </div>
 
             {importResult.errors.length > 0 && (
-              <div className="mb-8 p-4 bg-red-50 rounded-lg">
-                <h3 className="font-semibold text-red-600 mb-2">
+              <div className="mb-8 p-4 bg-red-500/10 rounded-lg">
+                <h3 className="font-semibold text-red-400 mb-2">
                   {t('import.complete.errors', 'Errors')}
                 </h3>
                 <div className="max-h-32 overflow-y-auto text-sm">
                   {importResult.errors.map((err, i) => (
-                    <div key={i} className="text-red-600">
+                    <div key={i} className="text-red-400">
                       Row {err.row}: {err.error}
                     </div>
                   ))}

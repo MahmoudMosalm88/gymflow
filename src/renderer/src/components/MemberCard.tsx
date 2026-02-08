@@ -32,7 +32,7 @@ export default function MemberCard({
     <div className="mt-8 w-full max-w-md bg-card rounded-2xl shadow-lg overflow-hidden border border-border animate-slide-up">
       {/* Photo and Basic Info */}
       <div className="flex items-center gap-4 p-6 border-b border-border">
-        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-brand-primary to-brand-accent overflow-hidden flex-shrink-0 shadow-md">
+        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primary/60 overflow-hidden flex-shrink-0 shadow-md">
           {member.photo_path ? (
             <img
               src={
@@ -69,7 +69,7 @@ export default function MemberCard({
           status === 'allowed'
             ? 'bg-traffic-green'
             : status === 'warning'
-            ? 'bg-traffic-yellow text-gray-900'
+            ? 'bg-traffic-yellow text-gray-950'
             : status === 'denied'
             ? 'bg-traffic-red'
             : 'bg-gray-400'
@@ -80,7 +80,7 @@ export default function MemberCard({
 
       {/* Sessions Info */}
       {quota && status !== 'denied' && (
-        <div className="p-6 bg-gradient-to-br from-brand-light/10 to-brand-accent/5">
+        <div className="p-6 bg-primary/5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-muted-foreground font-medium">
               {t('memberDetail.sessions')}
@@ -92,32 +92,32 @@ export default function MemberCard({
           <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
             <div
               className={`h-3 rounded-full transition-all duration-500 ${
-                sessionsRemaining <= 3 ? 'bg-traffic-yellow' : 'bg-brand-gradient'
+                sessionsRemaining <= 3 ? 'bg-traffic-yellow' : 'bg-primary'
               }`}
               style={{ width: `${(sessionsRemaining / quota.sessions_cap) * 100}%` }}
             />
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            {sessionsRemaining === 0 && '⚠️ No sessions remaining'}
-            {sessionsRemaining > 0 && sessionsRemaining <= 3 && `⚠️ Only ${sessionsRemaining} session${sessionsRemaining !== 1 ? 's' : ''} left`}
-            {sessionsRemaining > 3 && '✓ Sessions available'}
+            {sessionsRemaining === 0 && t('memberCard.noSessions', 'No sessions remaining')}
+            {sessionsRemaining > 0 && sessionsRemaining <= 3 && t('memberCard.lowSessions', 'Only {{count}} sessions left', { count: sessionsRemaining })}
+            {sessionsRemaining > 3 && t('memberCard.sessionsAvailable', 'Sessions available')}
           </p>
         </div>
       )}
 
       {/* Warnings */}
       {warnings && warnings.length > 0 && (
-        <div className="px-6 py-5 bg-yellow-50 border-t border-yellow-200">
+        <div className="px-6 py-5 bg-amber-500/10 border-t border-amber-500/20">
           <div className="flex items-start gap-3">
             <span className="text-xl">⚠️</span>
             <div className="flex-1 min-w-0">
-              <h4 className="font-heading font-semibold text-yellow-900 mb-2">
+              <h4 className="font-heading font-semibold text-amber-400 mb-2">
                 {t('attendance.warningsTitle')}
               </h4>
-              <ul className="text-sm text-yellow-800 space-y-1">
+              <ul className="text-sm text-amber-300 space-y-1">
                 {warnings.map((warning, index) => (
                   <li key={index} className="flex items-start gap-2">
-                    <span className="text-yellow-600 mt-0.5">•</span>
+                    <span className="text-amber-500 mt-0.5">•</span>
                     <span>{t(warning.key, warning.params || {})}</span>
                   </li>
                 ))}

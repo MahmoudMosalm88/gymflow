@@ -10,7 +10,11 @@ import {
   incrementSessionsUsed,
   Quota
 } from '../database/repositories/quotaRepository'
-import { createLog, getLastSuccessfulScan } from '../database/repositories/logRepository'
+import {
+  createLog,
+  getLastSuccessfulScan,
+  hasSuccessfulCheckInToday
+} from '../database/repositories/logRepository'
 import { getSetting } from '../database/repositories/settingsRepository'
 
 export interface AttendanceResult {
@@ -119,7 +123,16 @@ export function checkAttendance(
 
   const memberFinal = resolvedMember
 
-  // 3. Get active subscription
+  // 3. Ignore repeated successful check-ins within the same local day
+  if (hasSuccessfulCheckInToday(memberFinal.id)) {
+    return {
+      status: 'ignored',
+      reasonCode: 'already_today',
+      member: memberFinal
+    }
+  }
+
+  // 4. Get active subscription
   const subscription = getActiveSubscription(memberFinal.id)
 
   if (!subscription) {
@@ -174,7 +187,7 @@ export function checkAttendance(
     }
   }
 
-  // 4. Check access hours (if enabled)
+  // 5. Check freeze status
   const activeFreeze = getActiveFreeze(subscription.id, now)
   if (activeFreeze) {
     createLog({
@@ -194,7 +207,7 @@ export function checkAttendance(
     }
   }
 
-  // 5. Get or create current quota
+  // 6. Get or create current quota
   const quota = getOrCreateCurrentQuota(memberFinal.id)
 
   if (!quota) {
@@ -214,7 +227,7 @@ export function checkAttendance(
     }
   }
 
-  // 6. Check sessions
+  // 7. Check sessions
   if (quota.sessions_used >= quota.sessions_cap) {
     createLog({
       member_id: memberFinal.id,
@@ -233,7 +246,7 @@ export function checkAttendance(
     }
   }
 
-  // 7. Calculate warnings
+  // 8. Calculate warnings
   const warnings: Array<{ key: string; params?: Record<string, unknown> }> = []
   const warningDays = getSetting<number>('warning_days_before_expiry', 3)
   const warningSessions = getSetting<number>('warning_sessions_remaining', 3)
@@ -250,7 +263,7 @@ export function checkAttendance(
     warnings.push({ key: 'attendance.sessionsAfterVisit', params: { count: sessionsRemaining - 1 } })
   }
 
-  // 8. Consume session
+  // 9. Consume session
   incrementSessionsUsed(quota.id)
 
   // Update quota object to reflect the increment
@@ -259,7 +272,7 @@ export function checkAttendance(
     sessions_used: quota.sessions_used + 1
   }
 
-  // 9. Log entry
+  // 10. Log entry
   const status = warnings.length > 0 ? 'warning' : 'allowed'
 
   createLog({
@@ -270,7 +283,7 @@ export function checkAttendance(
     reason_code: 'ok'
   })
 
-  // 10. Return result
+  // 11. Return result
   return {
     status,
     reasonCode: 'ok',

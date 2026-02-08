@@ -36,7 +36,9 @@ const api = {
     resetPassword: (phone: string, code: string, newPassword: string) =>
       ipcRenderer.invoke('owner:resetPassword', phone, code, newPassword),
     completeOnboarding: (settings: Record<string, unknown>) =>
-      ipcRenderer.invoke('owner:completeOnboarding', settings)
+      ipcRenderer.invoke('owner:completeOnboarding', settings),
+    changePassword: (token: string, currentPassword: string, newPassword: string) =>
+      ipcRenderer.invoke('owner:changePassword', token, currentPassword, newPassword)
   },
 
   // Secure storage (for auth token etc.)

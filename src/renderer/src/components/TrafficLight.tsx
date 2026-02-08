@@ -12,9 +12,9 @@ export default function TrafficLight({ status }: TrafficLightProps): JSX.Element
       case 'denied':
         return 'traffic-light-red'
       case 'ignored':
-        return 'bg-gray-400'
+        return 'bg-gray-600'
       default:
-        return 'bg-gray-300'
+        return 'bg-gray-700'
     }
   }
 
@@ -56,7 +56,7 @@ export default function TrafficLight({ status }: TrafficLightProps): JSX.Element
         )
       default:
         return (
-          <svg className="w-24 h-24 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-24 h-24 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -70,7 +70,7 @@ export default function TrafficLight({ status }: TrafficLightProps): JSX.Element
 
   return (
     <div
-      className={`w-56 h-56 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl ${getStatusClass()}`}
+      className={`w-56 h-56 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl ring-1 ring-white/10 ${getStatusClass()}`}
     >
       {getStatusIcon()}
     </div>

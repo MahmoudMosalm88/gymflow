@@ -327,14 +327,14 @@ export default function Reports() {
                     <span
                       className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                         index < 3
-                          ? 'bg-yellow-400 text-yellow-900'
+                          ? 'bg-amber-500/20 text-amber-400'
                           : 'bg-muted text-muted-foreground'
                       }`}
                     >
                       {index + 1}
                     </span>
                     <span className="flex-1 text-foreground">{member.name}</span>
-                    <span className="text-sm font-medium text-blue-600">
+                    <span className="text-sm font-medium text-blue-400">
                       {member.visits} {t('reports.visits', 'visits')}
                     </span>
                   </div>
@@ -408,7 +408,7 @@ export default function Reports() {
                   return (
                     <div
                       key={sub.id}
-                      className="flex items-center justify-between p-2 rounded bg-yellow-50"
+                      className="flex items-center justify-between p-2 rounded bg-amber-500/10"
                     >
                       <div>
                         <div className="font-medium text-foreground">{sub.name}</div>
@@ -417,8 +417,8 @@ export default function Reports() {
                       <span
                         className={`text-sm font-medium px-2 py-1 rounded ${
                           daysLeft <= 1
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-yellow-100 text-yellow-700'
+                            ? 'bg-red-500/15 text-red-400'
+                            : 'bg-amber-500/15 text-amber-400'
                         }`}
                       >
                         {daysLeft} {t('reports.daysLeft', 'days left')}
@@ -435,7 +435,7 @@ export default function Reports() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2">
-              <ExclamationTriangleIcon className="w-5 h-5 text-orange-500" />
+              <ExclamationTriangleIcon className="w-5 h-5 text-amber-400" />
               {t('reports.lowSessions', 'Low Sessions Remaining')}
             </CardTitle>
           </CardHeader>
@@ -449,13 +449,13 @@ export default function Reports() {
                 {lowSessionMembers.map((member) => (
                   <div
                     key={member.member_id}
-                    className="flex items-center justify-between p-2 rounded bg-orange-50"
+                    className="flex items-center justify-between p-2 rounded bg-amber-500/10"
                   >
                     <div>
                       <div className="font-medium text-foreground">{member.name}</div>
                       <div className="text-xs text-muted-foreground">{member.phone}</div>
                     </div>
-                    <span className="text-sm font-medium px-2 py-1 rounded bg-orange-100 text-orange-700">
+                    <span className="text-sm font-medium px-2 py-1 rounded bg-amber-500/15 text-amber-400">
                       {member.sessions_remaining} {t('reports.sessionsLeft', 'sessions')}
                     </span>
                   </div>
@@ -481,15 +481,15 @@ function OverviewCard({
   color: 'blue' | 'green' | 'purple' | 'red'
 }) {
   const colors = {
-    blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
-    purple: 'bg-purple-50 text-purple-600',
-    red: 'bg-red-50 text-red-600'
+    blue: 'bg-blue-500/10 text-blue-400',
+    green: 'bg-emerald-500/10 text-emerald-400',
+    purple: 'bg-purple-500/10 text-purple-400',
+    red: 'bg-red-500/10 text-red-400'
   }
 
   return (
     <Card>
-      <CardContent className="flex items-center gap-3">
+      <CardContent className="flex items-center gap-4">
         <div className={`p-2 rounded-lg ${colors[color]}`}>
           <Icon className="w-6 h-6" />
         </div>

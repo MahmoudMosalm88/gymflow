@@ -37,12 +37,10 @@ export default function Subscriptions(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
 
   const [showRenewModal, setShowRenewModal] = useState(false)
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [planMonths, setPlanMonths] = useState<1 | 3 | 6 | 12>(1)
   const [pricePaid, setPricePaid] = useState<string>('')
   const [sessionsPerMonth, setSessionsPerMonth] = useState<string>('')
   const renewPrimaryRef = useRef<HTMLButtonElement>(null)
-  const paymentPrimaryRef = useRef<HTMLButtonElement>(null)
 
   const activeSubscription = useMemo(() => {
     return subscriptions.find((s) => s.is_active) || null
@@ -161,27 +159,6 @@ export default function Subscriptions(): JSX.Element {
     }
   }
 
-  const handleRecordPayment = async () => {
-    if (!activeSubscription || !selectedMember) return
-    const amount = pricePaid.trim() ? Number(pricePaid) : NaN
-    if (!Number.isFinite(amount) || amount < 0) {
-      setError(t('subscriptions.invalidAmount'))
-      return
-    }
-
-    setError(null)
-    try {
-      await window.api.subscriptions.updatePricePaid(activeSubscription.id, amount)
-      setShowPaymentModal(false)
-      setPricePaid('')
-      const data = await window.api.subscriptions.getByMemberId(selectedMember.id)
-      setSubscriptions(data || [])
-    } catch (e) {
-      console.error('Failed to record payment:', e)
-      setError(t('common.error'))
-    }
-  }
-
   return (
     <div className="p-6 h-full flex flex-col bg-muted/30">
       <h1 className="text-3xl font-bold text-foreground mb-6">{t('subscriptions.title')}</h1>
@@ -233,7 +210,7 @@ export default function Subscriptions(): JSX.Element {
                           <button
                             type="button"
                             onClick={() => setSelectedMemberId(m.id)}
-                            className={`w-full text-left px-4 py-3 hover:bg-muted ${
+                            className={`w-full text-start px-4 py-3 hover:bg-muted ${
                               active ? 'bg-muted' : ''
                             }`}
                           >
@@ -278,18 +255,6 @@ export default function Subscriptions(): JSX.Element {
                       }}
                     >
                       {t('subscriptions.renew')}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setError(null)
-                        setPricePaid(activeSubscription?.price_paid?.toString() || '')
-                        setShowPaymentModal(true)
-                      }}
-                      disabled={!activeSubscription}
-                    >
-                      {t('subscriptions.recordPayment')}
                     </Button>
                     <Button
                       type="button"
@@ -353,14 +318,14 @@ export default function Subscriptions(): JSX.Element {
                       <table className="min-w-full text-sm">
                         <thead className="bg-muted text-muted-foreground">
                           <tr>
-                            <th className="text-left px-4 py-2">{t('subscriptions.date')}</th>
-                            <th className="text-left px-4 py-2">{t('memberDetail.plan')}</th>
-                            <th className="text-left px-4 py-2">
+                            <th className="text-start px-4 py-2">{t('subscriptions.date')}</th>
+                            <th className="text-start px-4 py-2">{t('memberDetail.plan')}</th>
+                            <th className="text-start px-4 py-2">
                               {t('memberDetail.sessionsPerMonth', 'Sessions / month')}
                             </th>
-                            <th className="text-left px-4 py-2">{t('memberDetail.expires')}</th>
-                            <th className="text-left px-4 py-2">{t('memberForm.pricePaid')}</th>
-                            <th className="text-left px-4 py-2">{t('memberDetail.status')}</th>
+                            <th className="text-start px-4 py-2">{t('memberDetail.expires')}</th>
+                            <th className="text-start px-4 py-2">{t('memberForm.pricePaid')}</th>
+                            <th className="text-start px-4 py-2">{t('memberDetail.status')}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
@@ -453,41 +418,6 @@ export default function Subscriptions(): JSX.Element {
         </Modal>
       )}
 
-      {showPaymentModal && selectedMember && activeSubscription && (
-        <Modal
-          title={t('subscriptions.recordPayment')}
-          onClose={() => setShowPaymentModal(false)}
-          size="sm"
-          initialFocusRef={paymentPrimaryRef}
-          closeLabel={t('common.close')}
-        >
-          <div className="space-y-4">
-            <div>
-              <Label className="mb-2 block">{t('memberForm.pricePaid')}</Label>
-              <Input
-                type="number"
-                min="0"
-                value={pricePaid}
-                onChange={(e) => setPricePaid(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground mt-2">{t('subscriptions.cashOnly')}</p>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <Button ref={paymentPrimaryRef} type="button" onClick={handleRecordPayment} className="flex-1">
-                {t('common.save')}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setShowPaymentModal(false)}
-                className="flex-1"
-              >
-                {t('common.cancel')}
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   )
 }

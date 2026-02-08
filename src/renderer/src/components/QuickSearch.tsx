@@ -88,7 +88,7 @@ export default function QuickSearch({ onSelect }: QuickSearchProps): JSX.Element
   return (
     <div className="relative">
       <div className="relative">
-        <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <MagnifyingGlassIcon className="absolute start-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
         <Input
           ref={inputRef}
           type="text"
@@ -105,7 +105,7 @@ export default function QuickSearch({ onSelect }: QuickSearchProps): JSX.Element
             }
           }}
           placeholder={t('dashboard.searchPlaceholder')}
-          className="pl-12"
+          className="ps-12"
         />
       </div>
 
@@ -115,8 +115,8 @@ export default function QuickSearch({ onSelect }: QuickSearchProps): JSX.Element
             <button
               key={member.id}
               onClick={() => handleSelect(member)}
-              className={`w-full px-4 py-3 text-left flex items-center gap-3 transition-colors ${
-                index === selectedIndex ? 'bg-brand-light/20' : 'hover:bg-muted'
+              className={`w-full px-4 py-3 text-start flex items-center gap-3 transition-colors ${
+                index === selectedIndex ? 'bg-primary/10' : 'hover:bg-muted'
               }`}
             >
               <div className="w-10 h-10 rounded-full bg-brand-gradient flex items-center justify-center text-sm font-bold text-white flex-shrink-0">

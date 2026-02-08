@@ -126,7 +126,7 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
@@ -137,7 +137,7 @@ export default function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`bg-background rounded-2xl shadow-2xl w-full ${maxWidth} p-8 border border-border animate-slide-up`}
+        className={`bg-background rounded-2xl shadow-2xl shadow-black/30 w-full ${maxWidth} p-8 border border-border/50 animate-slide-up`}
       >
         <div className="flex items-start justify-between gap-6 mb-6">
           <h2 id={titleId} className="text-2xl font-heading font-bold text-foreground">

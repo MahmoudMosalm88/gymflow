@@ -79,6 +79,24 @@ export function getLastSuccessfulScan(scannedValue: string, withinSeconds: numbe
   return (result as Log) || null
 }
 
+export function hasSuccessfulCheckInToday(memberId: string): boolean {
+  const db = getDatabase()
+  const startOfDay = getStartOfDay()
+
+  const result = db
+    .prepare(
+      `SELECT 1
+       FROM logs
+       WHERE member_id = ?
+         AND timestamp >= ?
+         AND status IN ('allowed', 'warning')
+       LIMIT 1`
+    )
+    .get(memberId, startOfDay)
+
+  return !!result
+}
+
 export function getTodayStats(): { allowed: number; warning: number; denied: number } {
   const db = getDatabase()
   const startOfDay = getStartOfDay()

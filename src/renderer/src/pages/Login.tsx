@@ -8,7 +8,6 @@ import { Label } from '../components/ui/label'
 
 interface LoginProps {
   onSuccess: (token: string) => void
-  onEnableTestMode?: () => void
   onGoToSignUp?: () => void
 }
 
@@ -16,7 +15,6 @@ type Mode = 'login' | 'requestReset' | 'reset'
 
 export default function Login({
   onSuccess,
-  onEnableTestMode,
   onGoToSignUp
 }: LoginProps): JSX.Element {
   const { t } = useTranslation()
@@ -103,7 +101,7 @@ export default function Login({
         </div>
       )}
       {successMessage && (
-        <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg animate-slide-up">
+        <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg animate-slide-up">
           {successMessage}
         </div>
       )}
@@ -133,7 +131,7 @@ export default function Login({
             <Button onClick={handleLogin} disabled={isLoading} className="w-full">
               {isLoading ? (
                 <>
-                  <div className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  <div className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin me-2" />
                   {t('common.loading', 'Loading...')}
                 </>
               ) : (
@@ -154,11 +152,6 @@ export default function Login({
             >
               {t('auth.forgotPassword', 'Forgot password?')}
             </Button>
-            {import.meta.env.DEV && onEnableTestMode && (
-              <Button onClick={onEnableTestMode} variant="link" className="w-full">
-                {t('auth.enableTestMode', 'Enable test mode')}
-              </Button>
-            )}
           </>
         )}
 
@@ -167,7 +160,7 @@ export default function Login({
             <Button onClick={handleRequestReset} disabled={isLoading} className="w-full">
               {isLoading ? (
                 <>
-                  <div className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  <div className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin me-2" />
                   {t('common.loading', 'Loading...')}
                 </>
               ) : (
@@ -183,7 +176,7 @@ export default function Login({
         {mode === 'reset' && (
           <>
             {import.meta.env.DEV && otpSentVia === 'manual' && manualCode && (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg">
+              <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg">
                 {t('auth.otpManual', 'Your code is')}: <strong className="font-heading font-bold text-lg">{manualCode}</strong>
               </div>
             )}
@@ -214,7 +207,7 @@ export default function Login({
             <Button onClick={handleResetPassword} disabled={isLoading} className="w-full">
               {isLoading ? (
                 <>
-                  <div className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  <div className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin me-2" />
                   {t('common.loading', 'Loading...')}
                 </>
               ) : (
