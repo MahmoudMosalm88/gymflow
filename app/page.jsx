@@ -4,9 +4,58 @@ import { useEffect, useState } from 'react'
 
 export default function Home() {
   const [mounted, setMounted] = useState(false)
+  const [preferredOS, setPreferredOS] = useState('win')
+  const [downloads, setDownloads] = useState({
+    mac: 'https://github.com/MahmoudMosalm88/gymflow/releases/latest',
+    win: 'https://github.com/MahmoudMosalm88/gymflow/releases/latest'
+  })
 
   useEffect(() => {
     setMounted(true)
+
+    const uaDataPlatform = navigator.userAgentData?.platform || ''
+    const platform = navigator.platform || ''
+    const ua = navigator.userAgent || ''
+    const appVersion = navigator.appVersion || ''
+    const fingerprint = `${uaDataPlatform} ${platform} ${ua} ${appVersion}`.toLowerCase()
+    if (/(mac|macintosh|mac os x)/.test(fingerprint)) {
+      setPreferredOS('mac')
+    } else {
+      setPreferredOS('win')
+    }
+
+    let cancelled = false
+    const hydrateDownloads = async () => {
+      try {
+        const response = await fetch(
+          'https://api.github.com/repos/MahmoudMosalm88/gymflow/releases/latest'
+        )
+        if (!response.ok) return
+        const data = await response.json()
+        const assets = Array.isArray(data?.assets) ? data.assets : []
+        const macAsset =
+          assets.find((asset) => /(?:mac|arm64).*\.dmg$/i.test(asset?.name || '')) ||
+          assets.find((asset) => /\.dmg$/i.test(asset?.name || ''))
+        const winAsset =
+          assets.find((asset) => /(?:win|setup).*\.exe$/i.test(asset?.name || '')) ||
+          assets.find((asset) => /\.exe$/i.test(asset?.name || ''))
+
+        if (!cancelled) {
+          setDownloads({
+            mac: macAsset?.browser_download_url || 'https://github.com/MahmoudMosalm88/gymflow/releases/latest',
+            win: winAsset?.browser_download_url || 'https://github.com/MahmoudMosalm88/gymflow/releases/latest'
+          })
+        }
+      } catch {
+        // Keep fallback release-page URLs
+      }
+    }
+
+    hydrateDownloads()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   if (!mounted) {
@@ -86,8 +135,12 @@ export default function Home() {
               {/* CTA Buttons */}
               <div id="download" className="flex flex-col sm:flex-row gap-4 animate-slide-in-up">
                 <a
-                  href="https://storage.googleapis.com/[BUCKET]/GymFlow-arm64.dmg"
-                  className="btn-primary bg-gradient-to-r from-primary-500 to-accent-500 hover:from-primary-600 hover:to-accent-600 shadow-lg hover:shadow-xl inline-flex items-center justify-center gap-2 group text-lg"
+                  href={downloads.mac}
+                  className={`${
+                    preferredOS === 'mac'
+                      ? 'btn-primary bg-gradient-to-r from-primary-500 to-accent-500 hover:from-primary-600 hover:to-accent-600 shadow-lg hover:shadow-xl'
+                      : 'btn-secondary border-2 border-primary-500 text-primary-500 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-800'
+                  } inline-flex items-center justify-center gap-2 group text-lg`}
                 >
                   <svg className="w-5 h-5 group-hover:translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -95,8 +148,12 @@ export default function Home() {
                   <span>Download for Mac</span>
                 </a>
                 <a
-                  href="https://storage.googleapis.com/[BUCKET]/GymFlow-Setup.exe"
-                  className="btn-secondary border-2 border-primary-500 text-primary-500 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-800 inline-flex items-center justify-center gap-2 group text-lg"
+                  href={downloads.win}
+                  className={`${
+                    preferredOS === 'win'
+                      ? 'btn-primary bg-gradient-to-r from-primary-500 to-accent-500 hover:from-primary-600 hover:to-accent-600 shadow-lg hover:shadow-xl'
+                      : 'btn-secondary border-2 border-primary-500 text-primary-500 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-800'
+                  } inline-flex items-center justify-center gap-2 group text-lg`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -537,7 +594,7 @@ export default function Home() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a
-              href="https://storage.googleapis.com/[BUCKET]/GymFlow-arm64.dmg"
+              href={downloads.mac}
               className="bg-white text-primary-500 hover:bg-orange-50 font-jakarta font-bold py-4 px-8 rounded-lg transition duration-200 shadow-lg hover:shadow-xl inline-flex items-center justify-center gap-2 text-lg"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -546,7 +603,7 @@ export default function Home() {
               Download for Mac
             </a>
             <a
-              href="https://storage.googleapis.com/[BUCKET]/GymFlow-Setup.exe"
+              href={downloads.win}
               className="bg-white text-primary-500 hover:bg-orange-50 font-jakarta font-bold py-4 px-8 rounded-lg transition duration-200 shadow-lg hover:shadow-xl inline-flex items-center justify-center gap-2 text-lg"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
