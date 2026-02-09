@@ -29,7 +29,6 @@ const QRCode = require("qrcode");
 const bcryptjs = require("bcryptjs");
 const uuid = require("uuid");
 const crypto = require("crypto");
-const pdfLib = require("pdf-lib");
 const whatsappWeb_js = require("whatsapp-web.js");
 const events = require("events");
 const https = require("https");
@@ -51,6 +50,20 @@ function _interopNamespaceDefault(e) {
   return Object.freeze(n);
 }
 const QRCode__namespace = /* @__PURE__ */ _interopNamespaceDefault(QRCode);
+let cachedPdfLib = null;
+function getPdfLib() {
+  if (cachedPdfLib) {
+    return cachedPdfLib;
+  }
+  try {
+    cachedPdfLib = require("pdf-lib");
+    return cachedPdfLib;
+  } catch (error) {
+    throw new Error(
+      "Card batch PDF generation is unavailable because dependency 'pdf-lib' is missing. Please reinstall or update GymFlow."
+    );
+  }
+}
 let db = null;
 function getUserDataPath() {
   return electron.app.getPath("userData");
@@ -1545,6 +1558,7 @@ async function generateCardBatchFiles(codes, from, to) {
   if (!codes.length) {
     throw new Error("No codes provided");
   }
+  const pdfLib = getPdfLib();
   const pdfDoc = await pdfLib.PDFDocument.create();
   const font = await pdfDoc.embedFont(pdfLib.StandardFonts.Helvetica);
   const cellWidth = (A4_WIDTH - PAGE_MARGIN * 2) / GRID_COLUMNS;
