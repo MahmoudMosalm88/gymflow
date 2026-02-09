@@ -2708,7 +2708,7 @@ function registerIpcHandlers() {
     (_event, limit) => getRecentIncome(limit || 20)
   );
 }
-const UPDATE_URL = "https://update-server.run.app/api/version";
+const UPDATE_URL = "https://api.github.com/repos/MahmoudMosalm88/gymflow/releases/latest";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1e3;
 const DOWNLOAD_TIMEOUT_MS = 3e4;
 const UPDATE_TIMEOUT_MS = 15e3;
@@ -2740,8 +2740,9 @@ function resolveFeedUrl(info) {
 }
 function fetchJson(url, timeoutMs) {
   return new Promise((resolve, reject) => {
-    const client = url.startsWith("https:") ? https.request : http.request;
-    const req = client(url, { method: "GET" }, (res) => {
+    const parsedUrl = new URL(url);
+    const client = parsedUrl.protocol === "https:" ? https.request : http.request;
+    const req = client(url, { method: "GET", headers: { "User-Agent": "gymflow-updater" } }, (res) => {
       if (!res.statusCode || res.statusCode >= 400) {
         reject(new Error(`Update check failed (${res.statusCode})`));
         res.resume();
@@ -2830,34 +2831,31 @@ async function checkForUpdates() {
   }
   updateInFlight = (async () => {
     try {
-      const info = await fetchJson(UPDATE_URL, UPDATE_TIMEOUT_MS);
-      if (!info.version) {
+      const release = await fetchJson(UPDATE_URL, UPDATE_TIMEOUT_MS);
+      const tagVersion = (release.tag_name || "").replace(/^v/, "");
+      if (!tagVersion) {
         logToFile("WARN", "Update response missing version");
         return;
       }
       const currentVersion = electron.app.getVersion();
-      if (compareVersions(info.version, currentVersion) <= 0) {
+      if (compareVersions(tagVersion, currentVersion) <= 0) {
         return;
       }
-      await electron.dialog.showMessageBox({
+      const assets = Array.isArray(release.assets) ? release.assets : [];
+      const platformKey = process.platform === "win32" ? /\.exe$/i : process.platform === "darwin" ? /\.dmg$/i : /\.AppImage$/i;
+      const asset = assets.find((a) => platformKey.test(a.name || ""));
+      const downloadUrl = asset ? asset.browser_download_url : null;
+      if (!downloadUrl) {
+        logToFile("ERROR", "No matching installer in GitHub release for this platform");
+        return;
+      }
+      const { response } = await electron.dialog.showMessageBox({
         type: "info",
         message: "Update available",
-        detail: `A newer version (${info.version}) is available. GymFlow will update now.`,
-        buttons: ["OK"]
+        detail: `A newer version (${tagVersion}) is available. Would you like to update now?`,
+        buttons: ["Update Now", "Later"]
       });
-      const feedUrl = resolveFeedUrl(info);
-      if (feedUrl) {
-        const { autoUpdater } = await import("electron");
-        autoUpdater.setFeedURL({ url: feedUrl });
-        autoUpdater.on("update-downloaded", () => {
-          autoUpdater.quitAndInstall();
-        });
-        autoUpdater.checkForUpdates();
-        return;
-      }
-      const downloadUrl = resolveDownloadUrl(info);
-      if (!downloadUrl) {
-        logToFile("ERROR", "Update response missing download URL");
+      if (response !== 0) {
         return;
       }
       const downloadDir = path.join(electron.app.getPath("userData"), "updates");
