@@ -1753,15 +1753,16 @@ class WhatsAppService extends events.EventEmitter {
         if (!this.client) {
           this.initialize();
         }
-        await withTimeout(this.client.initialize(), 9e4);
+        await withTimeout(this.client.initialize(), 45e3);
         return { success: true };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        console.error("WhatsApp connect error:", message);
         if (message.includes("already running") || message.includes("Singleton")) {
           try {
             this.cleanupAuthLocks();
             await this.resetClient();
-            await withTimeout(this.client.initialize(), 9e4);
+            await withTimeout(this.client.initialize(), 45e3);
             this.status.error = null;
             this.emit("status", { ...this.status });
             return { success: true };

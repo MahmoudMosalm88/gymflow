@@ -1,22 +1,37 @@
 {
-  "name": "gymflow-landing",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "deploy": "npm run build && firebase deploy"
+  "name": "gymflow",
+  "version": "1.0.3",
+  "description": "Gym membership management system with QR check-in and WhatsApp automation",
+  "main": "./out/main/index.js",
+  "author": "GymFlow",
+  "license": "MIT",
+  "build": {
+    "appId": "com.gymflow",
+    "productName": "gymflow",
+    "files": [
+      "out/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "${name}-${version}-setup.${ext}"
+    }
   },
   "dependencies": {
-    "next": "^14.0.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
-  },
-  "devDependencies": {
-    "autoprefixer": "^10",
-    "postcss": "^8",
-    "tailwindcss": "^3",
-    "firebase-tools": "^13.0.0"
+    "better-sqlite3": "^11.7.0",
+    "bcryptjs": "^2.4.3",
+    "i18next": "^24.2.2",
+    "qrcode": "^1.5.4",
+    "react-i18next": "^15.4.0",
+    "react-router-dom": "^7.1.1",
+    "uuid": "^11.0.5",
+    "whatsapp-web.js": "^1.26.0",
+    "xlsx": "^0.18.5",
+    "zustand": "^5.0.3"
   }
 }
