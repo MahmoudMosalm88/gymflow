@@ -18542,6 +18542,7 @@ const CardFooter = reactExports.forwardRef(
   ({ className, ...props }, ref) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref, className: cn("flex items-center p-6 pt-0", className), ...props })
 );
 CardFooter.displayName = "CardFooter";
+const formatDateDMY = (ts) => { const d = new Date(typeof ts === "number" && ts < 1e12 ? ts * 1e3 : ts); const dd = String(d.getDate()).padStart(2, "0"); const mm = String(d.getMonth() + 1).padStart(2, "0"); const yyyy = d.getFullYear(); return `${dd}/${mm}/${yyyy}`; };
 function GuestPassCard({ guestPass }) {
   const { t } = useTranslation();
   const now2 = Date.now() / 1e3;
@@ -18569,7 +18570,7 @@ function GuestPassCard({ guestPass }) {
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "text-sm text-muted-foreground", children: [
       t("guestPasses.expires", "Expires"),
       ": ",
-      new Date(guestPass.expires_at * 1e3).toLocaleDateString()
+      formatDateDMY(guestPass.expires_at)
     ] })
   ] }) });
 }
@@ -20462,8 +20463,9 @@ function MemberForm() {
     card_code: "",
     address: ""
   });
-  const [createSubscription, setCreateSubscription] = reactExports.useState(true);
+  const [createSubscription, setCreateSubscription] = reactExports.useState(false);
   const [planMonths, setPlanMonths] = reactExports.useState(1);
+  const [startDate, setStartDate] = reactExports.useState("");
   const [pricePaid, setPricePaid] = reactExports.useState("");
   const [sessionsPerMonth, setSessionsPerMonth] = reactExports.useState("");
   const [sessionsTouched, setSessionsTouched] = reactExports.useState(false);
@@ -20606,7 +20608,8 @@ function MemberForm() {
           member_id: created.id,
           plan_months: planMonths,
           price_paid: pricePaid ? Number(pricePaid) : void 0,
-          sessions_per_month: sessionsValue
+          sessions_per_month: sessionsValue,
+          start_date: startDate ? Math.floor(new Date(startDate).getTime() / 1e3) : void 0
         });
       }
       setCreatedMember({ id: created.id, name: created.name });
@@ -20756,7 +20759,7 @@ function MemberForm() {
                 onCheckedChange: (checked) => setCreateSubscription(Boolean(checked))
               }
             ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "create-subscription", className: "text-sm font-medium", children: t("memberForm.createSubscription", "Create subscription now") })
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "create-subscription", className: "text-sm font-medium", children: t("memberForm.createSubscription", "Existing member") })
           ] }),
           createSubscription && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-6", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
@@ -20786,6 +20789,11 @@ function MemberForm() {
                   ]
                 }
               )
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { children: t("memberForm.startDate", "Membership start date") }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(Input, { type: "date", value: startDate, onChange: (e) => setStartDate(e.target.value), required: true }),
+              startDate && planMonths && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground", children: (() => { const sd = new Date(startDate); sd.setMonth(sd.getMonth() + planMonths); return t("memberForm.endDate", "Ends") + ": " + formatDateDMY(sd.getTime()); })() })
             ] }),
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { children: t("memberForm.sessionsPerMonth", "Sessions per month") }),
@@ -21096,12 +21104,12 @@ function MemberDetail() {
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-muted-foreground", children: t("memberDetail.expires") }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-medium", children: new Date(subscription.end_date * 1e3).toLocaleDateString() })
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-medium", children: formatDateDMY(subscription.end_date) })
           ] }),
           activeFreeze && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-400", children: [
             t("memberDetail.frozenUntil", "Frozen until"),
             " ",
-            new Date(activeFreeze.end_date * 1e3).toLocaleDateString()
+            formatDateDMY(activeFreeze.end_date)
           ] }),
           daysRemaining > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pt-2 border-t border-border", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
             "div",
@@ -21557,11 +21565,11 @@ function Subscriptions() {
             ] }),
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between sm:block", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-muted-foreground", children: t("subscriptions.starts") }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "font-medium text-foreground", children: new Date(activeSubscription.start_date * 1e3).toLocaleDateString() })
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "font-medium text-foreground", children: formatDateDMY(activeSubscription.start_date) })
             ] }),
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between sm:block", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-muted-foreground", children: t("memberDetail.expires") }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "font-medium text-foreground", children: new Date(activeSubscription.end_date * 1e3).toLocaleDateString() })
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "font-medium text-foreground", children: formatDateDMY(activeSubscription.end_date) })
             ] }),
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between sm:block", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-muted-foreground", children: t("memberForm.pricePaid") }),
@@ -21581,14 +21589,14 @@ function Subscriptions() {
               /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "text-start px-4 py-2", children: t("memberDetail.status") })
             ] }) }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("tbody", { className: "divide-y divide-border", children: subscriptions2.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-4 py-2 text-foreground", children: new Date(s.created_at * 1e3).toLocaleDateString() }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-4 py-2 text-foreground", children: formatDateDMY(s.created_at) }),
               /* @__PURE__ */ jsxRuntimeExports.jsxs("td", { className: "px-4 py-2 text-foreground", children: [
                 s.plan_months,
                 " ",
                 t("memberDetail.months")
               ] }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-4 py-2 text-foreground", children: s.sessions_per_month ?? "-" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-4 py-2 text-foreground", children: new Date(s.end_date * 1e3).toLocaleDateString() }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-4 py-2 text-foreground", children: formatDateDMY(s.end_date) }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-4 py-2 text-foreground", children: s.price_paid ?? "-" }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-4 py-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "inline-flex px-2 py-1 rounded-full text-xs bg-muted text-foreground", children: statusLabel(s) }) })
             ] }, s.id)) })
@@ -21723,8 +21731,7 @@ function Reports() {
     }
   };
   const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString(void 0, { month: "short", day: "numeric" });
+    return formatDateDMY(new Date(dateStr).getTime());
   };
   const getReasonLabel = (code) => {
     const labels = {
@@ -22140,7 +22147,7 @@ function GuestPasses() {
               /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-xs text-muted-foreground", children: [
                 t("guestPasses.expires", "Expires"),
                 ": ",
-                new Date(pass.expires_at * 1e3).toLocaleDateString()
+                formatDateDMY(pass.expires_at)
               ] })
             ] }),
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-end gap-1", children: [
@@ -22223,7 +22230,7 @@ function Income() {
           /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "text-start px-4 py-2", children: t("income.details", "Details") })
         ] }) }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("tbody", { children: entries.map((entry, idx) => /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { className: "border-t border-border", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-4 py-2 text-foreground", children: new Date(entry.created_at * 1e3).toLocaleDateString() }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-4 py-2 text-foreground", children: formatDateDMY(entry.created_at) }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-4 py-2 text-foreground", children: entry.type === "subscription" ? t("income.subscription", "Subscription") : t("income.guestPass", "Guest Pass") }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-4 py-2 text-foreground", children: entry.name }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-4 py-2 text-foreground", children: formatAmount(entry.amount) }),
@@ -26473,6 +26480,31 @@ function Settings() {
   const [whatsappStatus, setWhatsappStatus] = reactExports.useState({ connected: false, authenticated: false });
   const [qrDataUrl, setQrDataUrl] = reactExports.useState(null);
   const [showQr, setShowQr] = reactExports.useState(false);
+  const [appVersion, setAppVersion] = reactExports.useState("");
+  const [updateStatus, setUpdateStatus] = reactExports.useState(null);
+  const [updateInfo, setUpdateInfo] = reactExports.useState(null);
+  const [updateError, setUpdateError] = reactExports.useState(null);
+  reactExports.useEffect(() => {
+    window.api.app.getVersion().then((v) => setAppVersion(v));
+    const unsub = window.api.app.onUpdateAvailable((data) => { setUpdateInfo(data); setUpdateStatus("available"); });
+    return unsub;
+  }, []);
+  const handleCheckForUpdates = async () => {
+    setUpdateStatus("checking"); setUpdateError(null);
+    try {
+      const result = await window.api.app.checkForUpdates();
+      if (result.error) { setUpdateStatus("error"); setUpdateError(result.error); }
+      else if (result.available) { setUpdateInfo(result); setUpdateStatus("available"); }
+      else { setUpdateStatus("upToDate"); }
+    } catch (e) { setUpdateStatus("error"); setUpdateError(String(e)); }
+  };
+  const handleDownloadUpdate = async () => {
+    setUpdateStatus("downloading");
+    try {
+      const result = await window.api.app.downloadUpdate(updateInfo.downloadUrl);
+      if (!result.success) { setUpdateStatus("error"); setUpdateError(result.error); }
+    } catch (e) { setUpdateStatus("error"); setUpdateError(String(e)); }
+  };
   reactExports.useEffect(() => {
     loadSettings();
   }, []);
@@ -26674,25 +26706,48 @@ function Settings() {
         /* @__PURE__ */ jsxRuntimeExports.jsx(TabsTrigger, { value: "whatsapp", children: t("settings.tabWhatsApp", "WhatsApp") }),
         /* @__PURE__ */ jsxRuntimeExports.jsx(TabsTrigger, { value: "data", children: t("settings.tabData", "Data") })
       ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(TabsContent, { value: "general", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs(CardHeader, { children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(CardTitle, { children: t("settings.general") }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: t("settings.generalDesc", "Language and account settings.") })
+      /* @__PURE__ */ jsxRuntimeExports.jsx(TabsContent, { value: "general", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-6", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(CardHeader, { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(CardTitle, { children: t("settings.general") }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: t("settings.generalDesc", "Language and account settings.") })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { className: "space-y-5", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { children: t("settings.language") }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-6", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "flex items-center gap-2 cursor-pointer", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("input", { type: "radio", name: "language", value: "en", checked: settings2.language === "en", onChange: () => setSettings({ ...settings2, language: "en" }), className: "w-4 h-4 accent-primary" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm", children: "English" })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "flex items-center gap-2 cursor-pointer", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("input", { type: "radio", name: "language", value: "ar", checked: settings2.language === "ar", onChange: () => setSettings({ ...settings2, language: "ar" }), className: "w-4 h-4 accent-primary" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm", children: "العربية" })
+              ] })
+            ] })
+          ] }) })
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(CardContent, { className: "space-y-5", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { children: t("settings.language") }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            Select,
-            {
-              value: settings2.language,
-              onChange: (e) => setSettings({ ...settings2, language: e.target.value }),
-              children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "en", children: t("settings.english") }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: "ar", children: t("settings.arabic") })
-              ]
-            }
-          )
-        ] }) })
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(CardHeader, { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(CardTitle, { children: t("settings.updates", "Updates") }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(CardDescription, { children: t("settings.updatesDesc", "Check for new versions of GymFlow.") })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(CardContent, { className: "space-y-4", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-sm font-medium text-foreground", children: ["v", appVersion] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground", children: t("settings.currentVersion", "Current version") })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+                updateStatus === "available" && updateInfo && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full", children: ["v", updateInfo.version, " ", t("settings.updateAvailableBadge", "available")] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { variant: "secondary", size: "sm", disabled: updateStatus === "checking" || updateStatus === "downloading", onClick: handleCheckForUpdates, children: updateStatus === "checking" ? t("settings.checking", "Checking...") : t("settings.checkForUpdates", "Check for Updates") })
+              ] })
+            ] }),
+            updateStatus === "upToDate" && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-emerald-400", children: t("settings.upToDate", "You're up to date!") }),
+            updateStatus === "available" && updateInfo && /* @__PURE__ */ jsxRuntimeExports.jsx(Button, { onClick: handleDownloadUpdate, children: t("settings.downloadInstall", "Download & Install") }),
+            updateStatus === "downloading" && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-muted-foreground", children: t("settings.downloading", "Downloading update...") }),
+            updateStatus === "error" && updateError && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-red-400", children: updateError })
+          ] })
+        ] })
       ] }) }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(TabsContent, { value: "rules", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-6", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs(Card, { children: [
@@ -28250,6 +28305,12 @@ function App() {
   );
   const [sessionToken, setSessionToken] = reactExports.useState(null);
   const [tokenLoaded, setTokenLoaded] = reactExports.useState(false);
+  const [updateBanner, setUpdateBanner] = reactExports.useState(null);
+  const [bannerDismissed, setBannerDismissed] = reactExports.useState(false);
+  reactExports.useEffect(() => {
+    const unsub = window.api.app.onUpdateAvailable((data) => { setUpdateBanner(data); setBannerDismissed(false); });
+    return unsub;
+  }, []);
   reactExports.useEffect(() => {
     document.documentElement.dir = i18n.language === "ar" ? "rtl" : "ltr";
     document.documentElement.lang = i18n.language;
@@ -28358,7 +28419,15 @@ function App() {
       }
     );
   }
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(Layout, { onLogout: handleLogout, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Routes, { children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-h-screen flex flex-col", children: [
+    updateBanner && !bannerDismissed && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "bg-primary/10 border-b border-primary/20 px-4 py-2 flex items-center justify-between text-sm", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-foreground", children: ["A new version (v", updateBanner.version, ") is available."] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "text-primary font-medium hover:underline text-sm", onClick: async () => { try { await window.api.app.downloadUpdate(updateBanner.downloadUrl); } catch {} }, children: "Update Now" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "text-muted-foreground hover:text-foreground text-sm", onClick: () => setBannerDismissed(true), children: "Dismiss" })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(Layout, { onLogout: handleLogout, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Routes, { children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/", element: /* @__PURE__ */ jsxRuntimeExports.jsx(Dashboard, {}) }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/members", element: /* @__PURE__ */ jsxRuntimeExports.jsx(Members, {}) }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/members/new", element: /* @__PURE__ */ jsxRuntimeExports.jsx(MemberForm, {}) }),
@@ -28371,7 +28440,8 @@ function App() {
     /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/settings", element: /* @__PURE__ */ jsxRuntimeExports.jsx(Settings, {}) }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/import", element: /* @__PURE__ */ jsxRuntimeExports.jsx(Import, {}) }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/profile", element: /* @__PURE__ */ jsxRuntimeExports.jsx(UserProfile, {}) })
-  ] }) });
+  ] }) })
+  ] });
 }
 class ErrorBoundary extends React$2.Component {
   constructor(props) {
@@ -30730,9 +30800,11 @@ const memberForm$1 = {
   serialHint: "Serial is auto-generated and used for the QR code.",
   regenerate: "Regenerate",
   regenerateConfirm: "Regenerate serial? Old QR codes will stop working.",
-  subscription: "Initial Subscription",
-  createSubscription: "Create subscription now",
+  subscription: "Subscription",
+  createSubscription: "Existing member",
   planMonths: "Duration",
+  startDate: "Membership start date",
+  endDate: "Ends",
   month: "month",
   months: "months",
   pricePaid: "Price Paid",
@@ -30868,7 +30940,16 @@ const settings$1 = {
   backupSuccess: "Backup successful",
   backupFailed: "Backup failed",
   restoreSuccess: "Restore successful",
-  restoreFailed: "Restore failed"
+  restoreFailed: "Restore failed",
+  updates: "Updates",
+  updatesDesc: "Check for new versions of GymFlow.",
+  currentVersion: "Current version",
+  checkForUpdates: "Check for Updates",
+  checking: "Checking...",
+  upToDate: "You're up to date!",
+  updateAvailableBadge: "available",
+  downloadInstall: "Download & Install",
+  downloading: "Downloading update..."
 };
 const reports$1 = {
   title: "Reports",
@@ -31124,8 +31205,8 @@ const nav = {
   profile: "الملف الشخصي"
 };
 const dashboard = {
-  title: "لوحة الماسح",
-  subtitle: "إدارة تسجيل دخول الأعضاء والحضور",
+  title: "الماسح",
+  subtitle: "تسجيل دخول الأعضاء ومتابعة الحضور",
   subtitle_active: "لديك {{count}} عضو نشط",
   ready: "جاهز للمسح",
   scanInstructions: "امسح رمز QR للعضو أو استخدم البحث السريع",
@@ -31185,9 +31266,11 @@ const memberForm = {
   serialHint: "يتم إنشاء الرقم التسلسلي تلقائيًا ويستخدم لرمز QR.",
   regenerate: "إعادة توليد",
   regenerateConfirm: "إعادة توليد الرقم؟ ستتوقف رموز QR القديمة عن العمل.",
-  subscription: "اشتراك مبدئي",
-  createSubscription: "إنشاء اشتراك الآن",
+  subscription: "الاشتراك",
+  createSubscription: "عضو حالي",
   planMonths: "المدة",
+  startDate: "تاريخ بداية الاشتراك",
+  endDate: "ينتهي",
   month: "شهر",
   months: "أشهر",
   pricePaid: "المبلغ المدفوع",
@@ -31252,7 +31335,7 @@ const attendance = {
 };
 const settings = {
   title: "الإعدادات",
-  subtitle: "إدارة تفضيلات وتكاملات GymFlow.",
+  subtitle: "تخصيص إعدادات النظام والربط مع واتساب.",
   tabGeneral: "عام",
   tabRules: "القواعد",
   tabWhatsApp: "واتساب",
@@ -31263,7 +31346,7 @@ const settings = {
   english: "الإنجليزية",
   arabic: "العربية",
   sessionRules: "قواعد الجلسات",
-  sessionRulesDesc: "الحدود الافتراضية حسب الجنس.",
+  sessionRulesDesc: "ضبط عدد الجلسات المسموح بها.",
   maleSessionCap: "حد جلسات الذكور",
   femaleSessionCap: "حد جلسات الإناث",
   accessHours: "ساعات الدخول",
@@ -31272,28 +31355,28 @@ const settings = {
   femaleHours: "ساعات دخول الإناث",
   addWindow: "إضافة نافذة زمنية",
   warnings: "التحذيرات",
-  warningsDesc: "متى تظهر التحذيرات الصفراء.",
+  warningsDesc: "ضبط تنبيهات انتهاء الاشتراك والجلسات.",
   daysBeforeExpiry: "أيام قبل تحذير الانتهاء",
   sessionsRemaining: "تحذير الجلسات المتبقية",
   scanner: "الماسح",
-  scannerDesc: "إعدادات فترة الانتظار بين المسحات.",
+  scannerDesc: "ضبط الوقت بين كل مسحتين متتاليتين.",
   cooldownSeconds: "ثواني الانتظار",
   whatsapp: "واتساب",
-  whatsappDesc: "ربط واتساب ويب وإدارة وصول QR.",
-  whatsappAutoHint: "تفعيل أتمتة واتساب وتوصيل QR",
+  whatsappDesc: "ربط واتساب وإدارة الرسائل التلقائية.",
+  whatsappAutoHint: "تفعيل الإرسال التلقائي للرسائل عبر واتساب",
   openWhatsAppWeb: "فتح واتساب ويب",
   enableWhatsApp: "تفعيل أتمتة واتساب",
   connected: "متصل",
   disconnected: "غير متصل",
   connect: "اتصال",
   disconnect: "قطع الاتصال",
-  batchDelay: "تأخير الدفعة (ثواني)",
+  batchDelay: "فترة الانتظار بين الرسائل (ثواني)",
   templates: "قوالب الرسائل",
   welcomeTemplate: "رسالة الترحيب",
   renewalTemplate: "تذكير التجديد",
   lowSessionsTemplate: "تنبيه الجلسات المنخفضة",
   data: "إدارة البيانات",
-  dataDesc: "النسخ الاحتياطي والاستعادة وموقع البيانات.",
+  dataDesc: "النسخ الاحتياطي واستعادة بيانات النظام.",
   openDataFolder: "فتح مجلد البيانات",
   backup: "نسخ احتياطي للقاعدة",
   restore: "استعادة القاعدة",
@@ -31303,13 +31386,13 @@ const settings = {
   qrHint: "افتح واتساب → الأجهزة المرتبطة → امسح هذا الرمز",
   qrGenerateFailed: "فشل إنشاء رمز QR",
   accessHoursHint: "إذا تم تعطيله، يسمح بالدخول في أي وقت.",
-  whatsappBatchMin: "الحد الأدنى لتأخير الدفعة (دقائق)",
-  whatsappBatchMax: "الحد الأقصى لتأخير الدفعة (دقائق)",
+  whatsappBatchMin: "أقل فترة بين الرسائل (دقائق)",
+  whatsappBatchMax: "أقصى فترة بين الرسائل (دقائق)",
   whatsappTemplateHint: "استخدم {{name}} لاسم العضو.",
   whatsappTemplateRenewalHint: "استخدم {{name}} و {{days}}.",
   whatsappTemplateSessionsHint: "استخدم {{name}} و {{sessions}}.",
   cardsTitle: "بطاقات مطبوعة مسبقاً",
-  cardsDescription: "إنشاء أوراق QR بحجم A4 للطباعة.",
+  cardsDescription: "طباعة أوراق تحتوي على رموز QR جاهزة للتوزيع.",
   cardsCount: "كم عدد الأكواد؟",
   cardsNext: "الكود التالي",
   cardsGenerate: "إنشاء PDF",
@@ -31323,7 +31406,16 @@ const settings = {
   backupSuccess: "تم النسخ الاحتياطي بنجاح",
   backupFailed: "فشل النسخ الاحتياطي",
   restoreSuccess: "تمت الاستعادة بنجاح",
-  restoreFailed: "فشلت الاستعادة"
+  restoreFailed: "فشلت الاستعادة",
+  updates: "التحديثات",
+  updatesDesc: "التحقق من وجود إصدارات جديدة.",
+  currentVersion: "الإصدار الحالي",
+  checkForUpdates: "التحقق من التحديثات",
+  checking: "جارِ التحقق...",
+  upToDate: "لديك أحدث إصدار!",
+  updateAvailableBadge: "متاح",
+  downloadInstall: "تحميل وتثبيت",
+  downloading: "جارِ تحميل التحديث..."
 };
 const reports = {
   title: "التقارير",
@@ -31379,7 +31471,7 @@ const memberDetail = {
   qrCode: "رمز QR",
   sessions: "الجلسات",
   status: "الحالة",
-  plan: "الخطة",
+  plan: "الباقة",
   expires: "ينتهي",
   months: "أشهر",
   serial: "الرقم التسلسلي",
@@ -31417,7 +31509,7 @@ const qrCodeDisplay = {
 };
 const guestPasses = {
   title: "تصاريح التجربة",
-  subtitle: "أنشئ تصاريح تجربة لمرة واحدة وتابع الاستخدام.",
+  subtitle: "إنشاء تصاريح دخول للزوار ومتابعة استخدامها.",
   create: "إنشاء تصريح تجربة",
   createHint: "إنشاء تصريح تجربة لمرة واحدة للدخول.",
   name: "اسم الزائر",
@@ -31445,7 +31537,7 @@ const guestPasses = {
 };
 const income = {
   title: "الدخل",
-  subtitle: "تتبع إجمالي الإيرادات والدخل المتوقع شهريًا.",
+  subtitle: "إجمالي الإيرادات والدخل المتوقع شهريًا.",
   total: "إجمالي الإيراد",
   totalHint: "جميع المدفوعات المسجلة",
   expected: "المتوقع شهريًا",
@@ -31465,7 +31557,7 @@ const auth = {
   loginTitle: "تسجيل الدخول إلى GymFlow",
   onboardingTitle: "إنشاء حساب المالك",
   connectWhatsAppTitle: "ربط واتساب",
-  connectWhatsAppHelp: "قم بربط واتساب لاستلام رموز التحقق. يمكنك ربطه لاحقًا من الإعدادات.",
+  connectWhatsAppHelp: "اربط واتساب لاستقبال رموز التحقق. يمكنك تخطي هذه الخطوة وربطه لاحقًا.",
   "continue": "متابعة",
   fullName: "الاسم الكامل",
   namePlaceholder: "اسم المالك",
@@ -31474,12 +31566,12 @@ const auth = {
   stepVerify: "التحقق",
   stepSettings: "الإعدادات",
   stepWhatsApp: "واتساب",
-  accountHelp: "استخدم رقم الهاتف لتسجيل الدخول وإدارة الجيم.",
-  verifyHelp: "أدخل الرمز الذي أرسلناه إلى هاتفك.",
-  settingsHelp: "يمكنك تعديل هذه الإعدادات لاحقًا من صفحة الإعدادات.",
+  accountHelp: "سجّل برقم هاتفك لإدارة الجيم.",
+  verifyHelp: "أدخل رمز التحقق المرسل إلى واتساب.",
+  settingsHelp: "يمكنك تعديل هذه الإعدادات لاحقًا.",
   phoneHint: "أدخل رمز الدولة مثل +201...",
   passwordHint: "استخدم 8 أحرف على الأقل.",
-  whatsappOtpHelp: "قم بربط واتساب لاستلام رموز التحقق وإعادة التعيين.",
+  whatsappOtpHelp: "اربط واتساب لاستقبال رموز التحقق وإعادة تعيين كلمة المرور.",
   whatsappScanQr: "امسح رمز QR أدناه",
   whatsappNotConnected: "واتساب غير متصل",
   whatsappSkipWarning: "واتساب غير متصل. يمكنك المتابعة وربطه لاحقًا من الإعدادات.",
@@ -31512,7 +31604,7 @@ const auth = {
 };
 const profile = {
   title: "الملف الشخصي",
-  subtitle: "إدارة حسابك وعلامة الجيم التجارية.",
+  subtitle: "إدارة حسابك وهوية الجيم.",
   basicInfo: "المعلومات الأساسية",
   name: "الاسم",
   email: "البريد الإلكتروني",
@@ -31522,7 +31614,7 @@ const profile = {
   newPassword: "كلمة المرور الجديدة",
   confirmPassword: "تأكيد كلمة المرور الجديدة",
   updatePassword: "تحديث كلمة المرور",
-  gymBranding: "العلامة التجارية للجيم",
+  gymBranding: "هوية الجيم",
   gymName: "اسم الجيم",
   gymLogo: "الشعار",
   gymAddress: "العنوان",
