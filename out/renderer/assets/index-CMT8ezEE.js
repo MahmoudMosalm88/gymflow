@@ -20601,7 +20601,7 @@ function MemberForm() {
         }
         await window.api.members.update(created.id, { photo_path: photoPath });
       }
-      if (createSubscription) {
+      {
         const parsedSessions = sessionsPerMonth.trim() ? Number(sessionsPerMonth) : NaN;
         const sessionsValue = Number.isFinite(parsedSessions) && parsedSessions > 0 ? parsedSessions : void 0;
         await window.api.subscriptions.create({
@@ -20609,7 +20609,7 @@ function MemberForm() {
           plan_months: planMonths,
           price_paid: pricePaid ? Number(pricePaid) : void 0,
           sessions_per_month: sessionsValue,
-          start_date: startDate ? Math.floor(new Date(startDate).getTime() / 1e3) : void 0
+          start_date: createSubscription && startDate ? Math.floor(new Date(startDate).getTime() / 1e3) : void 0
         });
       }
       setCreatedMember({ id: created.id, name: created.name });
@@ -20749,19 +20749,8 @@ function MemberForm() {
           /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground", children: isEditing ? t("memberForm.cardCodeEditHint", "Use Replace Card Code in the member profile to update.") : t("memberForm.cardCodeHint", "Scan or type the printed card code (e.g. 00001).") })
         ] }),
         !isEditing && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "border-t pt-6", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-base font-semibold text-foreground mb-4", children: t("memberForm.subscription", "Initial Subscription") }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 mb-5", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              Checkbox,
-              {
-                id: "create-subscription",
-                checked: createSubscription,
-                onCheckedChange: (checked) => setCreateSubscription(Boolean(checked))
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "create-subscription", className: "text-sm font-medium", children: t("memberForm.createSubscription", "Existing member") })
-          ] }),
-          createSubscription && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-6", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-base font-semibold text-foreground mb-4", children: t("memberForm.subscription", "Subscription") }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-6", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { children: t("memberForm.planMonths", "Duration") }),
               /* @__PURE__ */ jsxRuntimeExports.jsxs(
@@ -20789,11 +20778,6 @@ function MemberForm() {
                   ]
                 }
               )
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { children: t("memberForm.startDate", "Membership start date") }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(Input, { type: "date", value: startDate, onChange: (e) => setStartDate(e.target.value), required: true }),
-              startDate && planMonths && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground", children: (() => { const sd = new Date(startDate); sd.setMonth(sd.getMonth() + planMonths); return t("memberForm.endDate", "Ends") + ": " + formatDateDMY(sd.getTime()); })() })
             ] }),
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { children: t("memberForm.sessionsPerMonth", "Sessions per month") }),
@@ -20824,6 +20808,22 @@ function MemberForm() {
                 }
               )
             ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 mt-5", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              Checkbox,
+              {
+                id: "create-subscription",
+                checked: createSubscription,
+                onCheckedChange: (checked) => setCreateSubscription(Boolean(checked))
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { htmlFor: "create-subscription", className: "text-sm font-medium", children: t("memberForm.createSubscription", "Existing member") })
+          ] }),
+          createSubscription && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-4 space-y-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Label, { children: t("memberForm.startDate", "Membership start date") }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(Input, { type: "date", value: startDate, onChange: (e) => setStartDate(e.target.value), required: true }),
+            startDate && planMonths && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-muted-foreground", children: (() => { const sd = new Date(startDate); sd.setMonth(sd.getMonth() + planMonths); return t("memberForm.endDate", "Ends") + ": " + formatDateDMY(sd.getTime()); })() })
           ] })
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-4 pt-6 border-t", children: [

@@ -2904,6 +2904,7 @@ function startAutoUpdater() {
   }, UPDATE_CHECK_INTERVAL_MS);
 }
 let mainWindow = null;
+let tray = null;
 let rendererRestartCount = 0;
 let lastRendererCrashAt = 0;
 const MAX_RENDERER_RESTARTS = 3;
@@ -3011,6 +3012,12 @@ function createWindow() {
       mainWindow.show();
     }
   }, 1e4);
+  mainWindow.on("close", (event) => {
+    if (!electron.app.isQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
+  });
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -3078,6 +3085,7 @@ Error: ${error instanceof Error ? error.message : String(error)}
 
 The application will now exit.`
     );
+    electron.app.isQuitting = true;
     electron.app.quit();
     return;
   }
@@ -3086,17 +3094,27 @@ The application will now exit.`
   console.log("IPC handlers registered");
   logToFile("INFO", "IPC handlers registered");
   createWindow();
+  const trayIconPath = path.join(__dirname, "../../build/icon.png");
+  const trayIcon = electron.nativeImage.createFromPath(trayIconPath).resize({ width: 16, height: 16 });
+  tray = new electron.Tray(trayIcon);
+  tray.setToolTip("GymFlow");
+  const trayMenu = electron.Menu.buildFromTemplate([
+    { label: "Show GymFlow", click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } else { createWindow(); } } },
+    { type: "separator" },
+    { label: "Quit", click: () => { electron.app.isQuitting = true; electron.app.quit(); } }
+  ]);
+  tray.setContextMenu(trayMenu);
+  tray.on("double-click", () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } });
   if (!isDev()) {
+    electron.app.setLoginItemSettings({ openAtLogin: true, openAsHidden: false });
     startAutoUpdater();
   }
   electron.app.on("activate", function() {
-    if (electron.BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (mainWindow) { mainWindow.show(); } else { createWindow(); }
   });
 });
 electron.app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    electron.app.quit();
-  }
+  // Do nothing — app stays in tray
 });
 electron.app.on("will-quit", async () => {
   console.log("Cleaning up resources before quit...");
