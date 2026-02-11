@@ -27,11 +27,11 @@ jobs:
         with:
           node-version: 20.x
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+      - name: Install landing page build dependencies
+        run: npm install --no-save next@14 react@18 react-dom@18 tailwindcss@3 postcss@8 autoprefixer@10
 
-      - name: Build
-        run: npm run build
+      - name: Build landing page
+        run: npx next build
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -54,4 +54,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-

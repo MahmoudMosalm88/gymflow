@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from 'react'
 
+const RELEASES_LATEST_URL = 'https://github.com/MahmoudMosalm88/gymflow/releases/latest'
+const FALLBACK_WIN_URL = 'https://github.com/MahmoudMosalm88/gymflow/releases/download/v1.0.7/gymflow-1.0.7-setup.exe'
+
 export default function Home() {
   const [mounted, setMounted] = useState(false)
   const [preferredOS, setPreferredOS] = useState('win')
   const [downloads, setDownloads] = useState({
-    mac: 'https://github.com/MahmoudMosalm88/gymflow/releases/latest',
-    win: 'https://github.com/MahmoudMosalm88/gymflow/releases/latest'
+    mac: RELEASES_LATEST_URL,
+    win: FALLBACK_WIN_URL
   })
 
   useEffect(() => {
@@ -42,12 +45,12 @@ export default function Home() {
 
         if (!cancelled) {
           setDownloads({
-            mac: macAsset?.browser_download_url || 'https://github.com/MahmoudMosalm88/gymflow/releases/latest',
-            win: winAsset?.browser_download_url || 'https://github.com/MahmoudMosalm88/gymflow/releases/latest'
+            mac: macAsset?.browser_download_url || RELEASES_LATEST_URL,
+            win: winAsset?.browser_download_url || FALLBACK_WIN_URL
           })
         }
       } catch {
-        // Keep fallback release-page URLs
+        // Keep fallback URLs if the API call fails
       }
     }
 
