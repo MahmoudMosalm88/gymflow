@@ -18732,7 +18732,7 @@ function ScannerInput({ onScan, autoFocus = true }) {
     }
     timeoutRef.current = setTimeout(() => {
       clearBuffer();
-    }, 800);
+    }, 1500);
   };
   const handleInput = (e) => {
     bufferRef.current = e.currentTarget.value;
@@ -18740,7 +18740,7 @@ function ScannerInput({ onScan, autoFocus = true }) {
   };
   const handleKeyDown = (e) => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (e.key === "Enter") {
+    if (e.key === "Enter" || e.key === "NumpadEnter" || e.key === "Tab") {
       e.preventDefault();
       const scannedValue = e.currentTarget.value.trim();
       if (scannedValue) {
@@ -18781,6 +18781,8 @@ function Dashboard() {
   const [activeMembers, setActiveMembers] = reactExports.useState(null);
   const clearTimeoutRef = reactExports.useRef(null);
   const errorTimeoutRef = reactExports.useRef(null);
+  const pendingScansRef = reactExports.useRef([]);
+  const processingScanRef = reactExports.useRef(false);
   const loadTodayStats = reactExports.useCallback(async () => {
     try {
       const stats = await window.api.attendance.getTodayStats();
@@ -18808,11 +18810,19 @@ function Dashboard() {
     return () => {
       if (clearTimeoutRef.current) clearTimeout(clearTimeoutRef.current);
       if (errorTimeoutRef.current) clearTimeout(errorTimeoutRef.current);
+      pendingScansRef.current = [];
+      processingScanRef.current = false;
     };
   }, [loadTodayStats]);
-  const handleScan = reactExports.useCallback(async (scannedValue, method = "scan") => {
-    if (isLoading) return;
-    setIsLoading(true);
+  const processNextScan = reactExports.useCallback(async () => {
+    if (processingScanRef.current) return;
+    const next = pendingScansRef.current.shift();
+    if (!next) return;
+    const { scannedValue, method } = next;
+    processingScanRef.current = true;
+    if (!isLoading) {
+      setIsLoading(true);
+    }
     setError(null);
     try {
       const result = await window.api.attendance.check(scannedValue, method);
@@ -18846,9 +18856,20 @@ function Dashboard() {
         setError(null);
       }, 5e3);
     } finally {
-      setIsLoading(false);
+      processingScanRef.current = false;
+      if (pendingScansRef.current.length > 0) {
+        processNextScan();
+      } else {
+        setIsLoading(false);
+      }
     }
   }, [isLoading, t]);
+  const handleScan = reactExports.useCallback((scannedValue, method = "scan") => {
+    const normalizedScan = typeof scannedValue === "string" ? scannedValue.trim() : String(scannedValue || "").trim();
+    if (!normalizedScan) return;
+    pendingScansRef.current.push({ scannedValue: normalizedScan, method });
+    processNextScan();
+  }, [processNextScan]);
   const handleQuickSearch = (memberId) => {
     handleScan(memberId, "manual");
   };
@@ -20983,10 +21004,15 @@ function MemberDetail() {
   const handleDelete = async () => {
     if (!confirm(t("common.confirm"))) return;
     try {
-      await window.api.members.delete(id);
+      const result = await window.api.members.delete(id);
+      if (result && result.success === false) {
+        setError(result.error || t("common.error"));
+        return;
+      }
       navigate("/members");
     } catch (error2) {
       console.error("Failed to delete member:", error2);
+      setError(t("common.error"));
     }
   };
   if (isLoading) {

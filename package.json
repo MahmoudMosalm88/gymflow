@@ -1,6 +1,6 @@
 {
   "name": "gymflow",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Gym membership management system with QR check-in and WhatsApp automation",
   "main": "./out/main/index.js",
   "author": "GymFlow",

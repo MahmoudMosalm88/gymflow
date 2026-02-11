@@ -477,7 +477,28 @@ function updateMember(id, input) {
 }
 function deleteMember(id) {
   const db2 = getDatabase();
-  db2.prepare("DELETE FROM members WHERE id = ?").run(id);
+  const transaction = db2.transaction((memberId) => {
+    const row = db2.prepare("SELECT id, photo_path FROM members WHERE id = ?").get(memberId);
+    if (!row) {
+      return { success: false, notFound: true };
+    }
+    try {
+      db2.prepare("DELETE FROM members WHERE id = ?").run(memberId);
+      return { success: true, photoPath: row.photo_path || null };
+    } catch (error) {
+      const message = String(error);
+      if (!/FOREIGN KEY constraint failed/i.test(message)) {
+        throw error;
+      }
+      db2.prepare("DELETE FROM logs WHERE member_id = ?").run(memberId);
+      db2.prepare("DELETE FROM quotas WHERE member_id = ?").run(memberId);
+      db2.prepare("DELETE FROM subscriptions WHERE member_id = ?").run(memberId);
+      db2.prepare("DELETE FROM message_queue WHERE member_id = ?").run(memberId);
+      db2.prepare("DELETE FROM members WHERE id = ?").run(memberId);
+      return { success: true, photoPath: row.photo_path || null, recovered: true };
+    }
+  });
+  return transaction(id);
 }
 const DEFAULT_SETTINGS = {
   language: "en",
@@ -1296,10 +1317,16 @@ function getRecentIncome(limit = 20) {
   ];
   return combined.sort((a, b) => b.created_at - a.created_at).slice(0, limit);
 }
+function normalizeScannedInput(value) {
+  const raw = value === void 0 || value === null ? "" : String(value);
+  const stripped = raw.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+  if (!stripped) return "";
+  return stripped.replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 1776));
+}
 function checkAttendance(scannedValue, method = "scan") {
   const now = Math.floor(Date.now() / 1e3);
-  const normalized = scannedValue.trim();
-  const scanKey = normalized || scannedValue;
+  const normalized = normalizeScannedInput(scannedValue);
+  const scanKey = normalized || String(scannedValue || "");
   if (normalized) {
     const guestPass = getGuestPassByCode(normalized);
     if (guestPass) {
@@ -1347,17 +1374,39 @@ function checkAttendance(scannedValue, method = "scan") {
     }
   }
   const cooldownSeconds = getSetting("scan_cooldown_seconds", 30);
-  const lastScan = getLastSuccessfulScan(scanKey, cooldownSeconds);
+  const cooldownKey = /^\d{1,4}$/.test(scanKey) ? scanKey.padStart(5, "0") : scanKey;
+  const lastScan = getLastSuccessfulScan(cooldownKey, cooldownSeconds);
   if (lastScan) {
     return {
       status: "ignored",
       reasonCode: "cooldown"
     };
   }
-  const member = method === "manual" ? getMemberById(scanKey) : getMemberByCardCode(scanKey);
-  let resolvedMember = member;
-  if (!resolvedMember && method !== "manual") {
-    resolvedMember = getMemberById(scanKey) || null;
+  const scanCandidates = [scanKey];
+  if (method !== "manual") {
+    if (/^\d{1,4}$/.test(scanKey)) {
+      scanCandidates.push(scanKey.padStart(5, "0"));
+    }
+    const digitsOnly = scanKey.replace(/\D/g, "");
+    if (/^\d{5}$/.test(digitsOnly)) {
+      scanCandidates.push(digitsOnly);
+    }
+  }
+  const uniqueCandidates = [...new Set(scanCandidates.filter(Boolean))];
+  let resolvedMember = null;
+  if (method === "manual") {
+    resolvedMember = getMemberById(scanKey);
+  } else {
+    for (const candidate of uniqueCandidates) {
+      resolvedMember = getMemberByCardCode(candidate);
+      if (resolvedMember) break;
+    }
+    if (!resolvedMember) {
+      for (const candidate of uniqueCandidates) {
+        resolvedMember = getMemberById(candidate);
+        if (resolvedMember) break;
+      }
+    }
   }
   if (!resolvedMember) {
     createLog({
@@ -2225,7 +2274,15 @@ function registerIpcHandlers() {
   electron.ipcMain.handle("members:getNextSerial", () => generateNextCardCode());
   electron.ipcMain.handle("members:create", (_event, data) => createMember(data));
   electron.ipcMain.handle("members:update", (_event, id, data) => updateMember(id, data));
-  electron.ipcMain.handle("members:delete", (_event, id) => deleteMember(id));
+  electron.ipcMain.handle("members:delete", (_event, id) => {
+    try {
+      const result = deleteMember(id);
+      return result && typeof result === "object" ? result : { success: true };
+    } catch (error) {
+      logToFile("ERROR", "members:delete failed", { id, error: String(error) });
+      return { success: false, error: String(error) };
+    }
+  });
   electron.ipcMain.handle("members:search", (_event, query) => searchMembers(query));
   electron.ipcMain.handle(
     "subscriptions:getByMemberId",
@@ -2727,7 +2784,7 @@ function registerIpcHandlers() {
 }
 const UPDATE_URL = "https://api.github.com/repos/MahmoudMosalm88/gymflow/releases/latest";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1e3;
-const DOWNLOAD_TIMEOUT_MS = 3e4;
+const DOWNLOAD_TIMEOUT_MS = 10 * 60 * 1e3;
 const UPDATE_TIMEOUT_MS = 15e3;
 let updateTimer = null;
 let updateInFlight = null;
@@ -2791,7 +2848,8 @@ function downloadFile(url, destinationDir) {
     const req = client(url, { method: "GET" }, (res) => {
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
-        resolve(downloadFile(res.headers.location, destinationDir));
+        const redirectUrl = new URL(res.headers.location, url).toString();
+        resolve(downloadFile(redirectUrl, destinationDir));
         return;
       }
       if (!res.statusCode || res.statusCode >= 400) {
@@ -2822,25 +2880,19 @@ function downloadFile(url, destinationDir) {
 }
 async function launchInstaller(filePath) {
   const extension = path.extname(filePath).toLowerCase();
-  try {
-    if (process.platform === "win32" || process.platform === "linux") {
-      await electron.shell.openPath(filePath);
-      electron.app.relaunch();
-      electron.app.exit(0);
-      return;
-    }
-    if (process.platform === "darwin") {
-      await electron.shell.openPath(filePath);
-      electron.app.relaunch();
-      electron.app.exit(0);
-      return;
-    }
-  } catch (error) {
-    logToFile("ERROR", "Failed to launch installer", { error: String(error), filePath });
+  const platformAllowedExtension = process.platform === "win32" ? [".exe", ".msi"] : process.platform === "darwin" ? [".dmg", ".pkg"] : [".appimage", ".deb", ".rpm"];
+  if (!platformAllowedExtension.includes(extension)) {
+    throw new Error(`Unsupported update package for ${process.platform}: ${filePath}`);
   }
-  if (extension) {
-    throw new Error("Unsupported update package");
+  const launchError = await electron.shell.openPath(filePath);
+  if (launchError) {
+    logToFile("ERROR", "Failed to launch installer", { error: launchError, filePath });
+    throw new Error(`Failed to launch installer: ${launchError}`);
   }
+  electron.app.isQuitting = true;
+  setTimeout(() => {
+    electron.app.quit();
+  }, 1500);
 }
 async function getUpdateInfo() {
   try {
