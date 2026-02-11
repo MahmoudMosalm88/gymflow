@@ -1,6 +1,6 @@
 {
   "name": "gymflow",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Gym membership management system with QR check-in and WhatsApp automation",
   "main": "./out/main/index.js",
   "author": "GymFlow",
@@ -19,7 +19,8 @@
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "artifactName": "${name}-${version}-setup.${ext}"
+      "artifactName": "${name}-${version}-setup.${ext}",
+      "include": "resources/installer.nsh"
     }
   },
   "dependencies": {

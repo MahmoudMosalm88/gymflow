@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 
 const RELEASES_LATEST_URL = 'https://github.com/MahmoudMosalm88/gymflow/releases/latest'
-const FALLBACK_WIN_URL = 'https://github.com/MahmoudMosalm88/gymflow/releases/download/v1.0.7/gymflow-1.0.7-setup.exe'
+const FALLBACK_WIN_URL = 'https://github.com/MahmoudMosalm88/gymflow/releases/download/v1.0.8/gymflow-1.0.8-setup.exe'
 
 export default function Home() {
   const [mounted, setMounted] = useState(false)
