@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { query, withTransaction } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { getMonthlyCycleWindow } from "@/lib/billing-cycle";
-import { ok, routeError } from "@/lib/http";
+import { ok, fail, routeError } from "@/lib/http";
 import { attendanceSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
