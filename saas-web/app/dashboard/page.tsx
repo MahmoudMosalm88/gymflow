@@ -1,251 +1,136 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
+import { useState, useEffect, useRef } from 'react';
+import { api } from '@/lib/api-client';
+import { useLang, t } from '@/lib/i18n';
+import StatCard from '@/components/dashboard/StatCard';
+import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 
-type BootstrapState = "checking" | "ready" | "redirecting" | "error";
+type Overview = {
+  totalMembers: number;
+  activeSubscriptions: number;
+  todayCheckIns: number;
+  totalRevenue: number;
+};
 
-const SESSION_TOKEN_KEY = "session_token";
-const BRANCH_ID_KEY = "branch_id";
-
-function clearSession() {
-  try {
-    localStorage.removeItem(SESSION_TOKEN_KEY);
-    localStorage.removeItem(BRANCH_ID_KEY);
-  } catch {
-    // ignore storage failures
-  }
-}
+type ScanResult = {
+  success: boolean;
+  memberName?: string;
+  sessionsRemaining?: number;
+  reason?: string;
+};
 
 export default function DashboardPage() {
-  const [state, setState] = useState<BootstrapState>("checking");
+  const { lang } = useLang();
+  const labels = t[lang];
 
+  // Overview data
+  const [overview, setOverview] = useState<Overview | null>(null);
+  const [loadingOverview, setLoadingOverview] = useState(true);
+
+  // Scanner
+  const [scannedValue, setScannedValue] = useState('');
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch overview stats on mount
   useEffect(() => {
-    const boot = async () => {
-      const token = localStorage.getItem(SESSION_TOKEN_KEY);
-      const branchId = localStorage.getItem(BRANCH_ID_KEY);
-
-      if (!token || !branchId) {
-        setState("redirecting");
-        window.location.replace("/login");
-        return;
-      }
-
-      try {
-        const response = await fetch("/api/reports/overview", {
-          headers: {
-            authorization: `Bearer ${token}`,
-            "x-branch-id": branchId
-          }
-        });
-
-        if (!response.ok) {
-          clearSession();
-          setState("redirecting");
-          window.location.replace("/login");
-          return;
-        }
-
-        setState("ready");
-      } catch {
-        setState("error");
-      }
-    };
-
-    void boot();
+    api.get<Overview>('/api/reports/overview')
+      .then((res) => {
+        if (res.data) setOverview(res.data);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingOverview(false));
   }, []);
 
-  useEffect(() => {
-    if (state !== "ready") return;
+  // Handle scan submission
+  const handleScan = async () => {
+    if (!scannedValue.trim() || scanning) return;
+    setScanning(true);
+    setScanResult(null);
+    try {
+      const res = await api.post<ScanResult>('/api/attendance/check', {
+        scannedValue: scannedValue.trim(),
+        method: 'scan',
+      });
+      setScanResult(res.data ?? { success: false, reason: labels.error });
+    } catch {
+      setScanResult({ success: false, reason: labels.error });
+    } finally {
+      setScannedValue('');
+      setScanning(false);
+      inputRef.current?.focus();
+    }
+  };
 
-    const style = document.createElement("link");
-    style.rel = "stylesheet";
-    style.href = "/desktop/renderer.css";
+  if (loadingOverview) return <LoadingSpinner size="lg" />;
 
-    const scrollbarOverride = document.createElement("style");
-    scrollbarOverride.textContent = `
-      html, body, #root, * {
-        scrollbar-width: none !important;
-        -ms-overflow-style: none !important;
-      }
-      *::-webkit-scrollbar {
-        width: 0 !important;
-        height: 0 !important;
-        display: none !important;
-      }
-    `;
+  return (
+    <div className="space-y-6">
+      {/* Stat cards — 4 columns on large screens, 2 on medium, 1 on small */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label={lang === 'ar' ? 'إجمالي الأعضاء' : 'Total Members'}
+          value={overview?.totalMembers ?? 0}
+        />
+        <StatCard
+          label={lang === 'ar' ? 'اشتراكات نشطة' : 'Active Subscriptions'}
+          value={overview?.activeSubscriptions ?? 0}
+          color="text-green-400"
+        />
+        <StatCard
+          label={lang === 'ar' ? 'تسجيلات اليوم' : "Today's Check-ins"}
+          value={overview?.todayCheckIns ?? 0}
+          color="text-blue-400"
+        />
+        <StatCard
+          label={lang === 'ar' ? 'إجمالي الإيرادات' : 'Total Revenue'}
+          value={overview?.totalRevenue ?? 0}
+          color="text-purple-400"
+        />
+      </div>
 
-    const shim = document.createElement("script");
-    shim.src = "/desktop/web-api-shim.js";
-
-    const bundle = document.createElement("script");
-    bundle.src = "/desktop/index-CMT8ezEE.js";
-    bundle.type = "module";
-
-    let bundleInserted = false;
-
-    shim.onload = () => {
-      if (bundleInserted) return;
-      document.body.appendChild(bundle);
-      bundleInserted = true;
-    };
-
-    document.head.appendChild(style);
-    document.head.appendChild(scrollbarOverride);
-    document.body.appendChild(shim);
-
-    return () => {
-      style.remove();
-      scrollbarOverride.remove();
-      shim.remove();
-      if (bundleInserted) {
-        bundle.remove();
-      }
-    };
-  }, [state]);
-
-  // Loading state ("checking" or "redirecting")
-  if (state !== "ready" && state !== "error") {
-    return (
-      <main
-        style={{
-          minHeight: "100vh",
-          display: "grid",
-          placeItems: "center",
-          padding: 24,
-          background: "#090f1f",
-          color: "#f3f6ff"
-        }}
-      >
-        <div style={{ textAlign: "center" }}>
-          {/* Rotating spinner */}
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              margin: "0 auto 16px",
-              border: "4px solid rgba(255, 140, 0, 0.2)",
-              borderTop: "4px solid #FF8C00",
-              borderRadius: "50%",
-              animation: "spin 1s linear infinite"
-            }}
-          />
-          <p style={{ margin: 0, fontSize: 16 }}>Loading dashboard...</p>
-
-          {/* Inline keyframe animation */}
-          <style>{`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}</style>
-        </div>
-      </main>
-    );
-  }
-
-  // Error state
-  if (state === "error") {
-    return (
-      <main
-        style={{
-          minHeight: "100vh",
-          display: "grid",
-          placeItems: "center",
-          padding: 24,
-          background: "#090f1f",
-          color: "#f3f6ff"
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 440,
-            width: "100%",
-            borderRadius: 16,
-            border: "1px solid rgba(255, 255, 255, 0.11)",
-            background: "rgba(9, 14, 31, 0.73)",
-            backdropFilter: "blur(8px)",
-            boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 24px 44px rgba(2, 4, 12, 0.4)",
-            padding: "32px 24px",
-            textAlign: "center"
+      {/* Scanner section */}
+      <div className="rounded-xl border border-border bg-surface-card p-5">
+        <h2 className="mb-3 text-lg font-semibold">{labels.scanner}</h2>
+        <input
+          ref={inputRef}
+          autoFocus
+          type="text"
+          value={scannedValue}
+          onChange={(e) => setScannedValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleScan();
           }}
+          placeholder={labels.scanPlaceholder}
+          className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-[#f3f6ff] placeholder-[#8892a8] outline-none focus:border-brand"
+        />
+      </div>
+
+      {/* Scan result — green for success, red for failure */}
+      {scanResult && (
+        <div
+          className={`rounded-xl border p-4 ${
+            scanResult.success
+              ? 'border-green-500/30 bg-green-500/10'
+              : 'border-red-500/30 bg-red-500/10'
+          }`}
         >
-          {/* Error icon */}
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              margin: "0 auto 20px",
-              borderRadius: "50%",
-              border: "2px solid rgba(255, 142, 130, 0.74)",
-              background: "rgba(102, 35, 29, 0.42)",
-              display: "grid",
-              placeItems: "center",
-              fontSize: 32,
-              color: "#ffd9d3"
-            }}
-          >
-            ✕
-          </div>
-
-          {/* Error message */}
-          <h2 style={{ margin: "0 0 12px", fontSize: 20, fontWeight: 700 }}>
-            Could not load dashboard
-          </h2>
-          <p style={{ margin: "0 0 24px", color: "rgba(218, 226, 251, 0.86)", fontSize: 14, lineHeight: 1.6 }}>
-            We encountered an error while trying to load your dashboard. Please try again or return to login.
-          </p>
-
-          {/* Try again button */}
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              width: "100%",
-              border: 0,
-              borderRadius: 12,
-              padding: "12px 16px",
-              fontSize: 15,
-              fontWeight: 800,
-              color: "#26170f",
-              background: "linear-gradient(140deg, #FF8C00 0%, #E67E00 100%)",
-              boxShadow: "0 14px 24px rgba(230, 126, 0, 0.28)",
-              cursor: "pointer",
-              marginBottom: 12,
-              transition: "transform 150ms ease, filter 150ms ease"
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "translateY(-1px)";
-              e.currentTarget.style.filter = "saturate(1.08)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.filter = "saturate(1)";
-            }}
-          >
-            Try again
-          </button>
-
-          {/* Back to login link */}
-          <a
-            href="/login"
-            style={{
-              display: "inline-block",
-              color: "#FFCC80",
-              textDecoration: "none",
-              fontSize: 14
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.textDecoration = "underline";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.textDecoration = "none";
-            }}
-          >
-            Back to login
-          </a>
+          {scanResult.success ? (
+            <div>
+              <p className="text-lg font-semibold text-green-400">{scanResult.memberName}</p>
+              <p className="text-sm text-green-300">
+                {lang === 'ar'
+                  ? `الجلسات المتبقية: ${scanResult.sessionsRemaining ?? '—'}`
+                  : `Sessions remaining: ${scanResult.sessionsRemaining ?? '—'}`}
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm font-medium text-red-400">{scanResult.reason}</p>
+          )}
         </div>
-      </main>
-    );
-  }
-
-  return <div id="root" />;
+      )}
+    </div>
+  );
 }

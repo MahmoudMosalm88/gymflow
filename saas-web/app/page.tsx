@@ -1,9 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { Plus_Jakarta_Sans, Tajawal } from "next/font/google";
 import { useMemo, useState } from "react";
 import styles from "./landing.module.css";
+import Navbar from "./components/landing/Navbar";
+import Hero from "./components/landing/Hero";
+import Features from "./components/landing/Features";
+import CTA from "./components/landing/CTA";
 
 const latinFont = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -110,102 +113,10 @@ export default function HomePage() {
   return (
     <main className={`${styles.page} ${isArabic ? arabicFont.className : latinFont.className}`} dir={isArabic ? "rtl" : "ltr"}>
       <div className={styles.backdrop} aria-hidden="true" />
-
-      <header className={styles.navbar}>
-        <div className={styles.brandWrap}>
-          <span className={styles.logoMark}>GF</span>
-          <span className={styles.brand}>GymFlow</span>
-        </div>
-        <nav className={styles.navLinks} aria-label={isArabic ? "روابط التنقل" : "Navigation links"}>
-          <a href="#features">{t.navFeatures}</a>
-          <a href="#security">{t.navSecurity}</a>
-          <a href="#flow">{t.navFlow}</a>
-        </nav>
-        <div className={styles.languageSwitch} role="group" aria-label={isArabic ? "تبديل اللغة" : "Language switch"}>
-          <button
-            type="button"
-            onClick={() => setLang("en")}
-            className={lang === "en" ? styles.langActive : styles.langButton}
-            aria-pressed={lang === "en"}
-          >
-            EN
-          </button>
-          <button
-            type="button"
-            onClick={() => setLang("ar")}
-            className={lang === "ar" ? styles.langActive : styles.langButton}
-            aria-pressed={lang === "ar"}
-          >
-            AR
-          </button>
-        </div>
-      </header>
-
-      <section className={styles.hero}>
-        <div className={styles.heroContent}>
-          <p className={styles.badge}>{t.badge}</p>
-          <h1 className={styles.heroTitle}>{t.title}</h1>
-          <p className={styles.heroSubtitle}>{t.subtitle}</p>
-          <ul className={styles.points}>
-            {t.points.map((point) => (
-              <li key={point}>{point}</li>
-            ))}
-          </ul>
-
-          <div className={styles.actions}>
-            <Link href="/login?mode=register" className={styles.primaryCta}>
-              {t.ctaPrimary}
-            </Link>
-            <Link href="/login?mode=login" className={styles.secondaryCta}>
-              {t.ctaSecondary}
-            </Link>
-            <Link href="/dashboard" className={styles.ghostCta}>
-              {t.ctaTertiary}
-            </Link>
-          </div>
-        </div>
-
-        <aside className={styles.heroStats} aria-label={isArabic ? "بطاقات مؤشرات" : "Live indicator cards"}>
-          <article className={styles.statCard}>
-            <p>{t.statMembers}</p>
-            <h2>1,284</h2>
-            <span>{t.statDelta}</span>
-          </article>
-          <article className={styles.statCard}>
-            <p>{t.statCheckins}</p>
-            <h2>342</h2>
-            <span>{t.statDelta}</span>
-          </article>
-          <article className={styles.statCard}>
-            <p>{t.statRevenue}</p>
-            <h2>$18,900</h2>
-            <span>{t.statDelta}</span>
-          </article>
-        </aside>
-      </section>
-
-      <section id="features" className={styles.featureSection}>
-        <header>
-          <h2>{t.sectionTitle}</h2>
-          <p>{t.sectionSubtitle}</p>
-        </header>
-        <div className={styles.cardGrid}>
-          {t.cards.map((card) => (
-            <article key={card.title} className={styles.featureCard}>
-              <h3>{card.title}</h3>
-              <p>{card.body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section id="security" className={styles.finalSection}>
-        <h2>{t.finalTitle}</h2>
-        <p>{t.finalSubtitle}</p>
-        <Link href="/login?mode=register" className={styles.primaryCta}>
-          {t.finalCta}
-        </Link>
-      </section>
+      <Navbar lang={lang} setLang={setLang} t={t} />
+      <Hero t={t} isArabic={isArabic} />
+      <Features t={t} />
+      <CTA t={t} />
     </main>
   );
 }
