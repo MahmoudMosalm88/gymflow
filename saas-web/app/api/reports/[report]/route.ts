@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type NumberRow = {
   count?: string | number;

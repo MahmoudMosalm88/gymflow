@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
