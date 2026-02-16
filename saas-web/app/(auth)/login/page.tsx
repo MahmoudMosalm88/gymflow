@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus_Jakarta_Sans, Tajawal } from "next/font/google";
+// No longer importing specific fonts here, using global ones from layout.tsx
 import {
   Auth,
   ConfirmationResult,
@@ -19,17 +19,25 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import styles from "./login.module.css";
+// Shadcn/ui components
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage
+} from "@/components/ui/form";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Check, Terminal, X } from "lucide-react"; // Icons
+// Custom CSS module import removed
 
-const latinFont = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800"]
-});
-
-const arabicFont = Tajawal({
-  subsets: ["arabic"],
-  weight: ["500", "700", "800"]
-});
+// (Font constant definitions removed)
 
 type Mode = "login" | "register";
 type AuthMethod = "email" | "google" | "phone";
@@ -628,101 +636,102 @@ export default function LoginPage() {
   }
 
   return (
-    <main className={`${styles.page} ${isArabic ? arabicFont.className : latinFont.className}`} dir={isArabic ? "rtl" : "ltr"}>
-      <section className={styles.shell}>
-        <aside className={styles.storyPanel}>
-          <p className={styles.badge}>{t.badge}</p>
-          <h1 className={styles.title}>{t.title}</h1>
-          <p className={styles.subtitle}>{t.subtitle}</p>
-          <p className={styles.readyNote}>{t.ready}</p>
-
-          <div className={styles.languageSwitch} role="group" aria-label={isArabic ? "تبديل اللغة" : "Language switch"}>
-            <button
-              type="button"
-              onClick={() => setLang("en")}
-              className={lang === "en" ? styles.langActive : styles.langButton}
-              aria-pressed={lang === "en"}
-            >
-              EN
-            </button>
-            <button
-              type="button"
-              onClick={() => setLang("ar")}
-              className={lang === "ar" ? styles.langActive : styles.langButton}
-              aria-pressed={lang === "ar"}
-            >
-              AR
-            </button>
+    <main className="min-h-screen flex flex-col lg:flex-row font-sans" dir={isArabic ? "rtl" : "ltr"}>
+      <section className="flex-1 flex flex-col items-center justify-center"> {/* Updated shell styling */}
+        <aside className="relative flex flex-col justify-between p-8 lg:w-1/2 xl:w-2/5 bg-primary text-primary-foreground">
+          <div className="space-y-4">
+            <p className="inline-flex items-center rounded-full border border-primary-foreground/20 bg-primary-foreground/10 px-3 py-1 text-sm font-medium">
+              {t.badge}
+            </p>
+            <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl">{t.title}</h1>
+            <p className="text-lg opacity-80">{t.subtitle}</p>
+            <p className="text-sm opacity-60">{t.ready}</p>
           </div>
 
-          <Link href="/" className={styles.backLink}>
-            {t.backHome}
-          </Link>
+          <div className="flex flex-col gap-4 mt-8 lg:mt-0">
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                className={cn("w-16", { "bg-primary-foreground text-primary hover:text-primary": lang === "en" })}
+                onClick={() => setLang("en")}
+                aria-pressed={lang === "en"}
+              >
+                EN
+              </Button>
+              <Button
+                variant="secondary"
+                className={cn("w-16", { "bg-primary-foreground text-primary hover:text-primary": lang === "ar" })}
+                onClick={() => setLang("ar")}
+                aria-pressed={lang === "ar"}
+              >
+                AR
+              </Button>
+            </div>
+
+            <Button variant="link" asChild className="text-primary-foreground justify-start px-0">
+              <Link href="/">{t.backHome}</Link>
+            </Button>
+          </div>
         </aside>
 
-        <section className={styles.card}>
-          <div className={styles.modeTabs} role="tablist" aria-label={isArabic ? "وضع المصادقة" : "Authentication mode"}>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "login"}
-              className={mode === "login" ? styles.modeActive : styles.modeButton}
-              onClick={() => {
-                setMode("login");
-                setFeedback(null);
-              }}
-            >
-              {t.signIn}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "register"}
-              className={mode === "register" ? styles.modeActive : styles.modeButton}
-              onClick={() => {
-                setMode("register");
-                setFeedback(null);
-              }}
-            >
-              {t.createAccount}
-            </button>
-          </div>
+        <section className="flex-1 flex items-center justify-center p-4 lg:p-8 bg-background">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <div className="flex border-b border-border pb-4 mb-4">
+                <Button
+                  variant={mode === "login" ? "default" : "ghost"}
+                  className="flex-1"
+                  onClick={() => {
+                    setMode("login");
+                    setFeedback(null);
+                  }}
+                >
+                  {t.signIn}
+                </Button>
+                <Button
+                  variant={mode === "register" ? "default" : "ghost"}
+                  className="flex-1"
+                  onClick={() => {
+                    setMode("register");
+                    setFeedback(null);
+                  }}
+                >
+                  {t.createAccount}
+                </Button>
+              </div>
 
-          <div className={styles.methodTabs} role="tablist" aria-label={isArabic ? "طريقة تسجيل الدخول" : "Sign-in method"}>
-            <button
-              type="button"
-              className={method === "email" ? styles.methodActive : styles.methodButton}
-              onClick={() => {
-                setMethod("email");
-                setFeedback(null);
-              }}
-              aria-pressed={method === "email"}
-            >
-              {t.methodEmail}
-            </button>
-            <button
-              type="button"
-              className={method === "google" ? styles.methodActive : styles.methodButton}
-              onClick={() => {
-                setMethod("google");
-                setFeedback(null);
-              }}
-              aria-pressed={method === "google"}
-            >
-              {t.methodGoogle}
-            </button>
-            <button
-              type="button"
-              className={method === "phone" ? styles.methodActive : styles.methodButton}
-              onClick={() => {
-                setMethod("phone");
-                setFeedback(null);
-              }}
-              aria-pressed={method === "phone"}
-            >
-              {t.methodPhone}
-            </button>
-          </div>
+            <div className="flex justify-center gap-2">
+              <Button
+                variant={method === "email" ? "outline" : "ghost"}
+                onClick={() => {
+                  setMethod("email");
+                  setFeedback(null);
+                }}
+              >
+                {t.methodEmail}
+              </Button>
+              <Button
+                variant={method === "google" ? "outline" : "ghost"}
+                onClick={() => {
+                  setMethod("google");
+                  setFeedback(null);
+                }}
+              >
+                {t.methodGoogle}
+              </Button>
+              <Button
+                variant={method === "phone" ? "outline" : "ghost"}
+                onClick={() => {
+                  setMethod("phone");
+                  setFeedback(null);
+                }}
+              >
+                {t.methodPhone}
+              </Button>
+            </div>
+          </CardHeader>
+
+          <CardContent>
 
           {mode === "register" ? (
             <div className={styles.setupGrid}>

@@ -1,7 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { useLang, t } from '@/lib/i18n';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Added Card for form container
 
 /** Shape of the member data this form collects */
 type MemberFormData = {
@@ -11,7 +32,18 @@ type MemberFormData = {
   access_tier: string;
   card_code: string;
   address: string;
+  // photo_path: string; // Not in initialData or form fields, so omitting for now
 };
+
+// Zod schema for form validation
+const memberFormSchema = z.object({
+  name: z.string().min(1, { message: "Name is required." }),
+  phone: z.string().min(1, { message: "Phone number is required." }).regex(/^\+?[1-9]\d{9,14}$/, { message: "Invalid phone number format." }), // Basic international phone regex
+  gender: z.enum(["male", "female"], { required_error: "Gender is required." }),
+  access_tier: z.string().optional(), // Optional, will default to 'full' if not provided
+  card_code: z.string().optional(),
+  address: z.string().optional(),
+});
 
 type Props = {
   /** Pre-fill the form when editing an existing member */
@@ -28,118 +60,140 @@ export default function MemberForm({ initialData, onSubmit, onCancel, loading }:
   const { lang } = useLang();
   const labels = t[lang];
 
-  // Controlled form state — each field maps to a member property
-  const [name, setName] = useState(initialData?.name ?? '');
-  const [phone, setPhone] = useState(initialData?.phone ?? '');
-  const [gender, setGender] = useState<'male' | 'female'>(initialData?.gender ?? 'male');
-  const [accessTier, setAccessTier] = useState(initialData?.access_tier ?? 'full');
-  const [cardCode, setCardCode] = useState(initialData?.card_code ?? '');
-  const [address, setAddress] = useState(initialData?.address ?? '');
+  const form = useForm<MemberFormData>({
+    resolver: zodResolver(memberFormSchema),
+    defaultValues: {
+      name: initialData?.name || '',
+      phone: initialData?.phone || '',
+      gender: initialData?.gender || 'male',
+      access_tier: initialData?.access_tier || 'full', // Default value from existing logic
+      card_code: initialData?.card_code || '',
+      address: initialData?.address || '',
+    },
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit({ name, phone, gender, access_tier: accessTier, card_code: cardCode, address });
+  const handleSubmit = (values: MemberFormData) => {
+    onSubmit(values);
   };
 
-  // Shared input classes for the dark theme
-  const inputClass =
-    'w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-[#f3f6ff] placeholder-[#8892a8] outline-none focus:border-brand';
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Name — required */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-[#8892a8]">{labels.name} *</label>
-        <input
-          type="text"
-          required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className={inputClass}
-        />
-      </div>
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>{initialData ? labels.edit_member : labels.add_member}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+            {/* Name */}
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{labels.name} *</FormLabel>
+                  <FormControl>
+                    <Input placeholder={labels.member_name_placeholder} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-      {/* Phone — required */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-[#8892a8]">{labels.phone} *</label>
-        <input
-          type="text"
-          required
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className={inputClass}
-        />
-      </div>
+            {/* Phone */}
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{labels.phone} *</FormLabel>
+                  <FormControl>
+                    <Input placeholder={labels.phone_placeholder} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-      {/* Gender — dropdown */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-[#8892a8]">{labels.gender}</label>
-        <select
-          value={gender}
-          onChange={(e) => setGender(e.target.value as 'male' | 'female')}
-          className={inputClass}
-        >
-          <option value="male">{labels.male}</option>
-          <option value="female">{labels.female}</option>
-        </select>
-      </div>
+            {/* Gender */}
+            <FormField
+              control={form.control}
+              name="gender"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{labels.gender}</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={labels.select_gender} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="male">{labels.male}</SelectItem>
+                      <SelectItem value="female">{labels.female}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-      {/* Access tier — defaults to "full" */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-[#8892a8]">
-          {lang === 'ar' ? 'مستوى الوصول' : 'Access Tier'}
-        </label>
-        <input
-          type="text"
-          value={accessTier}
-          onChange={(e) => setAccessTier(e.target.value)}
-          className={inputClass}
-        />
-      </div>
+            {/* Access Tier */}
+            <FormField
+              control={form.control}
+              name="access_tier"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{labels.access_tier}</FormLabel>
+                  <FormControl>
+                    <Input placeholder={labels.access_tier_placeholder} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-      {/* Card code — optional */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-[#8892a8]">
-          {lang === 'ar' ? 'رمز البطاقة' : 'Card Code'}
-        </label>
-        <input
-          type="text"
-          value={cardCode}
-          onChange={(e) => setCardCode(e.target.value)}
-          className={inputClass}
-        />
-      </div>
+            {/* Card Code */}
+            <FormField
+              control={form.control}
+              name="card_code"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{labels.card_code}</FormLabel>
+                  <FormControl>
+                    <Input placeholder={labels.card_code_placeholder} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-      {/* Address — optional */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-[#8892a8]">
-          {lang === 'ar' ? 'العنوان' : 'Address'}
-        </label>
-        <input
-          type="text"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          className={inputClass}
-        />
-      </div>
+            {/* Address */}
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{labels.address}</FormLabel>
+                  <FormControl>
+                    <Input placeholder={labels.address_placeholder} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-      {/* Action buttons */}
-      <div className="flex items-center gap-3 pt-2">
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          {loading ? labels.loading : labels.save}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-lg border border-border px-5 py-2 text-sm font-medium text-[#8892a8] transition-colors hover:text-[#f3f6ff]"
-        >
-          {labels.cancel}
-        </button>
-      </div>
-    </form>
+            {/* Action buttons */}
+            <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
+                {labels.cancel}
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? labels.loading : labels.save}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
   );
 }

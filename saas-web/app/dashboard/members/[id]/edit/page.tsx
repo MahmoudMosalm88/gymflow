@@ -5,7 +5,11 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import MemberForm from '@/components/dashboard/MemberForm';
-import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+import LoadingSpinner from '@/components/dashboard/LoadingSpinner'; // Keeping existing LoadingSpinner for now
+
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Terminal } from 'lucide-react'; // Example icon for Alert
 
 type Member = {
   id: string;
@@ -58,28 +62,31 @@ export default function EditMemberPage() {
 
   if (!member) {
     return (
-      <div className="py-12 text-center text-[#8892a8]">
-        {lang === 'ar' ? 'العضو غير موجود' : 'Member not found'}
+      <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+        <h2 className="text-xl font-semibold">{labels.member_not_found}</h2>
+        <Button variant="link" onClick={() => router.push('/dashboard/members')}>
+          &larr; {labels.back_to_members}
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-4">
+    <div className="mx-auto max-w-lg space-y-6 p-4 md:p-6 lg:p-8">
       {/* Page title */}
-      <h1 className="text-xl font-semibold text-[#f3f6ff]">
-        {labels.edit} — {member.name}
-      </h1>
+      <h1 className="text-3xl font-bold">{labels.edit_member} — {member.name}</h1>
 
-      {/* Error toast */}
+      {/* Error Alert */}
       {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" /> {/* Example icon */}
+          <AlertTitle>{labels.error_title}</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {/* Form pre-filled with existing member data */}
-      <div className="rounded-xl border border-border bg-surface-card p-5">
+      <div> {/* MemberForm now provides its own Card wrapper */}
         <MemberForm
           initialData={member}
           onSubmit={handleSubmit}

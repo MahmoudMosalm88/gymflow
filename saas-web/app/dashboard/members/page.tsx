@@ -5,9 +5,36 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatDate } from '@/lib/format';
-import DataTable from '@/components/dashboard/DataTable';
-import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
-import Modal from '@/components/dashboard/Modal';
+import LoadingSpinner from '@/components/dashboard/LoadingSpinner'; // Keeping existing LoadingSpinner for now
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { DotsHorizontalIcon } from '@radix-ui/react-icons'; // For the actions menu icon
+import { cn } from '@/lib/utils'; // cn helper from shadcn/ui
 
 type Member = {
   id: string;
@@ -72,98 +99,126 @@ export default function MembersPage() {
     }
   };
 
-  // Table column definitions
+  // Table column definitions for rendering
   const columns = [
-    { key: 'name', label: labels.name },
-    { key: 'phone', label: labels.phone },
-    {
-      key: 'gender',
-      label: labels.gender,
-      render: (row: Member) => (row.gender === 'male' ? labels.male : labels.female),
-    },
-    { key: 'card_code', label: lang === 'ar' ? 'رمز البطاقة' : 'Card Code' },
-    {
-      key: 'created_at',
-      label: labels.date,
-      render: (row: Member) => formatDate(row.created_at, lang === 'ar' ? 'ar-EG' : 'en-US'),
-    },
-    {
-      key: '_actions',
-      label: labels.actions,
-      render: (row: Member) => (
-        <button
-          onClick={(e) => {
-            e.stopPropagation(); // prevent row click navigation
-            setDeleteTarget(row);
-          }}
-          className="rounded px-2 py-1 text-xs text-red-400 transition-colors hover:bg-red-500/10"
-        >
-          {labels.delete}
-        </button>
-      ),
-    },
+    { key: 'name', label: labels.name, className: 'w-[150px]' },
+    { key: 'phone', label: labels.phone, className: 'hidden sm:table-cell' },
+    { key: 'gender', label: labels.gender, className: 'hidden md:table-cell' },
+    { key: 'card_code', label: labels.card_code, className: 'hidden lg:table-cell' },
+    { key: 'created_at', label: labels.date, className: 'hidden lg:table-cell' },
+    { key: '_actions', label: labels.actions, className: 'w-[50px] text-right' },
   ];
 
+
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
       {/* Header row: title + add button */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-[#f3f6ff]">{labels.members}</h1>
-        <button
-          onClick={() => router.push('/dashboard/members/new')}
-          className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-        >
-          + {lang === 'ar' ? 'إضافة عضو' : 'Add Member'}
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-3xl font-bold">{labels.members}</h1>
+        <Button onClick={() => router.push('/dashboard/members/new')} className="text-base">
+          + {labels.add_member}
+        </Button>
       </div>
 
-      {/* Search bar — server-side search via API */}
-      <input
+      {/* Search bar */}
+      <Input
         type="text"
+        placeholder={labels.search_members}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder={labels.search}
-        className="w-full rounded-lg border border-border bg-surface-card px-3 py-2 text-sm text-[#f3f6ff] placeholder-[#8892a8] outline-none focus:border-brand"
+        className="max-w-sm"
       />
 
       {/* Members table */}
       {loading ? (
         <LoadingSpinner />
       ) : (
-        <DataTable
-          columns={columns}
-          data={members}
-          onRowClick={(row) => router.push(`/dashboard/members/${row.id}`)}
-        />
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {columns.map((col) => (
+                  <TableHead key={col.key} className={col.className}>
+                    {col.label}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {members.length > 0 ? (
+                members.map((member) => (
+                  <TableRow key={member.id} onClick={() => router.push(`/dashboard/members/${member.id}`)} className="cursor-pointer">
+                    <TableCell className="font-medium">{member.name}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{member.phone}</TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {member.gender === 'male' ? labels.male : labels.female}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">{member.card_code}</TableCell>
+                    <TableCell className="hidden lg:table-cell">{formatDate(member.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">{labels.open_menu}</span>
+                            <DotsHorizontalIcon className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align={lang === 'ar' ? 'start' : 'end'}>
+                          <DropdownMenuLabel>{labels.actions}</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/dashboard/members/${member.id}`);
+                          }}>
+                            {labels.view}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/dashboard/members/${member.id}/edit`);
+                          }}>
+                            {labels.edit}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive" onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget(member);
+                          }}>
+                            {labels.delete}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                    {labels.no_members_found}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
-      {/* Delete confirmation modal */}
-      <Modal
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        title={`${labels.delete} ${deleteTarget?.name ?? ''}?`}
-      >
-        <p className="mb-4 text-sm text-[#8892a8]">
-          {lang === 'ar'
-            ? 'هل أنت متأكد؟ لا يمكن التراجع عن هذا الإجراء.'
-            : 'Are you sure? This action cannot be undone.'}
-        </p>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {deleting ? labels.loading : labels.delete}
-          </button>
-          <button
-            onClick={() => setDeleteTarget(null)}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-[#8892a8] transition-colors hover:text-[#f3f6ff]"
-          >
-            {labels.cancel}
-          </button>
-        </div>
-      </Modal>
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{labels.delete_member_confirm.replace('{name}', deleteTarget?.name ?? '')}</DialogTitle>
+            <DialogDescription>{labels.delete_member_undo}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              {labels.cancel}
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? labels.deleting : labels.delete}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

@@ -6,6 +6,9 @@ import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import MemberForm from '@/components/dashboard/MemberForm';
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Terminal } from 'lucide-react'; // Example icon for Alert
+
 export default function NewMemberPage() {
   const router = useRouter();
   const { lang } = useLang();
@@ -30,21 +33,21 @@ export default function NewMemberPage() {
   };
 
   return (
-    <div className="mx-auto max-w-lg space-y-4">
+    <div className="mx-auto max-w-lg space-y-6 p-4 md:p-6 lg:p-8">
       {/* Page title */}
-      <h1 className="text-xl font-semibold text-[#f3f6ff]">
-        {lang === 'ar' ? 'إضافة عضو جديد' : 'New Member'}
-      </h1>
+      <h1 className="text-3xl font-bold">{labels.new_member}</h1>
 
-      {/* Error toast — appears above the form when something goes wrong */}
+      {/* Error Alert */}
       {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" /> {/* Example icon */}
+          <AlertTitle>{labels.error_title}</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {/* The shared form component */}
-      <div className="rounded-xl border border-border bg-surface-card p-5">
+      <div> {/* MemberForm now provides its own Card wrapper */}
         <MemberForm
           onSubmit={handleSubmit}
           onCancel={() => router.push('/dashboard/members')}

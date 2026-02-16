@@ -3,8 +3,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
-import StatCard from '@/components/dashboard/StatCard';
-import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+import StatCard from '@/components/dashboard/StatCard'; // Keeping existing StatCard for now, will update it later
+import LoadingSpinner from '@/components/dashboard/LoadingSpinner'; // Keeping existing LoadingSpinner for now
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils'; // cn helper from shadcn/ui
 
 type Overview = {
   totalMembers: number;
@@ -18,6 +24,7 @@ type ScanResult = {
   memberName?: string;
   sessionsRemaining?: number;
   reason?: string;
+  memberPhoto?: string; // Assuming photo path can be returned
 };
 
 export default function DashboardPage() {
@@ -40,7 +47,7 @@ export default function DashboardPage() {
       .then((res) => {
         if (res.data) setOverview(res.data);
       })
-      .catch(() => {})
+      .catch(() => {}) // Handle error appropriately
       .finally(() => setLoadingOverview(false));
   }, []);
 
@@ -48,89 +55,152 @@ export default function DashboardPage() {
   const handleScan = async () => {
     if (!scannedValue.trim() || scanning) return;
     setScanning(true);
-    setScanResult(null);
+    setScanResult(null); // Clear previous result
     try {
       const res = await api.post<ScanResult>('/api/attendance/check', {
         scannedValue: scannedValue.trim(),
         method: 'scan',
       });
       setScanResult(res.data ?? { success: false, reason: labels.error });
-    } catch {
-      setScanResult({ success: false, reason: labels.error });
+    } catch (error) {
+      console.error("Scan error:", error);
+      setScanResult({ success: false, reason: labels.error_scan_failed }); // Use a specific error message
     } finally {
-      setScannedValue('');
+      setScannedValue(''); // Clear input after scan
       setScanning(false);
-      inputRef.current?.focus();
+      inputRef.current?.focus(); // Re-focus for next scan
     }
   };
+
+  // Focus input on page load and after each scan
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, [scanning]);
 
   if (loadingOverview) return <LoadingSpinner size="lg" />;
 
   return (
-    <div className="space-y-6">
-      {/* Stat cards — 4 columns on large screens, 2 on medium, 1 on small */}
+    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
+      {/* Key Metrics Overview */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Using existing StatCard component for now, will update its internal styling/structure later */}
         <StatCard
-          label={lang === 'ar' ? 'إجمالي الأعضاء' : 'Total Members'}
+          label={labels.total_members}
           value={overview?.totalMembers ?? 0}
         />
         <StatCard
-          label={lang === 'ar' ? 'اشتراكات نشطة' : 'Active Subscriptions'}
+          label={labels.active_subscriptions}
           value={overview?.activeSubscriptions ?? 0}
-          color="text-green-400"
+          color="text-success" // Using new semantic color
         />
         <StatCard
-          label={lang === 'ar' ? 'تسجيلات اليوم' : "Today's Check-ins"}
+          label={labels.todays_check_ins}
           value={overview?.todayCheckIns ?? 0}
-          color="text-blue-400"
+          color="text-info" // Using new semantic color
         />
         <StatCard
-          label={lang === 'ar' ? 'إجمالي الإيرادات' : 'Total Revenue'}
+          label={labels.total_revenue}
           value={overview?.totalRevenue ?? 0}
-          color="text-purple-400"
+          color="text-primary" // Using new primary color
         />
       </div>
 
-      {/* Scanner section */}
-      <div className="rounded-xl border border-border bg-surface-card p-5">
-        <h2 className="mb-3 text-lg font-semibold">{labels.scanner}</h2>
-        <input
-          ref={inputRef}
-          autoFocus
-          type="text"
-          value={scannedValue}
-          onChange={(e) => setScannedValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleScan();
-          }}
-          placeholder={labels.scanPlaceholder}
-          className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-[#f3f6ff] placeholder-[#8892a8] outline-none focus:border-brand"
-        />
-      </div>
+      {/* Scan for Check-in Section */}
+      <Card className="p-6">
+        <CardHeader className="p-0 pb-4">
+          <CardTitle className="text-2xl">{labels.scanner}</CardTitle>
+          <CardDescription>{labels.scan_qr_or_enter_id}</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0 flex flex-col gap-4">
+          <div className="flex w-full items-center space-x-2">
+            <Label htmlFor="scannedValue" className="sr-only">{labels.scanPlaceholder}</Label>
+            <Input
+              id="scannedValue"
+              ref={inputRef}
+              autoFocus
+              type="text"
+              value={scannedValue}
+              onChange={(e) => setScannedValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleScan();
+              }}
+              placeholder={labels.scanPlaceholder}
+              disabled={scanning}
+              className="flex-grow text-lg h-12"
+            />
+            <Button onClick={handleScan} disabled={scanning} className="h-12 px-6">
+              {scanning ? labels.scanning : labels.scan}
+            </Button>
+          </div>
 
-      {/* Scan result — green for success, red for failure */}
-      {scanResult && (
-        <div
-          className={`rounded-xl border p-4 ${
-            scanResult.success
-              ? 'border-green-500/30 bg-green-500/10'
-              : 'border-red-500/30 bg-red-500/10'
-          }`}
-        >
-          {scanResult.success ? (
-            <div>
-              <p className="text-lg font-semibold text-green-400">{scanResult.memberName}</p>
-              <p className="text-sm text-green-300">
-                {lang === 'ar'
-                  ? `الجلسات المتبقية: ${scanResult.sessionsRemaining ?? '—'}`
-                  : `Sessions remaining: ${scanResult.sessionsRemaining ?? '—'}`}
-              </p>
+          {/* Live Feedback Area */}
+          {scanResult && (
+            <div
+              className={cn(
+                "flex items-center gap-4 rounded-md p-4 text-white",
+                scanResult.success ? "bg-success" : "bg-destructive"
+              )}
+              dir={lang === 'ar' ? 'rtl' : 'ltr'} // Ensure proper direction for feedback
+            >
+              {scanResult.success ? (
+                // Success feedback
+                <>
+                  {scanResult.memberPhoto && (
+                    <img
+                      src={scanResult.memberPhoto}
+                      alt={scanResult.memberName || "Member"}
+                      className="h-12 w-12 rounded-full object-cover"
+                    />
+                  )}
+                  <div className={lang === 'ar' ? 'text-right' : 'text-left'}>
+                    <p className="text-xl font-semibold">{labels.welcome_name.replace('{name}', scanResult.memberName || '')}</p>
+                    {scanResult.sessionsRemaining !== undefined && (
+                      <p className="text-sm">
+                        {labels.sessions_remaining.replace('{sessions}', scanResult.sessionsRemaining.toString())}
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                // Failure feedback
+                <p className="text-base font-medium">{scanResult.reason}</p>
+              )}
             </div>
-          ) : (
-            <p className="text-sm font-medium text-red-400">{scanResult.reason}</p>
           )}
-        </div>
-      )}
+        </CardContent>
+      </Card>
+
+      {/* Placeholders for other sections */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">{labels.attendance_snapshot}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{labels.attendance_snapshot_content}</p>
+          {/* Content for Peak Hours/Capacity Utilization */}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">{labels.recent_activity}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{labels.recent_activity_content}</p>
+          {/* Content for Latest Check-ins, New Subscriptions, etc. */}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">{labels.quick_actions}</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-4">
+          <Button>{labels.add_new_member}</Button>
+          <Button variant="outline">{labels.view_reports}</Button>
+          {/* Other quick actions */}
+        </CardContent>
+      </Card>
     </div>
   );
 }

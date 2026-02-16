@@ -5,13 +5,25 @@ import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatDateTime } from '@/lib/format';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
-import Modal from '@/components/dashboard/Modal';
+
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Terminal, CheckCircledIcon, CrossCircledIcon } from 'lucide-react'; // Example icons for Alert
+import { cn } from '@/lib/utils';
+
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type Tab = 'general' | 'whatsapp' | 'backup' | 'data';
 
-type WhatsAppStatus = { connected: boolean; phone?: string };
+type WhatsAppStatus = { connected: boolean; phone?: string; qrCode?: string };
 
 type BackupEntry = {
   id: string;
@@ -23,23 +35,6 @@ type BackupEntry = {
   artifact_id: string;
 };
 
-// ── Shared styles ──────────────────────────────────────────────────────────
-
-const cardClass = 'rounded-xl border border-[#1a2235] bg-[#0c1324] p-6';
-const labelClass = 'block text-sm font-medium text-[#8892a8] mb-1';
-const inputClass =
-  'w-full rounded-lg border border-[#1a2235] bg-[#090f1f] px-3 py-2 text-[#f3f6ff] ' +
-  'focus:outline-none focus:ring-2 focus:ring-[#FF8C00]/50 focus:border-[#FF8C00]';
-const btnPrimary =
-  'rounded-lg bg-[#FF8C00] px-5 py-2 text-sm font-semibold text-white hover:bg-[#e07e00] ' +
-  'transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
-const btnDanger =
-  'rounded-lg bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700 ' +
-  'transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
-const btnSecondary =
-  'rounded-lg border border-[#1a2235] px-5 py-2 text-sm font-semibold text-[#f3f6ff] ' +
-  'hover:bg-[#1a2235] transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
-
 // ── Main page ──────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -49,51 +44,52 @@ export default function SettingsPage() {
 
   // Tab definitions (label + key)
   const tabs: { key: Tab; label: string }[] = [
-    { key: 'general', label: lang === 'ar' ? 'عام' : 'General' },
+    { key: 'general', label: labels.general_settings || 'General' },
     { key: 'whatsapp', label: 'WhatsApp' },
-    { key: 'backup', label: lang === 'ar' ? 'النسخ الاحتياطي' : 'Backup' },
-    { key: 'data', label: lang === 'ar' ? 'البيانات' : 'Data' },
+    { key: 'backup', label: labels.backup || 'Backup' },
+    { key: 'data', label: labels.data_management || 'Data' },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
       {/* Page heading */}
-      <h1 className="text-2xl font-bold text-[#f3f6ff]">{labels.settings}</h1>
+      <h1 className="text-3xl font-bold">{labels.settings}</h1>
 
       {/* Tab bar */}
-      <div className="flex gap-1 rounded-lg border border-[#1a2235] bg-[#0c1324] p-1">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={
-              'flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ' +
-              (activeTab === tab.key
-                ? 'bg-[#FF8C00] text-white'
-                : 'text-[#8892a8] hover:text-[#f3f6ff]')
-            }
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Card>
+        <CardContent className="p-2 flex flex-wrap gap-1">
+          {tabs.map((tab) => (
+            <Button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              variant={activeTab === tab.key ? 'default' : 'ghost'}
+              className="flex-1 min-w-[100px]"
+            >
+              {tab.label}
+            </Button>
+          ))}
+        </CardContent>
+      </Card>
+
 
       {/* Tab content */}
-      {activeTab === 'general' && <GeneralTab lang={lang} labels={labels} />}
-      {activeTab === 'whatsapp' && <WhatsAppTab lang={lang} />}
-      {activeTab === 'backup' && <BackupTab lang={lang} />}
-      {activeTab === 'data' && <DataTab lang={lang} />}
+      {activeTab === 'general' && <GeneralTab />}
+      {activeTab === 'whatsapp' && <WhatsAppTab />}
+      {activeTab === 'backup' && <BackupTab />}
+      {activeTab === 'data' && <DataTab />}
     </div>
   );
 }
 
 // ── General Tab ────────────────────────────────────────────────────────────
 
-function GeneralTab({ lang, labels }: { lang: string; labels: (typeof t)['en'] | (typeof t)['ar'] }) {
+function GeneralTab() {
+  const { lang } = useLang();
+  const labels = t[lang];
   const [cooldown, setCooldown] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
 
   // Load settings on mount
   useEffect(() => {
@@ -102,70 +98,85 @@ function GeneralTab({ lang, labels }: { lang: string; labels: (typeof t)['en'] |
         setCooldown(res.data.scan_cooldown_seconds ?? '');
       }
       setLoading(false);
+    }).catch(() => {
+      setMessage({ type: 'destructive', text: labels.error_loading_settings });
+      setLoading(false);
     });
-  }, []);
+  }, [labels.error_loading_settings]);
 
   // Save handler
   const handleSave = async () => {
     setSaving(true);
-    setMessage('');
-    const res = await api.put('/api/settings', {
-      values: { scan_cooldown_seconds: cooldown },
-    });
-    setSaving(false);
-    setMessage(
-      res.success
-        ? lang === 'ar' ? 'تم الحفظ بنجاح' : 'Saved successfully'
-        : lang === 'ar' ? 'فشل الحفظ' : 'Failed to save'
-    );
+    setMessage(null);
+    try {
+      const res = await api.put('/api/settings', {
+        values: { scan_cooldown_seconds: cooldown },
+      });
+      if (res.success) {
+        setMessage({ type: 'success', text: labels.saved_successfully });
+      } else {
+        setMessage({ type: 'destructive', text: res.message || labels.failed_to_save });
+      }
+    } catch (error) {
+      setMessage({ type: 'destructive', text: labels.failed_to_save });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className={cardClass + ' space-y-5'}>
-      {/* Scan cooldown */}
-      <div>
-        <label className={labelClass}>
-          {lang === 'ar' ? 'فترة التبريد للمسح (ثواني)' : 'Scan Cooldown (seconds)'}
-        </label>
-        <input
-          type="number"
-          min={0}
-          value={cooldown}
-          onChange={(e) => setCooldown(e.target.value)}
-          className={inputClass + ' max-w-xs'}
-        />
-      </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>{labels.general_settings}</CardTitle>
+        <CardDescription>{labels.general_settings_description}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {/* Scan cooldown */}
+        <div>
+          <Label htmlFor="scan-cooldown">{labels.scan_cooldown_seconds}</Label>
+          <Input
+            id="scan-cooldown"
+            type="number"
+            min={0}
+            value={cooldown}
+            onChange={(e) => setCooldown(e.target.value)}
+            className="max-w-xs mt-1"
+          />
+        </div>
 
-      {/* Language info */}
-      <div>
-        <label className={labelClass}>
-          {lang === 'ar' ? 'اللغة' : 'Language'}
-        </label>
-        <p className="text-sm text-[#8892a8]">
-          {lang === 'ar'
-            ? 'يمكنك تبديل اللغة من الشريط الجانبي'
-            : 'You can toggle the language from the sidebar.'}
-        </p>
-      </div>
+        {/* Language info */}
+        <div>
+          <Label>{labels.language}</Label>
+          <p className="text-sm text-muted-foreground mt-1">
+            {labels.language_toggle_sidebar}
+          </p>
+        </div>
 
-      {/* Save */}
-      <div className="flex items-center gap-4">
-        <button onClick={handleSave} disabled={saving} className={btnPrimary}>
-          {saving ? (lang === 'ar' ? 'جاري الحفظ...' : 'Saving...') : labels.save}
-        </button>
-        {message && (
-          <span className="text-sm text-[#8892a8]">{message}</span>
-        )}
-      </div>
-    </div>
+        {/* Save button and message */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <Button onClick={handleSave} disabled={saving} className="min-w-[120px]">
+            {saving ? labels.saving : labels.save}
+          </Button>
+          {message && (
+            <Alert variant={message.type} className="max-w-md">
+              {message.type === 'success' ? <CheckCircledIcon className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
+              <AlertTitle>{message.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+              <AlertDescription>{message.text}</AlertDescription>
+            </Alert>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
 // ── WhatsApp Tab ───────────────────────────────────────────────────────────
 
-function WhatsAppTab({ lang }: { lang: string }) {
+function WhatsAppTab() {
+  const { lang } = useLang();
+  const labels = t[lang];
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
@@ -180,16 +191,26 @@ function WhatsAppTab({ lang }: { lang: string }) {
 
   const handleConnect = async () => {
     setActing(true);
-    await api.post('/api/whatsapp/connect', {});
-    await fetchStatus();
-    setActing(false);
+    try {
+      await api.post('/api/whatsapp/connect', {});
+      await fetchStatus();
+    } catch (error) {
+      console.error("WhatsApp connect failed:", error);
+    } finally {
+      setActing(false);
+    }
   };
 
   const handleDisconnect = async () => {
     setActing(true);
-    await api.post('/api/whatsapp/disconnect', {});
-    await fetchStatus();
-    setActing(false);
+    try {
+      await api.post('/api/whatsapp/disconnect', {});
+      await fetchStatus();
+    } catch (error) {
+      console.error("WhatsApp disconnect failed:", error);
+    } finally {
+      setActing(false);
+    }
   };
 
   if (loading) return <LoadingSpinner />;
@@ -197,174 +218,212 @@ function WhatsAppTab({ lang }: { lang: string }) {
   const connected = status?.connected ?? false;
 
   return (
-    <div className={cardClass + ' space-y-5'}>
-      {/* Status indicator */}
-      <div className="flex items-center gap-3">
-        <span
-          className={
-            'inline-block h-3 w-3 rounded-full ' +
-            (connected ? 'bg-green-500' : 'bg-red-500')
-          }
-        />
-        <span className="text-[#f3f6ff] font-medium">
-          {connected
-            ? lang === 'ar' ? 'متصل' : 'Connected'
-            : lang === 'ar' ? 'غير متصل' : 'Disconnected'}
-        </span>
-      </div>
-
-      {/* Phone number if connected */}
-      {connected && status?.phone && (
-        <div>
-          <label className={labelClass}>
-            {lang === 'ar' ? 'رقم الهاتف' : 'Phone Number'}
-          </label>
-          <p className="text-[#f3f6ff]">{status.phone}</p>
+    <Card>
+      <CardHeader>
+        <CardTitle>WhatsApp {labels.integration}</CardTitle>
+        <CardDescription>{labels.whatsapp_integration_description}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {/* Status indicator */}
+        <div className="flex items-center gap-3">
+          <Badge variant={connected ? 'success' : 'destructive'} className="text-sm">
+            {connected
+              ? labels.connected
+              : labels.disconnected}
+          </Badge>
+          {connected && status?.phone && (
+            <span className="text-foreground font-medium">{status.phone}</span>
+          )}
         </div>
-      )}
 
-      {/* Action buttons */}
-      <div>
-        {connected ? (
-          <button onClick={handleDisconnect} disabled={acting} className={btnDanger}>
-            {acting
-              ? lang === 'ar' ? 'جاري قطع الاتصال...' : 'Disconnecting...'
-              : lang === 'ar' ? 'قطع الاتصال' : 'Disconnect'}
-          </button>
-        ) : (
-          <button onClick={handleConnect} disabled={acting} className={btnPrimary}>
-            {acting
-              ? lang === 'ar' ? 'جاري الاتصال...' : 'Connecting...'
-              : lang === 'ar' ? 'اتصال' : 'Connect'}
-          </button>
+        {/* QR Code display if available and not connected */}
+        {!connected && status?.qrCode && (
+          <div className="flex flex-col items-center justify-center space-y-3">
+            <p className="text-muted-foreground">{labels.scan_qr_code}</p>
+            {/* Using a placeholder for QR code image */}
+            <img src={`data:image/png;base64,${status.qrCode}`} alt="WhatsApp QR Code" className="h-48 w-48 border border-border rounded-md" />
+            <p className="text-sm text-muted-foreground">{labels.scan_qr_instructions}</p>
+          </div>
         )}
-      </div>
-    </div>
+
+        {/* Action buttons */}
+        <div>
+          {connected ? (
+            <Button onClick={handleDisconnect} disabled={acting} variant="destructive" className="min-w-[120px]">
+              {acting
+                ? labels.disconnecting
+                : labels.disconnect}
+            </Button>
+          ) : (
+            <Button onClick={handleConnect} disabled={acting} className="min-w-[120px]">
+              {acting
+                ? labels.connecting
+                : labels.connect}
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
 // ── Backup Tab ─────────────────────────────────────────────────────────────
 
-function BackupTab({ lang }: { lang: string }) {
+function BackupTab() {
+  const { lang } = useLang();
+  const labels = t[lang];
   const [history, setHistory] = useState<BackupEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
-  const [exportResult, setExportResult] = useState('');
+  const [exportResult, setExportResult] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
 
   const fetchHistory = useCallback(async () => {
-    const res = await api.get<BackupEntry[]>('/api/backup/history');
-    if (res.success && res.data) setHistory(res.data);
-    setLoading(false);
-  }, []);
+    try {
+      const res = await api.get<BackupEntry[]>('/api/backup/history');
+      if (res.success && res.data) setHistory(res.data);
+    } catch (error) {
+      console.error("Failed to fetch backup history:", error);
+      setExportResult({ type: 'destructive', text: labels.error_loading_history });
+    } finally {
+      setLoading(false);
+    }
+  }, [labels.error_loading_history]);
 
   useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
   const handleExport = async () => {
     setExporting(true);
-    setExportResult('');
-    const res = await api.post<{ backupId: string; rowCounts: Record<string, number> }>(
-      '/api/backup/export', {}
-    );
-    setExporting(false);
-    if (res.success) {
-      setExportResult(lang === 'ar' ? 'تم إنشاء النسخة الاحتياطية بنجاح' : 'Backup created successfully');
-      fetchHistory(); // refresh the table
-    } else {
-      setExportResult(res.message ?? (lang === 'ar' ? 'فشل الإنشاء' : 'Backup failed'));
+    setExportResult(null);
+    try {
+      const res = await api.post<{ backupId: string; rowCounts: Record<string, number> }>(
+        '/api/backup/export', {}
+      );
+      if (res.success) {
+        setExportResult({ type: 'success', text: labels.backup_created_successfully });
+        fetchHistory(); // refresh the table
+      } else {
+        setExportResult({ type: 'destructive', text: res.message ?? labels.backup_failed });
+      }
+    } catch (error) {
+      setExportResult({ type: 'destructive', text: labels.backup_failed });
+    } finally {
+      setExporting(false);
     }
   };
 
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="space-y-5">
-      {/* Create backup card */}
-      <div className={cardClass + ' flex items-center gap-4'}>
-        <button onClick={handleExport} disabled={exporting} className={btnPrimary}>
-          {exporting
-            ? lang === 'ar' ? 'جاري الإنشاء...' : 'Creating...'
-            : lang === 'ar' ? 'إنشاء نسخة احتياطية' : 'Create Backup'}
-        </button>
-        {exportResult && (
-          <span className="text-sm text-[#8892a8]">{exportResult}</span>
-        )}
-      </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>{labels.backup_and_restore}</CardTitle>
+        <CardDescription>{labels.backup_and_restore_description}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {/* Create backup section */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <Button onClick={handleExport} disabled={exporting} className="min-w-[150px]">
+            {exporting
+              ? labels.creating_backup
+              : labels.create_backup}
+          </Button>
+          {exportResult && (
+            <Alert variant={exportResult.type} className="max-w-md">
+              {exportResult.type === 'success' ? <CheckCircledIcon className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
+              <AlertTitle>{exportResult.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+              <AlertDescription>{exportResult.text}</AlertDescription>
+            </Alert>
+          )}
+        </div>
 
-      {/* History table */}
-      <div className={cardClass + ' overflow-x-auto'}>
-        <h3 className="text-sm font-semibold text-[#f3f6ff] mb-4">
-          {lang === 'ar' ? 'سجل النسخ الاحتياطي' : 'Backup History'}
+        {/* History table */}
+        <h3 className="text-lg font-semibold text-foreground pt-4">
+          {labels.backup_history}
         </h3>
-        {history.length === 0 ? (
-          <p className="text-sm text-[#8892a8]">
-            {lang === 'ar' ? 'لا توجد نسخ احتياطية' : 'No backups yet'}
-          </p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#1a2235] text-[#8892a8]">
-                <th className="pb-2 text-left font-medium">{lang === 'ar' ? 'التاريخ' : 'Date'}</th>
-                <th className="pb-2 text-left font-medium">{lang === 'ar' ? 'المصدر' : 'Source'}</th>
-                <th className="pb-2 text-left font-medium">{lang === 'ar' ? 'الحالة' : 'Status'}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((b) => (
-                <tr key={b.id} className="border-b border-[#1a2235]/50">
-                  <td className="py-2 text-[#f3f6ff]">{formatDateTime(b.created_at)}</td>
-                  <td className="py-2 text-[#f3f6ff]">{b.source}</td>
-                  <td className="py-2">
-                    <span
-                      className={
-                        'inline-block rounded-full px-2 py-0.5 text-xs font-medium ' +
-                        (b.status === 'completed'
-                          ? 'bg-green-500/20 text-green-400'
-                          : b.status === 'failed'
-                          ? 'bg-red-500/20 text-red-400'
-                          : 'bg-yellow-500/20 text-yellow-400')
-                      }
-                    >
-                      {b.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
+        <div className="rounded-md border overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[180px]">{labels.date}</TableHead>
+                <TableHead>{labels.source}</TableHead>
+                <TableHead>{labels.status}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {history.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                    {labels.no_backups_yet}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                history.map((b) => (
+                  <TableRow key={b.id}>
+                    <TableCell className="font-medium">{formatDateTime(b.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')}</TableCell>
+                    <TableCell>{b.source}</TableCell>
+                    <TableCell>
+                      <Badge
+                        className={
+                          b.status === 'completed'
+                            ? 'bg-success hover:bg-success/90'
+                            : b.status === 'failed'
+                            ? 'bg-destructive hover:bg-destructive/90'
+                            : 'bg-warning hover:bg-warning/90'
+                        }
+                      >
+                        {b.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
 // ── Data Tab ───────────────────────────────────────────────────────────────
 
-function DataTab({ lang }: { lang: string }) {
+function DataTab() {
+  const { lang } = useLang();
+  const labels = t[lang];
   const [history, setHistory] = useState<BackupEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  const [result, setResult] = useState('');
+  const [result, setResult] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
 
   useEffect(() => {
     api.get<BackupEntry[]>('/api/backup/history').then((res) => {
       if (res.success && res.data) setHistory(res.data);
       setLoading(false);
+    }).catch((error) => {
+      console.error("Failed to load backup history for restore:", error);
+      setResult({ type: 'destructive', text: labels.error_loading_backups_for_restore });
+      setLoading(false);
     });
-  }, []);
+  }, [labels.error_loading_backups_for_restore]);
 
   const handleRestore = async () => {
     setConfirmOpen(false);
     setRestoring(true);
-    setResult('');
-    const res = await api.post('/api/backup/restore', { artifactId: selectedId });
-    setRestoring(false);
-    setResult(
-      res.success
-        ? lang === 'ar' ? 'تمت الاستعادة بنجاح' : 'Restore completed successfully'
-        : res.message ?? (lang === 'ar' ? 'فشلت الاستعادة' : 'Restore failed')
-    );
+    setResult(null);
+    try {
+      const res = await api.post('/api/backup/restore', { artifactId: selectedId });
+      if (res.success) {
+        setResult({ type: 'success', text: labels.restore_successful });
+      } else {
+        setResult({ type: 'destructive', text: res.message ?? labels.restore_failed });
+      }
+    } catch (error) {
+      setResult({ type: 'destructive', text: labels.restore_failed });
+    } finally {
+      setRestoring(false);
+    }
   };
 
   if (loading) return <LoadingSpinner />;
@@ -373,76 +432,77 @@ function DataTab({ lang }: { lang: string }) {
   const completedBackups = history.filter((b) => b.status === 'completed');
 
   return (
-    <div className={cardClass + ' space-y-5'}>
-      <h3 className="text-sm font-semibold text-[#f3f6ff]">
-        {lang === 'ar' ? 'استعادة من نسخة احتياطية' : 'Restore from Backup'}
-      </h3>
+    <Card>
+      <CardHeader>
+        <CardTitle>{labels.restore_from_backup}</CardTitle>
+        <CardDescription>{labels.restore_from_backup_description}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {completedBackups.length === 0 ? (
+          <p className="text-muted-foreground">
+            {labels.no_backups_available_to_restore}
+          </p>
+        ) : (
+          <>
+            {/* Backup selector */}
+            <div>
+              <Label htmlFor="backup-select">{labels.select_a_backup}</Label>
+              <Select value={selectedId} onValueChange={setSelectedId} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                <SelectTrigger id="backup-select" className="max-w-md mt-1">
+                  <SelectValue placeholder={labels.select_placeholder} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="" disabled>{labels.select_placeholder}</SelectItem>
+                  {completedBackups.map((b) => (
+                    <SelectItem key={b.artifact_id} value={b.artifact_id}>
+                      {formatDateTime(b.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')} — {b.source}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-      {completedBackups.length === 0 ? (
-        <p className="text-sm text-[#8892a8]">
-          {lang === 'ar' ? 'لا توجد نسخ احتياطية متاحة' : 'No backups available to restore'}
-        </p>
-      ) : (
-        <>
-          {/* Backup selector */}
-          <div>
-            <label className={labelClass}>
-              {lang === 'ar' ? 'اختر نسخة احتياطية' : 'Select a backup'}
-            </label>
-            <select
-              value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
-              className={inputClass + ' max-w-md'}
+            {/* Restore button */}
+            <Button
+              onClick={() => setConfirmOpen(true)}
+              disabled={!selectedId || restoring}
+              variant="destructive"
+              className="min-w-[120px]"
             >
-              <option value="">
-                {lang === 'ar' ? '-- اختر --' : '-- Select --'}
-              </option>
-              {completedBackups.map((b) => (
-                <option key={b.artifact_id} value={b.artifact_id}>
-                  {formatDateTime(b.created_at)} — {b.source}
-                </option>
-              ))}
-            </select>
-          </div>
+              {restoring
+                ? labels.restoring
+                : labels.restore}
+            </Button>
+          </>
+        )}
 
-          {/* Restore button */}
-          <button
-            onClick={() => setConfirmOpen(true)}
-            disabled={!selectedId || restoring}
-            className={btnDanger}
-          >
-            {restoring
-              ? lang === 'ar' ? 'جاري الاستعادة...' : 'Restoring...'
-              : lang === 'ar' ? 'استعادة' : 'Restore'}
-          </button>
-        </>
-      )}
+        {/* Result message */}
+        {result && (
+          <Alert variant={result.type} className="max-w-md">
+            {result.type === 'success' ? <CheckCircledIcon className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
+            <AlertTitle>{result.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+            <AlertDescription>{result.text}</AlertDescription>
+          </Alert>
+        )}
 
-      {/* Result message */}
-      {result && (
-        <p className="text-sm text-[#8892a8]">{result}</p>
-      )}
-
-      {/* Confirmation modal */}
-      <Modal
-        open={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        title={lang === 'ar' ? 'تأكيد الاستعادة' : 'Confirm Restore'}
-      >
-        <p className="text-sm text-[#8892a8] mb-6">
-          {lang === 'ar'
-            ? 'سيتم استبدال جميع البيانات الحالية بالنسخة الاحتياطية المحددة. هل أنت متأكد؟'
-            : 'This will replace all current data with the selected backup. Are you sure?'}
-        </p>
-        <div className="flex justify-end gap-3">
-          <button onClick={() => setConfirmOpen(false)} className={btnSecondary}>
-            {lang === 'ar' ? 'إلغاء' : 'Cancel'}
-          </button>
-          <button onClick={handleRestore} className={btnDanger}>
-            {lang === 'ar' ? 'نعم، استعادة' : 'Yes, Restore'}
-          </button>
-        </div>
-      </Modal>
-    </div>
+        {/* Confirmation dialog */}
+        <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{labels.confirm_restore}</DialogTitle>
+              <DialogDescription>{labels.confirm_restore_description}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button onClick={() => setConfirmOpen(false)} variant="outline">
+                {labels.cancel}
+              </Button>
+              <Button onClick={handleRestore} variant="destructive">
+                {labels.yes_restore}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
   );
 }

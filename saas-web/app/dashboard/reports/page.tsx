@@ -3,21 +3,32 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, PieChart, Pie, Cell
-} from 'recharts';
+  ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line
+} from 'recharts'; // Added LineChart, Line
 import { api } from '@/lib/api-client';
-import { useLang } from '@/lib/i18n';
-import { formatDate, formatDateTime, daysUntil } from '@/lib/format';
+import { useLang, t } from '@/lib/i18n';
+import { formatDate, formatDateTime, daysUntil, formatCurrency } from '@/lib/format'; // Added formatCurrency
 import DataTable from '@/components/dashboard/DataTable';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
-import StatCard from '@/components/dashboard/StatCard';
+import StatCard from '@/components/dashboard/StatCard'; // Keeping custom StatCard, but will update its colors here
+
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Terminal } from 'lucide-react'; // Example icon for Alert
+import { cn } from '@/lib/utils'; // cn helper
 
 // --- Tab definitions ---
 const TABS = [
   { key: 'overview', label: { en: 'Overview', ar: 'نظرة عامة' } },
+  { key: 'member-attendance-trends', label: { en: 'Attendance Trends', ar: 'اتجاهات الحضور' } }, // NEW
   { key: 'daily-stats', label: { en: 'Daily Stats', ar: 'إحصائيات يومية' } },
   { key: 'hourly', label: { en: 'Hourly', ar: 'بالساعة' } },
   { key: 'top-members', label: { en: 'Top Members', ar: 'أفضل الأعضاء' } },
+  { key: 'detailed-revenue-breakdown', label: { en: 'Revenue Breakdown', ar: 'تفاصيل الإيرادات' } }, // NEW
+  { key: 'outstanding-payments-debtors', label: { en: 'Outstanding Payments', ar: 'المدفوعات المستحقة' } }, // NEW
+  { key: 'peak-hours-capacity-utilization', label: { en: 'Peak Hours', ar: 'ساعات الذروة' } }, // NEW
   { key: 'denial-reasons', label: { en: 'Denial Reasons', ar: 'أسباب الرفض' } },
   { key: 'denied-entries', label: { en: 'Denied Entries', ar: 'دخول مرفوض' } },
   { key: 'expiring-subs', label: { en: 'Expiring Subs', ar: 'اشتراكات منتهية' } },
@@ -27,14 +38,34 @@ const TABS = [
 type TabKey = typeof TABS[number]['key'];
 
 // Which tabs show the days filter
-const DAYS_TABS: TabKey[] = ['daily-stats', 'top-members', 'denial-reasons', 'denied-entries', 'expiring-subs'];
+const DAYS_TABS: TabKey[] = [
+  'member-attendance-trends', // NEW
+  'daily-stats',
+  'top-members',
+  'detailed-revenue-breakdown', // NEW
+  'outstanding-payments-debtors', // NEW
+  'denial-reasons',
+  'denied-entries',
+  'expiring-subs',
+  'peak-hours-capacity-utilization', // NEW (also a period filter)
+];
 const DAYS_OPTIONS = [7, 14, 30, 60, 90];
 
-// Pie chart colors
-const PIE_COLORS = ['#FF8C00', '#3b82f6', '#ef4444', '#22c55e', '#a855f7', '#eab308', '#ec4899', '#06b6d4'];
+// Pie chart colors (using Tailwind CSS colors from our palette)
+const PIE_COLORS_TAILWIND = [
+  "hsl(var(--accent))", // Orange
+  "hsl(var(--primary))", // Deep Blue
+  "hsl(var(--success))", // Green
+  "hsl(var(--destructive))", // Red
+  "hsl(var(--warning))", // Yellow
+  "hsl(var(--muted-foreground))", // Muted Gray
+  "hsl(var(--info))", // Info Blue
+];
+
 
 export default function ReportsPage() {
   const { lang } = useLang();
+  const labels = t[lang]; // Use global labels for consistency
   const [tab, setTab] = useState<TabKey>('overview');
   const [days, setDays] = useState(30);
   const [data, setData] = useState<any>(null);
@@ -45,13 +76,18 @@ export default function ReportsPage() {
   const buildUrl = useCallback((t: TabKey, d: number) => {
     switch (t) {
       case 'overview': return '/api/reports/overview';
+      case 'member-attendance-trends': return `/api/reports/member-attendance-trends?days=${d}`; // NEW API
       case 'daily-stats': return `/api/reports/daily-stats?days=${d}`;
       case 'hourly': return '/api/reports/hourly-distribution';
       case 'top-members': return `/api/reports/top-members?days=${d}&limit=10`;
+      case 'detailed-revenue-breakdown': return `/api/reports/detailed-revenue-breakdown?days=${d}`; // NEW API
+      case 'outstanding-payments-debtors': return `/api/reports/outstanding-payments-debtors?days=${d}`; // NEW API
+      case 'peak-hours-capacity-utilization': return `/api/reports/peak-hours-capacity-utilization?days=${d}`; // NEW API
       case 'denial-reasons': return `/api/reports/denial-reasons?days=${d}`;
       case 'denied-entries': return `/api/reports/denied-entries?days=${d}`;
       case 'expiring-subs': return `/api/reports/expiring-subscriptions?days=${d}`;
       case 'low-sessions': return '/api/reports/low-sessions?threshold=3';
+      default: return ''; // Fallback
     }
   }, []);
 
@@ -60,68 +96,90 @@ export default function ReportsPage() {
     let cancelled = false;
     setLoading(true);
     setError('');
-    api.get(buildUrl(tab, days)).then((res) => {
+    const apiUrl = buildUrl(tab, days);
+    if (!apiUrl) { // Handle cases where API URL might be empty
+      setError(labels.error_invalid_report_tab); // Assuming a label for this
+      setLoading(false);
+      return;
+    }
+
+    api.get(apiUrl).then((res) => {
       if (cancelled) return;
       if (res.success) {
         setData(res.data);
       } else {
-        setError(res.message || (lang === 'ar' ? 'حدث خطأ' : 'Something went wrong'));
+        setError(res.message || labels.error);
       }
       setLoading(false);
     }).catch(() => {
       if (!cancelled) {
-        setError(lang === 'ar' ? 'حدث خطأ' : 'Something went wrong');
+        setError(labels.error);
         setLoading(false);
       }
     });
     return () => { cancelled = true; };
-  }, [tab, days, lang, buildUrl]);
+  }, [tab, days, lang, buildUrl, labels.error, labels.error_invalid_report_tab]);
 
-  // Shared Recharts axis/grid styles
-  const axisStyle = { fill: '#8892a8', fontSize: 12 };
-  const gridStroke = 'rgba(255,255,255,0.1)';
+  // Dynamic Recharts axis/grid/tooltip styles based on theme
+  const getRechartStyles = () => {
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    const foregroundColor = isDarkMode ? "hsl(var(--foreground))" : "hsl(var(--foreground))";
+    const mutedForegroundColor = isDarkMode ? "hsl(var(--muted-foreground))" : "hsl(var(--muted-foreground))";
+    const backgroundColor = isDarkMode ? "hsl(var(--background))" : "hsl(var(--background))";
+    const borderColor = isDarkMode ? "hsl(var(--border))" : "hsl(var(--border))";
+
+    return {
+      axis: { fill: mutedForegroundColor, fontSize: 12 },
+      gridStroke: borderColor,
+      tooltipContent: { backgroundColor: backgroundColor, border: `1px solid ${borderColor}`, borderRadius: 8 },
+      tooltipLabel: { color: foregroundColor },
+      tooltipItem: { color: foregroundColor },
+      legendItem: { color: mutedForegroundColor },
+    };
+  };
+  const rechartStyles = getRechartStyles();
+
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
       {/* Page title */}
-      <h1 className="text-2xl font-bold text-[#f3f6ff]">
-        {lang === 'ar' ? 'التقارير' : 'Reports'}
-      </h1>
+      <h1 className="text-3xl font-bold">{labels.reports}</h1>
 
       {/* Tab navigation */}
-      <div className="flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              tab === t.key
-                ? 'bg-brand text-white'
-                : 'bg-surface-card text-[#8892a8] hover:text-[#f3f6ff] border border-border'
-            }`}
-          >
-            {t.label[lang]}
-          </button>
-        ))}
-      </div>
+      <Card>
+        <CardContent className="p-4 flex flex-wrap gap-2">
+          {TABS.map((tItem) => (
+            <Button
+              key={tItem.key}
+              onClick={() => setTab(tItem.key)}
+              variant={tab === tItem.key ? 'default' : 'outline'}
+              className="text-sm"
+            >
+              {tItem.label[lang]}
+            </Button>
+          ))}
+        </CardContent>
+      </Card>
+
 
       {/* Days filter — only shown for certain tabs */}
       {DAYS_TABS.includes(tab) && (
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-[#8892a8]">
-            {lang === 'ar' ? 'الفترة:' : 'Period:'}
-          </span>
-          <select
-            value={days}
-            onChange={(e) => setDays(Number(e.target.value))}
-            className="rounded-lg border border-border bg-surface-card px-3 py-2 text-sm text-[#f3f6ff] outline-none focus:border-brand"
-          >
-            {DAYS_OPTIONS.map((d) => (
-              <option key={d} value={d}>
-                {d} {lang === 'ar' ? 'يوم' : 'days'}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-3">
+          <Label className="text-sm font-medium text-foreground">
+            {labels.period}:
+          </Label>
+          <Select value={days.toString()} onValueChange={(value) => setDays(Number(value))} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder={labels.select_period} />
+            </SelectTrigger>
+            <SelectContent>
+              {DAYS_OPTIONS.map((d) => (
+                <SelectItem key={d} value={d.toString()}>
+                  {d} {labels.days}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
@@ -129,169 +187,326 @@ export default function ReportsPage() {
       {loading ? (
         <LoadingSpinner size="lg" />
       ) : error ? (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center text-red-400">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <Terminal className={cn("h-4 w-4", lang === 'ar' ? "ml-2" : "mr-2")} />
+          <AlertTitle>{labels.error_title}</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       ) : (
-        <div>
+        <div className="space-y-6">
           {/* Overview — 6 stat cards */}
           {tab === 'overview' && data && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <StatCard
-                label={lang === 'ar' ? 'إجمالي الأعضاء' : 'Total Members'}
+                label={labels.total_members}
                 value={data.totalMembers ?? 0}
               />
               <StatCard
-                label={lang === 'ar' ? 'اشتراكات نشطة' : 'Active Subscriptions'}
+                label={labels.active_subscriptions}
                 value={data.activeSubscriptions ?? 0}
-                color="text-green-400"
+                color="text-success"
               />
               <StatCard
-                label={lang === 'ar' ? 'اشتراكات منتهية' : 'Expired Subscriptions'}
+                label={labels.expired_subscriptions}
                 value={data.expiredSubscriptions ?? 0}
-                color="text-red-400"
+                color="text-destructive"
               />
               <StatCard
-                label={lang === 'ar' ? 'إجمالي الإيرادات' : 'Total Revenue'}
-                value={data.totalRevenue ?? 0}
-                color="text-brand"
+                label={labels.total_revenue}
+                value={formatCurrency(data.totalRevenue ?? 0)} // Format currency
+                color="text-primary"
               />
               <StatCard
-                label={lang === 'ar' ? 'مسموح اليوم' : 'Allowed Today'}
+                label={labels.allowed_today}
                 value={data.todayStats?.allowed ?? 0}
-                color="text-green-400"
+                color="text-success"
               />
               <StatCard
-                label={lang === 'ar' ? 'مرفوض اليوم' : 'Denied Today'}
+                label={labels.denied_today}
                 value={data.todayStats?.denied ?? 0}
-                color="text-red-400"
-                subtitle={`${lang === 'ar' ? 'تحذير' : 'Warning'}: ${data.todayStats?.warning ?? 0}`}
+                color="text-destructive"
+                subtitle={`${labels.warning}: ${data.todayStats?.warning ?? 0}`}
               />
             </div>
+          )}
+
+          {/* NEW Report: Member Attendance Trends */}
+          {tab === 'member-attendance-trends' && Array.isArray(data) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{labels.member_attendance_trends}</CardTitle>
+                <CardDescription>{labels.member_attendance_trends_description}</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={rechartStyles.gridStroke} />
+                    <XAxis dataKey="date" tick={rechartStyles.axis} />
+                    <YAxis tick={rechartStyles.axis} />
+                    <Tooltip
+                      contentStyle={rechartStyles.tooltipContent}
+                      labelStyle={rechartStyles.tooltipLabel}
+                      itemStyle={rechartStyles.tooltipItem}
+                    />
+                    <Legend wrapperStyle={{ color: rechartStyles.legendItem.color }}/>
+                    <Line type="monotone" dataKey="visits" stroke="hsl(var(--primary))" name={labels.visits} strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
           )}
 
           {/* Daily Stats — stacked bar chart */}
           {tab === 'daily-stats' && Array.isArray(data) && (
-            <div className="rounded-xl border border-border bg-surface-card p-4">
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={data}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                  <XAxis dataKey="date" tick={axisStyle} />
-                  <YAxis tick={axisStyle} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#1a1f33', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
-                    labelStyle={{ color: '#f3f6ff' }}
-                    itemStyle={{ color: '#f3f6ff' }}
-                  />
-                  <Legend />
-                  <Bar dataKey="allowed" stackId="a" fill="#22c55e" name={lang === 'ar' ? 'مسموح' : 'Allowed'} />
-                  <Bar dataKey="warning" stackId="a" fill="#eab308" name={lang === 'ar' ? 'تحذير' : 'Warning'} />
-                  <Bar dataKey="denied" stackId="a" fill="#ef4444" name={lang === 'ar' ? 'مرفوض' : 'Denied'} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>{labels.daily_checkins_stats}</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={rechartStyles.gridStroke} />
+                    <XAxis dataKey="date" tick={rechartStyles.axis} />
+                    <YAxis tick={rechartStyles.axis} />
+                    <Tooltip
+                      contentStyle={rechartStyles.tooltipContent}
+                      labelStyle={rechartStyles.tooltipLabel}
+                      itemStyle={rechartStyles.tooltipItem}
+                    />
+                    <Legend wrapperStyle={{ color: rechartStyles.legendItem.color }}/>
+                    <Bar dataKey="allowed" stackId="a" fill="hsl(var(--success))" name={labels.allowed} />
+                    <Bar dataKey="warning" stackId="a" fill="hsl(var(--warning))" name={labels.warning} />
+                    <Bar dataKey="denied" stackId="a" fill="hsl(var(--destructive))" name={labels.denied} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
           )}
 
           {/* Hourly Distribution — single bar chart */}
           {tab === 'hourly' && Array.isArray(data) && (
-            <div className="rounded-xl border border-border bg-surface-card p-4">
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={data}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                  <XAxis dataKey="hour" tick={axisStyle} />
-                  <YAxis tick={axisStyle} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#1a1f33', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
-                    labelStyle={{ color: '#f3f6ff' }}
-                    itemStyle={{ color: '#f3f6ff' }}
-                  />
-                  <Bar dataKey="count" fill="#3b82f6" name={lang === 'ar' ? 'زيارات' : 'Visits'} radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>{labels.hourly_distribution}</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={rechartStyles.gridStroke} />
+                    <XAxis dataKey="hour" tick={rechartStyles.axis} />
+                    <YAxis tick={rechartStyles.axis} />
+                    <Tooltip
+                      contentStyle={rechartStyles.tooltipContent}
+                      labelStyle={rechartStyles.tooltipLabel}
+                      itemStyle={rechartStyles.tooltipItem}
+                    />
+                    <Bar dataKey="count" fill="hsl(var(--primary))" name={labels.visits} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
           )}
 
           {/* Top Members — data table */}
           {tab === 'top-members' && Array.isArray(data) && (
-            <DataTable
-              columns={[
-                { key: 'rank', label: lang === 'ar' ? 'الترتيب' : 'Rank' },
-                { key: 'name', label: lang === 'ar' ? 'الاسم' : 'Name' },
-                { key: 'visits', label: lang === 'ar' ? 'الزيارات' : 'Visits' },
-              ]}
-              data={data.map((m: any, i: number) => ({ ...m, rank: i + 1 }))}
-            />
+            <Card>
+              <CardHeader>
+                <CardTitle>{labels.top_members}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DataTable
+                  columns={[
+                    { key: 'rank', label: labels.rank },
+                    { key: 'name', label: labels.name },
+                    { key: 'visits', label: labels.visits },
+                  ]}
+                  data={data.map((m: any, i: number) => ({ ...m, rank: i + 1 }))}
+                />
+              </CardContent>
+            </Card>
           )}
+
+          {/* NEW Report: Detailed Revenue Breakdown */}
+          {tab === 'detailed-revenue-breakdown' && Array.isArray(data) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{labels.detailed_revenue_breakdown}</CardTitle>
+                <CardDescription>{labels.detailed_revenue_breakdown_description}</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data}
+                      dataKey="amount" // Assuming API returns [{ source: 'Subscriptions', amount: 1000 }]
+                      nameKey="source" // Key for the label
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={140}
+                      label={(props: any) => `${props.source} (${formatCurrency(props.amount)})`}
+                      labelLine={{ stroke: rechartStyles.gridStroke }}
+                    >
+                      {data.map((_: any, i: number) => (
+                        <Cell key={`cell-${i}`} fill={PIE_COLORS_TAILWIND[i % PIE_COLORS_TAILWIND.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={rechartStyles.tooltipContent}
+                      labelStyle={rechartStyles.tooltipLabel}
+                      itemStyle={rechartStyles.tooltipItem}
+                      formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                    />
+                    <Legend wrapperStyle={{ color: rechartStyles.legendItem.color }} formatter={(value: string) => <span style={{ color: rechartStyles.legendItem.color }}>{value}</span>} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* NEW Report: Outstanding Payments/Debtors Report */}
+          {tab === 'outstanding-payments-debtors' && Array.isArray(data) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{labels.outstanding_payments_debtors}</CardTitle>
+                <CardDescription>{labels.outstanding_payments_debtors_description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DataTable
+                  columns={[
+                    { key: 'name', label: labels.name },
+                    { key: 'phone', label: labels.phone },
+                    { key: 'amount_due', label: labels.amount_due, render: (row: any) => formatCurrency(row.amount_due) },
+                    { key: 'due_date', label: labels.due_date, render: (row: any) => formatDate(row.due_date, lang === 'ar' ? 'ar-EG' : 'en-US') },
+                  ]}
+                  data={data}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* NEW Report: Peak Hours/Capacity Utilization */}
+          {tab === 'peak-hours-capacity-utilization' && Array.isArray(data) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{labels.peak_hours_capacity_utilization}</CardTitle>
+                <CardDescription>{labels.peak_hours_capacity_utilization_description}</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={rechartStyles.gridStroke} />
+                    <XAxis dataKey="hour" tick={rechartStyles.axis} />
+                    <YAxis tick={rechartStyles.axis} />
+                    <Tooltip
+                      contentStyle={rechartStyles.tooltipContent}
+                      labelStyle={rechartStyles.tooltipLabel}
+                      itemStyle={rechartStyles.tooltipItem}
+                    />
+                    <Legend wrapperStyle={{ color: rechartStyles.legendItem.color }}/>
+                    <Bar dataKey="visits" fill="hsl(var(--primary))" name={labels.visits} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
 
           {/* Denial Reasons — pie chart */}
           {tab === 'denial-reasons' && Array.isArray(data) && (
-            <div className="rounded-xl border border-border bg-surface-card p-4">
-              <ResponsiveContainer width="100%" height={400}>
-                <PieChart>
-                  <Pie
-                    data={data}
-                    dataKey="count"
-                    nameKey="reason_code"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={140}
-                    label={(props: any) => `${props.reason_code} (${((props.percent ?? 0) * 100).toFixed(0)}%)`}
-                    labelLine={{ stroke: '#8892a8' }}
-                  >
-                    {data.map((_: any, i: number) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#1a1f33', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
-                    itemStyle={{ color: '#f3f6ff' }}
-                  />
-                  <Legend formatter={(value: string) => <span style={{ color: '#f3f6ff' }}>{value}</span>} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>{labels.denial_reasons}</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data}
+                      dataKey="count"
+                      nameKey="reason_code"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={140}
+                      label={(props: any) => `${props.reason_code} (${((props.percent ?? 0) * 100).toFixed(0)}%)`}
+                      labelLine={{ stroke: rechartStyles.gridStroke }}
+                    >
+                      {data.map((_: any, i: number) => (
+                        <Cell key={i} fill={PIE_COLORS_TAILWIND[i % PIE_COLORS_TAILWIND.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={rechartStyles.tooltipContent}
+                      labelStyle={rechartStyles.tooltipLabel}
+                      itemStyle={rechartStyles.tooltipItem}
+                    />
+                    <Legend wrapperStyle={{ color: rechartStyles.legendItem.color }} formatter={(value: string) => <span style={{ color: rechartStyles.legendItem.color }}>{value}</span>} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
           )}
 
           {/* Denied Entries — data table */}
           {tab === 'denied-entries' && Array.isArray(data) && (
-            <DataTable
-              columns={[
-                { key: 'name', label: lang === 'ar' ? 'الاسم' : 'Name' },
-                { key: 'timestamp', label: lang === 'ar' ? 'الوقت' : 'Time', render: (row: any) => formatDateTime(row.timestamp, lang === 'ar' ? 'ar-EG' : 'en-US') },
-                { key: 'reason_code', label: lang === 'ar' ? 'السبب' : 'Reason' },
-              ]}
-              data={data}
-            />
+            <Card>
+              <CardHeader>
+                <CardTitle>{labels.denied_entries}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DataTable
+                  columns={[
+                    { key: 'name', label: labels.name },
+                    { key: 'timestamp', label: labels.time, render: (row: any) => formatDateTime(row.timestamp, lang === 'ar' ? 'ar-EG' : 'en-US') },
+                    { key: 'reason_code', label: labels.reason },
+                  ]}
+                  data={data}
+                />
+              </CardContent>
+            </Card>
           )}
 
           {/* Expiring Subscriptions — data table */}
           {tab === 'expiring-subs' && Array.isArray(data) && (
-            <DataTable
-              columns={[
-                { key: 'name', label: lang === 'ar' ? 'الاسم' : 'Name' },
-                { key: 'phone', label: lang === 'ar' ? 'الهاتف' : 'Phone' },
-                { key: 'end_date', label: lang === 'ar' ? 'تاريخ الانتهاء' : 'End Date', render: (row: any) => formatDate(row.end_date, lang === 'ar' ? 'ar-EG' : 'en-US') },
-                { key: 'days_left', label: lang === 'ar' ? 'أيام متبقية' : 'Days Left', render: (row: any) => {
-                  const d = daysUntil(row.end_date);
-                  return <span className={d <= 2 ? 'text-red-400' : 'text-yellow-400'}>{d}</span>;
-                }},
-              ]}
-              data={data}
-            />
+            <Card>
+              <CardHeader>
+                <CardTitle>{labels.expiring_subscriptions}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DataTable
+                  columns={[
+                    { key: 'name', label: labels.name },
+                    { key: 'phone', label: labels.phone },
+                    { key: 'end_date', label: labels.end_date, render: (row: any) => formatDate(row.end_date, lang === 'ar' ? 'ar-EG' : 'en-US') },
+                    { key: 'days_left', label: labels.days_left, render: (row: any) => {
+                      const d = daysUntil(row.end_date);
+                      return <span className={d <= 2 ? 'text-destructive font-bold' : 'text-warning'}>{d}</span>;
+                    }},
+                  ]}
+                  data={data}
+                />
+              </CardContent>
+            </Card>
           )}
 
           {/* Low Sessions — data table */}
           {tab === 'low-sessions' && Array.isArray(data) && (
-            <DataTable
-              columns={[
-                { key: 'name', label: lang === 'ar' ? 'الاسم' : 'Name' },
-                { key: 'phone', label: lang === 'ar' ? 'الهاتف' : 'Phone' },
-                { key: 'sessions_remaining', label: lang === 'ar' ? 'جلسات متبقية' : 'Sessions Remaining', render: (row: any) => (
-                  <span className={row.sessions_remaining <= 1 ? 'text-red-400 font-bold' : 'text-yellow-400'}>{row.sessions_remaining}</span>
-                )},
-              ]}
-              data={data}
-            />
+            <Card>
+              <CardHeader>
+                <CardTitle>{labels.low_sessions}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DataTable
+                  columns={[
+                    { key: 'name', label: labels.name },
+                    { key: 'phone', label: labels.phone },
+                    { key: 'sessions_remaining', label: labels.sessions_remaining, render: (row: any) => (
+                      <span className={row.sessions_remaining <= 1 ? 'text-destructive font-bold' : 'text-warning'}>{row.sessions_remaining}</span>
+                    )},
+                  ]}
+                  data={data}
+                />
+              </CardContent>
+            </Card>
           )}
         </div>
       )}
