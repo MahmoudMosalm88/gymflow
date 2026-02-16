@@ -2697,21 +2697,10 @@ function registerIpcHandlers() {
   });
   electron.ipcMain.handle("app:getVersion", () => electron.app.getVersion());
   electron.ipcMain.handle("app:checkForUpdates", async () => {
-    try {
-      return await getUpdateInfo();
-    } catch (error) {
-      return { available: false, error: String(error) };
-    }
+    return { available: false };
   });
-  electron.ipcMain.handle("app:downloadUpdate", async (_event, downloadUrl) => {
-    try {
-      const downloadDir = path.join(electron.app.getPath("userData"), "updates");
-      const filePath = await downloadFile(downloadUrl, downloadDir);
-      await launchInstaller(filePath);
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: String(error) };
-    }
+  electron.ipcMain.handle("app:downloadUpdate", async () => {
+    return { success: false, error: "Auto-update removed. Please download the latest version manually." };
   });
   electron.ipcMain.handle("app:logError", (_event, payload) => {
     logToFile("ERROR", payload?.message || "Renderer error", payload);
@@ -2782,179 +2771,7 @@ function registerIpcHandlers() {
     (_event, limit) => getRecentIncome(limit || 20)
   );
 }
-const UPDATE_URL = "https://api.github.com/repos/MahmoudMosalm88/gymflow/releases/latest";
-const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1e3;
-const DOWNLOAD_TIMEOUT_MS = 10 * 60 * 1e3;
-const UPDATE_TIMEOUT_MS = 15e3;
-let updateTimer = null;
-let updateInFlight = null;
-function compareVersions(a, b) {
-  const toParts = (value) => value.split("-")[0].split(".").map((part) => Number.parseInt(part, 10)).map((part) => Number.isFinite(part) ? part : 0);
-  const partsA = toParts(a);
-  const partsB = toParts(b);
-  const length = Math.max(partsA.length, partsB.length);
-  for (let i = 0; i < length; i += 1) {
-    const diff = (partsA[i] || 0) - (partsB[i] || 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
-}
-function resolveDownloadUrl(info) {
-  if (info.downloadUrl) return info.downloadUrl;
-  if (info.download_url) return info.download_url;
-  if (info.url) return info.url;
-  if (info.downloads) {
-    const platformKey = process.platform === "win32" ? "win" : process.platform === "darwin" ? "mac" : "linux";
-    return info.downloads[platformKey] || info.downloads[process.platform] || null;
-  }
-  return null;
-}
-function resolveFeedUrl(info) {
-  return info.feedUrl || info.feed_url || null;
-}
-function fetchJson(url, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    const parsedUrl = new URL(url);
-    const client = parsedUrl.protocol === "https:" ? https.request : http.request;
-    const req = client(url, { method: "GET", headers: { "User-Agent": "gymflow-updater" } }, (res) => {
-      if (!res.statusCode || res.statusCode >= 400) {
-        reject(new Error(`Update check failed (${res.statusCode})`));
-        res.resume();
-        return;
-      }
-      let data = "";
-      res.setEncoding("utf8");
-      res.on("data", (chunk) => {
-        data += chunk;
-      });
-      res.on("end", () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (error) {
-          reject(error);
-        }
-      });
-    });
-    req.on("error", reject);
-    req.setTimeout(timeoutMs, () => {
-      req.destroy(new Error("Update check timed out"));
-    });
-    req.end();
-  });
-}
-function downloadFile(url, destinationDir) {
-  return new Promise((resolve, reject) => {
-    const client = url.startsWith("https:") ? https.request : http.request;
-    const req = client(url, { method: "GET" }, (res) => {
-      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        res.resume();
-        const redirectUrl = new URL(res.headers.location, url).toString();
-        resolve(downloadFile(redirectUrl, destinationDir));
-        return;
-      }
-      if (!res.statusCode || res.statusCode >= 400) {
-        reject(new Error(`Update download failed (${res.statusCode})`));
-        res.resume();
-        return;
-      }
-      if (!fs.existsSync(destinationDir)) {
-        fs.mkdirSync(destinationDir, { recursive: true });
-      }
-      const fileName = path.basename(new URL(url).pathname) || `update-${Date.now()}`;
-      const filePath = path.join(destinationDir, fileName);
-      const fileStream = fs.createWriteStream(filePath);
-      res.pipe(fileStream);
-      fileStream.on("finish", () => {
-        fileStream.close(() => resolve(filePath));
-      });
-      fileStream.on("error", (error) => {
-        reject(error);
-      });
-    });
-    req.on("error", reject);
-    req.setTimeout(DOWNLOAD_TIMEOUT_MS, () => {
-      req.destroy(new Error("Update download timed out"));
-    });
-    req.end();
-  });
-}
-async function launchInstaller(filePath) {
-  const extension = path.extname(filePath).toLowerCase();
-  const platformAllowedExtension = process.platform === "win32" ? [".exe", ".msi"] : process.platform === "darwin" ? [".dmg", ".pkg"] : [".appimage", ".deb", ".rpm"];
-  if (!platformAllowedExtension.includes(extension)) {
-    throw new Error(`Unsupported update package for ${process.platform}: ${filePath}`);
-  }
-  const launchError = await electron.shell.openPath(filePath);
-  if (launchError) {
-    logToFile("ERROR", "Failed to launch installer", { error: launchError, filePath });
-    throw new Error(`Failed to launch installer: ${launchError}`);
-  }
-  electron.app.isQuitting = true;
-  setTimeout(() => {
-    electron.app.quit();
-  }, 1500);
-}
-async function getUpdateInfo() {
-  try {
-    const release = await fetchJson(UPDATE_URL, UPDATE_TIMEOUT_MS);
-    const tagVersion = (release.tag_name || "").replace(/^v/, "");
-    if (!tagVersion) {
-      return { available: false, error: "Update response missing version" };
-    }
-    const currentVersion = electron.app.getVersion();
-    if (compareVersions(tagVersion, currentVersion) <= 0) {
-      return { available: false, version: currentVersion };
-    }
-    const assets = Array.isArray(release.assets) ? release.assets : [];
-    const platformKey = process.platform === "win32" ? /\.exe$/i : process.platform === "darwin" ? /\.dmg$/i : /\.AppImage$/i;
-    const asset = assets.find((a) => platformKey.test(a.name || ""));
-    const downloadUrl = asset ? asset.browser_download_url : null;
-    if (!downloadUrl) {
-      return { available: false, error: "No matching installer for this platform" };
-    }
-    return { available: true, version: tagVersion, downloadUrl };
-  } catch (error) {
-    return { available: false, error: String(error) };
-  }
-}
-async function checkForUpdates() {
-  if (updateInFlight) {
-    return updateInFlight;
-  }
-  updateInFlight = (async () => {
-    try {
-      const info = await getUpdateInfo();
-      if (!info.available) return;
-      electron.BrowserWindow.getAllWindows().forEach((win) => {
-        try { win.webContents.send("app:updateAvailable", { version: info.version, downloadUrl: info.downloadUrl }); } catch {}
-      });
-      const { response } = await electron.dialog.showMessageBox({
-        type: "info",
-        message: "Update available",
-        detail: `A newer version (${info.version}) is available. Would you like to update now?`,
-        buttons: ["Update Now", "Later"]
-      });
-      if (response !== 0) {
-        return;
-      }
-      const downloadDir = path.join(electron.app.getPath("userData"), "updates");
-      const filePath = await downloadFile(info.downloadUrl, downloadDir);
-      await launchInstaller(filePath);
-    } catch (error) {
-      logToFile("ERROR", "Auto-updater failed", { error: String(error) });
-    } finally {
-      updateInFlight = null;
-    }
-  })();
-  return updateInFlight;
-}
-function startAutoUpdater() {
-  if (updateTimer) return;
-  checkForUpdates();
-  updateTimer = setInterval(() => {
-    checkForUpdates();
-  }, UPDATE_CHECK_INTERVAL_MS);
-}
+/* Auto-updater removed in v1.0.9 — users update manually */
 let mainWindow = null;
 let tray = null;
 let rendererRestartCount = 0;
@@ -3159,7 +2976,6 @@ The application will now exit.`
   tray.on("double-click", () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } });
   if (!isDev()) {
     electron.app.setLoginItemSettings({ openAtLogin: true, openAsHidden: false });
-    startAutoUpdater();
   }
   electron.app.on("activate", function() {
     if (mainWindow) { mainWindow.show(); } else { createWindow(); }
