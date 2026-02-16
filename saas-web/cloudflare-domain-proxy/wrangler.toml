@@ -1,0 +1,5 @@
+name = "gymflow-domain-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-02-16"
+account_id = "ad55bab5272bc45c1795052289a0fa4b"
+workers_dev = false

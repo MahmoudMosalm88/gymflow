@@ -1,0 +1,221 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 225 20% 7%;
+  --foreground: 210 20% 95%;
+
+  --card: 225 16% 11%;
+  --card-foreground: 210 20% 95%;
+
+  --popover: 225 14% 13%;
+  --popover-foreground: 210 20% 95%;
+
+  --primary: 30 100% 50%;
+  --primary-foreground: 225 20% 7%;
+
+  --secondary: 225 14% 16%;
+  --secondary-foreground: 210 20% 90%;
+
+  --muted: 225 12% 14%;
+  --muted-foreground: 220 10% 54%;
+
+  --accent: 225 14% 16%;
+  --accent-foreground: 210 20% 90%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 225 12% 18%;
+  --input: 225 12% 18%;
+  --ring: 30 100% 50%;
+
+  --radius: 0.75rem;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  @apply bg-background text-foreground font-body;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  @apply font-heading font-bold;
+}
+
+h1 {
+  @apply text-4xl tracking-tight;
+}
+
+h2 {
+  @apply text-3xl tracking-tight;
+}
+
+h3 {
+  @apply text-2xl tracking-tight;
+}
+
+h4 {
+  @apply text-xl tracking-tight;
+}
+
+h5 {
+  @apply text-lg tracking-tight;
+}
+
+h6 {
+  @apply text-base tracking-tight;
+}
+
+.card {
+  @apply rounded-lg border border-border/50 bg-card text-card-foreground shadow-md p-6;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background disabled:pointer-events-none disabled:opacity-50;
+}
+
+.btn-primary {
+  @apply bg-primary text-primary-foreground hover:bg-primary/90;
+}
+
+.btn-secondary {
+  @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
+}
+
+.btn-outline {
+  @apply border border-input bg-background hover:bg-accent hover:text-accent-foreground;
+}
+
+.input-field {
+  @apply flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+}
+
+.badge {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
+}
+
+.badge-primary {
+  @apply bg-primary/15 text-primary border border-primary/20;
+}
+
+.badge-success {
+  @apply bg-emerald-500/15 text-emerald-400 border border-emerald-500/20;
+}
+
+.badge-warning {
+  @apply bg-amber-500/15 text-amber-400 border border-amber-500/20;
+}
+
+.badge-error {
+  @apply bg-red-500/15 text-red-400 border border-red-500/20;
+}
+
+@keyframes pulse-green {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgba(34, 197, 94, 0);
+  }
+}
+
+@keyframes pulse-yellow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgba(234, 179, 8, 0);
+  }
+}
+
+@keyframes pulse-red {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgba(239, 68, 68, 0);
+  }
+}
+
+.traffic-light-green {
+  @apply bg-traffic-green;
+  animation: pulse-green 2s infinite;
+}
+
+.traffic-light-yellow {
+  @apply bg-traffic-yellow;
+  animation: pulse-yellow 1s infinite;
+}
+
+.traffic-light-red {
+  @apply bg-traffic-red;
+  animation: pulse-red 0.5s infinite;
+}
+
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+*:focus-visible {
+  @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+}
+
+.scanner-input {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+[dir='rtl'] {
+  direction: rtl;
+}
+
+.bg-brand-gradient {
+  background: linear-gradient(135deg, #FF8C00 0%, #E67E00 50%, #CC6600 100%);
+}
+
+.text-gradient-brand {
+  background: linear-gradient(135deg, #FF8C00 0%, #E67E00 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Prefers Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

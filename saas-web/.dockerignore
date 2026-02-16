@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+*.md
+.env*
+.env.local
+infra/
+worker/
+scripts/
+dist/
+.backups/
+.wwebjs_auth/
+.wwebjs_cache/
+*.tsbuildinfo

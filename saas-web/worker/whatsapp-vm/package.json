@@ -1,0 +1,17 @@
+{
+  "name": "gymflow-whatsapp-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "pg": "^8.13.1",
+    "whatsapp-web.js": "^1.26.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
+  }
+}

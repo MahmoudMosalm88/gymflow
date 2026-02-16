@@ -36,3 +36,27 @@ yarn-error.log*
 
 # Generated files
 *.zip
+
+# Electron build artifacts
+/dist/
+/dist-hotfix/
+/dist-hotfix-x64/
+/dist-v102/
+
+# WhatsApp session data
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Backups
+.backups/
+
+# SaaS web build
+saas-web/.next/
+saas-web/node_modules/
+saas-web/.env.local
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Backup files
+*.backup

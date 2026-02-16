@@ -1,0 +1,2 @@
+-- Initial baseline placeholder.
+-- Apply /db/schema.sql using: npm run db:migrate
