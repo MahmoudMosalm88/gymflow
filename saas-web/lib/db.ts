@@ -8,7 +8,7 @@ declare global {
 function buildPool() {
   // Cloud SQL Proxy via unix socket: SSL handled by proxy, no SSL config needed
   // Otherwise: Use SSL with strict validation in production, dev uses feature flag
-  const isCloudSqlProxy = env.DATABASE_URL.includes("/cloudsql/");
+  const isCloudSqlProxy = env.DATABASE_URL.includes("/cloudsql/") || env.DATABASE_URL.includes("%2Fcloudsql%2F");
   const useSSL = isCloudSqlProxy ? false : (env.NODE_ENV === "production" ? true : featureFlags.useDatabaseSsl);
 
   return new Pool({
