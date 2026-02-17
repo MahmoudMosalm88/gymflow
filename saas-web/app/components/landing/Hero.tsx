@@ -5,60 +5,58 @@ import styles from '../../landing.module.css';
 
 interface HeroProps {
   t: {
-    badge: string;
-    title: string;
-    subtitle: string;
-    points: readonly string[];
-    ctaPrimary: string;
-    ctaSecondary: string;
-    statMembers: string;
-    statCheckins: string;
-    statRevenue: string;
-    statDelta: string;
+    heroLabel: string;
+    heroTitle: string;
+    heroTitleEm: string;
+    heroSub: string;
+    heroCta: string;
+    heroCtaSecondary: string;
+    heroMicro: string;
+    heroStat1Value: string;
+    heroStat1Label: string;
+    heroStat2Value: string;
+    heroStat2Label: string;
+    heroStat3Value: string;
+    heroStat3Label: string;
   };
-  isArabic: boolean;
 }
 
-export default function Hero({ t, isArabic }: HeroProps) {
+export default function Hero({ t }: HeroProps) {
   return (
     <section className={styles.hero}>
-      <div className={styles.heroContent}>
-        <p className={styles.badge}>{t.badge}</p>
-        <h1 className={styles.heroTitle}>{t.title}</h1>
-        <p className={styles.heroSubtitle}>{t.subtitle}</p>
-        <ul className={styles.points}>
-          {t.points.map((point) => (
-            <li key={point}>{point}</li>
-          ))}
-        </ul>
+      <div className={styles.heroGlow} aria-hidden="true" />
+      <div className={styles.heroInner}>
+        <p className={styles.label}>{t.heroLabel}</p>
+        <h1 className={styles.heroTitle}>
+          {t.heroTitle} <em>{t.heroTitleEm}</em>
+        </h1>
+        <p className={styles.heroSub}>{t.heroSub}</p>
 
-        <div className={styles.actions}>
-          <Link href="/login?mode=register" className={styles.primaryCta}>
-            {t.ctaPrimary}
+        <div className={styles.heroCtas}>
+          <Link href="/login?mode=register" className={styles.ctaPrimary}>
+            {t.heroCta}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
           </Link>
-          <Link href="/login?mode=login" className={styles.secondaryCta}>
-            {t.ctaSecondary}
+          <Link href="/login?mode=login" className={styles.ctaSecondary}>
+            {t.heroCtaSecondary}
           </Link>
         </div>
+        <p className={styles.heroMicro}>{t.heroMicro}</p>
 
-        {/* Stats row — horizontal below CTAs */}
-        <aside className={styles.heroStats} aria-label={isArabic ? 'بطاقات مؤشرات' : 'Live indicator cards'}>
-          <article className={styles.statCard}>
-            <p>{t.statMembers}</p>
-            <h2>1,284</h2>
-            <span>{t.statDelta}</span>
-          </article>
-          <article className={styles.statCard}>
-            <p>{t.statCheckins}</p>
-            <h2>342</h2>
-            <span>{t.statDelta}</span>
-          </article>
-          <article className={styles.statCard}>
-            <p>{t.statRevenue}</p>
-            <h2>$18,900</h2>
-            <span>{t.statDelta}</span>
-          </article>
-        </aside>
+        <div className={styles.heroStats} aria-label="Platform stats">
+          <div className={styles.heroStat}>
+            <p className={styles.heroStatValue}>{t.heroStat1Value}</p>
+            <p className={styles.heroStatLabel}>{t.heroStat1Label}</p>
+          </div>
+          <div className={styles.heroStat}>
+            <p className={styles.heroStatValue}>{t.heroStat2Value}</p>
+            <p className={styles.heroStatLabel}>{t.heroStat2Label}</p>
+          </div>
+          <div className={styles.heroStat}>
+            <p className={styles.heroStatValue}>{t.heroStat3Value}</p>
+            <p className={styles.heroStatLabel}>{t.heroStat3Label}</p>
+          </div>
+        </div>
       </div>
     </section>
   );
