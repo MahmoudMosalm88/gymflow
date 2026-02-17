@@ -44,25 +44,26 @@ export default function Hero({ t, isArabic }: HeroProps) {
             {t.ctaTertiary}
           </Link>
         </div>
-      </div>
 
-      <aside className={styles.heroStats} aria-label={isArabic ? 'بطاقات مؤشرات' : 'Live indicator cards'}>
-        <article className={styles.statCard}>
-          <p>{t.statMembers}</p>
-          <h2>1,284</h2>
-          <span>{t.statDelta}</span>
-        </article>
-        <article className={styles.statCard}>
-          <p>{t.statCheckins}</p>
-          <h2>342</h2>
-          <span>{t.statDelta}</span>
-        </article>
-        <article className={styles.statCard}>
-          <p>{t.statRevenue}</p>
-          <h2>$18,900</h2>
-          <span>{t.statDelta}</span>
-        </article>
-      </aside>
+        {/* Stats row — horizontal below CTAs */}
+        <aside className={styles.heroStats} aria-label={isArabic ? 'بطاقات مؤشرات' : 'Live indicator cards'}>
+          <article className={styles.statCard}>
+            <p>{t.statMembers}</p>
+            <h2>1,284</h2>
+            <span>{t.statDelta}</span>
+          </article>
+          <article className={styles.statCard}>
+            <p>{t.statCheckins}</p>
+            <h2>342</h2>
+            <span>{t.statDelta}</span>
+          </article>
+          <article className={styles.statCard}>
+            <p>{t.statRevenue}</p>
+            <h2>$18,900</h2>
+            <span>{t.statDelta}</span>
+          </article>
+        </aside>
+      </div>
     </section>
   );
 }

@@ -6,6 +6,7 @@ import Navbar from "./components/landing/Navbar";
 import Hero from "./components/landing/Hero";
 import Features from "./components/landing/Features";
 import CTA from "./components/landing/CTA";
+import Footer from "./components/landing/Footer";
 
 type Lang = "en" | "ar";
 
@@ -49,7 +50,10 @@ const copy = {
     finalTitle: "Ready to launch GymFlow on your domain?",
     finalSubtitle:
       "Set up your account once, then run daily operations from the dashboard.",
-    finalCta: "Start now"
+    finalCta: "Start now",
+    footerCopyright: "\u00a9 2026 GymFlow. All rights reserved.",
+    footerPrivacy: "Privacy Policy",
+    footerTerms: "Terms of Service"
   },
   ar: {
     navFeatures: "المزايا",
@@ -88,7 +92,10 @@ const copy = {
     ],
     finalTitle: "جاهز لتشغيل GymFlow على نطاقك؟",
     finalSubtitle: "أنشئ حسابك مرة واحدة ثم أدر تشغيل النادي يومياً من لوحة التحكم.",
-    finalCta: "ابدأ الآن"
+    finalCta: "ابدأ الآن",
+    footerCopyright: "\u00a9 2026 GymFlow. جميع الحقوق محفوظة.",
+    footerPrivacy: "سياسة الخصوصية",
+    footerTerms: "شروط الخدمة"
   }
 } as const;
 
@@ -104,6 +111,7 @@ export default function HomePage() {
       <Hero t={t} isArabic={isArabic} />
       <Features t={t} />
       <CTA t={t} />
+      <Footer t={t} />
     </main>
   );
 }
