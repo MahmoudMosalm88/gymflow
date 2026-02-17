@@ -11,7 +11,6 @@ interface HeroProps {
     points: readonly string[];
     ctaPrimary: string;
     ctaSecondary: string;
-    ctaTertiary: string;
     statMembers: string;
     statCheckins: string;
     statRevenue: string;
@@ -39,9 +38,6 @@ export default function Hero({ t, isArabic }: HeroProps) {
           </Link>
           <Link href="/login?mode=login" className={styles.secondaryCta}>
             {t.ctaSecondary}
-          </Link>
-          <Link href="/dashboard" className={styles.ghostCta}>
-            {t.ctaTertiary}
           </Link>
         </div>
 

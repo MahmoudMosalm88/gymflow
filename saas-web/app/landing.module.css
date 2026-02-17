@@ -169,8 +169,7 @@
 }
 
 .primaryCta,
-.secondaryCta,
-.ghostCta {
+.secondaryCta {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
@@ -193,15 +192,8 @@
   background: rgba(255, 204, 128, 0.1);
 }
 
-.ghostCta {
-  color: #dce4ff;
-  border: 1px solid rgba(220, 228, 255, 0.22);
-  background: rgba(220, 228, 255, 0.06);
-}
-
 .primaryCta:hover,
-.secondaryCta:hover,
-.ghostCta:hover {
+.secondaryCta:hover {
   transform: translateY(-1px);
   filter: saturate(1.08);
 }
@@ -371,8 +363,7 @@
   }
 
   .primaryCta,
-  .secondaryCta,
-  .ghostCta {
+  .secondaryCta {
     width: 100%;
   }
 }
