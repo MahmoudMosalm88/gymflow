@@ -150,7 +150,7 @@ export default function MemberDetailPage() {
               <img
                 src={member.photo_path}
                 alt={member.name}
-                className="h-24 w-24 rounded-full object-cover border border-border"
+                className="h-24 w-24 object-cover border-2 border-[#2a2a2a]"
               />
             </div>
           )}

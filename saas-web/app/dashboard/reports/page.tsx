@@ -52,15 +52,15 @@ const DAYS_TABS: TabKey[] = [
 ];
 const DAYS_OPTIONS = [7, 14, 30, 60, 90];
 
-// Pie chart colors (using Tailwind CSS colors from our palette)
+// Pie chart colors — brutalist red + grays
 const PIE_COLORS_TAILWIND = [
-  "hsl(var(--accent))", // Orange
-  "hsl(var(--primary))", // Deep Blue
-  "hsl(var(--success))", // Green
-  "hsl(var(--destructive))", // Red
-  "hsl(var(--warning))", // Yellow
-  "hsl(var(--muted-foreground))", // Muted Gray
-  "hsl(var(--info))", // Info Blue
+  "hsl(var(--chart-1))",             // red
+  "hsl(var(--chart-2))",             // dark gray
+  "hsl(var(--chart-3))",             // dark red
+  "hsl(var(--chart-4))",             // mid gray
+  "hsl(var(--chart-5))",             // charcoal
+  "hsl(var(--muted-foreground))",
+  "hsl(var(--chart-1) / 0.6)",
 ];
 
 
@@ -132,7 +132,7 @@ export default function ReportsPage() {
     return {
       axis: { fill: mutedForegroundColor, fontSize: 12 },
       gridStroke: borderColor,
-      tooltipContent: { backgroundColor: backgroundColor, border: `1px solid ${borderColor}`, borderRadius: 8 },
+      tooltipContent: { backgroundColor: backgroundColor, border: `2px solid ${borderColor}`, borderRadius: 0 },
       tooltipLabel: { color: foregroundColor },
       tooltipItem: { color: foregroundColor },
       legendItem: { color: mutedForegroundColor },
@@ -319,7 +319,7 @@ export default function ReportsPage() {
                       labelStyle={rechartStyles.tooltipLabel}
                       itemStyle={rechartStyles.tooltipItem}
                     />
-                    <Bar dataKey="count" fill="hsl(var(--primary))" name={labels.visits} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="count" fill="hsl(var(--primary))" name={labels.visits} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -422,7 +422,7 @@ export default function ReportsPage() {
                       itemStyle={rechartStyles.tooltipItem}
                     />
                     <Legend wrapperStyle={{ color: rechartStyles.legendItem.color }}/>
-                    <Bar dataKey="visits" fill="hsl(var(--primary))" name={labels.visits} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="visits" fill="hsl(var(--primary))" name={labels.visits} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>

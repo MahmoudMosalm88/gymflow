@@ -137,7 +137,7 @@ export default function DashboardPage() {
           {scanResult && (
             <div
               className={cn(
-                "flex items-center gap-4 rounded-md p-4 text-white",
+                "flex items-center gap-4 p-4 text-white",
                 scanResult.success ? "bg-success" : "bg-destructive"
               )}
               dir={lang === 'ar' ? 'rtl' : 'ltr'} // Ensure proper direction for feedback
@@ -149,7 +149,7 @@ export default function DashboardPage() {
                     <img
                       src={scanResult.memberPhoto}
                       alt={scanResult.memberName || "Member"}
-                      className="h-12 w-12 rounded-full object-cover"
+                      className="h-12 w-12 object-cover border-2 border-white/30"
                     />
                   )}
                   <div className={lang === 'ar' ? 'text-right' : 'text-left'}>

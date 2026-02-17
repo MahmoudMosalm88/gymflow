@@ -15,7 +15,6 @@ interface CTAProps {
 export default function CTA({ t }: CTAProps) {
   return (
     <section id="cta" className={styles.cta}>
-      <div className={styles.ctaGlow} aria-hidden="true" />
       <div className={styles.ctaInner}>
         <h2 className={styles.ctaTitle}>{t.ctaTitle}</h2>
         <p className={styles.ctaSub}>{t.ctaSub}</p>

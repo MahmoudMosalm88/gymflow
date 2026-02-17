@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-// No longer importing specific fonts here, using global ones from layout.tsx
 import {
   Auth,
   ConfirmationResult,
@@ -19,10 +18,8 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-// Shadcn/ui components
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Form,
   FormControl,
@@ -33,13 +30,8 @@ import {
   FormMessage
 } from "@/components/ui/form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Check, Terminal, X } from "lucide-react"; // Icons
+import { Check, Terminal } from "lucide-react";
 import { cn } from "@/lib/utils";
-// Custom CSS module import removed
-
-// (Font constant definitions removed)
 
 type Mode = "login" | "register";
 type AuthMethod = "email" | "google" | "phone";
@@ -105,7 +97,7 @@ const copy = {
     continueEmail: "Continue with email",
     forgotPassword: "Forgot password?",
     phoneResetHint: "Phone users: password reset uses your recovery email.",
-    backHome: "Back to landing",
+    backHome: "Back to home",
     ready: "Ready in under 2 minutes.",
     loginSuccess: "Signed in. Redirecting to dashboard...",
     registerSuccess: "Account created. Redirecting to dashboard...",
@@ -114,9 +106,9 @@ const copy = {
     requiredSetupFields: "Owner name, organization name, and branch name are required.",
     requiredEmailFallback: "Recovery email is required for phone sign-up.",
     genericError: "Something went wrong. Please try again.",
-    enter_phone_number: "Enter phone number",
-    enter_verification_code: "Enter verification code",
-    resendCodeIn: "Resend code in",
+    enter_phone_number: "Enter phone",
+    enter_verification_code: "Verify code",
+    resendCodeIn: "Resend in",
     resendCode: "Resend code",
     errorTitle: "Error",
     successTitle: "Success"
@@ -146,7 +138,7 @@ const copy = {
     continueEmail: "المتابعة بالبريد",
     forgotPassword: "نسيت كلمة المرور؟",
     phoneResetHint: "لمستخدمي الهاتف: استعادة كلمة المرور عبر بريد الاستعادة.",
-    backHome: "العودة للصفحة الرئيسية",
+    backHome: "العودة للرئيسية",
     ready: "جاهز خلال أقل من دقيقتين.",
     loginSuccess: "تم تسجيل الدخول. جارٍ فتح لوحة التحكم...",
     registerSuccess: "تم إنشاء الحساب. جارٍ فتح لوحة التحكم...",
@@ -155,16 +147,15 @@ const copy = {
     requiredSetupFields: "اسم المالك واسم المؤسسة واسم الفرع مطلوبة.",
     requiredEmailFallback: "بريد الاستعادة مطلوب عند التسجيل بالهاتف.",
     genericError: "حدث خطأ. حاول مرة أخرى.",
-    enter_phone_number: "أدخل رقم الهاتف",
-    enter_verification_code: "أدخل رمز التحقق",
-    resendCodeIn: "إعادة إرسال الرمز خلال",
+    enter_phone_number: "أدخل الهاتف",
+    enter_verification_code: "أدخل الرمز",
+    resendCodeIn: "إعادة إرسال خلال",
     resendCode: "إعادة إرسال الرمز",
     errorTitle: "خطأ",
     successTitle: "تم بنجاح"
   }
 } as const;
 
-// Zod schemas for form validation
 const setupFieldsSchema = z.object({
   ownerName: z.string().min(2, "Owner name must be at least 2 characters"),
   organizationName: z.string().min(2, "Organization name must be at least 2 characters"),
@@ -261,7 +252,6 @@ function persistSession(payload: unknown) {
 }
 
 export default function LoginPage() {
-  // Non-form state (preserved as-is)
   const [mode, setMode] = useState<Mode>("login");
   const [lang, setLang] = useState<Lang>("en");
   const [method, setMethod] = useState<AuthMethod>("email");
@@ -281,67 +271,46 @@ export default function LoginPage() {
   const t = useMemo(() => copy[lang], [lang]);
   const isBusy = Boolean(busyKey);
 
-  // React Hook Form instances
   const setupForm = useForm<SetupFieldsForm>({
     resolver: zodResolver(setupFieldsSchema),
     mode: "onBlur",
-    defaultValues: {
-      ownerName: "",
-      organizationName: "",
-      branchName: ""
-    }
+    defaultValues: { ownerName: "", organizationName: "", branchName: "" }
   });
 
   const emailLoginForm = useForm<EmailLoginForm>({
     resolver: zodResolver(emailLoginSchema),
     mode: "onBlur",
-    defaultValues: {
-      loginEmail: "",
-      loginPassword: ""
-    }
+    defaultValues: { loginEmail: "", loginPassword: "" }
   });
 
   const emailRegisterForm = useForm<EmailRegisterForm>({
     resolver: zodResolver(emailRegisterSchema),
     mode: "onBlur",
-    defaultValues: {
-      registerEmail: "",
-      registerPassword: "",
-      registerPhone: ""
-    }
+    defaultValues: { registerEmail: "", registerPassword: "", registerPhone: "" }
   });
 
   const googleRegisterForm = useForm<GoogleRegisterForm>({
     resolver: zodResolver(googleRegisterSchema),
     mode: "onBlur",
-    defaultValues: {
-      registerPhone: ""
-    }
+    defaultValues: { registerPhone: "" }
   });
 
   const phoneLoginForm = useForm<PhoneLoginForm>({
     resolver: zodResolver(phoneLoginSchema),
     mode: "onBlur",
-    defaultValues: {
-      loginPhone: ""
-    }
+    defaultValues: { loginPhone: "" }
   });
 
   const phoneRegisterForm = useForm<PhoneRegisterForm>({
     resolver: zodResolver(phoneRegisterSchema),
     mode: "onBlur",
-    defaultValues: {
-      registerPhone: "",
-      registerEmail: ""
-    }
+    defaultValues: { registerPhone: "", registerEmail: "" }
   });
 
   const otpVerifyForm = useForm<OtpVerifyForm>({
     resolver: zodResolver(otpVerifySchema),
     mode: "onBlur",
-    defaultValues: {
-      otpCode: ""
-    }
+    defaultValues: { otpCode: "" }
   });
 
   useEffect(() => {
@@ -359,7 +328,6 @@ export default function LoginPage() {
     };
   }, []);
 
-  // Countdown timer effect
   useEffect(() => {
     if (countdown > 0) {
       const timer = setInterval(() => {
@@ -396,9 +364,7 @@ export default function LoginPage() {
 
   function getRecaptcha(auth: Auth) {
     if (recaptchaRef.current) return recaptchaRef.current;
-    recaptchaRef.current = new RecaptchaVerifier(auth, recaptchaSlotId, {
-      size: "invisible"
-    });
+    recaptchaRef.current = new RecaptchaVerifier(auth, recaptchaSlotId, { size: "invisible" });
     return recaptchaRef.current;
   }
 
@@ -413,7 +379,6 @@ export default function LoginPage() {
     window.location.assign("/dashboard");
   }
 
-  // Email submit handler - refactored to use React Hook Form
   async function onEmailSubmit(data: EmailLoginForm | EmailRegisterForm) {
     setFeedback(null);
     setBusyKey("email");
@@ -437,7 +402,6 @@ export default function LoginPage() {
         return;
       }
 
-      // Register mode - validate setup fields first
       const setupValid = await setupForm.trigger();
       if (!setupValid) {
         setFeedback({ kind: "error", text: t.requiredSetupFields });
@@ -484,7 +448,6 @@ export default function LoginPage() {
     }
   }
 
-  // Google click handler - refactored to use React Hook Form
   async function onGoogleClick() {
     setFeedback(null);
     setBusyKey("google");
@@ -531,7 +494,6 @@ export default function LoginPage() {
     }
   }
 
-  // Send OTP handler - refactored to use React Hook Form
   async function onSendOtpClick() {
     setFeedback(null);
     setBusyKey("send-otp");
@@ -545,9 +507,7 @@ export default function LoginPage() {
         }
 
         const phoneValid = await phoneRegisterForm.trigger();
-        if (!phoneValid) {
-          return;
-        }
+        if (!phoneValid) return;
 
         const phoneData = phoneRegisterForm.getValues();
         if (!phoneData.registerEmail.trim()) {
@@ -568,9 +528,7 @@ export default function LoginPage() {
         setFeedback({ kind: "success", text: t.otpSent });
       } else {
         const phoneValid = await phoneLoginForm.trigger();
-        if (!phoneValid) {
-          return;
-        }
+        if (!phoneValid) return;
 
         const phoneData = phoneLoginForm.getValues();
         const phone = phoneData.loginPhone.trim();
@@ -587,21 +545,17 @@ export default function LoginPage() {
         setFeedback({ kind: "success", text: t.otpSent });
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : t.genericError;
-      setFeedback({ kind: "error", text: message });
+      setFeedback({ kind: "error", text: error instanceof Error ? error.message : t.genericError });
     } finally {
       setBusyKey(null);
     }
   }
 
-  // Verify OTP handler - refactored to use React Hook Form
   async function onVerifyOtpClick() {
     setFeedback(null);
 
     const otpValid = await otpVerifyForm.trigger();
-    if (!otpValid) {
-      return;
-    }
+    if (!otpValid) return;
 
     setBusyKey("verify-otp");
 
@@ -651,114 +605,165 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen flex flex-col lg:flex-row font-sans" dir={isArabic ? "rtl" : "ltr"}>
-      <section className="flex-1 flex flex-col items-center justify-center"> {/* Updated shell styling */}
-        <aside className="relative flex flex-col justify-between p-8 lg:w-1/2 xl:w-2/5 bg-primary text-primary-foreground">
-          <div className="space-y-4">
-            <p className="inline-flex items-center rounded-full border border-primary-foreground/20 bg-primary-foreground/10 px-3 py-1 text-sm font-medium">
-              {t.badge}
-            </p>
-            <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl">{t.title}</h1>
-            <p className="text-lg opacity-80">{t.subtitle}</p>
-            <p className="text-sm opacity-60">{t.ready}</p>
+      {/* Dark left panel */}
+      <aside
+        className="lg:w-1/2 bg-[#0a0a0a] text-white flex flex-col justify-between p-10 lg:p-16 border-b-2 border-[#2a2a2a] lg:border-b-0 lg:border-r-2 relative overflow-hidden"
+        style={{ backgroundImage: 'radial-gradient(#1d1d1d 1px, transparent 1px)', backgroundSize: '28px 28px' }}
+      >
+        {/* Oversized watermark */}
+        <div
+          aria-hidden="true"
+          className="absolute -bottom-12 -right-8 select-none pointer-events-none font-black text-[#e63946]"
+          style={{ fontSize: '20rem', lineHeight: 1, opacity: 0.045, letterSpacing: '-0.04em' }}
+        >
+          GF
+        </div>
+
+        <div className="relative z-10">
+          {/* Brand mark */}
+          <div className="flex items-center gap-2 mb-12">
+            <span style={{ background: '#e63946', color: '#fff', padding: '6px 9px', fontWeight: 800, fontSize: '0.75rem', lineHeight: 1 }}>GF</span>
+            <span className="font-bold text-white text-sm tracking-tight">GymFlow</span>
           </div>
 
-          <div className="flex flex-col gap-4 mt-8 lg:mt-0">
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                className={cn("w-16", { "bg-primary-foreground text-primary hover:text-primary": lang === "en" })}
+          {/* Red rule */}
+          <div className="h-[3px] w-12 bg-[#e63946] mb-8" />
+
+          <h1 className="font-black text-white mb-6 leading-[1.05]" style={{ fontSize: 'clamp(2.2rem, 4vw, 3.4rem)' }}>
+            {isArabic ? (
+              <>نظام إدارة الجيم<br />الذي لا يكون<br />عائقاً في طريقك.</>
+            ) : (
+              <>The gym OS<br />that stays<br />out of your way.</>
+            )}
+          </h1>
+          <p className="text-[#666666] text-sm leading-relaxed mb-10 max-w-xs">{t.subtitle}</p>
+
+          {/* Feature bullets */}
+          <div className="space-y-4">
+            {(isArabic ? [
+              "تسجيل دخول الأعضاء في ثوانٍ",
+              "اشتراكات ومدفوعات وتقارير فورية",
+              "اللغة العربية والإنجليزية مدمجتان",
+              "يعمل على الهاتف والكمبيوتر",
+            ] : [
+              "Member check-in in seconds",
+              "Subscriptions, payments & instant reports",
+              "Arabic & English built-in",
+              "Works on mobile and desktop",
+            ]).map((item) => (
+              <div key={item} className="flex items-start gap-4">
+                <span className="mt-1.5 h-4 w-1 bg-[#e63946] shrink-0" />
+                <span className="text-[#bbbbbb] text-sm leading-snug">{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="relative z-10">
+          {/* Stats row */}
+          <div className="flex gap-8 border-t-2 border-[#2a2a2a] pt-8 mb-8">
+            <div>
+              <p className="text-2xl font-black text-white">∞</p>
+              <p className="text-xs text-[#555555] mt-1">{isArabic ? "أعضاء بدون حد" : "Unlimited members"}</p>
+            </div>
+            <div>
+              <p className="text-2xl font-black text-white">2 min</p>
+              <p className="text-xs text-[#555555] mt-1">{isArabic ? "للبدء الفوري" : "To get started"}</p>
+            </div>
+            <div>
+              <p className="text-2xl font-black text-white">AR+EN</p>
+              <p className="text-xs text-[#555555] mt-1">{isArabic ? "ثنائي اللغة" : "Bilingual built-in"}</p>
+            </div>
+          </div>
+
+          {/* Language toggle + back link */}
+          <div className="flex items-center gap-4">
+            <div className="flex border-2 border-[#2a2a2a]">
+              <button
                 onClick={() => setLang("en")}
-                aria-pressed={lang === "en"}
+                className={`px-3 py-1.5 text-xs font-bold transition-colors ${lang === "en" ? "bg-[#e63946] text-white" : "bg-transparent text-[#888888] hover:text-white"}`}
               >
                 EN
-              </Button>
-              <Button
-                variant="secondary"
-                className={cn("w-16", { "bg-primary-foreground text-primary hover:text-primary": lang === "ar" })}
+              </button>
+              <button
                 onClick={() => setLang("ar")}
-                aria-pressed={lang === "ar"}
+                className={`px-3 py-1.5 text-xs font-bold transition-colors ${lang === "ar" ? "bg-[#e63946] text-white" : "bg-transparent text-[#888888] hover:text-white"}`}
               >
                 AR
-              </Button>
+              </button>
             </div>
-
-            <Button variant="link" asChild className="text-primary-foreground justify-start px-0">
-              <Link href="/">{t.backHome}</Link>
-            </Button>
+            <Link href="/" className="text-sm text-[#555555] hover:text-white transition-colors">
+              ← {t.backHome}
+            </Link>
           </div>
-        </aside>
+        </div>
+      </aside>
 
-        <section className="flex-1 flex items-center justify-center p-4 lg:p-8 bg-background">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <div className="flex border-b border-border pb-4 mb-4">
-                <Button
-                  variant={mode === "login" ? "default" : "ghost"}
-                  className="flex-1"
-                  onClick={() => {
-                    setMode("login");
-                    setFeedback(null);
-                  }}
-                >
-                  {t.signIn}
-                </Button>
-                <Button
-                  variant={mode === "register" ? "default" : "ghost"}
-                  className="flex-1"
-                  onClick={() => {
-                    setMode("register");
-                    setFeedback(null);
-                  }}
-                >
-                  {t.createAccount}
-                </Button>
-              </div>
+      {/* Light right panel */}
+      <section className="lg:w-1/2 flex items-start lg:items-center justify-center p-6 lg:p-12 bg-[#141414] overflow-y-auto">
+        <div className="w-full max-w-md">
+          {/* Red accent bar */}
+          <div className="h-1 bg-[#e63946]" />
+          <div
+            className="bg-[#1e1e1e] p-8"
+            style={{ border: '2px solid #2a2a2a', borderTop: 'none', boxShadow: '6px 6px 0 #000000' }}
+          >
+          {/* Mode tabs */}
+          <div className="flex mb-6">
+            <button
+              type="button"
+              onClick={() => { setMode("login"); setFeedback(null); }}
+              className={`flex-1 px-4 py-2.5 text-sm font-bold border-2 transition-colors ${
+                mode === "login"
+                  ? "bg-[#e63946] text-white border-[#e63946]"
+                  : "bg-[#1e1e1e] text-[#8a8578] border-[#2a2a2a] hover:border-[#e8e4df] hover:text-[#e8e4df]"
+              }`}
+            >
+              {t.signIn}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode("register"); setFeedback(null); }}
+              className={`flex-1 px-4 py-2.5 text-sm font-bold border-2 border-l-0 transition-colors ${
+                mode === "register"
+                  ? "bg-[#e63946] text-white border-[#e63946]"
+                  : "bg-[#1e1e1e] text-[#8a8578] border-[#2a2a2a] hover:border-[#e8e4df] hover:text-[#e8e4df]"
+              }`}
+            >
+              {t.createAccount}
+            </button>
+          </div>
 
-            <div className="flex justify-center gap-2">
-              <Button
-                variant={method === "email" ? "outline" : "ghost"}
-                onClick={() => {
-                  setMethod("email");
-                  setFeedback(null);
-                }}
+          {/* Auth method selector */}
+          <div className="flex gap-2 mb-6">
+            {(["email", "google", "phone"] as AuthMethod[]).map((m) => (
+              <button
+                type="button"
+                key={m}
+                onClick={() => { setMethod(m); setFeedback(null); }}
+                className={`flex-1 px-2 py-2 text-xs font-bold border-2 transition-colors ${
+                  method === m
+                    ? "border-[#e63946] text-[#e63946] bg-[#e63946]/5"
+                    : "border-[#2a2a2a] text-[#8a8578] hover:border-[#e63946] hover:text-[#e63946]"
+                }`}
               >
-                {t.methodEmail}
-              </Button>
-              <Button
-                variant={method === "google" ? "outline" : "ghost"}
-                onClick={() => {
-                  setMethod("google");
-                  setFeedback(null);
-                }}
-              >
-                {t.methodGoogle}
-              </Button>
-              <Button
-                variant={method === "phone" ? "outline" : "ghost"}
-                onClick={() => {
-                  setMethod("phone");
-                  setFeedback(null);
-                }}
-              >
-                {t.methodPhone}
-              </Button>
-            </div>
-          </CardHeader>
+                {m === "email" ? t.methodEmail : m === "google" ? t.methodGoogle : t.methodPhone}
+              </button>
+            ))}
+          </div>
 
-          <CardContent>
-
-            {mode === "register" && (
+          {/* Register setup fields */}
+          {mode === "register" && (
+            <>
               <Form {...setupForm}>
-                <form className="grid grid-cols-1 gap-4 mb-6">
+                <form onSubmit={e => e.preventDefault()} className="grid grid-cols-1 gap-4 mb-6">
                   <FormField
                     control={setupForm.control}
                     name="ownerName"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t.ownerName}</FormLabel>
-                        <FormControl>
-                          <Input type="text" {...field} autoComplete="name" />
-                        </FormControl>
+                        <FormControl><Input type="text" {...field} autoComplete="name" /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -769,9 +774,7 @@ export default function LoginPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t.organizationName}</FormLabel>
-                        <FormControl>
-                          <Input type="text" {...field} />
-                        </FormControl>
+                        <FormControl><Input type="text" {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -782,284 +785,247 @@ export default function LoginPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t.branchName}</FormLabel>
-                        <FormControl>
-                          <Input type="text" {...field} />
-                        </FormControl>
+                        <FormControl><Input type="text" {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </form>
-                <Separator className="mb-6" />
               </Form>
-            )}
+              <div className="border-t-2 border-[#2a2a2a] mb-6" />
+            </>
+          )}
 
-            {method === "email" && (
-              <Form {...(mode === "register" ? emailRegisterForm : emailLoginForm) as any}>
-                <form
-                  onSubmit={
-                    mode === "register"
-                      ? emailRegisterForm.handleSubmit(onEmailSubmit)
-                      : emailLoginForm.handleSubmit(onEmailSubmit)
-                  }
-                  className="space-y-4"
-                >
-                  {mode === "register" ? (
-                    <>
-                      <FormField
-                        control={emailRegisterForm.control}
-                        name="registerEmail"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{t.email}</FormLabel>
-                            <FormControl>
-                              <Input type="email" autoComplete="email" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={emailRegisterForm.control}
-                        name="registerPhone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{t.phone}</FormLabel>
-                            <FormControl>
-                              <Input type="tel" autoComplete="tel" placeholder="+15551234567" {...field} />
-                            </FormControl>
-                            <FormDescription>{t.phoneHint}</FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={emailRegisterForm.control}
-                        name="registerPassword"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{t.password}</FormLabel>
-                            <FormControl>
-                              <Input type="password" autoComplete="new-password" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <FormField
-                        control={emailLoginForm.control}
-                        name="loginEmail"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{t.email}</FormLabel>
-                            <FormControl>
-                              <Input type="email" autoComplete="email" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={emailLoginForm.control}
-                        name="loginPassword"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{t.password}</FormLabel>
-                            <FormControl>
-                              <Input type="password" autoComplete="current-password" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </>
-                  )}
-
-                  <Button type="submit" className="w-full" disabled={isBusy}>
-                    {busyKey === "email"
-                      ? mode === "login"
-                        ? `${t.signIn}...`
-                        : `${t.createAccount}...`
-                      : mode === "login"
-                        ? t.continueEmail
-                        : t.createAccount}
-                  </Button>
-
-                  {mode === "login" && (
-                    <Button variant="link" asChild className="w-full text-sm mt-2">
-                      <Link href="/forgot-password">{t.forgotPassword}</Link>
-                    </Button>
-                  )}
-                </form>
-              </Form>
-            )}
-
-            {method === "google" && (
-              <div className="space-y-4">
-                {mode === "register" && (
-                  <Form {...googleRegisterForm}>
-                    <form className="space-y-4">
-                      <FormField
-                        control={googleRegisterForm.control}
-                        name="registerPhone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{t.phone}</FormLabel>
-                            <FormControl>
-                              <Input type="tel" autoComplete="tel" placeholder="+15551234567" {...field} />
-                            </FormControl>
-                            <FormDescription>{t.phoneHint}</FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </form>
-                  </Form>
-                )}
-                <Button className="w-full" type="button" onClick={onGoogleClick} disabled={isBusy}>
-                  {busyKey === "google" ? `${t.googleContinue}...` : t.googleContinue}
-                </Button>
-              </div>
-            )}
-
-            {method === "phone" && (
-              <div className="space-y-4">
-                {/* Step Indicator */}
-                <div className="flex items-center justify-center mb-6 gap-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className={cn(
-                      "flex items-center justify-center h-8 w-8 rounded-full font-semibold",
-                      !otpSent ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                    )}>1</span>
-                    <span className={cn(
-                      "font-medium",
-                      !otpSent ? "text-foreground" : "text-muted-foreground"
-                    )}>
-                      {t.enter_phone_number || "Enter phone number"}
-                    </span>
-                  </div>
-
-                  <Separator orientation="horizontal" className="w-8" /> {/* Visual separator */}
-
-                  <div className="flex items-center gap-2">
-                    <span className={cn(
-                      "flex items-center justify-center h-8 w-8 rounded-full font-semibold",
-                      otpSent ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                    )}>2</span>
-                    <span className={cn(
-                      "font-medium",
-                      otpSent ? "text-foreground" : "text-muted-foreground"
-                    )}>
-                      {t.enter_verification_code || "Enter verification code"}
-                    </span>
-                  </div>
-                </div>
-
-                <Form {...(mode === "register" ? phoneRegisterForm : phoneLoginForm) as any}>
-                  <form onSubmit={e => e.preventDefault()} className="space-y-4">
+          {/* Email method */}
+          {method === "email" && (
+            <Form {...(mode === "register" ? emailRegisterForm : emailLoginForm) as any}>
+              <form
+                onSubmit={mode === "register"
+                  ? emailRegisterForm.handleSubmit(onEmailSubmit)
+                  : emailLoginForm.handleSubmit(onEmailSubmit)}
+                className="space-y-4"
+              >
+                {mode === "register" ? (
+                  <>
                     <FormField
-                      control={
-                        (mode === "register"
-                          ? phoneRegisterForm.control
-                          : phoneLoginForm.control) as any
-                      }
-                      name={
-                        (mode === "register" ? "registerPhone" : "loginPhone") as any
-                      }
+                      control={emailRegisterForm.control}
+                      name="registerEmail"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.email}</FormLabel>
+                          <FormControl><Input type="email" autoComplete="email" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={emailRegisterForm.control}
+                      name="registerPhone"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>{t.phone}</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="tel"
-                              autoComplete="tel"
-                              placeholder="+15551234567"
-                              {...field}
-                            />
-                          </FormControl>
+                          <FormControl><Input type="tel" autoComplete="tel" placeholder="+15551234567" {...field} /></FormControl>
                           <FormDescription>{t.phoneHint}</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    {mode === "register" && (
-                      <FormField
-                        control={phoneRegisterForm.control}
-                        name="registerEmail"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{t.recoveryEmail}</FormLabel>
-                            <FormControl>
-                              <Input type="email" autoComplete="email" {...field} />
-                            </FormControl>
-                            <FormDescription>{t.recoveryHint}</FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                    {mode === "login" && (
-                      <p className="text-sm text-muted-foreground mt-2">{t.phoneResetHint}</p>
-                    )}
+                    <FormField
+                      control={emailRegisterForm.control}
+                      name="registerPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.password}</FormLabel>
+                          <FormControl><Input type="password" autoComplete="new-password" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <FormField
+                      control={emailLoginForm.control}
+                      name="loginEmail"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.email}</FormLabel>
+                          <FormControl><Input type="email" autoComplete="email" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={emailLoginForm.control}
+                      name="loginPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.password}</FormLabel>
+                          <FormControl><Input type="password" autoComplete="current-password" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
+
+                <Button type="submit" className="w-full" disabled={isBusy}>
+                  {busyKey === "email"
+                    ? mode === "login" ? `${t.signIn}...` : `${t.createAccount}...`
+                    : mode === "login" ? t.continueEmail : t.createAccount}
+                </Button>
+
+                {mode === "login" && (
+                  <Link
+                    href="/forgot-password"
+                    className="block text-center text-sm text-[#888888] hover:text-[#e63946] transition-colors mt-2"
+                  >
+                    {t.forgotPassword}
+                  </Link>
+                )}
+              </form>
+            </Form>
+          )}
+
+          {/* Google method */}
+          {method === "google" && (
+            <div className="space-y-4">
+              {mode === "register" && (
+                <Form {...googleRegisterForm}>
+                  <form className="space-y-4">
+                    <FormField
+                      control={googleRegisterForm.control}
+                      name="registerPhone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.phone}</FormLabel>
+                          <FormControl><Input type="tel" autoComplete="tel" placeholder="+15551234567" {...field} /></FormControl>
+                          <FormDescription>{t.phoneHint}</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </form>
                 </Form>
+              )}
+              <Button className="w-full" type="button" onClick={onGoogleClick} disabled={isBusy}>
+                {busyKey === "google" ? `${t.googleContinue}...` : t.googleContinue}
+              </Button>
+            </div>
+          )}
 
-                {!otpSent ? (
-                  <Button className="w-full" type="button" onClick={onSendOtpClick} disabled={isBusy}>
-                    {busyKey === "send-otp" ? `${t.sendOtp}...` : t.sendOtp}
-                  </Button>
-                ) : (
-                  <Form {...otpVerifyForm}>
-                    <form onSubmit={otpVerifyForm.handleSubmit(onVerifyOtpClick)} className="space-y-4">
-                      <FormField
-                        control={otpVerifyForm.control}
-                        name="otpCode"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{t.otpCode}</FormLabel>
-                            <FormControl>
-                              <Input type="text" inputMode="numeric" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      {/* Countdown Timer / Resend Button */}
-                      <div className="text-center text-sm text-muted-foreground">
-                        {!canResend ? (
-                          <p>{`${t.resendCodeIn} ${countdown}s`}</p>
-                        ) : (
-                          <Button variant="link" onClick={onSendOtpClick} disabled={isBusy} className="p-0 h-auto">
-                            {t.resendCode}
-                          </Button>
-                        )}
-                      </div>
-
-                      <Button className="w-full" type="submit" disabled={isBusy}>
-                        {busyKey === "verify-otp" ? `${t.verifyOtp}...` : t.verifyOtp}
-                      </Button>
-                    </form>
-                  </Form>
-                )}
+          {/* Phone method */}
+          {method === "phone" && (
+            <div className="space-y-4">
+              {/* Step indicator — brutalist */}
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-2">
+                  <span className={`flex items-center justify-center h-7 w-7 text-xs font-bold border-2 ${!otpSent ? "border-[#e63946] text-[#e63946]" : "border-[#2a2a2a] text-[#888888]"}`}>
+                    1
+                  </span>
+                  <span className={`text-xs font-medium ${!otpSent ? "text-[#e8e4df]" : "text-[#888888]"}`}>
+                    {t.enter_phone_number}
+                  </span>
+                </div>
+                <div className="flex-1 border-t-2 border-[#2a2a2a]" />
+                <div className="flex items-center gap-2">
+                  <span className={`flex items-center justify-center h-7 w-7 text-xs font-bold border-2 ${otpSent ? "border-[#e63946] text-[#e63946]" : "border-[#2a2a2a] text-[#888888]"}`}>
+                    2
+                  </span>
+                  <span className={`text-xs font-medium ${otpSent ? "text-[#e8e4df]" : "text-[#888888]"}`}>
+                    {t.enter_verification_code}
+                  </span>
+                </div>
               </div>
-            )}
-            <div id={recaptchaSlotId} className="hidden" aria-hidden="true" /> {/* Hide recaptcha container visually */}
 
-            {feedback && (
-              <Alert variant={feedback.kind === "error" ? "destructive" : "success"} className="mt-6">
-                {feedback.kind === "error" ? <Terminal className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-                <AlertTitle>{feedback.kind === "error" ? t.errorTitle : t.successTitle}</AlertTitle>
-                <AlertDescription>{feedback.text}</AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
+              <Form {...(mode === "register" ? phoneRegisterForm : phoneLoginForm) as any}>
+                <form onSubmit={e => e.preventDefault()} className="space-y-4">
+                  <FormField
+                    control={(mode === "register" ? phoneRegisterForm.control : phoneLoginForm.control) as any}
+                    name={(mode === "register" ? "registerPhone" : "loginPhone") as any}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.phone}</FormLabel>
+                        <FormControl>
+                          <Input type="tel" autoComplete="tel" placeholder="+15551234567" {...field} />
+                        </FormControl>
+                        <FormDescription>{t.phoneHint}</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  {mode === "register" && (
+                    <FormField
+                      control={phoneRegisterForm.control}
+                      name="registerEmail"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.recoveryEmail}</FormLabel>
+                          <FormControl><Input type="email" autoComplete="email" {...field} /></FormControl>
+                          <FormDescription>{t.recoveryHint}</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                  {mode === "login" && (
+                    <p className="text-sm text-[#888888] mt-2">{t.phoneResetHint}</p>
+                  )}
+                </form>
+              </Form>
+
+              {!otpSent ? (
+                <Button className="w-full" type="button" onClick={onSendOtpClick} disabled={isBusy}>
+                  {busyKey === "send-otp" ? `${t.sendOtp}...` : t.sendOtp}
+                </Button>
+              ) : (
+                <Form {...otpVerifyForm}>
+                  <form onSubmit={otpVerifyForm.handleSubmit(onVerifyOtpClick)} className="space-y-4">
+                    <FormField
+                      control={otpVerifyForm.control}
+                      name="otpCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.otpCode}</FormLabel>
+                          <FormControl><Input type="text" inputMode="numeric" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="text-center text-sm text-[#888888]">
+                      {!canResend ? (
+                        <p>{`${t.resendCodeIn} ${countdown}s`}</p>
+                      ) : (
+                        <button
+                          onClick={onSendOtpClick}
+                          disabled={isBusy}
+                          className="text-[#e63946] hover:underline font-medium"
+                        >
+                          {t.resendCode}
+                        </button>
+                      )}
+                    </div>
+                    <Button className="w-full" type="submit" disabled={isBusy}>
+                      {busyKey === "verify-otp" ? `${t.verifyOtp}...` : t.verifyOtp}
+                    </Button>
+                  </form>
+                </Form>
+              )}
+            </div>
+          )}
+
+          <div id={recaptchaSlotId} className="hidden" aria-hidden="true" />
+
+          {feedback && (
+            <Alert variant={feedback.kind === "error" ? "destructive" : "success"} className="mt-6">
+              {feedback.kind === "error" ? <Terminal className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+              <AlertTitle>{feedback.kind === "error" ? t.errorTitle : t.successTitle}</AlertTitle>
+              <AlertDescription>{feedback.text}</AlertDescription>
+            </Alert>
+          )}
+        </div>
+        </div>
       </section>
-    </section>
     </main>
   );
 }

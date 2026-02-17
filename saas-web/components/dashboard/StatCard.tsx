@@ -9,7 +9,7 @@ type Props = {
 
 export default function StatCard({ label, value, subtitle, color = 'text-brand' }: Props) {
   return (
-    <div className="rounded-xl border border-border bg-surface-card p-5">
+    <div className="border-2 border-[#2a2a2a] bg-card p-5 shadow-[6px_6px_0_#000000]">
       {/* Small label on top */}
       <p className="text-sm text-[#8892a8] mb-1">{label}</p>
       {/* Big value */}

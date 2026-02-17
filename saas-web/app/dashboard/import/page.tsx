@@ -31,7 +31,7 @@ function StepIndicator({ current }: { current: number }) {
           <div className="flex flex-col items-center gap-1">
             <div
               className={cn(
-                "w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold",
+                "w-8 h-8 md:w-10 md:h-10 flex items-center justify-center font-bold border-2 border-[#2a2a2a]",
                 step.num <= current
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground"
@@ -358,7 +358,7 @@ export default function ImportPage() {
                     <AlertDescription>
                       {labels.import_successful_description}
                       {result.result && (
-                        <pre className="mt-2 text-xs p-2 rounded-md bg-secondary text-secondary-foreground overflow-auto max-h-48">
+                        <pre className="mt-2 text-xs p-2 bg-secondary text-secondary-foreground overflow-auto max-h-48 border-2 border-[#2a2a2a]">
                           {JSON.stringify(result.result as Record<string, unknown>, null, 2)}
                         </pre>
                       )}
@@ -371,7 +371,7 @@ export default function ImportPage() {
                     <AlertDescription>
                       {labels.import_failed_description}
                       {result.result && (
-                        <pre className="mt-2 text-xs p-2 rounded-md bg-secondary text-secondary-foreground overflow-auto max-h-48">
+                        <pre className="mt-2 text-xs p-2 bg-secondary text-secondary-foreground overflow-auto max-h-48 border-2 border-[#2a2a2a]">
                           {JSON.stringify(result.result as Record<string, unknown>, null, 2)}
                         </pre>
                       )}

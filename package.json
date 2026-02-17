@@ -1,39 +1,88 @@
 {
   "name": "gymflow",
-  "version": "1.0.9",
+  "version": "1.0.0",
   "description": "Gym membership management system with QR check-in and WhatsApp automation",
   "main": "./out/main/index.js",
   "author": "GymFlow",
   "license": "MIT",
-  "build": {
-    "appId": "com.gymflow",
-    "productName": "gymflow",
-    "files": [
-      "out/**/*",
-      "node_modules/**/*",
-      "package.json"
-    ],
-    "win": {
-      "target": "nsis"
-    },
-    "nsis": {
-      "oneClick": true,
-      "perMachine": false,
-      "artifactName": "${name}-${version}-setup.${ext}",
-      "include": "resources/installer.nsh"
-    }
+  "scripts": {
+    "dev": "npm run rebuild:electron && (unset ELECTRON_RUN_AS_NODE; export ELECTRON_EXEC_PATH=\"$(node -p 'require(\"electron\")')\"; electron-vite dev)",
+    "build": "electron-vite build",
+    "postinstall": "electron-builder install-app-deps",
+    "build:unpack": "npm run build && electron-builder --dir",
+    "build:win": "npm run build && electron-builder --win",
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:linux": "npm run build && electron-builder --linux",
+    "test": "npm run rebuild:node && vitest",
+    "test:run": "vitest run",
+    "test:watch": "vitest --watch",
+    "test:watch:fs": "node scripts/watch-tests.mjs",
+    "lint": "eslint . --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit",
+    "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
+    "rebuild:node": "npm rebuild better-sqlite3 --build-from-source"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.7.0",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
     "i18next": "^24.2.2",
-    "next-themes": "^0.4.6",
+    "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
     "react-i18next": "^15.4.0",
     "react-router-dom": "^7.1.1",
+    "tailwind-merge": "^2.6.0",
     "uuid": "^11.0.5",
     "whatsapp-web.js": "^1.26.0",
     "xlsx": "^0.18.5",
     "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/tsconfig": "^2.0.0",
+    "@electron-toolkit/utils": "^3.0.0",
+    "@electron/rebuild": "^3.7.1",
+    "@headlessui/react": "^2.2.0",
+    "@heroicons/react": "^2.2.0",
+    "@radix-ui/react-checkbox": "^1.1.2",
+    "@radix-ui/react-dialog": "^1.1.2",
+    "@radix-ui/react-label": "^2.1.0",
+    "@radix-ui/react-select": "^2.1.2",
+    "@radix-ui/react-switch": "^1.1.2",
+    "@radix-ui/react-tabs": "^1.1.1",
+    "@radix-ui/react-tooltip": "^1.1.4",
+    "@tailwindcss/forms": "^0.5.10",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.7",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.21.0",
+    "@typescript-eslint/parser": "^8.21.0",
+    "@vitejs/plugin-react-swc": "^3.7.1",
+    "autoprefixer": "^10.4.20",
+    "electron": "^34.5.8",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "eslint": "^9.18.0",
+    "eslint-plugin-react": "^7.37.4",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^3.4.17",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "^5.7.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
+  },
+  "vitest": {
+    "test": {
+      "exclude": [
+        "**/.backups/**",
+        "**/dist/**",
+        "**/out/**",
+        "**/node_modules/**"
+      ]
+    }
   }
 }

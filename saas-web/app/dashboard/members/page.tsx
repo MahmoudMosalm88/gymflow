@@ -133,7 +133,7 @@ export default function MembersPage() {
       {loading ? (
         <LoadingSpinner />
       ) : (
-        <div className="rounded-md border">
+        <div className="border-2 border-[#2a2a2a]">
           <Table>
             <TableHeader>
               <TableRow>

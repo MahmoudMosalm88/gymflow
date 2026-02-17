@@ -241,7 +241,7 @@ function WhatsAppTab() {
           <div className="flex flex-col items-center justify-center space-y-3">
             <p className="text-muted-foreground">{labels.scan_qr_code}</p>
             {/* Using a placeholder for QR code image */}
-            <img src={`data:image/png;base64,${status.qrCode}`} alt="WhatsApp QR Code" className="h-48 w-48 border border-border rounded-md" />
+            <img src={`data:image/png;base64,${status.qrCode}`} alt="WhatsApp QR Code" className="h-48 w-48 border-2 border-[#2a2a2a]" />
             <p className="text-sm text-muted-foreground">{labels.scan_qr_instructions}</p>
           </div>
         )}

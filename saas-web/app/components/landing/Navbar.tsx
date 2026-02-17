@@ -8,7 +8,6 @@ interface NavbarProps {
   setLang: (lang: 'en' | 'ar') => void;
   t: {
     navFeatures: string;
-    navPricing: string;
     navFaq: string;
     navCta: string;
   };
@@ -26,7 +25,6 @@ export default function Navbar({ lang, setLang, t }: NavbarProps) {
 
         <nav className={styles.navLinks} aria-label={isArabic ? 'روابط التنقل' : 'Navigation'}>
           <a href="#features" className={styles.navLink}>{t.navFeatures}</a>
-          <a href="#pricing" className={styles.navLink}>{t.navPricing}</a>
           <a href="#faq" className={styles.navLink}>{t.navFaq}</a>
         </nav>
 

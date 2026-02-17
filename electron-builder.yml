@@ -1,0 +1,56 @@
+appId: com.gymflow.app
+productName: GymFlow
+directories:
+  buildResources: build
+  output: dist
+extraResources:
+  - from: ../Docs/spreadsheet.xlsx
+    to: Docs/spreadsheet.xlsx
+files:
+  - '!**/.vscode/*'
+  - '!**/.wwebjs_auth/**'
+  - '!src/*'
+  - '!electron.vite.config.*'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+asarUnpack:
+  - resources/**
+  - node_modules/better-sqlite3/**
+win:
+  executableName: GymFlow
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+mac:
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    - NSCameraUsageDescription: GymFlow needs camera access to capture member photos
+    - NSMicrophoneUsageDescription: GymFlow may need microphone access
+  notarize: false
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+dmg:
+  artifactName: ${name}-${version}.${ext}
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  maintainer: GymFlow
+  category: Utility
+appImage:
+  artifactName: ${name}-${version}.${ext}
+npmRebuild: true
+publish:
+  provider: generic
+  url: https://example.com/

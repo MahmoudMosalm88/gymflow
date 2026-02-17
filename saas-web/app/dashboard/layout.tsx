@@ -29,7 +29,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Show spinner while auth is loading
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-surface">
+      <div className="flex h-screen items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -37,7 +37,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <LangContext.Provider value={{ lang, setLang }}>
-      <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="flex h-screen bg-surface text-[#f3f6ff]">
+      <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="flex h-screen bg-background text-foreground">
         {/* Sidebar */}
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
