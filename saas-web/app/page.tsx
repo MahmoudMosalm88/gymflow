@@ -1,6 +1,5 @@
 "use client";
 
-import { Plus_Jakarta_Sans, Tajawal } from "next/font/google";
 import { useMemo, useState } from "react";
 import styles from "./landing.module.css";
 import Navbar from "./components/landing/Navbar";
@@ -8,23 +7,12 @@ import Hero from "./components/landing/Hero";
 import Features from "./components/landing/Features";
 import CTA from "./components/landing/CTA";
 
-const latinFont = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800"]
-});
-
-const arabicFont = Tajawal({
-  subsets: ["arabic"],
-  weight: ["500", "700", "800"]
-});
-
 type Lang = "en" | "ar";
 
 const copy = {
   en: {
     navFeatures: "Features",
-    navSecurity: "Security",
-    navFlow: "How it works",
+    navCta: "Get started",
     badge: "GymFlow SaaS",
     title: "Run your gym in one clear, simple flow.",
     subtitle:
@@ -65,8 +53,7 @@ const copy = {
   },
   ar: {
     navFeatures: "المزايا",
-    navSecurity: "الأمان",
-    navFlow: "طريقة العمل",
+    navCta: "ابدأ الآن",
     badge: "GymFlow SaaS",
     title: "إدارة الجيم بالكامل في تدفق واضح وسهل.",
     subtitle:
@@ -111,7 +98,7 @@ export default function HomePage() {
   const t = useMemo(() => copy[lang], [lang]);
 
   return (
-    <main className={`${styles.page} ${isArabic ? arabicFont.className : latinFont.className}`} dir={isArabic ? "rtl" : "ltr"}>
+    <main className={`${styles.page} ${isArabic ? 'font-arabic' : 'font-sans'}`} dir={isArabic ? "rtl" : "ltr"}>
       <div className={styles.backdrop} aria-hidden="true" />
       <Navbar lang={lang} setLang={setLang} t={t} />
       <Hero t={t} isArabic={isArabic} />

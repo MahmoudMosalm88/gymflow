@@ -67,7 +67,12 @@ module.exports = {
   				'3': 'hsl(var(--chart-3))',
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
-  			}
+  			},
+  			brand: {
+  				DEFAULT: 'hsl(var(--primary))',
+  				foreground: 'hsl(var(--primary-foreground))'
+  			},
+  			surface: 'hsl(var(--card))'
   		},
   		borderRadius: {
   			lg: 'var(--radius)',
@@ -76,11 +81,13 @@ module.exports = {
   		},
   		fontFamily: {
   			sans: [
+  				'var(--font-sans)',
   				'IBM Plex Sans',
   				'sans-serif'
   			],
   			arabic: [
-  				'IBM Plex Arabic',
+  				'var(--font-arabic)',
+  				'IBM Plex Sans Arabic',
   				'sans-serif'
   			]
   		},

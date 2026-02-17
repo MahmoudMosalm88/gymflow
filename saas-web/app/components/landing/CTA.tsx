@@ -13,7 +13,7 @@ interface CTAProps {
 
 export default function CTA({ t }: CTAProps) {
   return (
-    <section id="security" className={styles.finalSection}>
+    <section id="cta" className={styles.finalSection}>
       <h2>{t.finalTitle}</h2>
       <p>{t.finalSubtitle}</p>
       <Link href="/login?mode=register" className={styles.primaryCta}>

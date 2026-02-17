@@ -107,10 +107,10 @@ export default function Sidebar({ open, onClose }: Props) {
             className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
               active
                 ? 'border-l-[3px] border-brand text-brand bg-brand/10'
-                : 'border-l-[3px] border-transparent text-[#8892a8] hover:text-[#f3f6ff] hover:bg-white/5'
+                : 'border-l-[3px] border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
             }`}
           >
-            <span className={active ? 'text-brand' : 'text-[#8892a8]'}>{item.icon}</span>
+            <span className={active ? 'text-brand' : 'text-muted-foreground'}>{item.icon}</span>
             {t[lang][item.key]}
           </Link>
         );
@@ -127,7 +127,7 @@ export default function Sidebar({ open, onClose }: Props) {
 
       {/* Sidebar panel */}
       <aside
-        className={`fixed top-0 left-0 z-50 h-full w-64 bg-[#0c1324] border-r border-border flex flex-col transition-transform lg:static lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-50 h-full w-64 bg-card border-r border-border flex flex-col transition-transform lg:static lg:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

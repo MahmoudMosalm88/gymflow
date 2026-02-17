@@ -7,8 +7,7 @@ interface NavbarProps {
   setLang: (lang: 'en' | 'ar') => void;
   t: {
     navFeatures: string;
-    navSecurity: string;
-    navFlow: string;
+    navCta: string;
   };
 }
 
@@ -23,8 +22,7 @@ export default function Navbar({ lang, setLang, t }: NavbarProps) {
       </div>
       <nav className={styles.navLinks} aria-label={isArabic ? 'روابط التنقل' : 'Navigation links'}>
         <a href="#features">{t.navFeatures}</a>
-        <a href="#security">{t.navSecurity}</a>
-        <a href="#flow">{t.navFlow}</a>
+        <a href="#cta">{t.navCta}</a>
       </nav>
       <div className={styles.languageSwitch} role="group" aria-label={isArabic ? 'تبديل اللغة' : 'Language switch'}>
         <button

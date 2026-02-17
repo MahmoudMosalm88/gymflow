@@ -146,18 +146,36 @@ export default function ReportsPage() {
       {/* Page title */}
       <h1 className="text-3xl font-bold">{labels.reports}</h1>
 
-      {/* Tab navigation */}
+      {/* Tab navigation — grouped by category */}
       <Card>
-        <CardContent className="p-4 flex flex-wrap gap-2">
-          {TABS.map((tItem) => (
-            <Button
-              key={tItem.key}
-              onClick={() => setTab(tItem.key)}
-              variant={tab === tItem.key ? 'default' : 'outline'}
-              className="text-sm"
-            >
-              {tItem.label[lang]}
-            </Button>
+        <CardContent className="p-4 flex flex-col gap-4">
+          {[
+            { label: { en: 'Overview', ar: 'نظرة عامة' }, tabs: ['overview'] },
+            { label: { en: 'Attendance', ar: 'الحضور' }, tabs: ['member-attendance-trends', 'daily-stats', 'hourly', 'peak-hours-capacity-utilization'] },
+            { label: { en: 'Members', ar: 'الأعضاء' }, tabs: ['top-members', 'expiring-subs', 'low-sessions'] },
+            { label: { en: 'Revenue', ar: 'الإيرادات' }, tabs: ['detailed-revenue-breakdown', 'outstanding-payments-debtors'] },
+            { label: { en: 'Access Control', ar: 'التحكم بالدخول' }, tabs: ['denial-reasons', 'denied-entries'] },
+          ].map((group) => (
+            <div key={group.label.en}>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                {group.label[lang]}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {group.tabs.map((key) => {
+                  const tItem = TABS.find(t => t.key === key)!;
+                  return (
+                    <Button
+                      key={key}
+                      onClick={() => setTab(key as TabKey)}
+                      variant={tab === key ? 'default' : 'outline'}
+                      className="text-sm"
+                    >
+                      {tItem.label[lang]}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
           ))}
         </CardContent>
       </Card>
