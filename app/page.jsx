@@ -88,7 +88,7 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-white dark:bg-slate-950 text-text-primary dark:text-white transition-colors duration-300">
+    <div className="flex flex-col min-h-screen bg-background text-foreground transition-colors duration-300">
       <Navbar />
       <Hero downloads={downloads} preferredOS={preferredOS} />
       <Stats />

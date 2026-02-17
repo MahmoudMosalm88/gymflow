@@ -1,34 +1,62 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Terminal, Check, CircleDotIcon, CircleDashedIcon } from 'lucide-react'; // Icons for Alert and steps
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+
+
 // --- Step indicator: three circles connected by lines ---
 function StepIndicator({ current }: { current: number }) {
-  const steps = [1, 2, 3];
+  const { lang } = useLang();
+  const steps = [
+    { num: 1, label: t[lang].upload_file },
+    { num: 2, label: t[lang].validate_data },
+    { num: 3, label: t[lang].execute_import },
+  ];
+
   return (
-    <div className="flex items-center justify-center gap-0 mb-10">
-      {steps.map((s, i) => (
-        <div key={s} className="flex items-center">
-          {/* Circle */}
-          <div
-            className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold
-              ${s <= current
-                ? 'bg-[#FF8C00] text-white'            /* completed or current */
-                : 'bg-gray-700 text-gray-400'           /* pending */
-              }`}
-          >
-            {s}
+    <div className="flex items-center justify-center gap-2 mb-10 text-sm md:text-base">
+      {steps.map((step, i) => (
+        <React.Fragment key={step.num}>
+          <div className="flex flex-col items-center gap-1">
+            <div
+              className={cn(
+                "w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold",
+                step.num <= current
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
+              )}
+            >
+              {step.num}
+            </div>
+            <span className={cn(
+                "text-xs md:text-sm mt-1",
+                step.num <= current ? "text-foreground" : "text-muted-foreground"
+            )}>
+                {step.label}
+            </span>
           </div>
           {/* Connecting line (skip after last) */}
           {i < steps.length - 1 && (
-            <div
-              className={`w-16 h-1 ${s < current ? 'bg-[#FF8C00]' : 'bg-gray-700'}`}
+            <Separator
+              orientation="horizontal"
+              className={cn(
+                "w-12 md:w-16 h-0.5",
+                step.num < current ? "bg-primary" : "bg-muted"
+              )}
             />
           )}
-        </div>
+        </React.Fragment>
       ))}
     </div>
   );
@@ -39,6 +67,7 @@ type UploadResult = { id: string; file_name: string; status: string; created_at:
 type ValidateResult = { schemaVersion: string; members: number; subscriptions: number; isValid: boolean };
 type ExecuteResult = { jobId: string; status: string; report: Record<string, unknown> };
 type StatusResult = { id: string; type: string; status: string; payload: Record<string, unknown>; result: Record<string, unknown> | null; started_at: string; finished_at: string };
+
 
 export default function ImportPage() {
   const { lang } = useLang();
@@ -67,7 +96,7 @@ export default function ImportPage() {
   async function handleUpload() {
     setError('');
     const file = fileRef.current?.files?.[0];
-    if (!file) { setError('Please select a .json file.'); return; }
+    if (!file) { setError(labels.select_json_file); return; }
 
     setUploading(true);
     try {
@@ -77,7 +106,7 @@ export default function ImportPage() {
       try {
         payload = JSON.parse(text);
       } catch {
-        setError('File is not valid JSON.');
+        setError(labels.file_not_valid_json);
         setUploading(false);
         return;
       }
@@ -89,7 +118,7 @@ export default function ImportPage() {
       });
 
       if (!res.success || !res.data) {
-        setError(res.message || 'Upload failed.');
+        setError(res.message || labels.upload_failed);
         setUploading(false);
         return;
       }
@@ -97,7 +126,7 @@ export default function ImportPage() {
       setArtifactId(res.data.id);
       setStep(2); // advance to validation
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Upload failed.');
+      setError(e instanceof Error ? e.message : labels.upload_failed);
     } finally {
       setUploading(false);
     }
@@ -115,12 +144,12 @@ export default function ImportPage() {
         const res = await api.post<ValidateResult>('/api/migration/validate', { artifactId });
         if (cancelled) return;
         if (!res.success || !res.data) {
-          setError(res.message || 'Validation failed.');
+          setError(res.message || labels.validation_failed);
         } else {
           setValidation(res.data);
         }
       } catch (e: unknown) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Validation failed.');
+        if (!cancelled) setError(e instanceof Error ? e.message : labels.validation_failed);
       } finally {
         if (!cancelled) setValidating(false);
       }
@@ -128,17 +157,17 @@ export default function ImportPage() {
 
     validate();
     return () => { cancelled = true; };
-  }, [step, artifactId]);
+  }, [step, artifactId, labels.validation_failed]);
 
   // --- Step 3: Execute import ---
-  async function handleExecute() {
+  const handleExecute = useCallback(async () => {
     setShowConfirm(false);
     setExecuting(true);
     setError('');
     try {
       const res = await api.post<ExecuteResult>('/api/migration/execute', { artifactId });
       if (!res.success || !res.data) {
-        setError(res.message || 'Execution failed.');
+        setError(res.message || labels.execution_failed);
         setExecuting(false);
         return;
       }
@@ -156,209 +185,210 @@ export default function ImportPage() {
       };
       poll();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Execution failed.');
+      setError(e instanceof Error ? e.message : labels.execution_failed);
       setExecuting(false);
     }
-  }
+  }, [artifactId, labels.execution_failed]);
+
 
   return (
-    <div className="max-w-2xl mx-auto py-10 px-4">
+    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 max-w-2xl mx-auto">
       {/* Page title */}
-      <h1 className="text-2xl font-bold text-[#f3f6ff] mb-2">{labels.import}</h1>
-      <p className="text-gray-400 mb-8 text-sm">
-        {lang === 'ar' ? 'استيراد بيانات من ملف JSON' : 'Import data from a JSON file'}
-      </p>
+      <h1 className="text-3xl font-bold">{labels.import_data}</h1>
+      <CardDescription className="text-lg">
+        {labels.import_data_description}
+      </CardDescription>
 
       <StepIndicator current={step} />
 
-      {/* Error banner */}
+      {/* Error Alert */}
       {error && (
-        <div className="bg-red-900/40 border border-red-500/50 text-red-300 rounded-lg px-4 py-3 mb-6 text-sm">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>{labels.error_title}</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {/* ============ STEP 1: Upload ============ */}
       {step === 1 && (
-        <div className="bg-[#111827] rounded-xl p-6 border border-gray-800">
-          <h2 className="text-lg font-semibold text-[#f3f6ff] mb-4">
-            {lang === 'ar' ? 'رفع الملف' : 'Upload File'}
-          </h2>
-
-          {/* File input */}
-          <label className="block mb-4">
-            <span className="text-gray-400 text-sm mb-1 block">
-              {lang === 'ar' ? 'اختر ملف .json' : 'Select a .json file'}
-            </span>
-            <input
+        <Card>
+          <CardHeader>
+            <CardTitle>{labels.upload_file}</CardTitle>
+            <CardDescription>{labels.upload_file_description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* File input */}
+            <Label htmlFor="json-file-input">{labels.select_json_file}</Label>
+            <Input
+              id="json-file-input"
               ref={fileRef}
               type="file"
               accept=".json"
               onChange={(e) => setFileName(e.target.files?.[0]?.name || '')}
-              className="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4
-                file:rounded-lg file:border-0 file:bg-[#FF8C00] file:text-white file:font-medium
-                file:cursor-pointer hover:file:bg-[#e07b00] cursor-pointer"
+              className="mt-1"
             />
-          </label>
+            {fileName && (
+              <p className="text-sm text-muted-foreground">{fileName}</p>
+            )}
 
-          {fileName && (
-            <p className="text-gray-400 text-sm mb-4">{fileName}</p>
-          )}
-
-          <button
-            onClick={handleUpload}
-            disabled={uploading || !fileName}
-            className="bg-[#FF8C00] hover:bg-[#e07b00] disabled:opacity-40 disabled:cursor-not-allowed
-              text-white font-medium rounded-lg px-6 py-2.5 text-sm transition-colors"
-          >
-            {uploading
-              ? (lang === 'ar' ? 'جاري الرفع...' : 'Uploading...')
-              : (lang === 'ar' ? 'رفع' : 'Upload')}
-          </button>
-        </div>
+            <Button
+              onClick={handleUpload}
+              disabled={uploading || !fileName}
+            >
+              {uploading ? labels.uploading : labels.upload}
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* ============ STEP 2: Validate ============ */}
       {step === 2 && (
-        <div className="bg-[#111827] rounded-xl p-6 border border-gray-800">
-          <h2 className="text-lg font-semibold text-[#f3f6ff] mb-4">
-            {lang === 'ar' ? 'التحقق من البيانات' : 'Validation'}
-          </h2>
+        <Card>
+          <CardHeader>
+            <CardTitle>{labels.validate_data}</CardTitle>
+            <CardDescription>{labels.validate_data_description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {validating && <LoadingSpinner />}
 
-          {validating && <LoadingSpinner />}
-
-          {!validating && validation && (
-            <div className="space-y-3 mb-6">
-              <Row label={lang === 'ar' ? 'إصدار المخطط' : 'Schema Version'} value={validation.schemaVersion} />
-              <Row label={lang === 'ar' ? 'الأعضاء' : 'Members'} value={String(validation.members)} />
-              <Row label={lang === 'ar' ? 'الاشتراكات' : 'Subscriptions'} value={String(validation.subscriptions)} />
-              <Row
-                label={labels.status}
-                value={validation.isValid
-                  ? (lang === 'ar' ? 'صالح ✓' : 'Valid ✓')
-                  : (lang === 'ar' ? 'غير صالح ✗' : 'Invalid ✗')}
-                color={validation.isValid ? 'text-green-400' : 'text-red-400'}
-              />
-            </div>
-          )}
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => { setStep(1); setValidation(null); setError(''); }}
-              className="border border-gray-600 text-gray-300 hover:bg-gray-800
-                rounded-lg px-5 py-2.5 text-sm transition-colors"
-            >
-              {labels.back}
-            </button>
-            {validation?.isValid && (
-              <button
-                onClick={() => setStep(3)}
-                className="bg-[#FF8C00] hover:bg-[#e07b00] text-white font-medium
-                  rounded-lg px-6 py-2.5 text-sm transition-colors"
-              >
-                {lang === 'ar' ? 'متابعة' : 'Continue'}
-              </button>
+            {!validating && validation && (
+              <div className="space-y-3 mb-6">
+                <Row label={labels.schema_version} value={validation.schemaVersion} />
+                <Row label={labels.members_count} value={String(validation.members)} />
+                <Row label={labels.subscriptions_count} value={String(validation.subscriptions)} />
+                <Row
+                  label={labels.status}
+                  value={validation.isValid
+                    ? labels.valid + ' ✓'
+                    : labels.invalid + ' ✗'}
+                  color={validation.isValid ? 'text-success' : 'text-destructive'}
+                />
+              </div>
             )}
-          </div>
-        </div>
+
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => { setStep(1); setValidation(null); setError(''); }}
+              >
+                {labels.back}
+              </Button>
+              {validation?.isValid && (
+                <Button
+                  onClick={() => setStep(3)}
+                >
+                  {labels.continue}
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* ============ STEP 3: Execute ============ */}
       {step === 3 && (
-        <div className="bg-[#111827] rounded-xl p-6 border border-gray-800">
-          <h2 className="text-lg font-semibold text-[#f3f6ff] mb-4">
-            {lang === 'ar' ? 'تنفيذ الاستيراد' : 'Execute Import'}
-          </h2>
-
-          {/* Before execution: confirm dialog */}
-          {!executing && !result && !showConfirm && (
-            <>
-              <p className="text-gray-400 text-sm mb-6">
-                {lang === 'ar'
-                  ? 'عند التنفيذ سيتم استبدال البيانات الحالية. هل أنت متأكد؟'
-                  : 'This will replace all existing data. Are you sure you want to proceed?'}
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => { setStep(2); setError(''); }}
-                  className="border border-gray-600 text-gray-300 hover:bg-gray-800
-                    rounded-lg px-5 py-2.5 text-sm transition-colors"
-                >
-                  {labels.back}
-                </button>
-                <button
-                  onClick={() => setShowConfirm(true)}
-                  className="bg-[#FF8C00] hover:bg-[#e07b00] text-white font-medium
-                    rounded-lg px-6 py-2.5 text-sm transition-colors"
-                >
-                  {lang === 'ar' ? 'تنفيذ الاستيراد' : 'Execute Import'}
-                </button>
-              </div>
-            </>
-          )}
-
-          {/* Confirmation overlay */}
-          {showConfirm && (
-            <div className="bg-red-900/30 border border-red-500/40 rounded-lg p-4 mb-4">
-              <p className="text-red-300 text-sm font-medium mb-4">
-                {lang === 'ar'
-                  ? '⚠ تحذير: سيتم استبدال جميع البيانات الحالية. لا يمكن التراجع.'
-                  : '⚠ Warning: All existing data will be replaced. This cannot be undone.'}
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowConfirm(false)}
-                  className="border border-gray-600 text-gray-300 hover:bg-gray-800
-                    rounded-lg px-5 py-2.5 text-sm transition-colors"
-                >
-                  {labels.cancel}
-                </button>
-                <button
-                  onClick={handleExecute}
-                  className="bg-red-600 hover:bg-red-700 text-white font-medium
-                    rounded-lg px-6 py-2.5 text-sm transition-colors"
-                >
-                  {labels.confirm}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Executing spinner */}
-          {executing && <LoadingSpinner />}
-
-          {/* Result */}
-          {result && (
-            <div className="space-y-4">
-              {result.status === 'completed' ? (
-                <div className="bg-green-900/30 border border-green-500/40 rounded-lg p-4">
-                  <p className="text-green-400 font-medium mb-2">
-                    {lang === 'ar' ? 'تم الاستيراد بنجاح' : 'Import completed successfully'}
-                  </p>
-                  {result.result && (
-                    <pre className="text-gray-300 text-xs overflow-auto max-h-48">
-                      {JSON.stringify(result.result as Record<string, unknown>, null, 2)}
-                    </pre>
-                  )}
+        <Card>
+          <CardHeader>
+            <CardTitle>{labels.execute_import}</CardTitle>
+            <CardDescription>{labels.execute_import_description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Before execution: confirm dialog */}
+            {!executing && !result && !showConfirm && (
+              <>
+                <Alert variant="warning">
+                  <Terminal className="h-4 w-4" /> {/* Or a warning icon */}
+                  <AlertTitle>{labels.warning_title}</AlertTitle>
+                  <AlertDescription>
+                    {labels.warning_replace_data}
+                  </AlertDescription>
+                </Alert>
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => { setStep(2); setError(''); }}
+                  >
+                    {labels.back}
+                  </Button>
+                  <Button
+                    onClick={() => setShowConfirm(true)}
+                  >
+                    {labels.execute_import_button}
+                  </Button>
                 </div>
-              ) : (
-                <div className="bg-red-900/30 border border-red-500/40 rounded-lg p-4">
-                  <p className="text-red-400 font-medium">
-                    {lang === 'ar' ? 'فشل الاستيراد' : 'Import failed'}
-                  </p>
-                </div>
-              )}
+              </>
+            )}
 
-              <button
-                onClick={() => { window.location.href = '/dashboard'; }}
-                className="bg-[#FF8C00] hover:bg-[#e07b00] text-white font-medium
-                  rounded-lg px-6 py-2.5 text-sm transition-colors"
-              >
-                {lang === 'ar' ? 'تم' : 'Done'}
-              </button>
-            </div>
-          )}
-        </div>
+            {/* Confirmation overlay */}
+            {showConfirm && (
+              <Alert variant="destructive">
+                <Terminal className="h-4 w-4" />
+                <AlertTitle>{labels.confirm_action}</AlertTitle>
+                <AlertDescription>
+                  {labels.confirm_replace_data}
+                </AlertDescription>
+                <div className="flex gap-3 justify-end mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowConfirm(false)}
+                  >
+                    {labels.cancel}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleExecute}
+                  >
+                    {labels.yes_execute}
+                  </Button>
+                </div>
+              </Alert>
+            )}
+
+            {/* Executing spinner */}
+            {executing && <LoadingSpinner />}
+
+            {/* Result */}
+            {result && (
+              <div className="space-y-4">
+                {result.status === 'completed' ? (
+                  <Alert variant="success">
+                    <Check className="h-4 w-4" />
+                    <AlertTitle>{labels.import_successful}</AlertTitle>
+                    <AlertDescription>
+                      {labels.import_successful_description}
+                      {result.result && (
+                        <pre className="mt-2 text-xs p-2 rounded-md bg-secondary text-secondary-foreground overflow-auto max-h-48">
+                          {JSON.stringify(result.result as Record<string, unknown>, null, 2)}
+                        </pre>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <Alert variant="destructive">
+                    <Terminal className="h-4 w-4" />
+                    <AlertTitle>{labels.import_failed}</AlertTitle>
+                    <AlertDescription>
+                      {labels.import_failed_description}
+                      {result.result && (
+                        <pre className="mt-2 text-xs p-2 rounded-md bg-secondary text-secondary-foreground overflow-auto max-h-48">
+                          {JSON.stringify(result.result as Record<string, unknown>, null, 2)}
+                        </pre>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <Button
+                  onClick={() => { window.location.href = '/dashboard'; }}
+                  className="w-full"
+                >
+                  {labels.done}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );
@@ -367,9 +397,9 @@ export default function ImportPage() {
 // --- Small helper for validation rows ---
 function Row({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="flex justify-between items-center border-b border-gray-800 pb-2">
-      <span className="text-gray-400 text-sm">{label}</span>
-      <span className={`text-sm font-medium ${color || 'text-[#f3f6ff]'}`}>{value}</span>
+    <div className="flex justify-between items-center border-b border-border py-2 last:border-0">
+      <span className="text-sm font-medium text-muted-foreground">{label}</span>
+      <span className={cn("text-sm font-normal text-foreground", color)}>{value}</span>
     </div>
   );
 }

@@ -733,367 +733,317 @@ export default function LoginPage() {
 
           <CardContent>
 
-          {mode === "register" ? (
-            <div className={styles.setupGrid}>
-              <div className={styles.field}>
-                <label htmlFor="owner-name">{t.ownerName}</label>
-                <input
-                  id="owner-name"
-                  type="text"
-                  {...setupForm.register("ownerName")}
-                  minLength={2}
-                  autoComplete="name"
-                />
-                {setupForm.formState.errors.ownerName && (
-                  <small style={{ fontSize: "0.8rem", color: "red" }}>
-                    {setupForm.formState.errors.ownerName.message}
-                  </small>
-                )}
-              </div>
-              <div className={styles.field}>
-                <label htmlFor="organization-name">{t.organizationName}</label>
-                <input
-                  id="organization-name"
-                  type="text"
-                  {...setupForm.register("organizationName")}
-                  minLength={2}
-                />
-                {setupForm.formState.errors.organizationName && (
-                  <small style={{ fontSize: "0.8rem", color: "red" }}>
-                    {setupForm.formState.errors.organizationName.message}
-                  </small>
-                )}
-              </div>
-              <div className={styles.field}>
-                <label htmlFor="branch-name">{t.branchName}</label>
-                <input
-                  id="branch-name"
-                  type="text"
-                  {...setupForm.register("branchName")}
-                  minLength={2}
-                />
-                {setupForm.formState.errors.branchName && (
-                  <small style={{ fontSize: "0.8rem", color: "red" }}>
-                    {setupForm.formState.errors.branchName.message}
-                  </small>
-                )}
-              </div>
-            </div>
-          ) : null}
-
-          {method === "email" ? (
-            <form
-              className={styles.form}
-              onSubmit={
-                mode === "register"
-                  ? emailRegisterForm.handleSubmit(onEmailSubmit)
-                  : emailLoginForm.handleSubmit(onEmailSubmit)
-              }
-            >
-              {mode === "register" ? (
-                <>
-                  <div className={styles.field}>
-                    <label htmlFor="register-email">{t.email}</label>
-                    <input
-                      id="register-email"
-                      type="email"
-                      autoComplete="email"
-                      {...emailRegisterForm.register("registerEmail")}
-                    />
-                    {emailRegisterForm.formState.errors.registerEmail && (
-                      <small style={{ fontSize: "0.8rem", color: "red" }}>
-                        {emailRegisterForm.formState.errors.registerEmail.message}
-                      </small>
+            {mode === "register" && (
+              <Form {...setupForm}>
+                <form className="grid grid-cols-1 gap-4 mb-6">
+                  <FormField
+                    control={setupForm.control}
+                    name="ownerName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.ownerName}</FormLabel>
+                        <FormControl>
+                          <Input type="text" {...field} autoComplete="name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                  </div>
-                  <div className={styles.field}>
-                    <label htmlFor="register-phone">{t.phone}</label>
-                    <input
-                      id="register-phone"
-                      type="tel"
-                      autoComplete="tel"
-                      placeholder="+15551234567"
-                      {...emailRegisterForm.register("registerPhone")}
-                    />
-                    <small>{t.phoneHint}</small>
-                    {emailRegisterForm.formState.errors.registerPhone && (
-                      <small style={{ fontSize: "0.8rem", color: "red" }}>
-                        {emailRegisterForm.formState.errors.registerPhone.message}
-                      </small>
-                    )}
-                  </div>
-                  <div className={styles.field}>
-                    <label htmlFor="register-password">{t.password}</label>
-                    <input
-                      id="register-password"
-                      type="password"
-                      minLength={8}
-                      autoComplete="new-password"
-                      {...emailRegisterForm.register("registerPassword")}
-                    />
-                    {emailRegisterForm.formState.errors.registerPassword && (
-                      <small style={{ fontSize: "0.8rem", color: "red" }}>
-                        {emailRegisterForm.formState.errors.registerPassword.message}
-                      </small>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className={styles.field}>
-                    <label htmlFor="login-email">{t.email}</label>
-                    <input
-                      id="login-email"
-                      type="email"
-                      autoComplete="email"
-                      {...emailLoginForm.register("loginEmail")}
-                    />
-                    {emailLoginForm.formState.errors.loginEmail && (
-                      <small style={{ fontSize: "0.8rem", color: "red" }}>
-                        {emailLoginForm.formState.errors.loginEmail.message}
-                      </small>
-                    )}
-                  </div>
-                  <div className={styles.field}>
-                    <label htmlFor="login-password">{t.password}</label>
-                    <input
-                      id="login-password"
-                      type="password"
-                      minLength={8}
-                      autoComplete="current-password"
-                      {...emailLoginForm.register("loginPassword")}
-                    />
-                    {emailLoginForm.formState.errors.loginPassword && (
-                      <small style={{ fontSize: "0.8rem", color: "red" }}>
-                        {emailLoginForm.formState.errors.loginPassword.message}
-                      </small>
-                    )}
-                  </div>
-                </>
-              )}
-
-              <button className={styles.submit} type="submit" disabled={isBusy}>
-                {busyKey === "email"
-                  ? mode === "login"
-                    ? `${t.signIn}...`
-                    : `${t.createAccount}...`
-                  : mode === "login"
-                    ? t.continueEmail
-                    : t.createAccount}
-              </button>
-
-              {mode === "login" ? (
-                <Link href="/forgot-password" className={styles.subtleLink}>
-                  {t.forgotPassword}
-                </Link>
-              ) : null}
-            </form>
-          ) : null}
-
-          {method === "google" ? (
-            <div className={styles.form}>
-              {mode === "register" ? (
-                <div className={styles.field}>
-                  <label htmlFor="google-register-phone">{t.phone}</label>
-                  <input
-                    id="google-register-phone"
-                    type="tel"
-                    autoComplete="tel"
-                    placeholder="+15551234567"
-                    {...googleRegisterForm.register("registerPhone")}
                   />
-                  <small>{t.phoneHint}</small>
-                  {googleRegisterForm.formState.errors.registerPhone && (
-                    <small style={{ fontSize: "0.8rem", color: "red" }}>
-                      {googleRegisterForm.formState.errors.registerPhone.message}
-                    </small>
-                  )}
-                </div>
-              ) : null}
-              <button className={styles.submit} type="button" onClick={onGoogleClick} disabled={isBusy}>
-                {busyKey === "google" ? `${t.googleContinue}...` : t.googleContinue}
-              </button>
-            </div>
-          ) : null}
-
-          {method === "phone" ? (
-            <div className={styles.form}>
-              {/* Step Indicator */}
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: "1.5rem",
-                gap: "0.5rem"
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <span style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "50%",
-                    backgroundColor: !otpSent ? "#6366f1" : "#9ca3af",
-                    color: "white",
-                    fontWeight: "600",
-                    fontSize: "0.875rem"
-                  }}>1</span>
-                  <span style={{
-                    fontSize: "0.875rem",
-                    color: !otpSent ? "#111827" : "#9ca3af",
-                    fontWeight: !otpSent ? "600" : "400"
-                  }}>
-                    {isArabic ? "إدخال رقم الهاتف" : "Enter phone number"}
-                  </span>
-                </div>
-
-                <div style={{
-                  width: "40px",
-                  height: "2px",
-                  backgroundColor: otpSent ? "#6366f1" : "#e5e7eb"
-                }} />
-
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <span style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "50%",
-                    backgroundColor: otpSent ? "#6366f1" : "#e5e7eb",
-                    color: otpSent ? "white" : "#9ca3af",
-                    fontWeight: "600",
-                    fontSize: "0.875rem"
-                  }}>2</span>
-                  <span style={{
-                    fontSize: "0.875rem",
-                    color: otpSent ? "#111827" : "#9ca3af",
-                    fontWeight: otpSent ? "600" : "400"
-                  }}>
-                    {isArabic ? "إدخال رمز التحقق" : "Enter verification code"}
-                  </span>
-                </div>
-              </div>
-
-              <div className={styles.field}>
-                <label htmlFor="phone-input">{t.phone}</label>
-                <input
-                  id="phone-input"
-                  type="tel"
-                  autoComplete="tel"
-                  placeholder="+15551234567"
-                  {...(mode === "register"
-                    ? phoneRegisterForm.register("registerPhone")
-                    : phoneLoginForm.register("loginPhone")
-                  )}
-                />
-                <small>{t.phoneHint}</small>
-                {mode === "register" && phoneRegisterForm.formState.errors.registerPhone && (
-                  <small style={{ fontSize: "0.8rem", color: "red" }}>
-                    {phoneRegisterForm.formState.errors.registerPhone.message}
-                  </small>
-                )}
-                {mode === "login" && phoneLoginForm.formState.errors.loginPhone && (
-                  <small style={{ fontSize: "0.8rem", color: "red" }}>
-                    {phoneLoginForm.formState.errors.loginPhone.message}
-                  </small>
-                )}
-              </div>
-
-              {mode === "register" ? (
-                <div className={styles.field}>
-                  <label htmlFor="phone-recovery-email">{t.recoveryEmail}</label>
-                  <input
-                    id="phone-recovery-email"
-                    type="email"
-                    autoComplete="email"
-                    {...phoneRegisterForm.register("registerEmail")}
+                  <FormField
+                    control={setupForm.control}
+                    name="organizationName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.organizationName}</FormLabel>
+                        <FormControl>
+                          <Input type="text" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                  <small>{t.recoveryHint}</small>
-                  {phoneRegisterForm.formState.errors.registerEmail && (
-                    <small style={{ fontSize: "0.8rem", color: "red" }}>
-                      {phoneRegisterForm.formState.errors.registerEmail.message}
-                    </small>
+                  <FormField
+                    control={setupForm.control}
+                    name="branchName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.branchName}</FormLabel>
+                        <FormControl>
+                          <Input type="text" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </form>
+                <Separator className="mb-6" />
+              </Form>
+            )}
+
+            {method === "email" && (
+              <Form {...(mode === "register" ? emailRegisterForm : emailLoginForm)}>
+                <form
+                  onSubmit={
+                    mode === "register"
+                      ? emailRegisterForm.handleSubmit(onEmailSubmit)
+                      : emailLoginForm.handleSubmit(onEmailSubmit)
+                  }
+                  className="space-y-4"
+                >
+                  {mode === "register" ? (
+                    <>
+                      <FormField
+                        control={emailRegisterForm.control}
+                        name="registerEmail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t.email}</FormLabel>
+                            <FormControl>
+                              <Input type="email" autoComplete="email" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={emailRegisterForm.control}
+                        name="registerPhone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t.phone}</FormLabel>
+                            <FormControl>
+                              <Input type="tel" autoComplete="tel" placeholder="+15551234567" {...field} />
+                            </FormControl>
+                            <FormDescription>{t.phoneHint}</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={emailRegisterForm.control}
+                        name="registerPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t.password}</FormLabel>
+                            <FormControl>
+                              <Input type="password" autoComplete="new-password" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <FormField
+                        control={emailLoginForm.control}
+                        name="loginEmail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t.email}</FormLabel>
+                            <FormControl>
+                              <Input type="email" autoComplete="email" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={emailLoginForm.control}
+                        name="loginPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t.password}</FormLabel>
+                            <FormControl>
+                              <Input type="password" autoComplete="current-password" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </>
                   )}
+
+                  <Button type="submit" className="w-full" disabled={isBusy}>
+                    {busyKey === "email"
+                      ? mode === "login"
+                        ? `${t.signIn}...`
+                        : `${t.createAccount}...`
+                      : mode === "login"
+                        ? t.continueEmail
+                        : t.createAccount}
+                  </Button>
+
+                  {mode === "login" && (
+                    <Button variant="link" asChild className="w-full text-sm mt-2">
+                      <Link href="/forgot-password">{t.forgotPassword}</Link>
+                    </Button>
+                  )}
+                </form>
+              </Form>
+            )}
+
+            {method === "google" && (
+              <div className="space-y-4">
+                {mode === "register" && (
+                  <Form {...googleRegisterForm}>
+                    <form className="space-y-4">
+                      <FormField
+                        control={googleRegisterForm.control}
+                        name="registerPhone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t.phone}</FormLabel>
+                            <FormControl>
+                              <Input type="tel" autoComplete="tel" placeholder="+15551234567" {...field} />
+                            </FormControl>
+                            <FormDescription>{t.phoneHint}</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </form>
+                  </Form>
+                )}
+                <Button className="w-full" type="button" onClick={onGoogleClick} disabled={isBusy}>
+                  {busyKey === "google" ? `${t.googleContinue}...` : t.googleContinue}
+                </Button>
+              </div>
+            )}
+
+            {method === "phone" && (
+              <div className="space-y-4">
+                {/* Step Indicator */}
+                <div className="flex items-center justify-center mb-6 gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "flex items-center justify-center h-8 w-8 rounded-full font-semibold",
+                      !otpSent ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    )}>1</span>
+                    <span className={cn(
+                      "font-medium",
+                      !otpSent ? "text-foreground" : "text-muted-foreground"
+                    )}>
+                      {t.enter_phone_number || "Enter phone number"}
+                    </span>
+                  </div>
+
+                  <Separator orientation="horizontal" className="w-8" /> {/* Visual separator */}
+
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "flex items-center justify-center h-8 w-8 rounded-full font-semibold",
+                      otpSent ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    )}>2</span>
+                    <span className={cn(
+                      "font-medium",
+                      otpSent ? "text-foreground" : "text-muted-foreground"
+                    )}>
+                      {t.enter_verification_code || "Enter verification code"}
+                    </span>
+                  </div>
                 </div>
-              ) : (
-                <p className={styles.inlineHint}>{t.phoneResetHint}</p>
-              )}
 
-              {!otpSent ? (
-                <button className={styles.submit} type="button" onClick={onSendOtpClick} disabled={isBusy}>
-                  {busyKey === "send-otp" ? `${t.sendOtp}...` : t.sendOtp}
-                </button>
-              ) : (
-                <>
-                  <div className={styles.field}>
-                    <label htmlFor="otp-code">{t.otpCode}</label>
-                    <input
-                      id="otp-code"
-                      type="text"
-                      inputMode="numeric"
-                      {...otpVerifyForm.register("otpCode")}
+                <Form {...(mode === "register" ? phoneRegisterForm : phoneLoginForm)}>
+                  <form onSubmit={e => e.preventDefault()} className="space-y-4">
+                    <FormField
+                      control={
+                        mode === "register"
+                          ? phoneRegisterForm.control
+                          : phoneLoginForm.control
+                      }
+                      name={
+                        mode === "register" ? "registerPhone" : "loginPhone"
+                      }
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.phone}</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="tel"
+                              autoComplete="tel"
+                              placeholder="+15551234567"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription>{t.phoneHint}</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                    {otpVerifyForm.formState.errors.otpCode && (
-                      <small style={{ fontSize: "0.8rem", color: "red" }}>
-                        {otpVerifyForm.formState.errors.otpCode.message}
-                      </small>
+                    {mode === "register" && (
+                      <FormField
+                        control={phoneRegisterForm.control}
+                        name="registerEmail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t.recoveryEmail}</FormLabel>
+                            <FormControl>
+                              <Input type="email" autoComplete="email" {...field} />
+                            </FormControl>
+                            <FormDescription>{t.recoveryHint}</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  </div>
-
-                  {/* Countdown Timer / Resend Button */}
-                  <div style={{
-                    textAlign: "center",
-                    marginTop: "0.5rem",
-                    marginBottom: "1rem"
-                  }}>
-                    {!canResend ? (
-                      <p style={{
-                        fontSize: "0.875rem",
-                        color: "#6b7280",
-                        margin: 0
-                      }}>
-                        {isArabic ? `إعادة إرسال الرمز في ${countdown}ث` : `Resend code in ${countdown}s`}
-                      </p>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={onSendOtpClick}
-                        disabled={isBusy}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#6366f1",
-                          fontSize: "0.875rem",
-                          fontWeight: "600",
-                          cursor: "pointer",
-                          textDecoration: "underline",
-                          padding: 0
-                        }}
-                      >
-                        {isArabic ? "إعادة إرسال الرمز" : "Resend code"}
-                      </button>
+                    {mode === "login" && (
+                      <p className="text-sm text-muted-foreground mt-2">{t.phoneResetHint}</p>
                     )}
-                  </div>
+                  </form>
+                </Form>
 
-                  <button className={styles.submit} type="button" onClick={onVerifyOtpClick} disabled={isBusy}>
-                    {busyKey === "verify-otp" ? `${t.verifyOtp}...` : t.verifyOtp}
-                  </button>
-                </>
-              )}
-            </div>
-          ) : null}
+                {!otpSent ? (
+                  <Button className="w-full" type="button" onClick={onSendOtpClick} disabled={isBusy}>
+                    {busyKey === "send-otp" ? `${t.sendOtp}...` : t.sendOtp}
+                  </Button>
+                ) : (
+                  <Form {...otpVerifyForm}>
+                    <form onSubmit={otpVerifyForm.handleSubmit(onVerifyOtpClick)} className="space-y-4">
+                      <FormField
+                        control={otpVerifyForm.control}
+                        name="otpCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t.otpCode}</FormLabel>
+                            <FormControl>
+                              <Input type="text" inputMode="numeric" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-          <div id={recaptchaSlotId} className={styles.recaptchaSlot} aria-hidden="true" />
+                      {/* Countdown Timer / Resend Button */}
+                      <div className="text-center text-sm text-muted-foreground">
+                        {!canResend ? (
+                          <p>{`${t.resendCodeIn} ${countdown}s`}</p>
+                        ) : (
+                          <Button variant="link" onClick={onSendOtpClick} disabled={isBusy} className="p-0 h-auto">
+                            {t.resendCode}
+                          </Button>
+                        )}
+                      </div>
 
-          {feedback ? (
-            <p className={feedback.kind === "error" ? styles.errorMessage : styles.successMessage} role="status">
-              {feedback.kind === "error" ? "✗ " : "✓ "}{feedback.text}
-            </p>
-          ) : null}
-        </section>
+                      <Button className="w-full" type="submit" disabled={isBusy}>
+                        {busyKey === "verify-otp" ? `${t.verifyOtp}...` : t.verifyOtp}
+                      </Button>
+                    </form>
+                  </Form>
+                )}
+              </div>
+            )}
+            <div id={recaptchaSlotId} className="hidden" aria-hidden="true" /> {/* Hide recaptcha container visually */}
+
+            {feedback && (
+              <Alert variant={feedback.kind === "error" ? "destructive" : "success"} className="mt-6">
+                {feedback.kind === "error" ? <Terminal className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                <AlertTitle>{feedback.kind === "error" ? t.errorTitle : t.successTitle}</AlertTitle>
+                <AlertDescription>{feedback.text}</AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
       </section>
     </main>
   );

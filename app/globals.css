@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
 
 @tailwind base;
 @tailwind components;
@@ -15,41 +15,39 @@ html {
 }
 
 body {
-  @apply bg-white text-text-primary font-inter transition-colors duration-300 ease-in-out;
+  @apply bg-background text-foreground font-inter transition-colors duration-300 ease-in-out;
 }
 
-html.dark body {
-  @apply bg-slate-950 text-slate-50;
-}
+/* The html.dark body styles will be handled by the HSL var definitions now */
 
 /* Typography Styles */
 @layer base {
   h1 {
-    @apply font-jakarta text-h1;
+    @apply font-sans text-h1; /* Using global font-sans now */
   }
 
   h2 {
-    @apply font-jakarta text-h2;
+    @apply font-sans text-h2;
   }
 
   h3 {
-    @apply font-jakarta text-h3;
+    @apply font-sans text-h3;
   }
 
   h4 {
-    @apply font-jakarta text-h4;
+    @apply font-sans text-h4;
   }
 
   h5 {
-    @apply font-jakarta text-h5;
+    @apply font-sans text-h5;
   }
 
   h6 {
-    @apply font-jakarta text-h6;
+    @apply font-sans text-h6;
   }
 
   p {
-    @apply font-inter text-body;
+    @apply font-sans text-body; /* Using global font-sans now */
   }
 
   code {
@@ -63,72 +61,147 @@ html.dark body {
 
   /* Focus ring for accessibility */
   :focus-visible {
-    @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+    @apply outline-none ring-2 ring-primary ring-offset-2; /* Use new primary color */
   }
 
   html.dark :focus-visible {
-    @apply ring-offset-slate-900;
+    @apply ring-offset-background; /* Use new background color */
   }
 }
 
 /* Design Token CSS Variables */
 @layer base {
+  /* Define light mode colors with HSL variables for the design system */
   :root {
-    /* Light Mode Colors */
-    --background: #FFFFFF;
-    --surface: #F8F9FA;
-    --surface-secondary: #F0F2F5;
-    --border: #E5E7EB;
-    --text-primary: #1F2937;
-    --text-secondary: #6B7280;
-    --text-tertiary: #9CA3AF;
-    --disabled: #D1D5DB;
+    --background: 0 0% 100%; /* HSL for white */
+    --foreground: 222.2 47.4% 11.2%; /* HSL for very dark gray */
 
-    /* Brand Colors */
-    --primary-orange: #FF8C00;
-    --primary-orange-dark: #E67E00;
-    --accent-red: #FF4500;
-    --accent-red-dark: #E63900;
+    --primary: 231 48% 48%; /* HSL for #3F51B5 (Deep Blue) */
+    --primary-foreground: 0 0% 100%; /* HSL for white */
 
-    /* Semantic */
-    --success: #10B981;
-    --warning: #F59E0B;
-    --error: #EF4444;
-    --info: #3B82F6;
+    --accent: 33 100% 50%; /* HSL for #FF8C00 (Orange) */
+    --accent-foreground: 0 0% 100%; /* HSL for white */
+
+    --secondary: 210 40% 96.1%; /* Light gray */
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 47.4% 11.2%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+
+    --destructive: 0 84.2% 60.2%; /* HSL for a red */
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142.1 76.2% 36.3%; /* HSL for a green */
+    --success-foreground: 0 0% 100%;
+
+    --warning: 48 96% 63%; /* HSL for a yellow */
+    --warning-foreground: 0 0% 0%;
+
+    /* Semantic - Info */
+    --info: 200 80% 50%; /* HSL for a blue */
+    --info-foreground: 0 0% 100%;
+
+    --radius: 0.5rem; /* For shadcn/ui border-radius, can be adopted by landing page components */
+
+    /* Existing Landing Page Colors mapped to new HSL vars for consistency, or as fallback */
+    --lp-primary-500: var(--accent); /* Mapping old brand orange to new accent */
+    --lp-accent-500: var(--destructive); /* Mapping old brand red to new destructive */
+
+    /* Existing semantic (will be replaced by new HSL ones or mapped) - These were already defined in tailwind.config.js as well*/
+    --lp-success: var(--success);
+    --lp-warning: var(--warning);
+    --lp-error: var(--destructive);
+    --lp-info: var(--info);
+
+    /* Existing neutral (will be replaced by new HSL ones or mapped) */
+    --lp-background: var(--background);
+    --lp-surface: var(--secondary);
+    --lp-surface-secondary: var(--muted);
+    --lp-border: var(--border);
+    --lp-text-primary: var(--foreground);
+    --lp-text-secondary: var(--muted-foreground);
+    --lp-text-tertiary: var(--muted-foreground);
+    --lp-disabled: var(--muted-foreground);
   }
 
+  /* Define dark mode colors */
   html.dark {
-    --background: #0F172A;
-    --surface: #1E293B;
-    --surface-secondary: #334155;
-    --border: #475569;
-    --text-primary: #F1F5F9;
-    --text-secondary: #CBD5E1;
-    --text-tertiary: #94A3B8;
-    --disabled: #64748B;
+    --background: 224 71.4% 4.1%;
+    --foreground: 210 20% 98%;
+
+    --primary: 217.2 91.2% 59.8%; /* Lighter blue for dark mode */
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --accent: 33 100% 50%; /* #FF8C00 (Orange) remains same */
+    --accent-foreground: 0 0% 100%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 20% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.4% 65%;
+
+    --popover: 224 71.4% 4.1%;
+    --popover-foreground: 210 20% 98%;
+
+    --card: 224 71.4% 4.1%;
+    --card-foreground: 210 20% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 217.2 91.2% 59.8%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 20% 98%;
+
+    --success: 142.1 76.2% 36.3%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 48 96% 63%;
+    --warning-foreground: 0 0% 0%;
+
+    --info: 200 80% 50%;
+    --info-foreground: 0 0% 100%;
+
+    /* Landing page dark mode colors mapped */
+    --lp-background: var(--background);
+    --lp-surface: var(--secondary);
+    --lp-surface-secondary: var(--muted);
+    --lp-border: var(--border);
+    --lp-text-primary: var(--foreground);
+    --lp-text-secondary: var(--muted-foreground);
+    --lp-text-tertiary: var(--muted-foreground);
+    --lp-disabled: var(--muted-foreground);
   }
 }
 
 /* Button Styles */
 @layer components {
   .btn-primary {
-    @apply bg-primary-500 hover:bg-primary-600 active:bg-primary-700 disabled:bg-disabled disabled:text-text-tertiary disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2;
+    /* Use accent color for primary buttons on landing page */
+    @apply bg-accent hover:bg-accent/90 active:bg-accent/80 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2;
   }
 
-  html.dark .btn-primary {
-    @apply focus-visible:ring-offset-slate-900;
-  }
+  /* html.dark .btn-primary will now be handled by the base HSL vars */
 
   .btn-secondary {
-    @apply border-2 border-primary-500 text-primary-500 hover:bg-primary-50 dark:hover:bg-slate-800 active:bg-primary-100 font-semibold py-3 px-6 rounded-lg transition-colors duration-200 disabled:border-disabled disabled:text-text-tertiary disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2;
+    @apply border-2 border-primary text-primary hover:bg-primary/5 dark:hover:bg-primary/10 active:bg-primary/10 font-semibold py-3 px-6 rounded-lg transition-colors duration-200 disabled:border-muted disabled:text-muted-foreground disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
   }
 
-  html.dark .btn-secondary {
-    @apply focus-visible:ring-offset-slate-900;
-  }
+  /* html.dark .btn-secondary will now be handled by the base HSL vars */
 
   .btn-ghost {
-    @apply bg-transparent text-primary-500 hover:bg-surface dark:hover:bg-slate-800 active:bg-surface-secondary font-semibold py-3 px-6 rounded-lg transition-colors duration-200 disabled:text-text-tertiary disabled:cursor-not-allowed;
+    @apply bg-transparent text-primary hover:bg-background/80 dark:hover:bg-background/90 active:bg-background/70 font-semibold py-3 px-6 rounded-lg transition-colors duration-200 disabled:text-muted-foreground disabled:cursor-not-allowed;
   }
 
   .btn-sm {
@@ -141,14 +214,14 @@ html.dark body {
 
   /* Link Button */
   .btn-link {
-    @apply inline-block text-primary-500 hover:text-primary-600 hover:underline font-semibold transition-colors duration-200;
+    @apply inline-block text-primary hover:text-primary-foreground hover:underline font-semibold transition-colors duration-200;
   }
 }
 
 /* Card Styles */
 @layer components {
   .card {
-    @apply bg-white dark:bg-slate-800 border border-border dark:border-slate-700 rounded-xl p-6 shadow-sm hover:shadow-lg hover:border-primary-500 transition-all duration-300;
+    @apply bg-card text-card-foreground border border-border rounded-xl p-6 shadow-sm hover:shadow-lg hover:border-primary transition-all duration-300;
   }
 
   .card-header {
@@ -160,14 +233,14 @@ html.dark body {
   }
 
   .card-footer {
-    @apply pt-6 border-t border-border dark:border-slate-700 mt-6;
+    @apply pt-6 border-t border-border mt-6;
   }
 }
 
 /* Input Styles */
 @layer components {
   .input-base {
-    @apply w-full px-4 py-3 border border-border dark:border-slate-600 rounded-lg bg-white dark:bg-slate-900 text-text-primary dark:text-white placeholder-text-tertiary dark:placeholder-slate-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 transition-all duration-200;
+    @apply w-full px-4 py-3 border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all duration-200;
   }
 
   input, textarea, select {
@@ -175,14 +248,14 @@ html.dark body {
   }
 
   input:disabled, textarea:disabled, select:disabled {
-    @apply bg-surface dark:bg-slate-800 text-text-tertiary dark:text-slate-500 cursor-not-allowed;
+    @apply bg-muted text-muted-foreground cursor-not-allowed;
   }
 }
 
 /* Form Label */
 @layer components {
   .label {
-    @apply block text-label font-semibold text-text-primary dark:text-white mb-2;
+    @apply block text-label font-semibold text-foreground mb-2;
   }
 
   .form-group {
@@ -190,30 +263,30 @@ html.dark body {
   }
 
   .helper-text {
-    @apply text-body-sm text-text-secondary dark:text-slate-400 mt-2;
+    @apply text-body-sm text-muted-foreground mt-2;
   }
 
   .error-text {
-    @apply text-body-sm text-error mt-2;
+    @apply text-body-sm text-destructive mt-2;
   }
 }
 
 /* Gradient Classes */
 @layer utilities {
   .gradient-primary {
-    @apply bg-gradient-to-r from-primary-500 to-accent-500;
+    @apply bg-gradient-to-r from-accent to-destructive; /* Using accent and destructive as primary gradient */
   }
 
   .gradient-primary-br {
-    @apply bg-gradient-to-br from-primary-500 to-accent-500;
+    @apply bg-gradient-to-br from-accent to-destructive; /* Using accent and destructive as primary gradient */
   }
 
   .gradient-hero {
-    @apply bg-gradient-to-br from-primary-50 to-white dark:from-slate-900 dark:to-slate-800;
+    @apply bg-gradient-to-br from-secondary to-background dark:from-muted dark:to-background; /* Using HSL based vars */
   }
 
   .gradient-text {
-    @apply bg-gradient-to-r from-primary-500 to-accent-500 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-accent to-destructive bg-clip-text text-transparent; /* Using accent and destructive as primary gradient */
   }
 }
 
@@ -247,25 +320,25 @@ body,
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-surface dark:bg-slate-900;
+  @apply bg-background; /* Use background HSL var */
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-primary-500 rounded-full hover:bg-primary-600;
+  @apply bg-primary rounded-full hover:bg-primary/80; /* Use primary HSL var */
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-primary-600;
+  @apply bg-primary;
 }
 
 /* Firefox Scrollbar */
 * {
-  scrollbar-color: theme('colors.primary.500') theme('colors.surface');
+  scrollbar-color: theme('colors.primary') theme('colors.background'); /* Use primary and background HSL vars */
   scrollbar-width: thin;
 }
 
 html.dark * {
-  scrollbar-color: theme('colors.primary.500') theme('colors.slate.900');
+  scrollbar-color: theme('colors.primary') theme('colors.background');
 }
 
 /* Animations */

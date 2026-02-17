@@ -1,73 +1,70 @@
+// app/components/Hero.jsx
+import Link from 'next/link';
+import { cn } from '@/lib/utils'; // Assuming cn utility is available in root lib
+import { CheckCircle, Download } from 'lucide-react'; // Lucide icons
+
 export default function Hero({ downloads, preferredOS }) {
   return (
     <section className="gradient-hero flex-1 py-20 md:py-40 px-4">
       <div className="max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           {/* Left Content */}
-          <div className="animate-fade-in">
+          <div className="animate-fade-in text-center lg:text-start">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 bg-primary-100 dark:bg-slate-800 px-4 py-2 rounded-full mb-6">
-              <span className="text-sm font-semibold text-primary-500 dark:text-primary-400">✨ Professional Gym Management</span>
+            <div className="inline-flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full mb-6">
+              <span className="text-sm font-semibold text-primary">✨ Professional Gym Management</span>
             </div>
 
             {/* Main Heading */}
-            <h1 className="font-jakarta font-bold text-5xl sm:text-6xl lg:text-7xl text-text-primary dark:text-white mb-6 tracking-tight leading-tight">
+            <h1 className="font-sans font-bold text-5xl sm:text-6xl lg:text-7xl text-foreground mb-6 tracking-tight leading-tight">
               Manage Your Gym with <span className="gradient-text">Confidence</span>
             </h1>
 
             {/* Subheading */}
-            <p className="font-inter text-xl text-text-secondary dark:text-slate-300 mb-8 leading-relaxed max-w-xl">
+            <p className="font-sans text-xl text-muted-foreground mb-8 leading-relaxed max-w-xl mx-auto lg:mx-0">
               GymFlow is the free, powerful desktop app that helps gym owners streamline attendance tracking, manage members, and grow their fitness business.
             </p>
 
             {/* Value Props */}
-            <div className="space-y-3 mb-8">
+            <div className="space-y-3 mb-8 text-start max-w-xl mx-auto lg:mx-0">
               <div className="flex items-center gap-3">
-                <svg className="w-5 h-5 text-primary-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                <span className="font-inter text-text-secondary dark:text-slate-300">Free forever with no signups required</span>
+                <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
+                <span className="font-sans text-muted-foreground">Free forever with no signups required</span>
               </div>
               <div className="flex items-center gap-3">
-                <svg className="w-5 h-5 text-primary-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                <span className="font-inter text-text-secondary dark:text-slate-300">100% local storage—your data stays private</span>
+                <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
+                <span className="font-sans text-muted-foreground">100% local storage—your data stays private</span>
               </div>
               <div className="flex items-center gap-3">
-                <svg className="w-5 h-5 text-primary-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                <span className="font-inter text-text-secondary dark:text-slate-300">Lightning-fast performance for 1000+ members</span>
+                <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
+                <span className="font-sans text-muted-foreground">Lightning-fast performance for 1000+ members</span>
               </div>
             </div>
 
             {/* CTA Buttons */}
-            <div id="download" className="flex flex-col sm:flex-row gap-4 animate-slide-in-up">
+            <div id="download" className="flex flex-col sm:flex-row gap-4 animate-slide-in-up justify-center lg:justify-start">
               <a
                 href={downloads.mac}
-                className={`${
+                className={cn(
+                  "inline-flex items-center justify-center gap-2 group text-lg btn-primary",
                   preferredOS === 'mac'
-                    ? 'btn-primary bg-gradient-to-r from-primary-500 to-accent-500 hover:from-primary-600 hover:to-accent-600 shadow-lg hover:shadow-xl'
-                    : 'btn-secondary border-2 border-primary-500 text-primary-500 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-800'
-                } inline-flex items-center justify-center gap-2 group text-lg`}
+                    ? "bg-primary text-primary-foreground shadow-lg hover:shadow-xl"
+                    : "btn-secondary text-primary dark:text-primary hover:bg-background/80 dark:hover:bg-background/90"
+                )}
               >
-                <svg className="w-5 h-5 group-hover:translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
+                <Download className={cn("w-5 h-5 group-hover:translate-y-1 transition-transform", { "scale-x-[-1]": document.documentElement.dir === 'rtl' })} />
                 <span>Download for Mac</span>
               </a>
               <a
                 href={downloads.win}
-                className={`${
+                className={cn(
+                  "inline-flex items-center justify-center gap-2 group text-lg btn-primary",
                   preferredOS === 'win'
-                    ? 'btn-primary bg-gradient-to-r from-primary-500 to-accent-500 hover:from-primary-600 hover:to-accent-600 shadow-lg hover:shadow-xl'
-                    : 'btn-secondary border-2 border-primary-500 text-primary-500 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-slate-800'
-                } inline-flex items-center justify-center gap-2 group text-lg`}
+                    ? "bg-primary text-primary-foreground shadow-lg hover:shadow-xl"
+                    : "btn-secondary text-primary dark:text-primary hover:bg-background/80 dark:hover:bg-background/90"
+                )}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
+                <Download className={cn("w-5 h-5", { "scale-x-[-1]": document.documentElement.dir === 'rtl' })} />
                 <span>Windows</span>
               </a>
             </div>
@@ -77,27 +74,31 @@ export default function Hero({ downloads, preferredOS }) {
           <div className="relative hidden lg:flex items-center justify-center">
             <div className="relative w-full aspect-square max-w-md">
               {/* Floating card 1 */}
-              <div className="absolute top-0 right-0 bg-white dark:bg-slate-800 rounded-xl p-6 shadow-xl border border-border dark:border-slate-700 w-72 transform hover:scale-105 transition-transform duration-300">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-3 h-3 bg-primary-500 rounded-full"></div>
-                  <span className="text-sm font-semibold text-text-secondary dark:text-slate-400">Active Members</span>
-                </div>
-                <p className="text-3xl font-bold text-primary-500">1,284</p>
-                <p className="text-sm text-text-secondary dark:text-slate-400 mt-2">↑ 12% this month</p>
-              </div>
+              <Card className={cn("absolute top-0 right-0 w-72 transform hover:scale-105 transition-transform duration-300", { "left-0 right-auto": document.documentElement.dir === 'rtl' })}>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-3 h-3 bg-primary rounded-full"></div>
+                    <span className="text-sm font-semibold text-muted-foreground">Active Members</span>
+                  </div>
+                  <p className="text-3xl font-bold text-primary">1,284</p>
+                  <p className="text-sm text-muted-foreground mt-2">↑ 12% this month</p>
+                </CardContent>
+              </Card>
 
               {/* Floating card 2 */}
-              <div className="absolute bottom-8 left-0 bg-white dark:bg-slate-800 rounded-xl p-6 shadow-xl border border-border dark:border-slate-700 w-64 transform hover:scale-105 transition-transform duration-300">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-3 h-3 bg-accent-500 rounded-full"></div>
-                  <span className="text-sm font-semibold text-text-secondary dark:text-slate-400">Check-ins Today</span>
-                </div>
-                <p className="text-3xl font-bold text-accent-500">342</p>
-                <p className="text-sm text-text-secondary dark:text-slate-400 mt-2">Peak at 6:30 PM</p>
-              </div>
+              <Card className={cn("absolute bottom-8 left-0 w-64 transform hover:scale-105 transition-transform duration-300", { "right-0 left-auto": document.documentElement.dir === 'rtl' })}>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-3 h-3 bg-accent rounded-full"></div>
+                    <span className="text-sm font-semibold text-muted-foreground">Check-ins Today</span>
+                  </div>
+                  <p className="text-3xl font-bold text-accent">342</p>
+                  <p className="text-sm text-muted-foreground mt-2">Peak at 6:30 PM</p>
+                </CardContent>
+              </Card>
 
               {/* Main gradient circle background */}
-              <div className="absolute inset-0 bg-gradient-to-br from-primary-500/10 to-accent-500/10 rounded-3xl blur-3xl"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-accent/10 rounded-3xl blur-3xl"></div>
             </div>
           </div>
         </div>
