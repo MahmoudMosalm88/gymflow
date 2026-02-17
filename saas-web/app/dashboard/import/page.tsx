@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
@@ -297,7 +297,7 @@ export default function ImportPage() {
             {/* Before execution: confirm dialog */}
             {!executing && !result && !showConfirm && (
               <>
-                <Alert variant="warning">
+                <Alert variant={"warning" as any}>
                   <Terminal className="h-4 w-4" /> {/* Or a warning icon */}
                   <AlertTitle>{labels.warning_title}</AlertTitle>
                   <AlertDescription>
@@ -352,7 +352,7 @@ export default function ImportPage() {
             {result && (
               <div className="space-y-4">
                 {result.status === 'completed' ? (
-                  <Alert variant="success">
+                  <Alert variant={"success" as any}>
                     <Check className="h-4 w-4" />
                     <AlertTitle>{labels.import_successful}</AlertTitle>
                     <AlertDescription>

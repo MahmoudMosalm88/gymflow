@@ -15,7 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Terminal, CheckCircledIcon, CrossCircledIcon } from 'lucide-react'; // Example icons for Alert
+import { Terminal, CheckCircle } from 'lucide-react'; // Icons for Alert
 import { cn } from '@/lib/utils';
 
 
@@ -161,7 +161,7 @@ function GeneralTab() {
           </Button>
           {message && (
             <Alert variant={message.type} className="max-w-md">
-              {message.type === 'success' ? <CheckCircledIcon className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
+              {message.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
               <AlertTitle>{message.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
               <AlertDescription>{message.text}</AlertDescription>
             </Alert>
@@ -226,7 +226,7 @@ function WhatsAppTab() {
       <CardContent className="space-y-5">
         {/* Status indicator */}
         <div className="flex items-center gap-3">
-          <Badge variant={connected ? 'success' : 'destructive'} className="text-sm">
+          <Badge variant={(connected ? 'success' : 'destructive') as any} className="text-sm">
             {connected
               ? labels.connected
               : labels.disconnected}
@@ -329,7 +329,7 @@ function BackupTab() {
           </Button>
           {exportResult && (
             <Alert variant={exportResult.type} className="max-w-md">
-              {exportResult.type === 'success' ? <CheckCircledIcon className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
+              {exportResult.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
               <AlertTitle>{exportResult.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
               <AlertDescription>{exportResult.text}</AlertDescription>
             </Alert>
@@ -479,7 +479,7 @@ function DataTab() {
         {/* Result message */}
         {result && (
           <Alert variant={result.type} className="max-w-md">
-            {result.type === 'success' ? <CheckCircledIcon className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
+            {result.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
             <AlertTitle>{result.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
             <AlertDescription>{result.text}</AlertDescription>
           </Alert>

@@ -13,7 +13,8 @@ import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import StatCard from '@/components/dashboard/StatCard'; // Keeping custom StatCard, but will update its colors here
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react'; // Example icon for Alert
@@ -354,7 +355,7 @@ export default function ReportsPage() {
                       contentStyle={rechartStyles.tooltipContent}
                       labelStyle={rechartStyles.tooltipLabel}
                       itemStyle={rechartStyles.tooltipItem}
-                      formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                      formatter={((value: any, name: any) => [formatCurrency(value), name]) as any}
                     />
                     <Legend wrapperStyle={{ color: rechartStyles.legendItem.color }} formatter={(value: string) => <span style={{ color: rechartStyles.legendItem.color }}>{value}</span>} />
                   </PieChart>

@@ -28,6 +28,7 @@ import {
   FormControl,
   FormField,
   FormItem,
+  FormDescription,
   FormLabel,
   FormMessage
 } from "@/components/ui/form";
@@ -35,6 +36,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Check, Terminal, X } from "lucide-react"; // Icons
+import { cn } from "@/lib/utils";
 // Custom CSS module import removed
 
 // (Font constant definitions removed)
@@ -111,7 +113,13 @@ const copy = {
     invalidPhone: "Enter a valid phone number in international format, like +15551234567.",
     requiredSetupFields: "Owner name, organization name, and branch name are required.",
     requiredEmailFallback: "Recovery email is required for phone sign-up.",
-    genericError: "Something went wrong. Please try again."
+    genericError: "Something went wrong. Please try again.",
+    enter_phone_number: "Enter phone number",
+    enter_verification_code: "Enter verification code",
+    resendCodeIn: "Resend code in",
+    resendCode: "Resend code",
+    errorTitle: "Error",
+    successTitle: "Success"
   },
   ar: {
     badge: "GymFlow SaaS",
@@ -146,7 +154,13 @@ const copy = {
     invalidPhone: "أدخل رقماً صحيحاً بصيغة دولية مثل +201XXXXXXXXX.",
     requiredSetupFields: "اسم المالك واسم المؤسسة واسم الفرع مطلوبة.",
     requiredEmailFallback: "بريد الاستعادة مطلوب عند التسجيل بالهاتف.",
-    genericError: "حدث خطأ. حاول مرة أخرى."
+    genericError: "حدث خطأ. حاول مرة أخرى.",
+    enter_phone_number: "أدخل رقم الهاتف",
+    enter_verification_code: "أدخل رمز التحقق",
+    resendCodeIn: "إعادة إرسال الرمز خلال",
+    resendCode: "إعادة إرسال الرمز",
+    errorTitle: "خطأ",
+    successTitle: "تم بنجاح"
   }
 } as const;
 
@@ -781,7 +795,7 @@ export default function LoginPage() {
             )}
 
             {method === "email" && (
-              <Form {...(mode === "register" ? emailRegisterForm : emailLoginForm)}>
+              <Form {...(mode === "register" ? emailRegisterForm : emailLoginForm) as any}>
                 <form
                   onSubmit={
                     mode === "register"
@@ -944,16 +958,16 @@ export default function LoginPage() {
                   </div>
                 </div>
 
-                <Form {...(mode === "register" ? phoneRegisterForm : phoneLoginForm)}>
+                <Form {...(mode === "register" ? phoneRegisterForm : phoneLoginForm) as any}>
                   <form onSubmit={e => e.preventDefault()} className="space-y-4">
                     <FormField
                       control={
-                        mode === "register"
+                        (mode === "register"
                           ? phoneRegisterForm.control
-                          : phoneLoginForm.control
+                          : phoneLoginForm.control) as any
                       }
                       name={
-                        mode === "register" ? "registerPhone" : "loginPhone"
+                        (mode === "register" ? "registerPhone" : "loginPhone") as any
                       }
                       render={({ field }) => (
                         <FormItem>
@@ -1045,6 +1059,7 @@ export default function LoginPage() {
           </CardContent>
         </Card>
       </section>
+    </section>
     </main>
   );
 }

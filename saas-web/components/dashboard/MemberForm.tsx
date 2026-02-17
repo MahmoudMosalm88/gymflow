@@ -61,7 +61,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, loading }:
   const labels = t[lang];
 
   const form = useForm<MemberFormData>({
-    resolver: zodResolver(memberFormSchema),
+    resolver: zodResolver(memberFormSchema) as any,
     defaultValues: {
       name: initialData?.name || '',
       phone: initialData?.phone || '',

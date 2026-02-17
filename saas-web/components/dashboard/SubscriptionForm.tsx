@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -141,7 +141,7 @@ export default function SubscriptionForm({ members, preselectedMemberId, onSubmi
       end_date: endDate ? Math.floor(endDate.getTime() / 1000) : 0, // Ensure endDate is calculated
       // price_paid and sessions_per_month are already numbers or undefined
     };
-    onSubmit(dataToSubmit);
+    onSubmit(dataToSubmit as any);
   }
 
   return (
@@ -185,7 +185,7 @@ export default function SubscriptionForm({ members, preselectedMemberId, onSubmi
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>{labels.startDate} *</FormLabel>
-                  <Popover dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                  <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
