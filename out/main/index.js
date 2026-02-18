@@ -579,7 +579,11 @@ function resetToDefaults() {
   }
 }
 const SECONDS_PER_DAY$2 = 86400;
-const DAYS_PER_MONTH = 30;
+function addCalendarMonths(unixSeconds, months) {
+  const d = new Date(unixSeconds * 1e3);
+  d.setMonth(d.getMonth() + months);
+  return Math.floor(d.getTime() / 1e3);
+}
 function getSubscriptionsByMemberId(memberId) {
   const db2 = getDatabase();
   return db2.prepare("SELECT * FROM subscriptions WHERE member_id = ? ORDER BY created_at DESC").all(memberId);
@@ -602,8 +606,7 @@ function createSubscription(input) {
     if (input.sessions_per_month !== void 0 && (!Number.isFinite(input.sessions_per_month) || input.sessions_per_month < 1)) {
       throw new Error("Sessions per month must be a positive number");
     }
-    const durationDays = input.plan_months * DAYS_PER_MONTH;
-    const endDate = startDate + durationDays * SECONDS_PER_DAY$2;
+    const endDate = addCalendarMonths(startDate, input.plan_months);
     db2.prepare("UPDATE subscriptions SET is_active = 0 WHERE member_id = ? AND is_active = 1").run(
       input.member_id
     );
@@ -643,15 +646,14 @@ function renewSubscription(memberId, planMonths, pricePaid, sessionsPerMonth) {
       db2.prepare("UPDATE subscriptions SET is_active = 0 WHERE id = ?").run(oldSubscription.id);
     }
     const startDate = now;
-    const durationDays = planMonths * DAYS_PER_MONTH;
-    const endDate = startDate + durationDays * SECONDS_PER_DAY$2;
+    const endDate = addCalendarMonths(startDate, planMonths);
     const result = db2.prepare(
       `INSERT INTO subscriptions (member_id, start_date, end_date, plan_months, price_paid, sessions_per_month, is_active, created_at)
          VALUES (?, ?, ?, ?, ?, ?, 1, ?)`
     ).run(memberId, startDate, endDate, planMonths, pricePaid || null, sessionsPerMonth || null, now);
     const newSubscriptionId2 = result.lastInsertRowid;
     const cycleStart = startDate;
-    const cycleEnd = Math.min(cycleStart + DAYS_PER_MONTH * SECONDS_PER_DAY$2, endDate);
+    const cycleEnd = Math.min(addCalendarMonths(cycleStart, 1), endDate);
     const member = getMemberById(memberId);
     if (!member) {
       throw new Error(`Member ${memberId} not found`);
@@ -923,6 +925,51 @@ function getDenialReasons(days) {
        ORDER BY count DESC`
   ).all(startTimestamp);
 }
+function getDeniedMembers(days) {
+  const db2 = getDatabase();
+  const startTimestamp = Math.floor(Date.now() / 1e3) - days * 86400;
+  return db2.prepare(
+    `SELECT
+        l.member_id,
+        m.name,
+        m.phone,
+        (SELECT reason_code FROM logs
+           WHERE member_id = l.member_id
+             AND status = 'denied'
+             AND timestamp >= ?
+           ORDER BY timestamp DESC
+           LIMIT 1) as reason_code,
+        COUNT(*) as denial_count,
+        MAX(l.timestamp) as last_denied_at
+       FROM logs l
+       JOIN members m ON l.member_id = m.id
+       WHERE l.status = 'denied'
+         AND l.member_id IS NOT NULL
+         AND l.timestamp >= ?
+       GROUP BY l.member_id
+       ORDER BY last_denied_at DESC
+       LIMIT 50`
+  ).all(startTimestamp, startTimestamp);
+}
+function createMessage(input) {
+  const db2 = getDatabase();
+  const now = Math.floor(Date.now() / 1e3);
+  const result = db2.prepare(
+    `INSERT INTO message_queue (member_id, message_type, payload_json, scheduled_at, status)
+       VALUES (?, ?, ?, ?, 'pending')`
+  ).run(
+    input.member_id,
+    input.message_type,
+    input.payload ? JSON.stringify(input.payload) : null,
+    input.scheduled_at || now
+  );
+  return getMessageById(result.lastInsertRowid);
+}
+function getMessageById(id) {
+  const db2 = getDatabase();
+  const result = db2.prepare("SELECT * FROM message_queue WHERE id = ?").get(id);
+  return result || null;
+}
 function getPendingMessages(limit = 10) {
   const db2 = getDatabase();
   const now = Math.floor(Date.now() / 1e3);
@@ -949,6 +996,18 @@ function getQueueStats() {
     sent: result.sent || 0,
     failed: result.failed || 0
   };
+}
+function hasRecentRenewalReminder(memberId, withinDays = 3) {
+  const db2 = getDatabase();
+  const cutoff = Math.floor(Date.now() / 1e3) - withinDays * 86400;
+  const row = db2.prepare(
+    `SELECT id FROM message_queue
+        WHERE member_id = ?
+          AND message_type = 'renewal'
+          AND scheduled_at > ?
+          AND status IN ('pending', 'sent')`
+  ).get(memberId, cutoff);
+  return !!row;
 }
 function requeueFailedMessages() {
   const db2 = getDatabase();
@@ -1242,6 +1301,52 @@ function getIncomeSummary() {
     totalRevenue: Number(subRow.total || 0) + Number(guestRow.total || 0),
     expectedMonthly: Number(expectedRow.expected || 0)
   };
+}
+function getMonthlyIncome() {
+  const db2 = getDatabase();
+  const subRows = db2.prepare(
+    `SELECT strftime('%Y-%m', datetime(created_at, 'unixepoch')) as month,
+              COALESCE(SUM(price_paid), 0) as revenue,
+              COUNT(*) as count
+         FROM subscriptions
+        WHERE price_paid IS NOT NULL
+        GROUP BY month`
+  ).all();
+  const guestRows = db2.prepare(
+    `SELECT strftime('%Y-%m', datetime(created_at, 'unixepoch')) as month,
+              COALESCE(SUM(price_paid), 0) as revenue,
+              COUNT(*) as count
+         FROM guest_passes
+        WHERE price_paid IS NOT NULL
+        GROUP BY month`
+  ).all();
+  const map = /* @__PURE__ */ new Map();
+  for (const r of subRows) {
+    map.set(r.month, {
+      month: r.month,
+      revenue: Number(r.revenue),
+      subscriptionRevenue: Number(r.revenue),
+      guestRevenue: 0,
+      count: r.count
+    });
+  }
+  for (const r of guestRows) {
+    const existing = map.get(r.month);
+    if (existing) {
+      existing.revenue += Number(r.revenue);
+      existing.guestRevenue = Number(r.revenue);
+      existing.count += r.count;
+    } else {
+      map.set(r.month, {
+        month: r.month,
+        revenue: Number(r.revenue),
+        subscriptionRevenue: 0,
+        guestRevenue: Number(r.revenue),
+        count: r.count
+      });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => b.month.localeCompare(a.month));
 }
 function getRecentIncome(limit = 20) {
   const db2 = getDatabase();
@@ -2280,6 +2385,9 @@ function registerIpcHandlers() {
       try {
         const member = getMemberById(memberId);
         if (!member) return { success: false, error: "Member not found" };
+        if (!member.phone || !member.phone.trim()) {
+          return { success: false, error: "Member has no phone number" };
+        }
         const userDataPath = getUserDataPath();
         const tempDir = path.join(userDataPath, "temp");
         if (!fs.existsSync(tempDir)) {
@@ -2475,8 +2583,6 @@ function registerIpcHandlers() {
     return { success: true };
   });
   electron.ipcMain.handle("app:backup", async (_event, destPath) => {
-    const userDataPath = getUserDataPath();
-    path.join(userDataPath, "gymflow.db");
     const photosPath = getPhotosPath();
     if (!destPath) {
       const result = await electron.dialog.showSaveDialog({
@@ -2602,11 +2708,16 @@ function registerIpcHandlers() {
     "reports:getLowSessionMembers",
     (_event, threshold = 3) => getMembersWithLowSessions(threshold)
   );
+  electron.ipcMain.handle(
+    "reports:getDeniedMembers",
+    (_event, days = 30) => getDeniedMembers(days)
+  );
   electron.ipcMain.handle("income:getSummary", () => getIncomeSummary());
   electron.ipcMain.handle(
     "income:getRecent",
     (_event, limit) => getRecentIncome(limit || 20)
   );
+  electron.ipcMain.handle("income:getMonthly", () => getMonthlyIncome());
 }
 const UPDATE_URL = "https://update-server.run.app/api/version";
 const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1e3;
@@ -2927,6 +3038,42 @@ function createWindow() {
   });
   loadRenderer();
 }
+async function runRenewalReminders() {
+  const status = whatsappService.getStatus();
+  if (!status.authenticated) return;
+  const expiring = getExpiringSubscriptions(3);
+  if (expiring.length === 0) return;
+  const now = Math.floor(Date.now() / 1e3);
+  for (const sub of expiring) {
+    const phone = sub.phone;
+    const name = sub.name;
+    if (!phone) continue;
+    if (hasRecentRenewalReminder(sub.member_id)) continue;
+    const expiryDate = new Date(sub.end_date * 1e3).toLocaleDateString("ar-SA", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    });
+    try {
+      const sent = await whatsappService.sendRenewalReminder(phone, name, expiryDate);
+      if (sent) {
+        createMessage({
+          member_id: sub.member_id,
+          message_type: "renewal",
+          scheduled_at: now,
+          payload: { expiryDate, phone, name }
+        });
+        logToFile("INFO", "Renewal reminder sent", { memberId: sub.member_id, name, expiryDate });
+      }
+    } catch (err) {
+      logToFile("ERROR", "Renewal reminder failed", { memberId: sub.member_id, err });
+    }
+  }
+}
+function startRenewalReminderScheduler() {
+  setTimeout(() => runRenewalReminders().catch(console.error), 6e4);
+  setInterval(() => runRenewalReminders().catch(console.error), 6 * 60 * 60 * 1e3);
+}
 electron.app.whenReady().then(() => {
   if (process.platform === "darwin") {
     const dockIcon = electron.nativeImage.createFromPath(path.join(__dirname, "../../build/icon.png"));
@@ -2960,6 +3107,7 @@ The application will now exit.`
   registerIpcHandlers();
   console.log("IPC handlers registered");
   logToFile("INFO", "IPC handlers registered");
+  startRenewalReminderScheduler();
   createWindow();
   if (!isDev()) {
     startAutoUpdater();

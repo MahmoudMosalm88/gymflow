@@ -1,7 +1,7 @@
 "use client";
 
 import { FirebaseApp, FirebaseOptions, getApp, getApps, initializeApp } from "firebase/app";
-import { Auth, browserLocalPersistence, getAuth, setPersistence } from "firebase/auth";
+import { Auth, browserLocalPersistence, getAuth, inMemoryPersistence, setPersistence } from "firebase/auth";
 
 export type FirebaseClientConfig = Pick<FirebaseOptions, "apiKey" | "authDomain" | "projectId"> &
   Partial<Pick<FirebaseOptions, "appId" | "messagingSenderId">>;
@@ -34,9 +34,19 @@ export async function getFirebaseClientAuth(config: FirebaseClientConfig) {
     firebaseAuthPromise = (async () => {
       const app = getOrInitApp(config);
       const auth = getAuth(app);
-      await setPersistence(auth, browserLocalPersistence);
+      try {
+        await setPersistence(auth, browserLocalPersistence);
+      } catch {
+        // Some environments block local persistence (strict privacy modes, embedded browsers).
+        await setPersistence(auth, inMemoryPersistence);
+      }
       return auth;
     })();
   }
-  return firebaseAuthPromise;
+  try {
+    return await firebaseAuthPromise;
+  } catch (error) {
+    firebaseAuthPromise = null;
+    throw error;
+  }
 }

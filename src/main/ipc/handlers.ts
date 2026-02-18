@@ -514,6 +514,9 @@ export function registerIpcHandlers(): void {
       try {
         const member = memberRepo.getMemberById(memberId)
         if (!member) return { success: false, error: 'Member not found' }
+        if (!member.phone || !member.phone.trim()) {
+          return { success: false, error: 'Member has no phone number' }
+        }
 
         const userDataPath = getUserDataPath()
         const tempDir = join(userDataPath, 'temp')
@@ -756,8 +759,6 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('app:backup', async (_event, destPath?: string) => {
-    const userDataPath = getUserDataPath()
-    const dbPath = join(userDataPath, 'gymflow.db')
     const photosPath = getPhotosPath()
 
     if (!destPath) {
@@ -898,10 +899,14 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('reports:getLowSessionMembers', (_event, threshold: number = 3) =>
     quotaRepo.getMembersWithLowSessions(threshold)
   )
+  ipcMain.handle('reports:getDeniedMembers', (_event, days: number = 30) =>
+    logRepo.getDeniedMembers(days)
+  )
 
   // ============== INCOME ==============
   ipcMain.handle('income:getSummary', () => incomeRepo.getIncomeSummary())
   ipcMain.handle('income:getRecent', (_event, limit?: number) =>
     incomeRepo.getRecentIncome(limit || 20)
   )
+  ipcMain.handle('income:getMonthly', () => incomeRepo.getMonthlyIncome())
 }

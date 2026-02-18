@@ -470,6 +470,47 @@ export default function MemberDetail(): JSX.Element {
         </Card>
       </div>
 
+      {/* Subscription History */}
+      {subscriptions.length > 0 && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>{t('subscriptions.history', 'Subscription History')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-auto border border-border rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-muted text-muted-foreground">
+                  <tr>
+                    <th className="text-start px-4 py-2">{t('memberDetail.start', 'Start')}</th>
+                    <th className="text-start px-4 py-2">{t('memberDetail.expires', 'End')}</th>
+                    <th className="text-start px-4 py-2">{t('memberDetail.plan', 'Plan')}</th>
+                    <th className="text-start px-4 py-2">{t('memberDetail.sessionsPerMonth', 'Sessions / month')}</th>
+                    <th className="text-start px-4 py-2">{t('memberForm.pricePaid', 'Price Paid')}</th>
+                    <th className="text-start px-4 py-2">{t('memberDetail.status', 'Status')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subscriptions.map((s) => (
+                    <tr key={s.id} className="border-t border-border hover:bg-muted/50">
+                      <td className="px-4 py-2 text-foreground">{new Date(s.start_date * 1000).toLocaleDateString()}</td>
+                      <td className="px-4 py-2 text-foreground">{new Date(s.end_date * 1000).toLocaleDateString()}</td>
+                      <td className="px-4 py-2 text-foreground">{s.plan_months} {t('memberDetail.months', 'mo')}</td>
+                      <td className="px-4 py-2 text-foreground">{s.sessions_per_month ?? '-'}</td>
+                      <td className="px-4 py-2 text-foreground">{s.price_paid != null ? new Intl.NumberFormat().format(s.price_paid) : '-'}</td>
+                      <td className="px-4 py-2">
+                        <Badge variant={s.is_active ? 'success' : 'secondary'}>
+                          {s.is_active ? t('subscriptions.active', 'Active') : t('subscriptions.expired', 'Expired')}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* QR Code Modal */}
       {showQR && (
         <QRCodeDisplay memberId={member.id} memberName={member.name} onClose={() => setShowQR(false)} />

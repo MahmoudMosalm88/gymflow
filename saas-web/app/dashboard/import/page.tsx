@@ -96,26 +96,27 @@ export default function ImportPage() {
   async function handleUpload() {
     setError('');
     const file = fileRef.current?.files?.[0];
-    if (!file) { setError(labels.select_json_file); return; }
+    if (!file) { setError(labels.select_db_file); return; }
 
     setUploading(true);
     try {
-      // Read and parse the JSON file
-      const text = await file.text();
-      let payload: unknown;
-      try {
-        payload = JSON.parse(text);
-      } catch {
-        setError(labels.file_not_valid_json);
-        setUploading(false);
-        return;
-      }
+      // Send the .db file as FormData (binary upload)
+      const formData = new FormData();
+      formData.append('file', file);
 
-      // Upload to API
-      const res = await api.post<UploadResult>('/api/migration/upload', {
-        fileName: file.name,
-        payload,
+      // Use fetch directly since api client sets Content-Type to JSON
+      const token = localStorage.getItem('session_token');
+      const branchId = localStorage.getItem('branch_id');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (branchId) headers['x-branch-id'] = branchId;
+
+      const response = await fetch('/api/migration/upload', {
+        method: 'POST',
+        headers,
+        body: formData,
       });
+      const res = await response.json();
 
       if (!res.success || !res.data) {
         setError(res.message || labels.upload_failed);
@@ -218,23 +219,27 @@ export default function ImportPage() {
             <CardDescription>{labels.upload_file_description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* File input */}
-            <Label htmlFor="json-file-input">{labels.select_json_file}</Label>
-            <Input
-              id="json-file-input"
+            {/* Native file input — no wrappers, guaranteed to work */}
+            <input
               ref={fileRef}
               type="file"
-              accept=".json"
+              accept=".db"
               onChange={(e) => setFileName(e.target.files?.[0]?.name || '')}
-              className="mt-1"
+              style={{
+                display: 'block',
+                width: '100%',
+                padding: '16px',
+                border: '2px dashed #3a3a3a',
+                backgroundColor: 'transparent',
+                color: '#8a8578',
+                cursor: 'pointer',
+              }}
             />
-            {fileName && (
-              <p className="text-sm text-muted-foreground">{fileName}</p>
-            )}
 
             <Button
               onClick={handleUpload}
               disabled={uploading || !fileName}
+              className="w-full"
             >
               {uploading ? labels.uploading : labels.upload}
             </Button>

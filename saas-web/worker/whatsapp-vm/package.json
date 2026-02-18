@@ -7,10 +7,15 @@
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.0",
     "pg": "^8.13.1",
-    "whatsapp-web.js": "^1.26.0"
+    "pino": "^9.0.0",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "@types/qrcode": "^1.5.5",
     "tsx": "^4.16.2",
     "typescript": "^5.5.4"
   }

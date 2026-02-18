@@ -69,6 +69,18 @@ npm run db:migrate
 npm run dev
 ```
 
+5. Audit Firebase configuration (recommended before local QA / production deploy):
+
+```bash
+npm run firebase:audit
+```
+
+This command validates:
+- required Firebase web env keys,
+- recommended Firebase web keys for stable phone/popup auth,
+- Firebase Admin bootstrap (service-account or ADC),
+- a live Admin SDK API call (`listUsers(1)`).
+
 ## Important gaps before production cutover
 
 - Full frontend feature parity screens are not yet migrated.

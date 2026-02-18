@@ -18,8 +18,6 @@ const DEFAULT_SETTINGS = {
     'Hi {{name}}, you have only {{sessions}} sessions remaining this cycle.'
 } as const
 
-type DefaultSettings = typeof DEFAULT_SETTINGS
-
 function validateSettingValue(
   key: string,
   value: unknown,

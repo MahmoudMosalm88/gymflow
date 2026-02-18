@@ -256,3 +256,42 @@ export function getDenialReasons(days: number): Array<{
     count: number
   }>
 }
+
+export interface DeniedMember {
+  member_id: string
+  name: string
+  phone: string
+  reason_code: string
+  denial_count: number
+  last_denied_at: number
+}
+
+export function getDeniedMembers(days: number): DeniedMember[] {
+  const db = getDatabase()
+  const startTimestamp = Math.floor(Date.now() / 1000) - days * 86400
+
+  return db
+    .prepare(
+      `SELECT
+        l.member_id,
+        m.name,
+        m.phone,
+        (SELECT reason_code FROM logs
+           WHERE member_id = l.member_id
+             AND status = 'denied'
+             AND timestamp >= ?
+           ORDER BY timestamp DESC
+           LIMIT 1) as reason_code,
+        COUNT(*) as denial_count,
+        MAX(l.timestamp) as last_denied_at
+       FROM logs l
+       JOIN members m ON l.member_id = m.id
+       WHERE l.status = 'denied'
+         AND l.member_id IS NOT NULL
+         AND l.timestamp >= ?
+       GROUP BY l.member_id
+       ORDER BY last_denied_at DESC
+       LIMIT 50`
+    )
+    .all(startTimestamp, startTimestamp) as DeniedMember[]
+}

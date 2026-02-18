@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "firebase:audit": "tsx scripts/firebase-audit.ts",
     "db:migrate": "tsx scripts/migrate.ts",
     "backup:run": "tsx scripts/backup.ts",
     "restore:run": "tsx scripts/restore.ts",

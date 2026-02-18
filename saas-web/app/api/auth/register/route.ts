@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import { withTransaction } from "@/lib/db";
-import { getFirebaseAdminAuth } from "@/lib/firebase-admin";
+import { getFirebaseAdminAuth, getFirebaseAdminDiagnostics } from "@/lib/firebase-admin";
 import { fail, ok, routeError } from "@/lib/http";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { registerSchema } from "@/lib/validation";
@@ -58,30 +58,42 @@ function mapFirebaseCreateError(code: string) {
 async function ensureOwnersSchema(client: PoolClient) {
   if (ownersSchemaReady) return;
 
-  await client.query(`ALTER TABLE IF EXISTS owners ADD COLUMN IF NOT EXISTS phone text`);
-  await client.query(`ALTER TABLE IF EXISTS owners ALTER COLUMN email DROP NOT NULL`);
+  try {
+    await client.query(`ALTER TABLE IF EXISTS owners ADD COLUMN IF NOT EXISTS phone text`);
+    await client.query(`ALTER TABLE IF EXISTS owners ALTER COLUMN email DROP NOT NULL`);
 
-  await ensureIndexWithFallback(
-    client,
-    "owners_email_idx_sp",
-    `CREATE UNIQUE INDEX IF NOT EXISTS idx_owners_email_unique_not_null
-       ON owners (LOWER(email))
-     WHERE email IS NOT NULL`,
-    `CREATE INDEX IF NOT EXISTS idx_owners_email_not_null
-       ON owners (LOWER(email))
-     WHERE email IS NOT NULL`
-  );
+    await ensureIndexWithFallback(
+      client,
+      "owners_email_idx_sp",
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_owners_email_unique_not_null
+         ON owners (LOWER(email))
+       WHERE email IS NOT NULL`,
+      `CREATE INDEX IF NOT EXISTS idx_owners_email_not_null
+         ON owners (LOWER(email))
+       WHERE email IS NOT NULL`
+    );
 
-  await ensureIndexWithFallback(
-    client,
-    "owners_phone_idx_sp",
-    `CREATE UNIQUE INDEX IF NOT EXISTS idx_owners_phone_unique_not_null
-       ON owners (phone)
-     WHERE phone IS NOT NULL`,
-    `CREATE INDEX IF NOT EXISTS idx_owners_phone_not_null
-       ON owners (phone)
-     WHERE phone IS NOT NULL`
-  );
+    await ensureIndexWithFallback(
+      client,
+      "owners_phone_idx_sp",
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_owners_phone_unique_not_null
+         ON owners (phone)
+       WHERE phone IS NOT NULL`,
+      `CREATE INDEX IF NOT EXISTS idx_owners_phone_not_null
+         ON owners (phone)
+       WHERE phone IS NOT NULL`
+    );
+  } catch (error) {
+    const code =
+      typeof error === "object" && error && "code" in error
+        ? String((error as { code?: string }).code || "")
+        : "";
+    const message = error instanceof Error ? error.message : "";
+    const isPermissionIssue = code === "42501" || message.toLowerCase().includes("permission denied");
+    if (!isPermissionIssue) throw error;
+    // Runtime DDL is best-effort only. In restricted environments, schema should already be managed by migrations.
+    console.warn("[auth/register] skipped owners schema auto-fix due DB permissions");
+  }
 
   ownersSchemaReady = true;
 }
@@ -113,7 +125,12 @@ export async function POST(request: NextRequest) {
     const payload = registerSchema.parse(await request.json());
     const auth = getFirebaseAdminAuth();
     if (!auth) {
-      return fail("We're having trouble creating your account. Please try again in a moment.", 500);
+      const diagnostics = getFirebaseAdminDiagnostics();
+      return fail("Firebase admin is not configured correctly.", 500, {
+        source: diagnostics.source,
+        usingApplicationDefault: diagnostics.usingApplicationDefault,
+        error: diagnostics.error
+      });
     }
 
     let firebaseUid = "";
@@ -152,8 +169,8 @@ export async function POST(request: NextRequest) {
       return fail("Email sign-up requires a valid email address.", 400);
     }
 
-    if (payload.authMethod === "phone" && !ownerEmail) {
-      return fail("An email is required for recovery when signing up with phone.", 400);
+    if (payload.authMethod === "google" && !ownerEmail) {
+      return fail("Google sign-up requires an email address from the Google account.", 400);
     }
 
     const organizationId = uuidv4();

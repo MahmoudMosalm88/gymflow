@@ -18,7 +18,17 @@ export async function GET(request: NextRequest) {
         LIMIT 1`,
       [auth.organizationId, auth.branchId]
     );
-    return ok(rows[0]?.value || { state: "disconnected" });
+    const raw = (rows[0]?.value || { state: "disconnected" }) as {
+      state?: string;
+      phone?: string;
+      qrCode?: string;
+    };
+    return ok({
+      connected: raw.state === "connected",
+      state: raw.state || "disconnected",
+      phone: raw.phone,
+      qrCode: raw.qrCode,
+    });
   } catch (error) {
     return routeError(error);
   }

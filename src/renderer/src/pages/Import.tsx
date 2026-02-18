@@ -8,7 +8,7 @@ import {
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
 import { Button } from '../components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Checkbox } from '../components/ui/checkbox'
 
 interface ParsedRow {
@@ -40,7 +40,7 @@ type Step = 'upload' | 'preview' | 'importing' | 'complete'
 export default function Import() {
   const { t } = useTranslation()
   const [step, setStep] = useState<Step>('upload')
-  const [filePath, setFilePath] = useState<string>('')
+  const [, setFilePath] = useState<string>('')
   const [validRows, setValidRows] = useState<ParsedRow[]>([])
   const [invalidRows, setInvalidRows] = useState<InvalidRow[]>([])
   const [sendWelcome, setSendWelcome] = useState(true)

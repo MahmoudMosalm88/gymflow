@@ -34,7 +34,7 @@ const phoneRegisterSchema = registerBaseSchema
     authMethod: z.literal("phone"),
     idToken: z.string().min(20),
     phone: e164PhoneSchema,
-    email: z.string().trim().email(),
+    email: z.string().trim().email().optional(),
     password: z.undefined().optional()
   })
   .refine((value) => Boolean(value.phone), {

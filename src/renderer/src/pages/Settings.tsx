@@ -11,7 +11,7 @@ import { Select } from '../components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog'
 import { Badge } from '../components/ui/badge'
 import { Textarea } from '../components/ui/textarea'
-import { Separator } from '../components/ui/separator'
+
 
 interface SettingsData {
   language: string
@@ -68,6 +68,8 @@ export default function Settings(): JSX.Element {
   }>({ connected: false, authenticated: false })
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [showQr, setShowQr] = useState(false)
+  const [activeTab, setActiveTab] = useState<'rules' | 'whatsapp' | 'data'>('rules')
+  const [showRestoreConfirm, setShowRestoreConfirm] = useState(false)
 
   useEffect(() => {
     loadSettings()
@@ -293,38 +295,34 @@ export default function Settings(): JSX.Element {
         </div>
       )}
 
-      <Tabs defaultValue="general">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'rules' | 'whatsapp' | 'data')}>
         <TabsList>
-          <TabsTrigger value="general">{t('settings.tabGeneral', 'General')}</TabsTrigger>
           <TabsTrigger value="rules">{t('settings.tabRules', 'Rules')}</TabsTrigger>
           <TabsTrigger value="whatsapp">{t('settings.tabWhatsApp', 'WhatsApp')}</TabsTrigger>
           <TabsTrigger value="data">{t('settings.tabData', 'Data')}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('settings.general')}</CardTitle>
-              <CardDescription>{t('settings.generalDesc', 'Language and account settings.')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="space-y-2">
-                <Label>{t('settings.language')}</Label>
-                <Select
-                  value={settings.language}
-                  onChange={(e) => setSettings({ ...settings, language: e.target.value })}
-                >
-                  <option value="en">{t('settings.english')}</option>
-                  <option value="ar">{t('settings.arabic')}</option>
-                </Select>
-              </div>
-
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="rules">
           <div className="grid gap-6">
+            {/* Language — moved from the old General tab */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('settings.general')}</CardTitle>
+                <CardDescription>{t('settings.generalDesc', 'Language and account settings.')}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Label>{t('settings.language')}</Label>
+                  <Select
+                    value={settings.language}
+                    onChange={(e) => setSettings({ ...settings, language: e.target.value })}
+                  >
+                    <option value="en">{t('settings.english')}</option>
+                    <option value="ar">{t('settings.arabic')}</option>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle>{t('settings.sessionRules')}</CardTitle>
@@ -438,6 +436,9 @@ export default function Settings(): JSX.Element {
               <CardDescription>{t('settings.whatsappDesc', 'Connect WhatsApp Web and manage QR access.')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                {t('settings.connectionSection', 'Connection')}
+              </p>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <Switch
@@ -466,9 +467,6 @@ export default function Settings(): JSX.Element {
                     {t('settings.disconnect')}
                   </Button>
                 )}
-                <Button variant="outline" onClick={() => window.api.app.openExternal('https://web.whatsapp.com')}>
-                  {t('settings.openWhatsAppWeb', 'Open WhatsApp Web')}
-                </Button>
                 {whatsappStatus.qrCode && !whatsappStatus.authenticated && (
                   <Button variant="outline" onClick={() => setShowQr(true)}>
                     {t('settings.showQr', 'Show QR')}
@@ -480,7 +478,9 @@ export default function Settings(): JSX.Element {
                 <div className="text-sm text-red-400">{whatsappStatus.error}</div>
               )}
 
-              <Separator />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest pt-2">
+                {t('settings.templatesSection', 'Message Templates')}
+              </p>
 
               <div className="grid gap-5">
                 <div className="grid md:grid-cols-2 gap-4">
@@ -621,7 +621,7 @@ export default function Settings(): JSX.Element {
                 <Button variant="outline" onClick={handleBackup}>
                   {t('settings.backup')}
                 </Button>
-                <Button variant="outline" onClick={handleRestore}>
+                <Button variant="outline" onClick={() => setShowRestoreConfirm(true)}>
                   {t('settings.restore')}
                 </Button>
               </CardContent>
@@ -630,11 +630,13 @@ export default function Settings(): JSX.Element {
         </TabsContent>
       </Tabs>
 
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? t('common.loading') : t('settings.save')}
-        </Button>
-      </div>
+      {activeTab !== 'data' && (
+        <div className="flex justify-end">
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? t('common.loading') : t('settings.save')}
+          </Button>
+        </div>
+      )}
 
       <Dialog open={showQr} onOpenChange={setShowQr}>
         <DialogContent>
@@ -651,6 +653,28 @@ export default function Settings(): JSX.Element {
           <p className="text-sm text-muted-foreground mt-3 text-center">
             {t('settings.qrHint', 'Open WhatsApp → Linked Devices → Scan this QR')}
           </p>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showRestoreConfirm} onOpenChange={setShowRestoreConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('settings.restoreConfirmTitle', 'Restore Database?')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {t('settings.restoreConfirmDesc', 'This will replace all current data with the selected backup. This cannot be undone.')}
+          </p>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="outline" onClick={() => setShowRestoreConfirm(false)}>
+              {t('common.cancel', 'Cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => { setShowRestoreConfirm(false); handleRestore() }}
+            >
+              {t('settings.restoreConfirmAction', 'Yes, Restore')}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

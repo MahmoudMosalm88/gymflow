@@ -128,12 +128,14 @@ const api = {
     getDenialReasons: (days) => electron.ipcRenderer.invoke("reports:getDenialReasons", days),
     getOverview: () => electron.ipcRenderer.invoke("reports:getOverview"),
     getExpiringSubscriptions: (days) => electron.ipcRenderer.invoke("reports:getExpiringSubscriptions", days),
-    getLowSessionMembers: (threshold) => electron.ipcRenderer.invoke("reports:getLowSessionMembers", threshold)
+    getLowSessionMembers: (threshold) => electron.ipcRenderer.invoke("reports:getLowSessionMembers", threshold),
+    getDeniedMembers: (days) => electron.ipcRenderer.invoke("reports:getDeniedMembers", days)
   },
   // Income operations
   income: {
     getSummary: () => electron.ipcRenderer.invoke("income:getSummary"),
-    getRecent: (limit) => electron.ipcRenderer.invoke("income:getRecent", limit)
+    getRecent: (limit) => electron.ipcRenderer.invoke("income:getRecent", limit),
+    getMonthly: () => electron.ipcRenderer.invoke("income:getMonthly")
   }
 };
 if (process.contextIsolated) {

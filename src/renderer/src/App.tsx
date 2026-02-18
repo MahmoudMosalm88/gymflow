@@ -52,8 +52,12 @@ function App(): JSX.Element {
     const loadLanguage = async () => {
       try {
         const saved = await window.api.settings.get('language')
-        if (saved && typeof saved === 'string' && saved !== i18n.language) {
-          i18n.changeLanguage(saved)
+        if (saved && typeof saved === 'string') {
+          // Persist to localStorage so next reload applies dir synchronously
+          localStorage.setItem('gymflow-lang', saved)
+          if (saved !== i18n.language) {
+            i18n.changeLanguage(saved)
+          }
         }
       } catch {
         // Ignore if settings not available yet

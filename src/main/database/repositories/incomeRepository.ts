@@ -41,6 +41,71 @@ export function getIncomeSummary(): IncomeSummary {
   }
 }
 
+export interface MonthlyIncomeEntry {
+  month: string               // 'YYYY-MM'
+  revenue: number             // subscriptions + guest passes
+  subscriptionRevenue: number
+  guestRevenue: number
+  count: number               // total transactions
+}
+
+export function getMonthlyIncome(): MonthlyIncomeEntry[] {
+  const db = getDatabase()
+
+  const subRows = db
+    .prepare(
+      `SELECT strftime('%Y-%m', datetime(created_at, 'unixepoch')) as month,
+              COALESCE(SUM(price_paid), 0) as revenue,
+              COUNT(*) as count
+         FROM subscriptions
+        WHERE price_paid IS NOT NULL
+        GROUP BY month`
+    )
+    .all() as Array<{ month: string; revenue: number; count: number }>
+
+  const guestRows = db
+    .prepare(
+      `SELECT strftime('%Y-%m', datetime(created_at, 'unixepoch')) as month,
+              COALESCE(SUM(price_paid), 0) as revenue,
+              COUNT(*) as count
+         FROM guest_passes
+        WHERE price_paid IS NOT NULL
+        GROUP BY month`
+    )
+    .all() as Array<{ month: string; revenue: number; count: number }>
+
+  const map = new Map<string, MonthlyIncomeEntry>()
+
+  for (const r of subRows) {
+    map.set(r.month, {
+      month: r.month,
+      revenue: Number(r.revenue),
+      subscriptionRevenue: Number(r.revenue),
+      guestRevenue: 0,
+      count: r.count
+    })
+  }
+
+  for (const r of guestRows) {
+    const existing = map.get(r.month)
+    if (existing) {
+      existing.revenue += Number(r.revenue)
+      existing.guestRevenue = Number(r.revenue)
+      existing.count += r.count
+    } else {
+      map.set(r.month, {
+        month: r.month,
+        revenue: Number(r.revenue),
+        subscriptionRevenue: 0,
+        guestRevenue: Number(r.revenue),
+        count: r.count
+      })
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => b.month.localeCompare(a.month))
+}
+
 export function getRecentIncome(limit = 20): IncomeEntry[] {
   const db = getDatabase()
 

@@ -165,13 +165,16 @@ const api = {
     getExpiringSubscriptions: (days?: number) =>
       ipcRenderer.invoke('reports:getExpiringSubscriptions', days),
     getLowSessionMembers: (threshold?: number) =>
-      ipcRenderer.invoke('reports:getLowSessionMembers', threshold)
+      ipcRenderer.invoke('reports:getLowSessionMembers', threshold),
+    getDeniedMembers: (days?: number) =>
+      ipcRenderer.invoke('reports:getDeniedMembers', days)
   },
 
   // Income operations
   income: {
     getSummary: () => ipcRenderer.invoke('income:getSummary'),
-    getRecent: (limit?: number) => ipcRenderer.invoke('income:getRecent', limit)
+    getRecent: (limit?: number) => ipcRenderer.invoke('income:getRecent', limit),
+    getMonthly: () => ipcRenderer.invoke('income:getMonthly')
   }
 }
 

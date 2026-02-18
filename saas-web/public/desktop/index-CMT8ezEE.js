@@ -21005,14 +21005,29 @@ function WhatsAppConnectPanel() {
   const [qrDataUrl, setQrDataUrl] = reactExports.useState(null);
   const [isConnecting, setIsConnecting] = reactExports.useState(false);
   reactExports.useEffect(() => {
-    const loadStatus = async () => {
+    const syncStatus = async () => {
       try {
-        const initial = await window.api.whatsapp.getStatus();
-        setStatus(initial);
+        const next = await window.api.whatsapp.getStatus();
+        setStatus(next);
+        if (next?.authenticated) {
+          setIsConnecting(false);
+          setQrDataUrl(null);
+          return;
+        }
+        if (next?.qrCode) {
+          try {
+            const dataUrl = await toDataURL(next.qrCode, { width: 220, margin: 1 });
+            setQrDataUrl(dataUrl);
+          } catch {
+            setQrDataUrl(null);
+          }
+        }
       } catch {
+      } finally {
+        setIsConnecting(false);
       }
     };
-    loadStatus();
+    syncStatus();
     const unsubscribeQr = window.api.whatsapp.onQRCode(async (qr) => {
       setStatus((prev) => ({ ...prev, qrCode: qr, error: null }));
       try {
@@ -21027,10 +21042,24 @@ function WhatsAppConnectPanel() {
     const unsubscribeStatus = window.api.whatsapp.onStatusChange((next) => {
       setStatus(next);
       if (next.authenticated) {
+        setIsConnecting(false);
+      }
+      if (next.authenticated) {
         setTimeout(() => setQrDataUrl(null), 500);
       }
+      if (!next.authenticated && next.qrCode) {
+        toDataURL(next.qrCode, { width: 220, margin: 1 }).then((dataUrl) => {
+          setQrDataUrl(dataUrl);
+        }).catch(() => {
+          setQrDataUrl(null);
+        });
+      }
     });
+    const pollId = setInterval(() => {
+      syncStatus();
+    }, 1500);
     return () => {
+      clearInterval(pollId);
       unsubscribeQr();
       unsubscribeStatus();
     };
@@ -21113,7 +21142,7 @@ function Onboarding({
   mode: mode2 = "initial"
 }) {
   const { t, i18n } = useTranslation();
-  const [step, setStep] = reactExports.useState("whatsapp");
+  const [step, setStep] = reactExports.useState("account");
   const [name, setName] = reactExports.useState("");
   const [phone, setPhone] = reactExports.useState("");
   const [password, setPassword] = reactExports.useState("");
@@ -21229,12 +21258,10 @@ function Onboarding({
     }
   };
   const steps = mode2 === "initial" ? [
-    { key: "whatsapp", label: t("auth.stepWhatsApp", "WhatsApp") },
     { key: "account", label: t("auth.stepAccount", "Account") },
     { key: "verify", label: t("auth.stepVerify", "Verify") },
     { key: "settings", label: t("auth.stepSettings", "Settings") }
   ] : [
-    { key: "whatsapp", label: t("auth.stepWhatsApp", "WhatsApp") },
     { key: "account", label: t("auth.stepAccount", "Account") },
     { key: "verify", label: t("auth.stepVerify", "Verify") }
   ];

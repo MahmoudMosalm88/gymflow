@@ -1,7 +1,8 @@
 'use client';
 
-import { useAuth, logout } from '@/lib/use-auth';
-import { useLang, t } from '@/lib/i18n';
+import { useAuth } from '@/lib/use-auth';
+import { useLang } from '@/lib/i18n';
+import Link from 'next/link';
 
 type Props = {
   onMenuToggle: () => void;
@@ -11,6 +12,9 @@ export default function Header({ onMenuToggle }: Props) {
   const { profile } = useAuth();
   const { lang, setLang } = useLang();
 
+  // Get initials for avatar (first letter of name)
+  const initials = (profile?.name || 'O').charAt(0).toUpperCase();
+
   return (
     <header className="flex items-center justify-between border-b-2 border-[#2a2a2a] bg-[#141414] px-4 py-3">
       <div className="flex items-center gap-3">
@@ -19,9 +23,6 @@ export default function Header({ onMenuToggle }: Props) {
             <path d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <span className="text-sm font-semibold text-[#e8e4df]">
-          {profile?.name || 'Owner'}
-        </span>
       </div>
 
       <div className="flex items-center gap-2">
@@ -44,12 +45,11 @@ export default function Header({ onMenuToggle }: Props) {
           </button>
         </div>
 
-        <button
-          onClick={logout}
-          className="ml-2 border-2 border-[#2a2a2a] px-3 py-1.5 text-xs text-[#888888] bg-[#1e1e1e] transition-all hover:border-[#e63946] hover:text-[#e63946]"
-        >
-          {t[lang].logout}
-        </button>
+        <Link href="/dashboard/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <div className="w-8 h-8 bg-[#e63946] flex items-center justify-center text-white text-sm font-bold">
+            {initials}
+          </div>
+        </Link>
       </div>
     </header>
   );

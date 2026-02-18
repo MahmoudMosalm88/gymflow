@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import Database from 'better-sqlite3'
-import { v4 as uuidv4 } from 'uuid'
 
 let db: Database.Database
 
@@ -20,7 +19,7 @@ import {
   getSubscriptionById
 } from '../subscriptionRepository'
 import { createMember } from '../memberRepository'
-import { getCurrentQuota, getQuotaHistory } from '../quotaRepository'
+import { getQuotaHistory } from '../quotaRepository'
 
 function setupTestDatabase() {
   db = new Database(':memory:')

@@ -26,16 +26,44 @@ export const featureFlags = {
   useDatabaseSsl: env.DATABASE_SSL === "true"
 };
 
+export type FirebaseWebConfigDiagnostics = {
+  ok: boolean;
+  missingRequired: string[];
+  missingRecommended: string[];
+};
+
+function isNonEmpty(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+export function getFirebaseWebConfigDiagnostics(): FirebaseWebConfigDiagnostics {
+  const missingRequired: string[] = [];
+  const missingRecommended: string[] = [];
+
+  if (!isNonEmpty(env.FIREBASE_WEB_API_KEY)) missingRequired.push("FIREBASE_WEB_API_KEY");
+  if (!isNonEmpty(env.FIREBASE_PROJECT_ID)) missingRequired.push("FIREBASE_PROJECT_ID");
+  if (!isNonEmpty(env.FIREBASE_AUTH_DOMAIN)) missingRequired.push("FIREBASE_AUTH_DOMAIN");
+
+  // Phone + popup auth are significantly more stable when these are present.
+  if (!isNonEmpty(env.FIREBASE_APP_ID)) missingRecommended.push("FIREBASE_APP_ID");
+  if (!isNonEmpty(env.FIREBASE_MESSAGING_SENDER_ID)) missingRecommended.push("FIREBASE_MESSAGING_SENDER_ID");
+
+  return {
+    ok: missingRequired.length === 0,
+    missingRequired,
+    missingRecommended
+  };
+}
+
 export function getFirebaseWebConfig() {
-  if (!env.FIREBASE_WEB_API_KEY || !env.FIREBASE_PROJECT_ID) {
+  const diagnostics = getFirebaseWebConfigDiagnostics();
+  if (!diagnostics.ok) {
     return null;
   }
 
-  const authDomain = env.FIREBASE_AUTH_DOMAIN || `${env.FIREBASE_PROJECT_ID}.firebaseapp.com`;
-
   return {
     apiKey: env.FIREBASE_WEB_API_KEY,
-    authDomain,
+    authDomain: env.FIREBASE_AUTH_DOMAIN!,
     projectId: env.FIREBASE_PROJECT_ID,
     appId: env.FIREBASE_APP_ID || undefined,
     messagingSenderId: env.FIREBASE_MESSAGING_SENDER_ID || undefined

@@ -23,7 +23,14 @@ export interface CreateSubscriptionInput {
 }
 
 const SECONDS_PER_DAY = 86400
-const DAYS_PER_MONTH = 30
+
+// Add N calendar months to a Unix timestamp (seconds).
+// Uses JavaScript's Date so Feb/Mar/Apr etc. are handled correctly.
+function addCalendarMonths(unixSeconds: number, months: number): number {
+  const d = new Date(unixSeconds * 1000)
+  d.setMonth(d.getMonth() + months)
+  return Math.floor(d.getTime() / 1000)
+}
 
 export function getSubscriptionsByMemberId(memberId: string): Subscription[] {
   const db = getDatabase()
@@ -58,9 +65,8 @@ export function createSubscription(input: CreateSubscriptionInput): Subscription
       throw new Error('Sessions per month must be a positive number')
     }
 
-    // Calculate end date based on plan months (30 days per month)
-    const durationDays = input.plan_months * DAYS_PER_MONTH
-    const endDate = startDate + durationDays * SECONDS_PER_DAY
+    // Calculate end date using real calendar months
+    const endDate = addCalendarMonths(startDate, input.plan_months)
 
     // Deactivate any existing active subscriptions for this member
     db.prepare('UPDATE subscriptions SET is_active = 0 WHERE member_id = ? AND is_active = 1').run(
@@ -125,10 +131,9 @@ export function renewSubscription(
       db.prepare('UPDATE subscriptions SET is_active = 0 WHERE id = ?').run(oldSubscription.id)
     }
     
-    // 4. Calculate new subscription dates
+    // 4. Calculate new subscription dates using real calendar months
     const startDate = now
-    const durationDays = planMonths * DAYS_PER_MONTH
-    const endDate = startDate + durationDays * SECONDS_PER_DAY
+    const endDate = addCalendarMonths(startDate, planMonths)
     
     // 5. Create the new subscription
     const result = db
@@ -142,7 +147,7 @@ export function renewSubscription(
     
     // 6. Create the first quota cycle for the new subscription
     const cycleStart = startDate
-    const cycleEnd = Math.min(cycleStart + DAYS_PER_MONTH * SECONDS_PER_DAY, endDate)
+    const cycleEnd = Math.min(addCalendarMonths(cycleStart, 1), endDate)
     
     const member = getMemberById(memberId)
     if (!member) {

@@ -15,15 +15,15 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Terminal, CheckCircle } from 'lucide-react'; // Icons for Alert
+import { AlertCircle, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type Tab = 'general' | 'whatsapp' | 'backup' | 'data';
+type Tab = 'general' | 'whatsapp' | 'backup';
 
-type WhatsAppStatus = { connected: boolean; phone?: string; qrCode?: string };
+type WhatsAppStatus = { connected: boolean; state?: string; phone?: string; qrCode?: string };
 
 type BackupEntry = {
   id: string;
@@ -42,12 +42,10 @@ export default function SettingsPage() {
   const labels = t[lang];
   const [activeTab, setActiveTab] = useState<Tab>('general');
 
-  // Tab definitions (label + key)
   const tabs: { key: Tab; label: string }[] = [
     { key: 'general', label: labels.general_settings || 'General' },
     { key: 'whatsapp', label: 'WhatsApp' },
-    { key: 'backup', label: labels.backup || 'Backup' },
-    { key: 'data', label: labels.data_management || 'Data' },
+    { key: 'backup', label: labels.backup_and_restore || 'Backup & Restore' },
   ];
 
   return (
@@ -55,28 +53,24 @@ export default function SettingsPage() {
       {/* Page heading */}
       <h1 className="text-3xl font-bold">{labels.settings}</h1>
 
-      {/* Tab bar */}
-      <Card>
-        <CardContent className="p-2 flex flex-wrap gap-1">
-          {tabs.map((tab) => (
-            <Button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              variant={activeTab === tab.key ? 'default' : 'ghost'}
-              className="flex-1 min-w-[100px]"
-            >
-              {tab.label}
-            </Button>
-          ))}
-        </CardContent>
-      </Card>
-
+      {/* Tab bar — no card wrapper */}
+      <div className="flex flex-wrap gap-1 border-b border-border pb-2">
+        {tabs.map((tab) => (
+          <Button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            variant={activeTab === tab.key ? 'default' : 'ghost'}
+            className="min-w-[100px]"
+          >
+            {tab.label}
+          </Button>
+        ))}
+      </div>
 
       {/* Tab content */}
       {activeTab === 'general' && <GeneralTab />}
       {activeTab === 'whatsapp' && <WhatsAppTab />}
       {activeTab === 'backup' && <BackupTab />}
-      {activeTab === 'data' && <DataTab />}
     </div>
   );
 }
@@ -91,7 +85,6 @@ function GeneralTab() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
 
-  // Load settings on mount
   useEffect(() => {
     api.get<Record<string, string>>('/api/settings').then((res) => {
       if (res.success && res.data) {
@@ -104,7 +97,6 @@ function GeneralTab() {
     });
   }, [labels.error_loading_settings]);
 
-  // Save handler
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
@@ -146,14 +138,6 @@ function GeneralTab() {
           />
         </div>
 
-        {/* Language info */}
-        <div>
-          <Label>{labels.language}</Label>
-          <p className="text-sm text-muted-foreground mt-1">
-            {labels.language_toggle_sidebar}
-          </p>
-        </div>
-
         {/* Save button and message */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <Button onClick={handleSave} disabled={saving} className="min-w-[120px]">
@@ -161,7 +145,7 @@ function GeneralTab() {
           </Button>
           {message && (
             <Alert variant={message.type} className="max-w-md">
-              {message.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
+              {message.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
               <AlertTitle>{message.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
               <AlertDescription>{message.text}</AlertDescription>
             </Alert>
@@ -180,6 +164,7 @@ function WhatsAppTab() {
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
     const res = await api.get<WhatsAppStatus>('/api/whatsapp/status');
@@ -187,15 +172,23 @@ function WhatsAppTab() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchStatus(); }, [fetchStatus]);
+  // Auto-poll every 3 s until connected
+  useEffect(() => {
+    fetchStatus();
+    const id = setInterval(() => {
+      if (!status?.connected) fetchStatus();
+    }, 3000);
+    return () => clearInterval(id);
+  }, [fetchStatus, status?.connected]);
 
   const handleConnect = async () => {
     setActing(true);
+    setError(null);
     try {
       await api.post('/api/whatsapp/connect', {});
       await fetchStatus();
-    } catch (error) {
-      console.error("WhatsApp connect failed:", error);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setActing(false);
     }
@@ -203,11 +196,12 @@ function WhatsAppTab() {
 
   const handleDisconnect = async () => {
     setActing(true);
+    setError(null);
     try {
       await api.post('/api/whatsapp/disconnect', {});
       await fetchStatus();
-    } catch (error) {
-      console.error("WhatsApp disconnect failed:", error);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setActing(false);
     }
@@ -227,39 +221,57 @@ function WhatsAppTab() {
         {/* Status indicator */}
         <div className="flex items-center gap-3">
           <Badge variant={(connected ? 'success' : 'destructive') as any} className="text-sm">
-            {connected
-              ? labels.connected
-              : labels.disconnected}
+            {connected ? labels.connected : labels.disconnected}
           </Badge>
           {connected && status?.phone && (
             <span className="text-foreground font-medium">{status.phone}</span>
           )}
         </div>
 
-        {/* QR Code display if available and not connected */}
+        {/* QR Code — shown once worker generates it */}
         {!connected && status?.qrCode && (
           <div className="flex flex-col items-center justify-center space-y-3">
             <p className="text-muted-foreground">{labels.scan_qr_code}</p>
-            {/* Using a placeholder for QR code image */}
-            <img src={`data:image/png;base64,${status.qrCode}`} alt="WhatsApp QR Code" className="h-48 w-48 border-2 border-[#2a2a2a]" />
+            <img
+              src={`data:image/png;base64,${status.qrCode}`}
+              alt="WhatsApp QR Code"
+              className="h-48 w-48 border-2 border-border"
+            />
             <p className="text-sm text-muted-foreground">{labels.scan_qr_instructions}</p>
+          </div>
+        )}
+
+        {/* QR placeholder — shown while worker is generating the QR */}
+        {!connected && !status?.qrCode && acting && (
+          <div className="h-48 w-48 border-2 border-border flex items-center justify-center text-sm text-muted-foreground">
+            {'Waiting for QR...'}
           </div>
         )}
 
         {/* Action buttons */}
         <div>
           {connected ? (
-            <Button onClick={handleDisconnect} disabled={acting} variant="destructive" className="min-w-[120px]">
-              {acting
-                ? labels.disconnecting
-                : labels.disconnect}
+            <Button
+              onClick={handleDisconnect}
+              disabled={acting}
+              variant="destructive"
+              className="min-w-[120px]"
+            >
+              {acting ? labels.disconnecting : labels.disconnect}
             </Button>
           ) : (
-            <Button onClick={handleConnect} disabled={acting} className="min-w-[120px]">
-              {acting
-                ? labels.connecting
-                : labels.connect}
+            <Button
+              onClick={handleConnect}
+              disabled={acting}
+              className="min-w-[120px]"
+            >
+              {acting ? labels.connecting : labels.connect}
             </Button>
+          )}
+
+          {/* Error display */}
+          {error && (
+            <p className="mt-2 text-sm text-destructive">{error}</p>
           )}
         </div>
       </CardContent>
@@ -267,22 +279,34 @@ function WhatsAppTab() {
   );
 }
 
-// ── Backup Tab ─────────────────────────────────────────────────────────────
+// ── Backup & Restore Tab ────────────────────────────────────────────────────
+// Merges the old "Backup" and "Data" tabs into one unified view:
+// Create backup → History table → Restore section
 
 function BackupTab() {
   const { lang } = useLang();
   const labels = t[lang];
+
+  // Shared state
   const [history, setHistory] = useState<BackupEntry[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Create backup state
   const [exporting, setExporting] = useState(false);
   const [exportResult, setExportResult] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
+
+  // Restore state
+  const [selectedId, setSelectedId] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreResult, setRestoreResult] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
 
   const fetchHistory = useCallback(async () => {
     try {
       const res = await api.get<BackupEntry[]>('/api/backup/history');
       if (res.success && res.data) setHistory(res.data);
     } catch (error) {
-      console.error("Failed to fetch backup history:", error);
+      console.error('Failed to fetch backup history:', error);
       setExportResult({ type: 'destructive', text: labels.error_loading_history });
     } finally {
       setLoading(false);
@@ -300,7 +324,7 @@ function BackupTab() {
       );
       if (res.success) {
         setExportResult({ type: 'success', text: labels.backup_created_successfully });
-        fetchHistory(); // refresh the table
+        fetchHistory();
       } else {
         setExportResult({ type: 'destructive', text: res.message ?? labels.backup_failed });
       }
@@ -311,198 +335,161 @@ function BackupTab() {
     }
   };
 
-  if (loading) return <LoadingSpinner />;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{labels.backup_and_restore}</CardTitle>
-        <CardDescription>{labels.backup_and_restore_description}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        {/* Create backup section */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <Button onClick={handleExport} disabled={exporting} className="min-w-[150px]">
-            {exporting
-              ? labels.creating_backup
-              : labels.create_backup}
-          </Button>
-          {exportResult && (
-            <Alert variant={exportResult.type} className="max-w-md">
-              {exportResult.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
-              <AlertTitle>{exportResult.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
-              <AlertDescription>{exportResult.text}</AlertDescription>
-            </Alert>
-          )}
-        </div>
-
-        {/* History table */}
-        <h3 className="text-lg font-semibold text-foreground pt-4">
-          {labels.backup_history}
-        </h3>
-        <div className="rounded-md border overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[180px]">{labels.date}</TableHead>
-                <TableHead>{labels.source}</TableHead>
-                <TableHead>{labels.status}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {history.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                    {labels.no_backups_yet}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                history.map((b) => (
-                  <TableRow key={b.id}>
-                    <TableCell className="font-medium">{formatDateTime(b.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')}</TableCell>
-                    <TableCell>{b.source}</TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          b.status === 'completed'
-                            ? 'bg-success hover:bg-success/90'
-                            : b.status === 'failed'
-                            ? 'bg-destructive hover:bg-destructive/90'
-                            : 'bg-warning hover:bg-warning/90'
-                        }
-                      >
-                        {b.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ── Data Tab ───────────────────────────────────────────────────────────────
-
-function DataTab() {
-  const { lang } = useLang();
-  const labels = t[lang];
-  const [history, setHistory] = useState<BackupEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState('');
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [restoring, setRestoring] = useState(false);
-  const [result, setResult] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
-
-  useEffect(() => {
-    api.get<BackupEntry[]>('/api/backup/history').then((res) => {
-      if (res.success && res.data) setHistory(res.data);
-      setLoading(false);
-    }).catch((error) => {
-      console.error("Failed to load backup history for restore:", error);
-      setResult({ type: 'destructive', text: labels.error_loading_backups_for_restore });
-      setLoading(false);
-    });
-  }, [labels.error_loading_backups_for_restore]);
-
   const handleRestore = async () => {
     setConfirmOpen(false);
     setRestoring(true);
-    setResult(null);
+    setRestoreResult(null);
     try {
       const res = await api.post('/api/backup/restore', { artifactId: selectedId });
       if (res.success) {
-        setResult({ type: 'success', text: labels.restore_successful });
+        setRestoreResult({ type: 'success', text: labels.restore_successful });
       } else {
-        setResult({ type: 'destructive', text: res.message ?? labels.restore_failed });
+        setRestoreResult({ type: 'destructive', text: res.message ?? labels.restore_failed });
       }
     } catch (error) {
-      setResult({ type: 'destructive', text: labels.restore_failed });
+      setRestoreResult({ type: 'destructive', text: labels.restore_failed });
     } finally {
       setRestoring(false);
     }
   };
 
+  const statusLabel = (s: string) =>
+    s === 'completed' ? 'Completed' : s === 'failed' ? 'Failed' : 'Pending';
+
+  const statusVariant = (s: string) =>
+    s === 'completed' ? 'bg-success hover:bg-success/90' : s === 'failed' ? 'bg-destructive hover:bg-destructive/90' : 'bg-warning hover:bg-warning/90';
+
   if (loading) return <LoadingSpinner />;
 
-  // Only show completed backups for restore
   const completedBackups = history.filter((b) => b.status === 'completed');
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{labels.restore_from_backup}</CardTitle>
-        <CardDescription>{labels.restore_from_backup_description}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        {completedBackups.length === 0 ? (
-          <p className="text-muted-foreground">
-            {labels.no_backups_available_to_restore}
-          </p>
-        ) : (
-          <>
-            {/* Backup selector */}
-            <div>
-              <Label htmlFor="backup-select">{labels.select_a_backup}</Label>
-              <Select value={selectedId} onValueChange={setSelectedId} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-                <SelectTrigger id="backup-select" className="max-w-md mt-1">
-                  <SelectValue placeholder={labels.select_placeholder} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="" disabled>{labels.select_placeholder}</SelectItem>
-                  {completedBackups.map((b) => (
-                    <SelectItem key={b.artifact_id} value={b.artifact_id}>
-                      {formatDateTime(b.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')} — {b.source}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Restore button */}
-            <Button
-              onClick={() => setConfirmOpen(true)}
-              disabled={!selectedId || restoring}
-              variant="destructive"
-              className="min-w-[120px]"
-            >
-              {restoring
-                ? labels.restoring
-                : labels.restore}
+    <div className="flex flex-col gap-6">
+      {/* ── Create backup ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{labels.create_backup}</CardTitle>
+          <CardDescription>{labels.backup_and_restore_description}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <Button onClick={handleExport} disabled={exporting} className="min-w-[150px]">
+              {exporting ? labels.creating_backup : labels.create_backup}
             </Button>
-          </>
-        )}
+            {exportResult && (
+              <Alert variant={exportResult.type} className="max-w-md">
+                {exportResult.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                <AlertTitle>{exportResult.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+                <AlertDescription>{exportResult.text}</AlertDescription>
+              </Alert>
+            )}
+          </div>
 
-        {/* Result message */}
-        {result && (
-          <Alert variant={result.type} className="max-w-md">
-            {result.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
-            <AlertTitle>{result.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
-            <AlertDescription>{result.text}</AlertDescription>
-          </Alert>
-        )}
+          {/* History table */}
+          <h3 className="text-base font-semibold text-foreground pt-2">{labels.backup_history}</h3>
+          <div className="rounded-md border overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[180px]">{labels.date}</TableHead>
+                  <TableHead>{labels.source}</TableHead>
+                  <TableHead>{labels.status}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {history.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                      {labels.no_backups_yet}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  history.map((b) => (
+                    <TableRow key={b.id}>
+                      <TableCell className="font-medium">
+                        {formatDateTime(b.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')}
+                      </TableCell>
+                      <TableCell>{b.source}</TableCell>
+                      <TableCell>
+                        <Badge className={statusVariant(b.status)}>
+                          {statusLabel(b.status)}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Confirmation dialog */}
-        <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{labels.confirm_restore}</DialogTitle>
-              <DialogDescription>{labels.confirm_restore_description}</DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button onClick={() => setConfirmOpen(false)} variant="outline">
-                {labels.cancel}
+      {/* ── Restore ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{labels.restore_from_backup}</CardTitle>
+          <CardDescription>{labels.restore_from_backup_description}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {completedBackups.length === 0 ? (
+            <p className="text-muted-foreground">{labels.no_backups_available_to_restore}</p>
+          ) : (
+            <>
+              <div>
+                <Label htmlFor="backup-select">{labels.select_a_backup}</Label>
+                <Select value={selectedId} onValueChange={setSelectedId} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                  <SelectTrigger id="backup-select" className="max-w-md mt-1">
+                    <SelectValue placeholder={labels.select_placeholder} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="" disabled>{labels.select_placeholder}</SelectItem>
+                    {completedBackups.map((b) => (
+                      <SelectItem key={b.artifact_id} value={b.artifact_id}>
+                        {formatDateTime(b.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')} — {b.source}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button
+                onClick={() => setConfirmOpen(true)}
+                disabled={!selectedId || restoring}
+                variant="destructive"
+                className="min-w-[120px]"
+              >
+                {restoring ? labels.restoring : labels.restore}
               </Button>
-              <Button onClick={handleRestore} variant="destructive">
-                {labels.yes_restore}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </CardContent>
-    </Card>
+            </>
+          )}
+
+          {restoreResult && (
+            <Alert variant={restoreResult.type} className="max-w-md">
+              {restoreResult.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+              <AlertTitle>{restoreResult.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+              <AlertDescription>{restoreResult.text}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Confirmation dialog */}
+          <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{labels.confirm_restore}</DialogTitle>
+                <DialogDescription>{labels.confirm_restore_description}</DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button onClick={() => setConfirmOpen(false)} variant="outline">
+                  {labels.cancel}
+                </Button>
+                <Button onClick={handleRestore} variant="destructive">
+                  {labels.yes_restore}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

@@ -366,6 +366,14 @@ export default function Onboarding({
           <Button onClick={handleVerify} disabled={isLoading} className="w-full">
             {isLoading ? t('common.loading', 'Loading...') : t('auth.verify', 'Verify')}
           </Button>
+          <Button
+            variant="ghost"
+            className="w-full text-muted-foreground"
+            onClick={() => { setStep('account'); setOtpCode(''); setError(null) }}
+            disabled={isLoading}
+          >
+            {t('common.back', '← Back')}
+          </Button>
         </div>
 
       </AuthLayout>

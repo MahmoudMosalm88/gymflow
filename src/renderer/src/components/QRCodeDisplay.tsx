@@ -153,12 +153,17 @@ export default function QRCodeDisplay({
     setWhatsAppError(null)
 
     try {
-      await window.api.whatsapp.sendQRCode(memberId, memberName, qrDataUrl, qrValue || memberId)
+      const result = await window.api.whatsapp.sendQRCode(memberId, memberName, qrDataUrl, qrValue || memberId)
+      if (!result?.success) {
+        throw new Error(result?.error || 'Send failed')
+      }
       // Close modal after successful send
       setTimeout(() => onClose(), 1500)
     } catch (error) {
       console.error('Failed to send QR via WhatsApp:', error)
-      setWhatsAppError(String(error) || 'Failed to send QR code')
+      setWhatsAppError(
+        t('qrCodeDisplay.sendFailed', 'Failed to send. Check the member has a valid phone number and WhatsApp is connected.')
+      )
     } finally {
       setIsSendingWhatsApp(false)
     }

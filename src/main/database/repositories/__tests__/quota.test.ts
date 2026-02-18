@@ -7,7 +7,6 @@ let db: Database.Database
 
 // Constants matching the repository
 const SECONDS_PER_DAY = 86400
-const CYCLE_LENGTH_DAYS = 30
 
 // Mock module for connection
 vi.mock('../../connection', () => ({
@@ -22,10 +21,6 @@ import {
   getSessionsRemaining,
   getQuotaHistory
 } from '../quotaRepository'
-import { createSubscription, getActiveSubscription } from '../subscriptionRepository'
-import { createMember } from '../memberRepository'
-import { setSetting } from '../settingsRepository'
-
 function setupTestDatabase() {
   db = new Database(':memory:')
 

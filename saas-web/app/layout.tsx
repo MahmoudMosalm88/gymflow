@@ -22,7 +22,7 @@ const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
 });
 
 export const metadata: Metadata = {
-  title: "GymFlow SaaS",
+  title: "GymFlow",
   description: "GymFlow web SaaS on Google Cloud",
 };
 

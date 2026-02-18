@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { env } from "@/lib/env";
+import { env, getFirebaseWebConfigDiagnostics } from "@/lib/env";
 import { fail, ok, routeError } from "@/lib/http";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { forgotPasswordSchema } from "@/lib/validation";
@@ -36,7 +36,10 @@ export async function POST(request: NextRequest) {
     const payload = forgotPasswordSchema.parse(await request.json());
 
     if (!env.FIREBASE_WEB_API_KEY) {
-      return fail("Firebase web auth is not configured", 500);
+      const diagnostics = getFirebaseWebConfigDiagnostics();
+      return fail("Firebase web auth is not configured", 500, {
+        missingRequired: diagnostics.missingRequired
+      });
     }
 
     const endpoint = `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${env.FIREBASE_WEB_API_KEY}`;

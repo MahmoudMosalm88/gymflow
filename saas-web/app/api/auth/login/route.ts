@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
-import { env } from "@/lib/env";
-import { getFirebaseAdminAuth } from "@/lib/firebase-admin";
+import { env, getFirebaseWebConfigDiagnostics } from "@/lib/env";
+import { getFirebaseAdminAuth, getFirebaseAdminDiagnostics } from "@/lib/firebase-admin";
 import { fail, ok, routeError } from "@/lib/http";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { loginSchema } from "@/lib/validation";
@@ -32,6 +32,11 @@ function mapFirebaseAuthError(code: string) {
       return "Your account has been disabled. Please contact support for assistance.";
     case "TOO_MANY_ATTEMPTS_TRY_LATER":
       return "Too many login attempts. Please wait a few minutes and try again.";
+    case "API_KEY_INVALID":
+    case "INVALID_API_KEY":
+      return "Firebase web API key is invalid. Please contact support.";
+    case "PROJECT_NOT_FOUND":
+      return "Firebase project configuration is invalid. Please contact support.";
     default:
       return "We couldn't sign you in. Please try again in a moment.";
   }
@@ -85,12 +90,24 @@ export async function POST(request: NextRequest) {
 
     const payload = loginSchema.parse(await request.json());
     const auth = getFirebaseAdminAuth();
-    if (!auth) return fail("We're having trouble processing your login. Please try again in a moment.", 500);
+    if (!auth) {
+      const diagnostics = getFirebaseAdminDiagnostics();
+      return fail("Firebase admin is not configured correctly.", 500, {
+        source: diagnostics.source,
+        usingApplicationDefault: diagnostics.usingApplicationDefault,
+        error: diagnostics.error
+      });
+    }
 
     let idToken = payload.idToken;
 
     if (!idToken) {
-      if (!env.FIREBASE_WEB_API_KEY) return fail("We're having trouble processing your login. Please try again in a moment.", 500);
+      if (!env.FIREBASE_WEB_API_KEY) {
+        const diagnostics = getFirebaseWebConfigDiagnostics();
+        return fail("Firebase web auth is not configured.", 500, {
+          missingRequired: diagnostics.missingRequired
+        });
+      }
       if (!("email" in payload) || !payload.email || !("password" in payload) || !payload.password) {
         return fail("Please provide both your email and password.", 400);
       }
