@@ -238,7 +238,7 @@ function mapPhoneAuthError(code: string, fallbackMessage: string, t: (typeof cop
     case "auth/invalid-phone-number":
       return t.invalidPhone;
     case "auth/too-many-requests":
-      return "Too many verification attempts. Please wait a few minutes and try again.";
+      return "Too many verification attempts. Firebase temporarily blocked SMS for this number/device. Wait longer (up to 1 hour) or try a different number.";
     case "auth/operation-not-allowed":
       return "Phone sign-in is disabled in Firebase. Enable Phone provider and SMS region support in Firebase Auth settings.";
     case "auth/captcha-check-failed":
@@ -412,6 +412,8 @@ export default function LoginPage() {
     const candidate = unwrapData(payload);
     if (!isFirebaseClientConfig(candidate)) throw new Error("Firebase auth configuration is incomplete.");
     const auth = await getFirebaseClientAuth(candidate as FirebaseClientConfig);
+    const host = window.location.hostname;
+    auth.settings.appVerificationDisabledForTesting = host === "localhost" || host === "127.0.0.1";
     authRef.current = auth;
     return auth;
   }
@@ -462,26 +464,20 @@ export default function LoginPage() {
   }
 
   async function requestPhoneOtp(auth: Auth, phone: string) {
-    const send = async () => {
-      const verifier = getRecaptcha(auth);
-      return await signInWithPhoneNumber(auth, phone, verifier);
-    };
-
+    const verifier = getRecaptcha(auth);
     try {
-      return await send();
+      return await signInWithPhoneNumber(auth, phone, verifier);
     } catch (error) {
       const code =
         typeof error === "object" && error && "code" in error
           ? String((error as { code?: string }).code || "")
           : "";
 
-      if (code !== "auth/invalid-app-credential" && code !== "auth/missing-app-credential") {
-        throw error;
+      if (code === "auth/invalid-app-credential" || code === "auth/missing-app-credential") {
+        // Reset stale verifier state; user should click "Send code" once again.
+        resetRecaptcha();
       }
-
-      // The app verifier token can become stale in some browsers/extensions.
-      resetRecaptcha();
-      return await send();
+      throw error;
     }
   }
 
@@ -1076,9 +1072,10 @@ export default function LoginPage() {
                 {!otpSent ? (
                   /* Step 1: Enter phone */
                   <>
-                    <Form {...(mode === "register" ? phoneRegisterForm : phoneLoginForm) as any}>
-                      <form onSubmit={e => e.preventDefault()} className="space-y-4">
+                    <Form key={`phone-form-${mode}`} {...(mode === "register" ? phoneRegisterForm : phoneLoginForm) as any}>
+                      <form key={`phone-inner-${mode}`} onSubmit={e => e.preventDefault()} className="space-y-4">
                         <FormField
+                          key={`phone-field-${mode}`}
                           control={(mode === "register" ? phoneRegisterForm.control : phoneLoginForm.control) as any}
                           name={(mode === "register" ? "phone" : "phone") as any}
                           render={({ field }) => (
@@ -1139,7 +1136,12 @@ export default function LoginPage() {
               </div>
             )}
 
-            <div ref={recaptchaContainerRef} id={recaptchaSlotId} className="hidden" aria-hidden="true" />
+            <div
+              ref={recaptchaContainerRef}
+              id={recaptchaSlotId}
+              className="fixed -left-[9999px] top-0 h-px w-px overflow-hidden pointer-events-none"
+              aria-hidden="true"
+            />
 
             {/* Feedback alert */}
             {feedback && (
