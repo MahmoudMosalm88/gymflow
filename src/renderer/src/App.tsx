@@ -1,7 +1,8 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Layout from './components/Layout'
+import ConfirmDialog from './components/ConfirmDialog'
 import Dashboard from './pages/Dashboard'
 import Members from './pages/Members'
 import MemberForm from './pages/MemberForm'
@@ -17,7 +18,7 @@ import Onboarding from './pages/Onboarding'
 import Login from './pages/Login'
 
 function App(): JSX.Element {
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [authState, setAuthState] = useState<'loading' | 'onboarding' | 'login' | 'signup' | 'app'>(
     'loading'
   )
@@ -98,6 +99,8 @@ function App(): JSX.Element {
     setAuthState('signup')
   }
 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+
   const handleLogout = async () => {
     try {
       if (sessionToken) {
@@ -117,7 +120,7 @@ function App(): JSX.Element {
 
   if (authState === 'loading' || !tokenLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" role="status" aria-label={t('common.loading')}>
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     )
@@ -152,7 +155,7 @@ function App(): JSX.Element {
   }
 
   return (
-    <Layout onLogout={handleLogout}>
+    <Layout onLogout={() => setShowLogoutConfirm(true)}>
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/members" element={<Members />} />
@@ -166,7 +169,21 @@ function App(): JSX.Element {
         <Route path="/settings" element={<Settings />} />
         <Route path="/import" element={<Import />} />
         <Route path="/profile" element={<UserProfile />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+
+      {showLogoutConfirm && (
+        <ConfirmDialog
+          title={t('nav.logout')}
+          message={t('common.confirmLogout')}
+          confirmLabel={t('nav.logout')}
+          onConfirm={() => {
+            setShowLogoutConfirm(false)
+            handleLogout()
+          }}
+          onCancel={() => setShowLogoutConfirm(false)}
+        />
+      )}
     </Layout>
   )
 }

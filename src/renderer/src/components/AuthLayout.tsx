@@ -15,7 +15,7 @@ export default function AuthLayout({ title, children }: AuthLayoutProps): JSX.El
         <div className="absolute bottom-0 -start-20 h-64 w-64 rounded-full bg-primary opacity-10 blur-3xl" />
       </div>
       <div className="relative flex items-center justify-center p-6 min-h-screen">
-        <Card className="w-full max-w-md shadow-2xl border-border/60 animate-slide-up">
+        <Card className="w-full max-w-md shadow-md border-border/60 animate-slide-up">
           <CardHeader className="text-center space-y-3">
             <div className="flex items-center justify-center">
               <img src={gymflowLogo} alt="GymFlow" className="h-20 w-auto" />

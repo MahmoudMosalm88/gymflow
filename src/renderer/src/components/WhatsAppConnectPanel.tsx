@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import * as QRCode from 'qrcode'
 import { Button } from './ui/button'
 import { Card, CardContent } from './ui/card'
+import ConfirmDialog from './ConfirmDialog'
 
 type WhatsAppStatus = {
   connected: boolean
@@ -20,6 +21,7 @@ export default function WhatsAppConnectPanel(): JSX.Element {
   })
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [isConnecting, setIsConnecting] = useState(false)
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false)
   const [lastQrAt, setLastQrAt] = useState<number | null>(null)
 
   const isConnected = status.authenticated
@@ -153,7 +155,7 @@ export default function WhatsAppConnectPanel(): JSX.Element {
               {isConnecting ? t('common.loading', 'Loading...') : t('settings.connect')}
             </Button>
           ) : (
-            <Button type="button" onClick={handleDisconnect} variant="secondary">
+            <Button type="button" onClick={() => setShowDisconnectConfirm(true)} variant="secondary">
               {t('settings.disconnect')}
             </Button>
           )}
@@ -197,6 +199,20 @@ export default function WhatsAppConnectPanel(): JSX.Element {
         )}
 
         {status.error && <p className="mt-3 text-sm text-red-400">{status.error}</p>}
+
+        {showDisconnectConfirm && (
+          <ConfirmDialog
+            title={t('settings.disconnect')}
+            message={t('common.confirmDisconnect')}
+            confirmLabel={t('settings.disconnect')}
+            variant="danger"
+            onConfirm={() => {
+              setShowDisconnectConfirm(false)
+              handleDisconnect()
+            }}
+            onCancel={() => setShowDisconnectConfirm(false)}
+          />
+        )}
       </CardContent>
     </Card>
   )

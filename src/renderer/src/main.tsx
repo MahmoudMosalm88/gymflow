@@ -9,17 +9,39 @@ import './i18n'
 
 const rootElement = document.getElementById('root') as HTMLElement
 
-const showFatal = (message: string) => {
+const showFatal = (_message: string) => {
   if (!rootElement) return
-  rootElement.innerHTML = `
-    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f5f5f5;padding:24px;">
-      <div style="max-width:640px;background:white;border-radius:12px;padding:24px;box-shadow:0 10px 30px rgba(0,0,0,.1);font-family:system-ui;">
-        <h2 style="margin:0 0 8px;font-size:20px;color:#111;">Unexpected error</h2>
-        <div style="font-size:14px;color:#444;margin-bottom:16px;white-space:pre-wrap;">${message}</div>
-        <button onclick="location.reload()" style="padding:10px 16px;background:#2563eb;color:white;border:none;border-radius:8px;cursor:pointer;">Reload</button>
-      </div>
-    </div>
-  `
+
+  // Clear existing content safely (no innerHTML to avoid XSS)
+  rootElement.textContent = ''
+
+  const wrapper = document.createElement('div')
+  wrapper.style.cssText =
+    'min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f5f5f5;padding:24px;'
+
+  const card = document.createElement('div')
+  card.style.cssText =
+    'max-width:640px;background:white;padding:24px;font-family:system-ui;text-align:center;'
+
+  // Bilingual heading (works for both EN and AR users)
+  const heading = document.createElement('h2')
+  heading.style.cssText = 'margin:0 0 8px;font-size:20px;color:#111;'
+  heading.textContent = 'Something went wrong / حدث خطأ غير متوقع'
+
+  // Generic user-friendly message (no raw error text)
+  const body = document.createElement('div')
+  body.style.cssText = 'font-size:14px;color:#444;margin-bottom:16px;'
+  body.textContent = 'Please reload the app to continue. / يرجى إعادة تحميل التطبيق للمتابعة.'
+
+  const btn = document.createElement('button')
+  btn.style.cssText =
+    'padding:10px 16px;background:#2563eb;color:white;border:none;cursor:pointer;font-size:14px;'
+  btn.textContent = 'Reload / إعادة تحميل'
+  btn.addEventListener('click', () => location.reload())
+
+  card.append(heading, body, btn)
+  wrapper.append(card)
+  rootElement.append(wrapper)
 }
 
 const reportError = (payload: { message?: string; stack?: string; source?: string }) => {

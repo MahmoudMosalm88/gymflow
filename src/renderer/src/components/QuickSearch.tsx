@@ -85,6 +85,9 @@ export default function QuickSearch({ onSelect }: QuickSearchProps): JSX.Element
     }, 100)
   }
 
+  const listboxId = 'quicksearch-listbox'
+  const getOptionId = (index: number) => `quicksearch-option-${index}`
+
   return (
     <div className="relative">
       <div className="relative">
@@ -106,14 +109,26 @@ export default function QuickSearch({ onSelect }: QuickSearchProps): JSX.Element
           }}
           placeholder={t('dashboard.searchPlaceholder')}
           className="ps-12"
+          role="combobox"
+          aria-expanded={isOpen && results.length > 0}
+          aria-controls={listboxId}
+          aria-activedescendant={isOpen && results.length > 0 ? getOptionId(selectedIndex) : undefined}
+          aria-autocomplete="list"
         />
       </div>
 
       {isOpen && results.length > 0 && (
-        <div className="absolute z-10 w-full mt-2 bg-background border border-border rounded-lg shadow-xl max-h-72 overflow-auto">
+        <div
+          id={listboxId}
+          role="listbox"
+          className="absolute z-10 w-full mt-2 bg-background border border-border rounded-lg shadow-xl max-h-72 overflow-auto"
+        >
           {results.map((member, index) => (
             <button
               key={member.id}
+              id={getOptionId(index)}
+              role="option"
+              aria-selected={index === selectedIndex}
               onClick={() => handleSelect(member)}
               className={`w-full px-4 py-3 text-start flex items-center gap-3 transition-colors ${
                 index === selectedIndex ? 'bg-primary/10' : 'hover:bg-muted'

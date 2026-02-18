@@ -127,6 +127,21 @@ export function deleteOldMessages(daysOld: number): number {
   return result.changes
 }
 
+export function hasRecentRenewalReminder(memberId: string, withinDays = 3): boolean {
+  const db = getDatabase()
+  const cutoff = Math.floor(Date.now() / 1000) - withinDays * 86400
+  const row = db
+    .prepare(
+      `SELECT id FROM message_queue
+        WHERE member_id = ?
+          AND message_type = 'renewal'
+          AND scheduled_at > ?
+          AND status IN ('pending', 'sent')`
+    )
+    .get(memberId, cutoff)
+  return !!row
+}
+
 export function requeueFailedMessages(): number {
   const db = getDatabase()
 

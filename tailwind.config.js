@@ -2,6 +2,7 @@
 module.exports = {
   darkMode: 'class',
   content: [
+    './src/renderer/**/*.{js,ts,jsx,tsx,html}',
     './app/**/*.{js,ts,jsx,tsx}',
     './pages/**/*.{js,ts,jsx,tsx}',
     './components/**/*.{js,ts,jsx,tsx}',
@@ -56,6 +57,12 @@ module.exports = {
           DEFAULT: "hsl(var(--info))",
           foreground: "hsl(var(--info-foreground))",
         },
+        // Traffic light colors
+        traffic: {
+          green: '#22c55e',
+          yellow: '#eab308',
+          red: '#ef4444',
+        },
 
         // --- Existing Landing Page Colors (can be mapped or replaced as needed) ---
         // Retaining for now, will map to HSL vars or remove if redundant
@@ -79,6 +86,8 @@ module.exports = {
       fontFamily: {
         sans: ['IBM Plex Sans', 'sans-serif'], // Primary Latin font
         arabic: ['IBM Plex Arabic', 'sans-serif'], // Primary Arabic font
+        heading: ['IBM Plex Sans', 'sans-serif'], // Alias for heading usage
+        body: ['IBM Plex Sans', 'sans-serif'], // Alias for body usage
         // Retain existing for potential backward compatibility or specific usage
         'jakarta': ['Plus Jakarta Sans', 'Segoe UI', 'sans-serif'],
         'inter': ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
@@ -119,19 +128,28 @@ module.exports = {
         lg: '1rem', xl: '1.5rem', full: '9999px',
       },
       boxShadow: {
-        sm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-        DEFAULT: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        md: '0 4px 12px rgba(0, 0, 0, 0.1)',
-        lg: '0 4px 12px rgba(255, 140, 0, 0.15)',
-        xl: '0 12px 32px rgba(255, 140, 0, 0.2)',
-        'dark-sm': '0 1px 2px 0 rgba(0, 0, 0, 0.3)',
-        'dark-md': '0 4px 12px rgba(0, 0, 0, 0.3)',
+        sm: '2px 2px 0 #1a1a1a',
+        DEFAULT: '4px 4px 0 #1a1a1a',
+        md: '6px 6px 0 #1a1a1a',
+        lg: '8px 8px 0 #1a1a1a',
+        xl: '12px 12px 0 #1a1a1a',
+        'dark-sm': '2px 2px 0 #0d0d0d',
+        'dark-md': '6px 6px 0 #0d0d0d',
       },
       backgroundImage: {
         'gradient-primary': 'linear-gradient(to right, #FF8C00, #FF4500)',
         'gradient-primary-br': 'linear-gradient(to bottom right, #FF8C00, #FF4500)',
         'gradient-hero': 'linear-gradient(to bottom right, #FFF3E0, #FFFFFF)',
         'gradient-hero-dark': 'linear-gradient(to bottom right, #0F172A, #1E293B)',
+      },
+      keyframes: {
+        'slide-up': {
+          '0%': { opacity: '0', transform: 'translateY(12px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'slide-up': 'slide-up 0.25s ease-out',
       },
       screens: {
         xs: '375px', sm: '640px', md: '768px', lg: '1024px', xl: '1280px', '2xl': '1536px',

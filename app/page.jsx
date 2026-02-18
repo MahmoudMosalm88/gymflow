@@ -12,7 +12,7 @@ import FAQ from './components/FAQ'
 import CTA from './components/CTA'
 import Footer from './components/Footer'
 
-const APP_VERSION = '1.0.8'
+const APP_VERSION = '1.0.9'
 const RELEASES_LATEST_URL = 'https://github.com/MahmoudMosalm88/gymflow/releases/latest'
 const FALLBACK_WIN_URL = `https://github.com/MahmoudMosalm88/gymflow/releases/download/v${APP_VERSION}/gymflow-${APP_VERSION}-setup.exe`
 

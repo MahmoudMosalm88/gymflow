@@ -1,8 +1,12 @@
+import { useTranslation } from 'react-i18next'
+
 interface TrafficLightProps {
   status: 'allowed' | 'warning' | 'denied' | 'ignored' | 'ready'
 }
 
 export default function TrafficLight({ status }: TrafficLightProps): JSX.Element {
+  const { t } = useTranslation()
+
   const getStatusClass = () => {
     switch (status) {
       case 'allowed':
@@ -18,17 +22,33 @@ export default function TrafficLight({ status }: TrafficLightProps): JSX.Element
     }
   }
 
+  // Accessible label for each status
+  const getAriaLabel = () => {
+    switch (status) {
+      case 'allowed':
+        return t('attendance.allowed')
+      case 'warning':
+        return t('attendance.warning')
+      case 'denied':
+        return t('attendance.denied')
+      case 'ignored':
+        return t('attendance.ignored')
+      default:
+        return t('dashboard.ready')
+    }
+  }
+
   const getStatusIcon = () => {
     switch (status) {
       case 'allowed':
         return (
-          <svg className="w-24 h-24 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-24 h-24 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
           </svg>
         )
       case 'warning':
         return (
-          <svg className="w-24 h-24 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-24 h-24 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -39,13 +59,13 @@ export default function TrafficLight({ status }: TrafficLightProps): JSX.Element
         )
       case 'denied':
         return (
-          <svg className="w-24 h-24 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-24 h-24 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
           </svg>
         )
       case 'ignored':
         return (
-          <svg className="w-24 h-24 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-24 h-24 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -56,7 +76,7 @@ export default function TrafficLight({ status }: TrafficLightProps): JSX.Element
         )
       default:
         return (
-          <svg className="w-24 h-24 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-24 h-24 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -70,6 +90,8 @@ export default function TrafficLight({ status }: TrafficLightProps): JSX.Element
 
   return (
     <div
+      role="img"
+      aria-label={getAriaLabel()}
       className={`w-56 h-56 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl ring-1 ring-white/10 ${getStatusClass()}`}
     >
       {getStatusIcon()}

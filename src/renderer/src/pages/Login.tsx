@@ -108,23 +108,29 @@ export default function Login({
 
       <div className="space-y-5">
         <div>
-          <Label className="mb-2 block">{t('auth.phone', 'Phone')}</Label>
+          <Label htmlFor="login-phone" className="mb-2 block">{t('auth.phone', 'Phone')}</Label>
           <Input
+            id="login-phone"
             type="tel"
+            name="phone"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+201xxxxxxxxx"
+            autoComplete="tel"
           />
         </div>
 
         {mode === 'login' && (
           <>
             <div>
-              <Label className="mb-2 block">{t('auth.password', 'Password')}</Label>
+              <Label htmlFor="login-password" className="mb-2 block">{t('auth.password', 'Password')}</Label>
               <Input
+                id="login-password"
                 type="password"
+                name="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
               />
             </div>
 

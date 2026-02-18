@@ -23,6 +23,7 @@ export default function UserProfile(): JSX.Element {
 
   // UI state
   const [profileMessage, setProfileMessage] = useState<string | null>(null)
+  const [profileIsSuccess, setProfileIsSuccess] = useState(false)
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
@@ -63,8 +64,10 @@ export default function UserProfile(): JSX.Element {
         profile_gym_address: gymAddress,
         profile_gym_logo: gymLogo
       })
+      setProfileIsSuccess(true)
       setProfileMessage(t('profile.saved'))
     } catch {
+      setProfileIsSuccess(false)
       setProfileMessage(t('profile.saveFailed'))
     } finally {
       setIsSaving(false)
@@ -222,7 +225,7 @@ export default function UserProfile(): JSX.Element {
         {profileMessage && (
           <span
             className={`text-sm ${
-              profileMessage.includes(t('profile.saved')) ? 'text-emerald-400' : 'text-red-400'
+              profileIsSuccess ? 'text-emerald-400' : 'text-red-400'
             }`}
           >
             {profileMessage}

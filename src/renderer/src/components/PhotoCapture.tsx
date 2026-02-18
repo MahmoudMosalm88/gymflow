@@ -16,12 +16,14 @@ export default function PhotoCapture({
 }: PhotoCaptureProps): JSX.Element {
   const { t } = useTranslation()
   const [isCapturing, setIsCapturing] = useState(false)
+  const [cameraError, setCameraError] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const startCamera = async () => {
+    setCameraError(null)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: 'user' }
@@ -33,7 +35,7 @@ export default function PhotoCapture({
       setIsCapturing(true)
     } catch (error) {
       console.error('Failed to access camera:', error)
-      alert('Failed to access camera. Please check permissions.')
+      setCameraError(t('common.cameraError', 'Failed to access camera. Please check permissions.'))
     }
   }
 
@@ -128,6 +130,11 @@ export default function PhotoCapture({
         </div>
       )}
 
+      {/* Camera error */}
+      {cameraError && (
+        <p className="text-sm text-destructive text-center">{cameraError}</p>
+      )}
+
       {/* Action Buttons */}
       <div className="flex justify-center gap-4">
         {!isCapturing ? (
@@ -157,11 +164,11 @@ export default function PhotoCapture({
           <>
             <Button type="button" onClick={capturePhoto} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
               <CameraIcon className="w-5 h-5" />
-              Capture
+              {t('common.capture', 'Capture')}
             </Button>
             <Button type="button" variant="secondary" onClick={stopCamera} className="gap-2">
               <XMarkIcon className="w-5 h-5" />
-              Cancel
+              {t('common.cancel')}
             </Button>
           </>
         )}

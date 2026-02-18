@@ -5,6 +5,11 @@ import { registerIpcHandlers } from './ipc/handlers'
 import { logToFile } from './utils/logger'
 import { whatsappService } from './services/whatsapp'
 import { startAutoUpdater } from './services/autoUpdater'
+import { getExpiringSubscriptions } from './database/repositories/subscriptionRepository'
+import {
+  hasRecentRenewalReminder,
+  createMessage
+} from './database/repositories/messageQueueRepository'
 
 let mainWindow: BrowserWindow | null = null
 let rendererRestartCount = 0
@@ -191,6 +196,59 @@ function createWindow(): void {
   loadRenderer()
 }
 
+// ── Renewal reminder scheduler ───────────────────────────────────────────────
+// Runs once 60 s after startup, then every 6 h.
+// Sends a WhatsApp reminder to any member whose subscription expires within
+// 3 days, unless they already received a reminder in the last 3 days.
+
+async function runRenewalReminders(): Promise<void> {
+  const status = whatsappService.getStatus()
+  if (!status.authenticated) return // WhatsApp not connected — skip silently
+
+  const expiring = getExpiringSubscriptions(3) // subs expiring in next 3 days
+  if (expiring.length === 0) return
+
+  const now = Math.floor(Date.now() / 1000)
+
+  for (const sub of expiring) {
+    // Type cast: getExpiringSubscriptions JOINs members so name/phone are present
+    const phone = (sub as unknown as Record<string, string>).phone
+    const name = (sub as unknown as Record<string, string>).name
+
+    if (!phone) continue
+    if (hasRecentRenewalReminder(sub.member_id)) continue
+
+    // Format expiry date for the message (e.g. "18/02/2026")
+    const expiryDate = new Date(sub.end_date * 1000).toLocaleDateString('ar-SA', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
+
+    try {
+      const sent = await whatsappService.sendRenewalReminder(phone, name, expiryDate)
+      if (sent) {
+        createMessage({
+          member_id: sub.member_id,
+          message_type: 'renewal',
+          scheduled_at: now,
+          payload: { expiryDate, phone, name }
+        })
+        logToFile('INFO', 'Renewal reminder sent', { memberId: sub.member_id, name, expiryDate })
+      }
+    } catch (err) {
+      logToFile('ERROR', 'Renewal reminder failed', { memberId: sub.member_id, err })
+    }
+  }
+}
+
+function startRenewalReminderScheduler(): void {
+  // First run after 60 s (give app time to restore WhatsApp session)
+  setTimeout(() => runRenewalReminders().catch(console.error), 60_000)
+  // Then every 6 hours
+  setInterval(() => runRenewalReminders().catch(console.error), 6 * 60 * 60 * 1000)
+}
+
 // This method will be called when Electron has finished initialization
 app.whenReady().then(() => {
   // Set app icon for macOS dock
@@ -232,6 +290,9 @@ app.whenReady().then(() => {
   console.log('IPC handlers registered')
   logToFile('INFO', 'IPC handlers registered')
 
+  // Start renewal reminder scheduler
+  startRenewalReminderScheduler()
+
   // Create window
   createWindow()
   if (!isDev()) {
@@ -259,12 +320,12 @@ app.on('will-quit', async () => {
   globalShortcut.unregisterAll()
   console.log('Global shortcuts unregistered')
   
-  // Disconnect WhatsApp service
+  // Close WhatsApp socket cleanly (preserves credentials for next launch)
   try {
-    await whatsappService.disconnect()
-    console.log('WhatsApp service disconnected')
+    await whatsappService.cleanup()
+    console.log('WhatsApp service cleaned up')
   } catch (error) {
-    console.error('Error disconnecting WhatsApp service:', error)
+    console.error('Error cleaning up WhatsApp service:', error)
   }
   
   // Close database connection

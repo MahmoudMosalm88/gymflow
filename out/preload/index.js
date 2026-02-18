@@ -110,14 +110,7 @@ const api = {
     backup: (destPath) => electron.ipcRenderer.invoke("app:backup", destPath),
     restore: (srcPath) => electron.ipcRenderer.invoke("app:restore", srcPath),
     getVersion: () => electron.ipcRenderer.invoke("app:getVersion"),
-    logError: (payload) => electron.ipcRenderer.invoke("app:logError", payload),
-    checkForUpdates: () => electron.ipcRenderer.invoke("app:checkForUpdates"),
-    downloadUpdate: (url) => electron.ipcRenderer.invoke("app:downloadUpdate", url),
-    onUpdateAvailable: (callback) => {
-      const handler = (_, data) => callback(data);
-      electron.ipcRenderer.on("app:updateAvailable", handler);
-      return () => electron.ipcRenderer.removeListener("app:updateAvailable", handler);
-    }
+    logError: (payload) => electron.ipcRenderer.invoke("app:logError", payload)
   },
   // QR Code operations
   qrcode: {

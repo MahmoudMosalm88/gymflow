@@ -29,8 +29,10 @@ const QRCode = require("qrcode");
 const bcryptjs = require("bcryptjs");
 const uuid = require("uuid");
 const crypto = require("crypto");
-const whatsappWeb_js = require("whatsapp-web.js");
+const pdfLib = require("pdf-lib");
+const baileys = require("@whiskeysockets/baileys");
 const events = require("events");
+const pino = require("pino");
 const https = require("https");
 const http = require("http");
 function _interopNamespaceDefault(e) {
@@ -50,20 +52,6 @@ function _interopNamespaceDefault(e) {
   return Object.freeze(n);
 }
 const QRCode__namespace = /* @__PURE__ */ _interopNamespaceDefault(QRCode);
-let cachedPdfLib = null;
-function getPdfLib() {
-  if (cachedPdfLib) {
-    return cachedPdfLib;
-  }
-  try {
-    cachedPdfLib = require("pdf-lib");
-    return cachedPdfLib;
-  } catch (error) {
-    throw new Error(
-      "Card batch PDF generation is unavailable because dependency 'pdf-lib' is missing. Please reinstall or update GymFlow."
-    );
-  }
-}
 let db = null;
 function getUserDataPath() {
   return electron.app.getPath("userData");
@@ -477,28 +465,7 @@ function updateMember(id, input) {
 }
 function deleteMember(id) {
   const db2 = getDatabase();
-  const transaction = db2.transaction((memberId) => {
-    const row = db2.prepare("SELECT id, photo_path FROM members WHERE id = ?").get(memberId);
-    if (!row) {
-      return { success: false, notFound: true };
-    }
-    try {
-      db2.prepare("DELETE FROM members WHERE id = ?").run(memberId);
-      return { success: true, photoPath: row.photo_path || null };
-    } catch (error) {
-      const message = String(error);
-      if (!/FOREIGN KEY constraint failed/i.test(message)) {
-        throw error;
-      }
-      db2.prepare("DELETE FROM logs WHERE member_id = ?").run(memberId);
-      db2.prepare("DELETE FROM quotas WHERE member_id = ?").run(memberId);
-      db2.prepare("DELETE FROM subscriptions WHERE member_id = ?").run(memberId);
-      db2.prepare("DELETE FROM message_queue WHERE member_id = ?").run(memberId);
-      db2.prepare("DELETE FROM members WHERE id = ?").run(memberId);
-      return { success: true, photoPath: row.photo_path || null, recovered: true };
-    }
-  });
-  return transaction(id);
+  db2.prepare("DELETE FROM members WHERE id = ?").run(id);
 }
 const DEFAULT_SETTINGS = {
   language: "en",
@@ -1317,16 +1284,10 @@ function getRecentIncome(limit = 20) {
   ];
   return combined.sort((a, b) => b.created_at - a.created_at).slice(0, limit);
 }
-function normalizeScannedInput(value) {
-  const raw = value === void 0 || value === null ? "" : String(value);
-  const stripped = raw.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
-  if (!stripped) return "";
-  return stripped.replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 1776));
-}
 function checkAttendance(scannedValue, method = "scan") {
   const now = Math.floor(Date.now() / 1e3);
-  const normalized = normalizeScannedInput(scannedValue);
-  const scanKey = normalized || String(scannedValue || "");
+  const normalized = scannedValue.trim();
+  const scanKey = normalized || scannedValue;
   if (normalized) {
     const guestPass = getGuestPassByCode(normalized);
     if (guestPass) {
@@ -1374,39 +1335,17 @@ function checkAttendance(scannedValue, method = "scan") {
     }
   }
   const cooldownSeconds = getSetting("scan_cooldown_seconds", 30);
-  const cooldownKey = /^\d{1,4}$/.test(scanKey) ? scanKey.padStart(5, "0") : scanKey;
-  const lastScan = getLastSuccessfulScan(cooldownKey, cooldownSeconds);
+  const lastScan = getLastSuccessfulScan(scanKey, cooldownSeconds);
   if (lastScan) {
     return {
       status: "ignored",
       reasonCode: "cooldown"
     };
   }
-  const scanCandidates = [scanKey];
-  if (method !== "manual") {
-    if (/^\d{1,4}$/.test(scanKey)) {
-      scanCandidates.push(scanKey.padStart(5, "0"));
-    }
-    const digitsOnly = scanKey.replace(/\D/g, "");
-    if (/^\d{5}$/.test(digitsOnly)) {
-      scanCandidates.push(digitsOnly);
-    }
-  }
-  const uniqueCandidates = [...new Set(scanCandidates.filter(Boolean))];
-  let resolvedMember = null;
-  if (method === "manual") {
-    resolvedMember = getMemberById(scanKey);
-  } else {
-    for (const candidate of uniqueCandidates) {
-      resolvedMember = getMemberByCardCode(candidate);
-      if (resolvedMember) break;
-    }
-    if (!resolvedMember) {
-      for (const candidate of uniqueCandidates) {
-        resolvedMember = getMemberById(candidate);
-        if (resolvedMember) break;
-      }
-    }
+  const member = method === "manual" ? getMemberById(scanKey) : getMemberByCardCode(scanKey);
+  let resolvedMember = member;
+  if (!resolvedMember && method !== "manual") {
+    resolvedMember = getMemberById(scanKey) || null;
   }
   if (!resolvedMember) {
     createLog({
@@ -1607,7 +1546,6 @@ async function generateCardBatchFiles(codes, from, to) {
   if (!codes.length) {
     throw new Error("No codes provided");
   }
-  const pdfLib = getPdfLib();
   const pdfDoc = await pdfLib.PDFDocument.create();
   const font = await pdfDoc.embedFont(pdfLib.StandardFonts.Helvetica);
   const cellWidth = (A4_WIDTH - PAGE_MARGIN * 2) / GRID_COLUMNS;
@@ -1655,10 +1593,12 @@ async function generateCardBatchFiles(codes, from, to) {
   return { pdfPath, csvPath };
 }
 class WhatsAppService extends events.EventEmitter {
-  client = null;
+  sock = null;
+  saveCreds = null;
   isReady = false;
+  intentionalDisconnect = false;
   connectInFlight = null;
-  authPath = path.join(electron.app.getPath("userData"), "wwebjs_auth");
+  authPath = path.join(electron.app.getPath("userData"), "baileys_auth");
   status = {
     connected: false,
     authenticated: false,
@@ -1667,180 +1607,89 @@ class WhatsAppService extends events.EventEmitter {
   };
   constructor() {
     super();
-    this.initialize();
+    fs.mkdirSync(this.authPath, { recursive: true });
   }
-  resolveWindowsChromeExecutable() {
-    if (process.platform !== "win32") {
-      return null;
-    }
-    const envCandidates = [
-      process.env.PUPPETEER_EXECUTABLE_PATH,
-      process.env.CHROME_PATH
-    ].filter(Boolean);
-    const programFiles = process.env.ProgramFiles || "C:\\Program Files";
-    const programFilesX86 = process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
-    const localAppData = process.env.LOCALAPPDATA || "";
-    const pathCandidates = [
-      ...envCandidates,
-      path.join(programFiles, "Google", "Chrome", "Application", "chrome.exe"),
-      path.join(programFilesX86, "Google", "Chrome", "Application", "chrome.exe"),
-      localAppData ? path.join(localAppData, "Google", "Chrome", "Application", "chrome.exe") : ""
-    ].filter(Boolean);
-    for (const candidate of pathCandidates) {
+  async initSocket() {
+    if (this.sock) {
       try {
-        if (fs.existsSync(candidate)) {
-          return candidate;
-        }
+        this.sock.end(new Error("cleanup"));
       } catch {
       }
-    }
-    return null;
-  }
-  initialize() {
-    const puppeteerConfig = {
-      headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-accelerated-2d-canvas",
-        "--no-first-run",
-        "--no-zygote",
-        "--disable-gpu"
-      ]
-    };
-    const windowsChromePath = this.resolveWindowsChromeExecutable();
-    if (windowsChromePath) {
-      puppeteerConfig.executablePath = windowsChromePath;
-    }
-    this.client = new whatsappWeb_js.Client({
-      authStrategy: new whatsappWeb_js.LocalAuth({ dataPath: this.authPath }),
-      puppeteer: puppeteerConfig
-    });
-    this.client.on("qr", (qr) => {
-      console.log("WhatsApp QR Code received");
-      this.status.qrCode = qr;
-      this.status.connected = true;
-      this.status.authenticated = false;
-      this.emit("qr", qr);
-      this.emit("status", { ...this.status });
-    });
-    this.client.on("ready", () => {
-      console.log("WhatsApp client is ready");
-      this.isReady = true;
-      this.status.connected = true;
-      this.status.authenticated = true;
-      this.status.error = null;
-      this.emit("status", { ...this.status });
-    });
-    this.client.on("disconnected", (reason) => {
-      console.log("WhatsApp client disconnected:", reason);
+      this.sock = null;
       this.isReady = false;
-      this.status.connected = false;
-      this.status.authenticated = false;
-      this.status.error = String(reason || "");
-      this.emit("status", { ...this.status });
+    }
+    const { state, saveCreds } = await baileys.useMultiFileAuthState(this.authPath);
+    this.saveCreds = saveCreds;
+    const { version } = await baileys.fetchLatestBaileysVersion();
+    const sock = baileys.makeWASocket({
+      version,
+      auth: state,
+      logger: pino({ level: "silent" }),
+      printQRInTerminal: false,
+      browser: ["GymFlow", "Chrome", "1.0.0"]
     });
-    this.client.on("auth_failure", (msg) => {
-      console.error("WhatsApp authentication failed:", msg);
-      this.isReady = false;
-      this.status.connected = false;
-      this.status.authenticated = false;
-      this.status.error = msg;
-      this.emit("status", { ...this.status });
-    });
-  }
-  cleanupAuthLocks() {
-    const sessionPath = path.join(this.authPath, "session");
-    const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie"];
-    for (const fileName of lockFiles) {
-      const fullPath = path.join(sessionPath, fileName);
-      if (fs.existsSync(fullPath)) {
-        try {
-          fs.rmSync(fullPath, { force: true });
-        } catch {
+    this.sock = sock;
+    sock.ev.on("creds.update", () => this.saveCreds?.());
+    sock.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
+      if (qr) {
+        this.status.qrCode = qr;
+        this.status.connected = true;
+        this.status.authenticated = false;
+        this.emit("qr", qr);
+        this.emit("status", { ...this.status });
+      }
+      if (connection === "open") {
+        this.isReady = true;
+        this.status.connected = true;
+        this.status.authenticated = true;
+        this.status.qrCode = null;
+        this.status.error = null;
+        this.emit("status", { ...this.status });
+      }
+      if (connection === "close") {
+        this.isReady = false;
+        const code = lastDisconnect?.error?.output?.statusCode;
+        const loggedOut = code === baileys.DisconnectReason.loggedOut;
+        this.status.connected = false;
+        this.status.authenticated = false;
+        this.status.qrCode = null;
+        this.status.error = loggedOut ? "Logged out" : null;
+        this.emit("status", { ...this.status });
+        if (!this.intentionalDisconnect && !loggedOut) {
+          setTimeout(() => this.initSocket().catch(() => {
+          }), 3e3);
         }
       }
-    }
-  }
-  async resetClient() {
-    if (this.client) {
-      try {
-        this.client.removeAllListeners();
-        await this.client.destroy();
-      } catch {
-      }
-      this.client = null;
-    }
-    this.isReady = false;
-    this.status.connected = false;
-    this.status.authenticated = false;
-    this.status.qrCode = null;
-    this.initialize();
+    });
   }
   async connect() {
-    if (this.status.authenticated) {
-      return { success: true };
-    }
-    if (this.connectInFlight) {
-      return this.connectInFlight;
-    }
+    if (this.status.authenticated) return { success: true };
+    if (this.connectInFlight) return this.connectInFlight;
+    this.intentionalDisconnect = false;
     this.connectInFlight = (async () => {
-      const withTimeout = async (promise, timeoutMs) => new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error("WhatsApp connection timed out"));
-        }, timeoutMs);
-        promise.then((result) => {
-          clearTimeout(timeout);
-          resolve(result);
-        }).catch((error) => {
-          clearTimeout(timeout);
-          reject(error);
-        });
-      });
       try {
-        if (!this.client) {
-          this.initialize();
-        }
-        await withTimeout(this.client.initialize(), 45e3);
+        await this.initSocket();
+        this.connectInFlight = null;
         return { success: true };
       } catch (error) {
+        this.connectInFlight = null;
         const message = error instanceof Error ? error.message : String(error);
-        console.error("WhatsApp connect error:", message);
-        if (message.includes("already running") || message.includes("Singleton")) {
-          try {
-            this.cleanupAuthLocks();
-            await this.resetClient();
-            await withTimeout(this.client.initialize(), 45e3);
-            this.status.error = null;
-            this.emit("status", { ...this.status });
-            return { success: true };
-          } catch (retryError) {
-            const retryMessage = retryError instanceof Error ? retryError.message : String(retryError);
-            this.status.error = retryMessage;
-            this.emit("status", { ...this.status });
-            return { success: false, error: retryMessage };
-          }
-        }
         this.status.error = message;
         this.emit("status", { ...this.status });
         return { success: false, error: message };
-      } finally {
-        this.connectInFlight = null;
       }
     })();
     return this.connectInFlight;
   }
   async disconnect() {
+    this.intentionalDisconnect = true;
     try {
-      if (this.client) {
-        await this.client.destroy();
-        this.isReady = false;
-        this.client = null;
+      if (this.sock) {
+        await this.sock.logout();
+        this.sock = null;
       }
-      this.status.connected = false;
-      this.status.authenticated = false;
-      this.status.qrCode = null;
+      this.isReady = false;
+      this.status = { connected: false, authenticated: false, qrCode: null, error: null };
       this.emit("status", { ...this.status });
       return { success: true };
     } catch (error) {
@@ -1848,6 +1697,17 @@ class WhatsAppService extends events.EventEmitter {
       this.status.error = message;
       this.emit("status", { ...this.status });
       return { success: false, error: message };
+    }
+  }
+  // Soft close — preserves credentials for next launch (call on app quit)
+  async cleanup() {
+    this.intentionalDisconnect = true;
+    try {
+      if (this.sock) {
+        this.sock.end(new Error("cleanup"));
+        this.sock = null;
+      }
+    } catch {
     }
   }
   formatPhoneForWhatsApp(phone) {
@@ -1859,80 +1719,70 @@ class WhatsAppService extends events.EventEmitter {
     } else if (!cleaned.startsWith("+")) {
       cleaned = "+20" + cleaned;
     }
-    const whatsappId = cleaned.replace("+", "") + "@c.us";
-    return whatsappId;
-  }
-  async sendMessage(phone, message) {
-    if (!this.client || !this.isReady) {
-      throw new Error("WhatsApp client is not ready");
-    }
-    try {
-      const whatsappId = this.formatPhoneForWhatsApp(phone);
-      await this.client.sendMessage(whatsappId, message);
-      return true;
-    } catch (error) {
-      console.error("Failed to send WhatsApp message:", error);
-      throw new Error(`Failed to send message: ${error.message}`);
-    }
-  }
-  async sendImage(phone, imagePath, caption) {
-    if (!this.client || !this.isReady) {
-      throw new Error("WhatsApp client is not ready");
-    }
-    try {
-      const MessageMedia = require("whatsapp-web.js").MessageMedia;
-      const whatsappId = this.formatPhoneForWhatsApp(phone);
-      const media = MessageMedia.fromFilePath(imagePath);
-      await this.client.sendMessage(whatsappId, media, { caption });
-      return true;
-    } catch (error) {
-      console.error("Failed to send WhatsApp image:", error);
-      throw new Error(`Failed to send image: ${error.message}`);
-    }
-  }
-  async isRegistered(phone) {
-    if (!this.client || !this.isReady) {
-      throw new Error("WhatsApp client is not ready");
-    }
-    try {
-      const whatsappId = this.formatPhoneForWhatsApp(phone);
-      const numberId = whatsappId.replace("@c.us", "");
-      const isRegistered = await this.client.isRegisteredUser(numberId);
-      return isRegistered;
-    } catch (error) {
-      console.error("Failed to check WhatsApp registration:", error);
-      return false;
-    }
+    return cleaned.replace("+", "") + "@s.whatsapp.net";
   }
   getStatus() {
     return { ...this.status };
   }
+  async sendMessage(phone, message) {
+    if (!this.sock || !this.isReady) {
+      throw new Error("WhatsApp client is not ready");
+    }
+    await this.sock.sendMessage(this.formatPhoneForWhatsApp(phone), { text: message });
+    return true;
+  }
+  async sendImage(phone, imagePath, caption) {
+    if (!this.sock || !this.isReady) {
+      throw new Error("WhatsApp client is not ready");
+    }
+    await this.sock.sendMessage(this.formatPhoneForWhatsApp(phone), {
+      image: fs.readFileSync(imagePath),
+      caption
+    });
+    return true;
+  }
+  async isRegistered(phone) {
+    if (!this.sock || !this.isReady) return false;
+    try {
+      const results = await this.sock.onWhatsApp(phone.replace(/[\s\-()]/g, ""));
+      return Boolean(results?.[0]?.exists);
+    } catch {
+      return false;
+    }
+  }
   async sendMembershipQR(phone, memberName, qrCodePath, cardCode) {
     const codeLine = cardCode ? `
 رقم العضوية: ${cardCode}` : "";
-    const message = `مرحباً ${memberName}!
+    return this.sendImage(
+      phone,
+      qrCodePath,
+      `مرحباً ${memberName}!
 
 هذا هو رمز QR الخاص بعضويتك.${codeLine}
-يرجى إظهاره عند الدخول للنادي.`;
-    return await this.sendImage(phone, qrCodePath, message);
+يرجى إظهاره عند الدخول للنادي.`
+    );
   }
   async sendRenewalReminder(phone, memberName, expiryDate) {
-    const message = `عزيزي/عزيزتي ${memberName},
+    return this.sendMessage(
+      phone,
+      `عزيزي/عزيزتي ${memberName},
 
 تنتهي عضويتك في ${expiryDate}.
 يرجى تجديد اشتراكك قريباً لتجنب انقطاع الخدمة.
 
-شكراً لك!`;
-    return await this.sendMessage(phone, message);
+شكراً لك!`
+    );
   }
   async sendWelcomeMessage(phone, memberName, gymName) {
-    const message = `مرحباً ${memberName}! 👋
+    return this.sendMessage(
+      phone,
+      `مرحباً ${memberName}! 👋
 
 نرحب بك في ${gymName}!
 نتمنى لك تجربة رائعة معنا.
 
-إذا كان لديك أي استفسارات، لا تتردد في التواصل معنا.`;
-    return await this.sendMessage(phone, message);
+إذا كان لديك أي استفسارات، لا تتردد في التواصل معنا.`
+    );
   }
 }
 const whatsappService = new WhatsAppService();
@@ -2153,8 +2003,9 @@ function registerIpcHandlers() {
   electron.ipcMain.handle("owner:register", async (_event, phone, password, name) => {
     const existing = getOwnerByPhone(phone);
     if (existing) return { success: false, error: "Owner already exists" };
+    const hasOwner = getOwnerCount() > 0;
     const onboardingComplete = getSetting("onboarding_complete", false);
-    const allowManualOtp = !onboardingComplete;
+    const allowManualOtp = !hasOwner && !onboardingComplete;
     const passwordHash = bcryptjs.hashSync(password, 10);
     const owner = createOwner(phone, passwordHash, name);
     const otp = createOtp(phone, "verify");
@@ -2274,15 +2125,7 @@ function registerIpcHandlers() {
   electron.ipcMain.handle("members:getNextSerial", () => generateNextCardCode());
   electron.ipcMain.handle("members:create", (_event, data) => createMember(data));
   electron.ipcMain.handle("members:update", (_event, id, data) => updateMember(id, data));
-  electron.ipcMain.handle("members:delete", (_event, id) => {
-    try {
-      const result = deleteMember(id);
-      return result && typeof result === "object" ? result : { success: true };
-    } catch (error) {
-      logToFile("ERROR", "members:delete failed", { id, error: String(error) });
-      return { success: false, error: String(error) };
-    }
-  });
+  electron.ipcMain.handle("members:delete", (_event, id) => deleteMember(id));
   electron.ipcMain.handle("members:search", (_event, query) => searchMembers(query));
   electron.ipcMain.handle(
     "subscriptions:getByMemberId",
@@ -2696,12 +2539,6 @@ function registerIpcHandlers() {
     }
   });
   electron.ipcMain.handle("app:getVersion", () => electron.app.getVersion());
-  electron.ipcMain.handle("app:checkForUpdates", async () => {
-    return { available: false };
-  });
-  electron.ipcMain.handle("app:downloadUpdate", async () => {
-    return { success: false, error: "Auto-update removed. Please download the latest version manually." };
-  });
   electron.ipcMain.handle("app:logError", (_event, payload) => {
     logToFile("ERROR", payload?.message || "Renderer error", payload);
     return { success: true };
@@ -2771,9 +2608,177 @@ function registerIpcHandlers() {
     (_event, limit) => getRecentIncome(limit || 20)
   );
 }
-/* Auto-updater removed in v1.0.9 — users update manually */
+const UPDATE_URL = "https://update-server.run.app/api/version";
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1e3;
+const DOWNLOAD_TIMEOUT_MS = 3e4;
+const UPDATE_TIMEOUT_MS = 15e3;
+let updateTimer = null;
+let updateInFlight = null;
+function compareVersions(a, b) {
+  const toParts = (value) => value.split("-")[0].split(".").map((part) => Number.parseInt(part, 10)).map((part) => Number.isFinite(part) ? part : 0);
+  const partsA = toParts(a);
+  const partsB = toParts(b);
+  const length = Math.max(partsA.length, partsB.length);
+  for (let i = 0; i < length; i += 1) {
+    const diff = (partsA[i] || 0) - (partsB[i] || 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+function resolveDownloadUrl(info) {
+  if (info.downloadUrl) return info.downloadUrl;
+  if (info.download_url) return info.download_url;
+  if (info.url) return info.url;
+  if (info.downloads) {
+    const platformKey = process.platform === "win32" ? "win" : process.platform === "darwin" ? "mac" : "linux";
+    return info.downloads[platformKey] || info.downloads[process.platform] || null;
+  }
+  return null;
+}
+function resolveFeedUrl(info) {
+  return info.feedUrl || info.feed_url || null;
+}
+function fetchJson(url, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith("https:") ? https.request : http.request;
+    const req = client(url, { method: "GET" }, (res) => {
+      if (!res.statusCode || res.statusCode >= 400) {
+        reject(new Error(`Update check failed (${res.statusCode})`));
+        res.resume();
+        return;
+      }
+      let data = "";
+      res.setEncoding("utf8");
+      res.on("data", (chunk) => {
+        data += chunk;
+      });
+      res.on("end", () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+    req.on("error", reject);
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(new Error("Update check timed out"));
+    });
+    req.end();
+  });
+}
+function downloadFile(url, destinationDir) {
+  return new Promise((resolve, reject) => {
+    const client = url.startsWith("https:") ? https.request : http.request;
+    const req = client(url, { method: "GET" }, (res) => {
+      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume();
+        resolve(downloadFile(res.headers.location, destinationDir));
+        return;
+      }
+      if (!res.statusCode || res.statusCode >= 400) {
+        reject(new Error(`Update download failed (${res.statusCode})`));
+        res.resume();
+        return;
+      }
+      if (!fs.existsSync(destinationDir)) {
+        fs.mkdirSync(destinationDir, { recursive: true });
+      }
+      const fileName = path.basename(new URL(url).pathname) || `update-${Date.now()}`;
+      const filePath = path.join(destinationDir, fileName);
+      const fileStream = fs.createWriteStream(filePath);
+      res.pipe(fileStream);
+      fileStream.on("finish", () => {
+        fileStream.close(() => resolve(filePath));
+      });
+      fileStream.on("error", (error) => {
+        reject(error);
+      });
+    });
+    req.on("error", reject);
+    req.setTimeout(DOWNLOAD_TIMEOUT_MS, () => {
+      req.destroy(new Error("Update download timed out"));
+    });
+    req.end();
+  });
+}
+async function launchInstaller(filePath) {
+  const extension = path.extname(filePath).toLowerCase();
+  try {
+    if (process.platform === "win32" || process.platform === "linux") {
+      await electron.shell.openPath(filePath);
+      electron.app.relaunch();
+      electron.app.exit(0);
+      return;
+    }
+    if (process.platform === "darwin") {
+      await electron.shell.openPath(filePath);
+      electron.app.relaunch();
+      electron.app.exit(0);
+      return;
+    }
+  } catch (error) {
+    logToFile("ERROR", "Failed to launch installer", { error: String(error), filePath });
+  }
+  if (extension) {
+    throw new Error("Unsupported update package");
+  }
+}
+async function checkForUpdates() {
+  if (updateInFlight) {
+    return updateInFlight;
+  }
+  updateInFlight = (async () => {
+    try {
+      const info = await fetchJson(UPDATE_URL, UPDATE_TIMEOUT_MS);
+      if (!info.version) {
+        logToFile("WARN", "Update response missing version");
+        return;
+      }
+      const currentVersion = electron.app.getVersion();
+      if (compareVersions(info.version, currentVersion) <= 0) {
+        return;
+      }
+      await electron.dialog.showMessageBox({
+        type: "info",
+        message: "Update available",
+        detail: `A newer version (${info.version}) is available. GymFlow will update now.`,
+        buttons: ["OK"]
+      });
+      const feedUrl = resolveFeedUrl(info);
+      if (feedUrl) {
+        const { autoUpdater } = await import("electron");
+        autoUpdater.setFeedURL({ url: feedUrl });
+        autoUpdater.on("update-downloaded", () => {
+          autoUpdater.quitAndInstall();
+        });
+        autoUpdater.checkForUpdates();
+        return;
+      }
+      const downloadUrl = resolveDownloadUrl(info);
+      if (!downloadUrl) {
+        logToFile("ERROR", "Update response missing download URL");
+        return;
+      }
+      const downloadDir = path.join(electron.app.getPath("userData"), "updates");
+      const filePath = await downloadFile(downloadUrl, downloadDir);
+      await launchInstaller(filePath);
+    } catch (error) {
+      logToFile("ERROR", "Auto-updater failed", { error: String(error) });
+    } finally {
+      updateInFlight = null;
+    }
+  })();
+  return updateInFlight;
+}
+function startAutoUpdater() {
+  if (updateTimer) return;
+  checkForUpdates();
+  updateTimer = setInterval(() => {
+    checkForUpdates();
+  }, UPDATE_CHECK_INTERVAL_MS);
+}
 let mainWindow = null;
-let tray = null;
 let rendererRestartCount = 0;
 let lastRendererCrashAt = 0;
 const MAX_RENDERER_RESTARTS = 3;
@@ -2881,12 +2886,6 @@ function createWindow() {
       mainWindow.show();
     }
   }, 1e4);
-  mainWindow.on("close", (event) => {
-    if (!electron.app.isQuitting) {
-      event.preventDefault();
-      mainWindow?.hide();
-    }
-  });
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -2954,7 +2953,6 @@ Error: ${error instanceof Error ? error.message : String(error)}
 
 The application will now exit.`
     );
-    electron.app.isQuitting = true;
     electron.app.quit();
     return;
   }
@@ -2963,36 +2961,27 @@ The application will now exit.`
   console.log("IPC handlers registered");
   logToFile("INFO", "IPC handlers registered");
   createWindow();
-  const trayIconPath = path.join(__dirname, "../../build/icon.png");
-  const trayIcon = electron.nativeImage.createFromPath(trayIconPath).resize({ width: 16, height: 16 });
-  tray = new electron.Tray(trayIcon);
-  tray.setToolTip("GymFlow");
-  const trayMenu = electron.Menu.buildFromTemplate([
-    { label: "Show GymFlow", click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } else { createWindow(); } } },
-    { type: "separator" },
-    { label: "Quit", click: () => { electron.app.isQuitting = true; electron.app.quit(); } }
-  ]);
-  tray.setContextMenu(trayMenu);
-  tray.on("double-click", () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } });
   if (!isDev()) {
-    electron.app.setLoginItemSettings({ openAtLogin: true, openAsHidden: false });
+    startAutoUpdater();
   }
   electron.app.on("activate", function() {
-    if (mainWindow) { mainWindow.show(); } else { createWindow(); }
+    if (electron.BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 electron.app.on("window-all-closed", () => {
-  // Do nothing — app stays in tray
+  if (process.platform !== "darwin") {
+    electron.app.quit();
+  }
 });
 electron.app.on("will-quit", async () => {
   console.log("Cleaning up resources before quit...");
   electron.globalShortcut.unregisterAll();
   console.log("Global shortcuts unregistered");
   try {
-    await whatsappService.disconnect();
-    console.log("WhatsApp service disconnected");
+    await whatsappService.cleanup();
+    console.log("WhatsApp service cleaned up");
   } catch (error) {
-    console.error("Error disconnecting WhatsApp service:", error);
+    console.error("Error cleaning up WhatsApp service:", error);
   }
   console.log("Closing database connection...");
   closeDatabase();

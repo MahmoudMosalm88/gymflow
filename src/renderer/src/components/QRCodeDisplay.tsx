@@ -20,6 +20,7 @@ export default function QRCodeDisplay({
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
   const [qrValue, setQrValue] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)
+  const [qrError, setQrError] = useState<string | null>(null)
   const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false)
   const [whatsAppError, setWhatsAppError] = useState<string | null>(null)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
@@ -58,6 +59,7 @@ export default function QRCodeDisplay({
       }
     } catch (error) {
       console.error('Failed to generate QR:', error)
+      setQrError(t('settings.qrGenerateFailed', 'Failed to generate QR code'))
     } finally {
       setIsLoading(false)
     }
@@ -198,6 +200,10 @@ export default function QRCodeDisplay({
         {isLoading ? (
           <div className="w-[300px] h-[300px] mx-auto bg-muted rounded-lg flex items-center justify-center">
             <div className="animate-spin w-8 h-8 border-4 border-gym-primary border-t-transparent rounded-full" />
+          </div>
+        ) : qrError ? (
+          <div className="w-[300px] h-[300px] mx-auto bg-muted rounded-lg flex items-center justify-center">
+            <p className="text-sm text-destructive text-center px-4">{qrError}</p>
           </div>
         ) : (
           <div className="inline-block p-4 bg-background border-2 border-border rounded-xl">

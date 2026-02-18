@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '../components/Modal'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Select } from '../components/ui/select'
+import { Badge } from '../components/ui/badge'
 
 export default function Subscriptions(): JSX.Element {
   const { t } = useTranslation()
@@ -36,6 +38,7 @@ export default function Subscriptions(): JSX.Element {
   const [isLoadingSubs, setIsLoadingSubs] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [showRenewModal, setShowRenewModal] = useState(false)
   const [planMonths, setPlanMonths] = useState<1 | 3 | 6 | 12>(1)
   const [pricePaid, setPricePaid] = useState<string>('')
@@ -146,7 +149,6 @@ export default function Subscriptions(): JSX.Element {
 
   const handleCancel = async () => {
     if (!activeSubscription || !selectedMember) return
-    if (!confirm(t('common.confirm'))) return
 
     setError(null)
     try {
@@ -259,7 +261,7 @@ export default function Subscriptions(): JSX.Element {
                     <Button
                       type="button"
                       variant="destructive"
-                      onClick={handleCancel}
+                      onClick={() => setShowCancelConfirm(true)}
                       disabled={!activeSubscription}
                     >
                       {t('subscriptions.cancel')}
@@ -345,9 +347,9 @@ export default function Subscriptions(): JSX.Element {
                               </td>
                               <td className="px-4 py-2 text-foreground">{s.price_paid ?? '-'}</td>
                               <td className="px-4 py-2">
-                                <span className="inline-flex px-2 py-1 rounded-full text-xs bg-muted text-foreground">
+                                <Badge variant={s.is_active ? 'success' : 'destructive'}>
                                   {statusLabel(s)}
-                                </span>
+                                </Badge>
                               </td>
                             </tr>
                           ))}
@@ -361,6 +363,20 @@ export default function Subscriptions(): JSX.Element {
           </CardContent>
         </Card>
       </div>
+
+      {showCancelConfirm && (
+        <ConfirmDialog
+          title={t('subscriptions.cancel')}
+          message={t('common.confirmCancel', 'Are you sure you want to cancel this subscription?')}
+          confirmLabel={t('subscriptions.cancel')}
+          variant="danger"
+          onConfirm={() => {
+            setShowCancelConfirm(false)
+            handleCancel()
+          }}
+          onCancel={() => setShowCancelConfirm(false)}
+        />
+      )}
 
       {showRenewModal && selectedMember && (
         <Modal

@@ -267,7 +267,7 @@ export default function Import() {
                       className="flex items-start gap-3 py-2 border-b border-border last:border-0"
                     >
                       <span className="text-sm font-mono bg-red-500/15 text-red-400 px-2 py-0.5 rounded">
-                        Row {row.row}
+                        {t('import.row', 'Row')} {row.row}
                       </span>
                       <span className="text-sm text-muted-foreground">
                         {row.errors.join(', ')}
@@ -312,7 +312,7 @@ export default function Import() {
                           <td className="px-4 py-2">{row.name}</td>
                           <td className="px-4 py-2 font-mono text-xs">{row.phone}</td>
                           <td className="px-4 py-2 capitalize">{row.gender}</td>
-                          <td className="px-4 py-2">{row.plan_months} months</td>
+                          <td className="px-4 py-2">{row.plan_months} {t('memberDetail.months', 'months')}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -353,7 +353,7 @@ export default function Import() {
             <Button
               onClick={handleImport}
               disabled={validRows.length === 0 || isLoading}
-              className="bg-emerald-600 hover:bg-emerald-500"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {t('import.preview.import', 'Import {{count}} Members', { count: validRows.length })}
             </Button>

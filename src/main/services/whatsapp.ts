@@ -1,8 +1,16 @@
-import { Client, LocalAuth } from 'whatsapp-web.js'
+import {
+  makeWASocket,
+  useMultiFileAuthState,
+  DisconnectReason,
+  fetchLatestBaileysVersion,
+  type WASocket
+} from '@whiskeysockets/baileys'
+import { Boom } from '@hapi/boom'
 import { EventEmitter } from 'events'
 import { app } from 'electron'
 import { join } from 'path'
-import { existsSync, rmSync } from 'fs'
+import { readFileSync, mkdirSync } from 'fs'
+import pino from 'pino'
 
 export interface WhatsAppStatus {
   connected: boolean
@@ -12,10 +20,12 @@ export interface WhatsAppStatus {
 }
 
 export class WhatsAppService extends EventEmitter {
-  private client: Client | null = null
+  private sock: WASocket | null = null
+  private saveCreds: (() => Promise<void>) | null = null
   private isReady: boolean = false
+  private intentionalDisconnect: boolean = false
   private connectInFlight: Promise<{ success: boolean; error?: string }> | null = null
-  private readonly authPath = join(app.getPath('userData'), 'wwebjs_auth')
+  private readonly authPath = join(app.getPath('userData'), 'baileys_auth')
   private status: WhatsAppStatus = {
     connected: false,
     authenticated: false,
@@ -25,145 +35,91 @@ export class WhatsAppService extends EventEmitter {
 
   constructor() {
     super()
-    this.initialize()
+    mkdirSync(this.authPath, { recursive: true })
   }
 
-  private initialize() {
-    this.client = new Client({
-      authStrategy: new LocalAuth({ dataPath: this.authPath }),
-      puppeteer: {
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      }
-    })
-
-    this.client.on('qr', (qr: string) => {
-      console.log('WhatsApp QR Code received')
-      this.status.qrCode = qr
-      this.status.connected = true
-      this.status.authenticated = false
-      this.emit('qr', qr)
-      this.emit('status', { ...this.status })
-    })
-
-    this.client.on('ready', () => {
-      console.log('WhatsApp client is ready')
-      this.isReady = true
-      this.status.connected = true
-      this.status.authenticated = true
-      this.status.error = null
-      this.emit('status', { ...this.status })
-    })
-
-    this.client.on('disconnected', (reason) => {
-      console.log('WhatsApp client disconnected:', reason)
-      this.isReady = false
-      this.status.connected = false
-      this.status.authenticated = false
-      this.status.error = String(reason || '')
-      this.emit('status', { ...this.status })
-    })
-
-    this.client.on('auth_failure', (msg) => {
-      console.error('WhatsApp authentication failed:', msg)
-      this.isReady = false
-      this.status.connected = false
-      this.status.authenticated = false
-      this.status.error = msg
-      this.emit('status', { ...this.status })
-    })
-  }
-
-  private cleanupAuthLocks(): void {
-    const sessionPath = join(this.authPath, 'session')
-    const lockFiles = ['SingletonLock', 'SingletonSocket', 'SingletonCookie']
-    for (const fileName of lockFiles) {
-      const fullPath = join(sessionPath, fileName)
-      if (existsSync(fullPath)) {
-        try {
-          rmSync(fullPath, { force: true })
-        } catch {
-          // ignore
-        }
-      }
-    }
-  }
-
-  private async resetClient(): Promise<void> {
-    if (this.client) {
+  private async initSocket(): Promise<void> {
+    // Tear down any existing socket cleanly (no logout — preserve creds)
+    if (this.sock) {
       try {
-        this.client.removeAllListeners()
-        await this.client.destroy()
+        this.sock.end(new Error('cleanup'))
       } catch {
         // ignore
       }
-      this.client = null
+      this.sock = null
+      this.isReady = false
     }
-    this.isReady = false
-    this.status.connected = false
-    this.status.authenticated = false
-    this.status.qrCode = null
-    this.initialize()
+
+    const { state, saveCreds } = await useMultiFileAuthState(this.authPath)
+    this.saveCreds = saveCreds
+
+    const { version } = await fetchLatestBaileysVersion()
+
+    const sock = makeWASocket({
+      version,
+      auth: state,
+      logger: pino({ level: 'silent' }),
+      printQRInTerminal: false,
+      browser: ['GymFlow', 'Chrome', '1.0.0']
+    })
+    this.sock = sock
+
+    sock.ev.on('creds.update', () => this.saveCreds?.())
+
+    sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
+      if (qr) {
+        this.status.qrCode = qr
+        this.status.connected = true
+        this.status.authenticated = false
+        this.emit('qr', qr)
+        this.emit('status', { ...this.status })
+      }
+
+      if (connection === 'open') {
+        this.isReady = true
+        this.status.connected = true
+        this.status.authenticated = true
+        this.status.qrCode = null
+        this.status.error = null
+        this.emit('status', { ...this.status })
+      }
+
+      if (connection === 'close') {
+        this.isReady = false
+        const code = (lastDisconnect?.error as Boom)?.output?.statusCode
+        const loggedOut = code === DisconnectReason.loggedOut
+
+        this.status.connected = false
+        this.status.authenticated = false
+        this.status.qrCode = null
+        this.status.error = loggedOut ? 'Logged out' : null
+        this.emit('status', { ...this.status })
+
+        if (!this.intentionalDisconnect && !loggedOut) {
+          // Auto-reconnect after 3 s on unexpected drops
+          setTimeout(() => this.initSocket().catch(() => {}), 3000)
+        }
+      }
+    })
   }
 
   async connect(): Promise<{ success: boolean; error?: string }> {
-    if (this.status.authenticated) {
-      return { success: true }
-    }
+    if (this.status.authenticated) return { success: true }
+    if (this.connectInFlight) return this.connectInFlight
 
-    if (this.connectInFlight) {
-      return this.connectInFlight
-    }
+    this.intentionalDisconnect = false
 
     this.connectInFlight = (async () => {
-      const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
-        new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            reject(new Error('WhatsApp connection timed out'))
-          }, timeoutMs)
-          promise
-            .then((result) => {
-              clearTimeout(timeout)
-              resolve(result)
-            })
-            .catch((error) => {
-              clearTimeout(timeout)
-              reject(error)
-            })
-        })
-
       try {
-        if (!this.client) {
-          this.initialize()
-        }
-        await withTimeout(this.client!.initialize(), 30000)
+        await this.initSocket()
+        this.connectInFlight = null
         return { success: true }
       } catch (error) {
+        this.connectInFlight = null
         const message = error instanceof Error ? error.message : String(error)
-
-        // Handle stale Chromium lock files from a previous crash.
-        if (message.includes('already running') || message.includes('Singleton')) {
-          try {
-            this.cleanupAuthLocks()
-            await this.resetClient()
-            await withTimeout(this.client!.initialize(), 30000)
-            this.status.error = null
-            this.emit('status', { ...this.status })
-            return { success: true }
-          } catch (retryError) {
-            const retryMessage =
-              retryError instanceof Error ? retryError.message : String(retryError)
-            this.status.error = retryMessage
-            this.emit('status', { ...this.status })
-            return { success: false, error: retryMessage }
-          }
-        }
-
         this.status.error = message
         this.emit('status', { ...this.status })
         return { success: false, error: message }
-      } finally {
-        this.connectInFlight = null
       }
     })()
 
@@ -171,15 +127,14 @@ export class WhatsAppService extends EventEmitter {
   }
 
   async disconnect(): Promise<{ success: boolean; error?: string }> {
+    this.intentionalDisconnect = true
     try {
-      if (this.client) {
-        await this.client.destroy()
-        this.isReady = false
-        this.client = null
+      if (this.sock) {
+        await this.sock.logout()
+        this.sock = null
       }
-      this.status.connected = false
-      this.status.authenticated = false
-      this.status.qrCode = null
+      this.isReady = false
+      this.status = { connected: false, authenticated: false, qrCode: null, error: null }
       this.emit('status', { ...this.status })
       return { success: true }
     } catch (error) {
@@ -187,6 +142,19 @@ export class WhatsAppService extends EventEmitter {
       this.status.error = message
       this.emit('status', { ...this.status })
       return { success: false, error: message }
+    }
+  }
+
+  // Soft close — preserves credentials for next launch (call on app quit)
+  async cleanup(): Promise<void> {
+    this.intentionalDisconnect = true
+    try {
+      if (this.sock) {
+        this.sock.end(new Error('cleanup'))
+        this.sock = null
+      }
+    } catch {
+      // ignore
     }
   }
 
@@ -201,60 +169,41 @@ export class WhatsAppService extends EventEmitter {
       cleaned = '+20' + cleaned
     }
 
-    const whatsappId = cleaned.replace('+', '') + '@c.us'
-    return whatsappId
-  }
-
-  async sendMessage(phone: string, message: string): Promise<boolean> {
-    if (!this.client || !this.isReady) {
-      throw new Error('WhatsApp client is not ready')
-    }
-
-    try {
-      const whatsappId = this.formatPhoneForWhatsApp(phone)
-      await this.client.sendMessage(whatsappId, message)
-      return true
-    } catch (error: any) {
-      console.error('Failed to send WhatsApp message:', error)
-      throw new Error(`Failed to send message: ${error.message}`)
-    }
-  }
-
-  async sendImage(phone: string, imagePath: string, caption?: string): Promise<boolean> {
-    if (!this.client || !this.isReady) {
-      throw new Error('WhatsApp client is not ready')
-    }
-
-    try {
-      const MessageMedia = require('whatsapp-web.js').MessageMedia
-      const whatsappId = this.formatPhoneForWhatsApp(phone)
-      const media = MessageMedia.fromFilePath(imagePath)
-      await this.client.sendMessage(whatsappId, media, { caption })
-      return true
-    } catch (error: any) {
-      console.error('Failed to send WhatsApp image:', error)
-      throw new Error(`Failed to send image: ${error.message}`)
-    }
-  }
-
-  async isRegistered(phone: string): Promise<boolean> {
-    if (!this.client || !this.isReady) {
-      throw new Error('WhatsApp client is not ready')
-    }
-
-    try {
-      const whatsappId = this.formatPhoneForWhatsApp(phone)
-      const numberId = whatsappId.replace('@c.us', '')
-      const isRegistered = await this.client.isRegisteredUser(numberId)
-      return isRegistered
-    } catch (error: any) {
-      console.error('Failed to check WhatsApp registration:', error)
-      return false
-    }
+    // Baileys uses @s.whatsapp.net (not @c.us)
+    return cleaned.replace('+', '') + '@s.whatsapp.net'
   }
 
   getStatus(): WhatsAppStatus {
     return { ...this.status }
+  }
+
+  async sendMessage(phone: string, message: string): Promise<boolean> {
+    if (!this.sock || !this.isReady) {
+      throw new Error('WhatsApp client is not ready')
+    }
+    await this.sock.sendMessage(this.formatPhoneForWhatsApp(phone), { text: message })
+    return true
+  }
+
+  async sendImage(phone: string, imagePath: string, caption?: string): Promise<boolean> {
+    if (!this.sock || !this.isReady) {
+      throw new Error('WhatsApp client is not ready')
+    }
+    await this.sock.sendMessage(this.formatPhoneForWhatsApp(phone), {
+      image: readFileSync(imagePath),
+      caption
+    })
+    return true
+  }
+
+  async isRegistered(phone: string): Promise<boolean> {
+    if (!this.sock || !this.isReady) return false
+    try {
+      const results = await this.sock.onWhatsApp(phone.replace(/[\s\-()]/g, ''))
+      return Boolean(results?.[0]?.exists)
+    } catch {
+      return false
+    }
   }
 
   async sendMembershipQR(
@@ -264,8 +213,11 @@ export class WhatsAppService extends EventEmitter {
     cardCode?: string
   ): Promise<boolean> {
     const codeLine = cardCode ? `\nرقم العضوية: ${cardCode}` : ''
-    const message = `مرحباً ${memberName}!\n\nهذا هو رمز QR الخاص بعضويتك.${codeLine}\nيرجى إظهاره عند الدخول للنادي.`
-    return await this.sendImage(phone, qrCodePath, message)
+    return this.sendImage(
+      phone,
+      qrCodePath,
+      `مرحباً ${memberName}!\n\nهذا هو رمز QR الخاص بعضويتك.${codeLine}\nيرجى إظهاره عند الدخول للنادي.`
+    )
   }
 
   async sendRenewalReminder(
@@ -273,23 +225,17 @@ export class WhatsAppService extends EventEmitter {
     memberName: string,
     expiryDate: string
   ): Promise<boolean> {
-    const message =
-      `عزيزي/عزيزتي ${memberName},\n\n` +
-      `تنتهي عضويتك في ${expiryDate}.\n` +
-      `يرجى تجديد اشتراكك قريباً لتجنب انقطاع الخدمة.\n\n` +
-      `شكراً لك!`
-
-    return await this.sendMessage(phone, message)
+    return this.sendMessage(
+      phone,
+      `عزيزي/عزيزتي ${memberName},\n\nتنتهي عضويتك في ${expiryDate}.\nيرجى تجديد اشتراكك قريباً لتجنب انقطاع الخدمة.\n\nشكراً لك!`
+    )
   }
 
   async sendWelcomeMessage(phone: string, memberName: string, gymName: string): Promise<boolean> {
-    const message =
-      `مرحباً ${memberName}! 👋\n\n` +
-      `نرحب بك في ${gymName}!\n` +
-      `نتمنى لك تجربة رائعة معنا.\n\n` +
-      `إذا كان لديك أي استفسارات، لا تتردد في التواصل معنا.`
-
-    return await this.sendMessage(phone, message)
+    return this.sendMessage(
+      phone,
+      `مرحباً ${memberName}! 👋\n\nنرحب بك في ${gymName}!\nنتمنى لك تجربة رائعة معنا.\n\nإذا كان لديك أي استفسارات، لا تتردد في التواصل معنا.`
+    )
   }
 }
 

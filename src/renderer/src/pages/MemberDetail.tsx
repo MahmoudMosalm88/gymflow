@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { PencilIcon, TrashIcon, QrCodeIcon } from '@heroicons/react/24/outline'
 import QRCodeDisplay from '../components/QRCodeDisplay'
 import Modal from '../components/Modal'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { Button, buttonVariants } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
@@ -87,6 +88,7 @@ export default function MemberDetail(): JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showRenewModal, setShowRenewModal] = useState(false)
   const [showFreezeModal, setShowFreezeModal] = useState(false)
   const [showReplaceCardModal, setShowReplaceCardModal] = useState(false)
@@ -205,8 +207,6 @@ export default function MemberDetail(): JSX.Element {
   }
 
   const handleDelete = async () => {
-    if (!confirm(t('common.confirm'))) return
-
     try {
       await window.api.members.delete(id!)
       navigate('/members')
@@ -217,7 +217,8 @@ export default function MemberDetail(): JSX.Element {
 
   if (isLoading) {
     return (
-      <div className="p-6 flex items-center justify-center">
+      <div className="p-6 flex items-center justify-center gap-3" role="status" aria-label={t('common.loading')}>
+        <div className="animate-spin w-6 h-6 border-4 border-primary border-t-transparent rounded-full" />
         <p className="text-muted-foreground">{t('common.loading')}</p>
       </div>
     )
@@ -280,7 +281,7 @@ export default function MemberDetail(): JSX.Element {
             <PencilIcon className="w-5 h-5" />
             {t('common.edit')}
           </Link>
-          <Button onClick={handleDelete} variant="destructive" className="gap-2">
+          <Button onClick={() => setShowDeleteConfirm(true)} variant="destructive" className="gap-2">
             <TrashIcon className="w-5 h-5" />
             {t('common.delete')}
           </Button>
@@ -571,6 +572,20 @@ export default function MemberDetail(): JSX.Element {
             </div>
           </div>
         </Modal>
+      )}
+
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title={t('common.delete')}
+          message={t('common.confirmDelete', 'Are you sure you want to delete this member? This cannot be undone.')}
+          confirmLabel={t('common.delete')}
+          variant="danger"
+          onConfirm={() => {
+            setShowDeleteConfirm(false)
+            handleDelete()
+          }}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
       )}
 
       {showReplaceCardModal && (

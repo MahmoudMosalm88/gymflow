@@ -273,6 +273,12 @@
     "search": "Search",
     "noResults": "No results found",
     "confirm": "Confirm",
+    "confirmDelete": "Are you sure you want to delete this? This cannot be undone.",
+    "confirmCancel": "Are you sure you want to cancel this subscription?",
+    "confirmLogout": "Are you sure you want to log out?",
+    "confirmDisconnect": "Are you sure you want to disconnect WhatsApp?",
+    "capture": "Capture",
+    "cameraError": "Failed to access camera. Please check permissions.",
     "yes": "Yes",
     "no": "No",
     "remove": "Remove"

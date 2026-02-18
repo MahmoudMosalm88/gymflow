@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Arabic:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -31,6 +31,13 @@
 
   --destructive: 0 84% 60%;
   --destructive-foreground: 210 40% 98%;
+
+  --success: 142 71% 45%;            /* #22c55e green */
+  --success-foreground: 225 20% 7%;
+  --warning: 45 93% 47%;             /* #eab308 yellow */
+  --warning-foreground: 225 20% 7%;
+  --info: 217 91% 60%;               /* #3b82f6 blue */
+  --info-foreground: 225 20% 7%;
 
   --border: 225 12% 18%;             /* subtle borders */
   --input: 225 12% 18%;
@@ -187,6 +194,7 @@ h6 { @apply text-base tracking-tight; }
 /* RTL Support */
 [dir='rtl'] {
   direction: rtl;
+  font-family: 'IBM Plex Arabic', 'Arial', sans-serif;
 }
 
 /* Gradient brand background — refined gold */

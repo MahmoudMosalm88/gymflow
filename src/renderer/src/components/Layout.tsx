@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import gymflowLogo from '../assets/gymflow-logo.png'
 import {
   HomeIcon,
@@ -44,6 +44,22 @@ export default function Layout({ children, onLogout }: LayoutProps): JSX.Element
   const { t } = useTranslation()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
+  // Close mobile menu on Escape
+  useEffect(() => {
+    if (!isMobileMenuOpen) return
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMobileMenuOpen(false)
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [isMobileMenuOpen])
+
+  // Check if a nav item is active (supports child routes like /members/123)
+  const isNavActive = (path: string) => {
+    if (path === '/') return location.pathname === '/'
+    return location.pathname === path || location.pathname.startsWith(path + '/')
+  }
+
   return (
     <div className="flex h-screen bg-muted/30">
       {/* Sidebar - Desktop */}
@@ -56,13 +72,14 @@ export default function Layout({ children, onLogout }: LayoutProps): JSX.Element
         {/* Navigation */}
         <nav className="flex-1 py-6 px-3 space-y-2">
           {navItems.map((item) => {
-            const isActive = location.pathname === item.path
+            const isActive = isNavActive(item.path)
             const Icon = item.icon
 
             return (
               <Link
                 key={item.path}
                 to={item.path}
+                aria-current={isActive ? 'page' : undefined}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${isActive
                     ? 'bg-primary/10 text-primary font-medium'
                     : 'text-muted-foreground hover:bg-muted'
@@ -114,6 +131,8 @@ export default function Layout({ children, onLogout }: LayoutProps): JSX.Element
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           className="text-muted-foreground hover:bg-muted p-2 rounded-lg"
+          aria-label={isMobileMenuOpen ? t('common.close') : t('common.openMenu', 'Open menu')}
+          aria-expanded={isMobileMenuOpen}
         >
           {isMobileMenuOpen ? (
             <XMarkIcon className="w-6 h-6" />
@@ -137,7 +156,7 @@ export default function Layout({ children, onLogout }: LayoutProps): JSX.Element
         <aside className="fixed top-16 left-0 right-0 bg-card shadow-lg z-40 max-h-[calc(100vh-4rem)] overflow-y-auto">
           <nav className="py-4 px-3 space-y-1">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.path
+              const isActive = isNavActive(item.path)
               const Icon = item.icon
 
               return (
@@ -145,6 +164,7 @@ export default function Layout({ children, onLogout }: LayoutProps): JSX.Element
                   key={item.path}
                   to={item.path}
                   onClick={() => setIsMobileMenuOpen(false)}
+                  aria-current={isActive ? 'page' : undefined}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${isActive
                       ? 'bg-brand-gradient text-white shadow-md'
                       : 'text-muted-foreground hover:bg-muted'

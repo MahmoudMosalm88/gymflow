@@ -235,7 +235,7 @@ export default function MemberForm(): JSX.Element {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t('memberForm.addTitle')}</CardTitle>
+          <CardTitle>{isEditing ? t('memberForm.editTitle') : t('memberForm.addTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <form onSubmit={handleSubmit} className="space-y-6">

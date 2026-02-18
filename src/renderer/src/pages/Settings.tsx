@@ -49,6 +49,7 @@ export default function Settings(): JSX.Element {
   const [settings, setSettings] = useState<SettingsData>(defaultSettings)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [saveIsSuccess, setSaveIsSuccess] = useState(false)
   const [cardCount, setCardCount] = useState<string>('100')
   const [cardPreview, setCardPreview] = useState<string>('')
   const [cardBatch, setCardBatch] = useState<{
@@ -167,10 +168,12 @@ export default function Settings(): JSX.Element {
         return
       }
 
+      setSaveIsSuccess(true)
       setSaveMessage(t('settings.saveSuccess', 'Settings saved successfully!'))
       setTimeout(() => setSaveMessage(null), 3000)
     } catch (error) {
       console.error('Failed to save settings:', error)
+      setSaveIsSuccess(false)
       setSaveMessage(t('settings.saveFailed', 'Failed to save settings'))
     } finally {
       setIsSaving(false)
@@ -187,7 +190,6 @@ export default function Settings(): JSX.Element {
 
   const handleWhatsAppConnect = async () => {
     try {
-      await window.api.app.openExternal('https://web.whatsapp.com')
       await window.api.whatsapp.connect()
     } catch (error) {
       console.error('WhatsApp connect failed:', error)
@@ -273,7 +275,7 @@ export default function Settings(): JSX.Element {
 
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-4xl mx-auto space-y-6 bg-muted/30 min-h-full">
       <div>
         <h1 className="text-3xl font-bold text-foreground">{t('settings.title')}</h1>
         <p className="text-sm text-muted-foreground">{t('settings.subtitle', 'Manage GymFlow preferences and integrations.')}</p>
@@ -282,7 +284,7 @@ export default function Settings(): JSX.Element {
       {saveMessage && (
         <div
           className={`rounded-md border px-4 py-3 text-sm ${
-            saveMessage.includes('success')
+            saveIsSuccess
               ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
               : 'border-red-500/20 bg-red-500/10 text-red-400'
           }`}
@@ -476,21 +478,6 @@ export default function Settings(): JSX.Element {
 
               {whatsappStatus.error && (
                 <div className="text-sm text-red-400">{whatsappStatus.error}</div>
-              )}
-
-              {whatsappStatus.qrCode && !whatsappStatus.authenticated && (
-                <div className="rounded-lg border p-4 flex flex-col items-center gap-3">
-                  {qrDataUrl ? (
-                    <img src={qrDataUrl} alt="WhatsApp QR" className="w-64 h-64" />
-                  ) : (
-                    <div className="w-64 h-64 flex items-center justify-center bg-muted text-sm">
-                      {t('common.loading')}
-                    </div>
-                  )}
-                  <p className="text-sm text-muted-foreground text-center">
-                    {t('settings.qrHint', 'Open WhatsApp → Linked Devices → Scan this QR')}
-                  </p>
-                </div>
               )}
 
               <Separator />

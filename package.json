@@ -34,7 +34,9 @@
     "react-router-dom": "^7.1.1",
     "tailwind-merge": "^2.6.0",
     "uuid": "^11.0.5",
-    "whatsapp-web.js": "^1.26.0",
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.0",
+    "pino": "^9.0.0",
     "xlsx": "^0.18.5",
     "zustand": "^5.0.3"
   },

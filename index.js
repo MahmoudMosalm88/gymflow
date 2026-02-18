@@ -23,6 +23,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 const electron = require("electron");
 const path = require("path");
+const os = require("os");
 const Database = require("better-sqlite3");
 const fs = require("fs");
 const QRCode = require("qrcode");
@@ -31,6 +32,7 @@ const uuid = require("uuid");
 const crypto = require("crypto");
 const whatsappWeb_js = require("whatsapp-web.js");
 const events = require("events");
+const childProcess = require("child_process");
 const https = require("https");
 const http = require("http");
 function _interopNamespaceDefault(e) {
@@ -1658,6 +1660,11 @@ class WhatsAppService extends events.EventEmitter {
   client = null;
   isReady = false;
   connectInFlight = null;
+  initializeInFlight = null;
+  connectProbeTimeoutMs = 3e4;
+  reconnectAttempts = 0;
+  maxReconnectAttempts = 3;
+  reconnectTimer = null;
   authPath = path.join(electron.app.getPath("userData"), "wwebjs_auth");
   status = {
     connected: false,
@@ -1669,24 +1676,94 @@ class WhatsAppService extends events.EventEmitter {
     super();
     this.initialize();
   }
-  resolveWindowsChromeExecutable() {
-    if (process.platform !== "win32") {
-      return null;
-    }
+  resolveChromeExecutable() {
     const envCandidates = [
       process.env.PUPPETEER_EXECUTABLE_PATH,
       process.env.CHROME_PATH
     ].filter(Boolean);
-    const programFiles = process.env.ProgramFiles || "C:\\Program Files";
-    const programFilesX86 = process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
-    const localAppData = process.env.LOCALAPPDATA || "";
-    const pathCandidates = [
-      ...envCandidates,
-      path.join(programFiles, "Google", "Chrome", "Application", "chrome.exe"),
-      path.join(programFilesX86, "Google", "Chrome", "Application", "chrome.exe"),
-      localAppData ? path.join(localAppData, "Google", "Chrome", "Application", "chrome.exe") : ""
-    ].filter(Boolean);
-    for (const candidate of pathCandidates) {
+    const pathCandidates = [...envCandidates];
+    const cacheCandidates = [];
+    const fallbackCandidates = [];
+    if (process.platform === "win32") {
+      const programFiles = process.env.ProgramFiles || "C:\\Program Files";
+      const programFilesX86 = process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
+      const localAppData = process.env.LOCALAPPDATA || "";
+      pathCandidates.push(
+        path.join(programFiles, "Google", "Chrome", "Application", "chrome.exe"),
+        path.join(programFilesX86, "Google", "Chrome", "Application", "chrome.exe"),
+        localAppData ? path.join(localAppData, "Google", "Chrome", "Application", "chrome.exe") : "",
+        path.join(programFiles, "Chromium", "Application", "chrome.exe"),
+        path.join(programFilesX86, "Chromium", "Application", "chrome.exe"),
+        path.join(programFiles, "Microsoft", "Edge", "Application", "msedge.exe"),
+        path.join(programFilesX86, "Microsoft", "Edge", "Application", "msedge.exe")
+      );
+    } else if (process.platform === "darwin") {
+      const homeDir = os.homedir();
+      pathCandidates.push(
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        path.join(homeDir, "Applications", "Google Chrome.app", "Contents", "MacOS", "Google Chrome"),
+        path.join(homeDir, "Applications", "Chromium.app", "Contents", "MacOS", "Chromium"),
+        path.join(homeDir, "Applications", "Microsoft Edge.app", "Contents", "MacOS", "Microsoft Edge")
+      );
+    } else {
+      pathCandidates.push(
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/google-chrome",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/chromium",
+        "/snap/bin/chromium"
+      );
+    }
+    const puppeteerCacheDir = process.env.PUPPETEER_CACHE_DIR || path.join(os.homedir(), ".cache", "puppeteer");
+    const puppeteerChromeDir = path.join(puppeteerCacheDir, "chrome");
+    if (fs.existsSync(puppeteerChromeDir)) {
+      try {
+        const builds = fs.readdirSync(puppeteerChromeDir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort().reverse();
+        if (process.platform === "darwin") {
+          const preferredMacDirs = process.arch === "arm64" ? ["chrome-mac-arm64", "chrome-mac"] : ["chrome-mac-x64", "chrome-mac"];
+          const fallbackMacDirs = process.arch === "arm64" ? ["chrome-mac-x64"] : ["chrome-mac-arm64"];
+          const collectMacCandidates = (dirNames, targetList) => {
+            for (const build of builds) {
+              for (const dirName of dirNames) {
+                targetList.push(
+                  path.join(
+                    puppeteerChromeDir,
+                    build,
+                    dirName,
+                    "Google Chrome for Testing.app",
+                    "Contents",
+                    "MacOS",
+                    "Google Chrome for Testing"
+                  )
+                );
+              }
+            }
+          };
+          collectMacCandidates(preferredMacDirs, cacheCandidates);
+          collectMacCandidates(fallbackMacDirs, fallbackCandidates);
+        } else {
+          for (const build of builds) {
+            if (process.platform === "win32") {
+              cacheCandidates.push(
+                path.join(puppeteerChromeDir, build, "chrome-win", "chrome.exe"),
+                path.join(puppeteerChromeDir, build, "chrome-win64", "chrome.exe"),
+                path.join(puppeteerChromeDir, build, "chrome-win32", "chrome.exe")
+              );
+              continue;
+            }
+            cacheCandidates.push(
+              path.join(puppeteerChromeDir, build, "chrome-linux64", "chrome"),
+              path.join(puppeteerChromeDir, build, "chrome-linux", "chrome")
+            );
+          }
+        }
+      } catch {
+      }
+    }
+    const uniqueCandidates = [...new Set([...pathCandidates.filter(Boolean), ...cacheCandidates.filter(Boolean), ...fallbackCandidates.filter(Boolean)])];
+    for (const candidate of uniqueCandidates) {
       try {
         if (fs.existsSync(candidate)) {
           return candidate;
@@ -1697,62 +1774,117 @@ class WhatsAppService extends events.EventEmitter {
     return null;
   }
   initialize() {
+    const launchArgs = [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-accelerated-2d-canvas",
+      "--no-first-run",
+      "--disable-features=Translate,MediaRouter,OptimizationHints,BackForwardCache",
+      "--remote-debugging-port=0",
+      "--disable-background-timer-throttling",
+      "--disable-backgrounding-occluded-windows",
+      "--disable-renderer-backgrounding"
+    ];
+    if (process.platform === "linux") {
+      launchArgs.push("--no-zygote", "--disable-gpu");
+    } else if (process.platform === "win32") {
+      launchArgs.push("--disable-gpu");
+    }
     const puppeteerConfig = {
       headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-accelerated-2d-canvas",
-        "--no-first-run",
-        "--no-zygote",
-        "--disable-gpu"
-      ]
+      protocolTimeout: 18e4,
+      timeout: 12e4,
+      args: launchArgs
     };
-    const windowsChromePath = this.resolveWindowsChromeExecutable();
-    if (windowsChromePath) {
-      puppeteerConfig.executablePath = windowsChromePath;
+    const chromePath = this.resolveChromeExecutable();
+    if (chromePath) {
+      puppeteerConfig.executablePath = chromePath;
     }
+    logToFile("INFO", "WhatsApp Chrome executable resolved", { chromePath: chromePath || null });
     this.client = new whatsappWeb_js.Client({
       authStrategy: new whatsappWeb_js.LocalAuth({ dataPath: this.authPath }),
-      puppeteer: puppeteerConfig
+      puppeteer: puppeteerConfig,
+      authTimeoutMs: 9e4
     });
     this.client.on("qr", (qr) => {
       console.log("WhatsApp QR Code received");
+      logToFile("INFO", "WhatsApp QR code received");
       this.status.qrCode = qr;
       this.status.connected = true;
       this.status.authenticated = false;
+      this.status.error = null;
       this.emit("qr", qr);
+      this.emit("status", { ...this.status });
+    });
+    this.client.on("authenticated", () => {
+      console.log("WhatsApp client authenticated");
+      logToFile("INFO", "WhatsApp client authenticated");
+      this.status.connected = true;
+      this.status.authenticated = true;
+      this.status.qrCode = null;
+      this.status.error = null;
       this.emit("status", { ...this.status });
     });
     this.client.on("ready", () => {
       console.log("WhatsApp client is ready");
+      logToFile("INFO", "WhatsApp client ready");
       this.isReady = true;
+      this.reconnectAttempts = 0;
       this.status.connected = true;
       this.status.authenticated = true;
+      this.status.qrCode = null;
       this.status.error = null;
       this.emit("status", { ...this.status });
     });
     this.client.on("disconnected", (reason) => {
       console.log("WhatsApp client disconnected:", reason);
+      logToFile("WARN", "WhatsApp client disconnected", { reason: String(reason || "") });
       this.isReady = false;
       this.status.connected = false;
       this.status.authenticated = false;
+      this.status.qrCode = null;
       this.status.error = String(reason || "");
       this.emit("status", { ...this.status });
+      // Auto-reconnect if we haven't exhausted retries
+      if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        this.reconnectAttempts++;
+        logToFile("INFO", "WhatsApp auto-reconnect scheduled", {
+          attempt: this.reconnectAttempts,
+          max: this.maxReconnectAttempts
+        });
+        if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = setTimeout(async () => {
+          this.reconnectTimer = null;
+          try {
+            await this.resetClient();
+            await this.connect();
+            logToFile("INFO", "WhatsApp auto-reconnect succeeded", { attempt: this.reconnectAttempts });
+          } catch (err) {
+            logToFile("ERROR", "WhatsApp auto-reconnect failed", {
+              attempt: this.reconnectAttempts,
+              error: String(err?.message || err)
+            });
+          }
+        }, 3e3);
+      } else {
+        logToFile("WARN", "WhatsApp auto-reconnect exhausted all retries", { attempts: this.reconnectAttempts });
+      }
     });
     this.client.on("auth_failure", (msg) => {
       console.error("WhatsApp authentication failed:", msg);
+      logToFile("ERROR", "WhatsApp authentication failed", { message: String(msg || "") });
       this.isReady = false;
       this.status.connected = false;
       this.status.authenticated = false;
+      this.status.qrCode = null;
       this.status.error = msg;
       this.emit("status", { ...this.status });
     });
   }
   cleanupAuthLocks() {
     const sessionPath = path.join(this.authPath, "session");
-    const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie"];
+    const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie", "DevToolsActivePort", "RunningChromeVersion"];
     for (const fileName of lockFiles) {
       const fullPath = path.join(sessionPath, fileName);
       if (fs.existsSync(fullPath)) {
@@ -1763,6 +1895,88 @@ class WhatsAppService extends events.EventEmitter {
       }
     }
   }
+  terminateStaleSessionBrowsers() {
+    const sessionPath = path.join(this.authPath, "session");
+    if (!fs.existsSync(sessionPath)) {
+      return;
+    }
+    if (process.platform === "win32") {
+      return;
+    }
+    try {
+      childProcess.spawnSync("pkill", ["-f", sessionPath], { stdio: "ignore" });
+      logToFile("INFO", "Attempted stale WhatsApp browser cleanup", { sessionPath });
+    } catch {
+    }
+  }
+  clearStaleSessionIfPresent() {
+    const sessionPath = path.join(this.authPath, "session");
+    if (this.initializeInFlight || this.hasLiveBrowserProcess()) {
+      logToFile("INFO", "Skipping stale WhatsApp session cleanup (active launch/browser)");
+      return;
+    }
+    const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie", "DevToolsActivePort", "RunningChromeVersion"];
+    const hasLock = lockFiles.some((fileName) => {
+      try {
+        return fs.existsSync(path.join(sessionPath, fileName));
+      } catch {
+        return false;
+      }
+    });
+    if (!hasLock) {
+      return;
+    }
+    if (this.isSessionBrowserRunning(sessionPath)) {
+      logToFile("INFO", "Skipping stale WhatsApp session cleanup (session process alive)", { sessionPath });
+      return;
+    }
+    this.terminateStaleSessionBrowsers();
+    this.cleanupAuthLocks();
+  }
+  hasLiveBrowserProcess() {
+    try {
+      const browser = this.client?.pupBrowser;
+      return !!(browser && typeof browser.isConnected === "function" && browser.isConnected());
+    } catch {
+      return false;
+    }
+  }
+  isSessionBrowserRunning(sessionPath) {
+    if (process.platform === "win32") {
+      return false;
+    }
+    try {
+      const result = childProcess.spawnSync("pgrep", ["-f", sessionPath], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"]
+      });
+      if (result.status !== 0 || !result.stdout) {
+        return false;
+      }
+      const pids = result.stdout.split(/\s+/).map((value) => value.trim()).filter(Boolean);
+      return pids.length > 0;
+    } catch {
+      return false;
+    }
+  }
+  recreateAuthSessionDirectory() {
+    const sessionPath = path.join(this.authPath, "session");
+    try {
+      fs.rmSync(sessionPath, { recursive: true, force: true });
+      fs.mkdirSync(sessionPath, { recursive: true });
+      logToFile("WARN", "Recreated WhatsApp auth session directory", { sessionPath });
+    } catch (error) {
+      logToFile("ERROR", "Failed to recreate WhatsApp auth session directory", { error: String(error), sessionPath });
+    }
+  }
+  isRecoverableConnectError(message) {
+    const text = String(message || "").toLowerCase();
+    return text.includes("already running") || text.includes("singleton") || text.includes("devtoolsactiveport") || text.includes("runtime.callfunctionon timed out") || text.includes("protocol timeout") || text.includes("target closed") || text.includes("target.setautoattach");
+  }
+  shouldRecreateSessionOnError(message) {
+    const text = String(message || "").toLowerCase();
+    return text.includes("runtime.callfunctionon timed out") || text.includes("protocol timeout") || text.includes("target closed") || text.includes("target.setautoattach");
+  }
   async resetClient() {
     if (this.client) {
       try {
@@ -1772,51 +1986,160 @@ class WhatsAppService extends events.EventEmitter {
       }
       this.client = null;
     }
+    this.initializeInFlight = null;
     this.isReady = false;
     this.status.connected = false;
     this.status.authenticated = false;
     this.status.qrCode = null;
     this.initialize();
   }
+  startClientInitialization() {
+    if (!this.client) {
+      this.initialize();
+    }
+    if (!this.client) {
+      return Promise.resolve({ ok: false, error: "WhatsApp client is not initialized" });
+    }
+    if (this.initializeInFlight) {
+      return this.initializeInFlight;
+    }
+    const clientRef = this.client;
+    this.status.connected = true;
+    this.status.error = null;
+    this.emit("status", { ...this.status });
+    this.initializeInFlight = clientRef.initialize().then(
+      () => ({ ok: true }),
+      (error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        logToFile("ERROR", "WhatsApp initialize error", { error: message });
+        if (this.client === clientRef) {
+          this.status.error = message;
+          this.emit("status", { ...this.status });
+        }
+        return { ok: false, error: message };
+      }
+    ).finally(() => {
+      if (this.client === clientRef) {
+        this.initializeInFlight = null;
+      }
+    });
+    return this.initializeInFlight;
+  }
+  waitForConnectionSignal(timeoutMs) {
+    return new Promise((resolve) => {
+      if (this.status.authenticated) {
+        resolve({ type: "ready" });
+        return;
+      }
+      if (this.status.qrCode) {
+        resolve({ type: "qr" });
+        return;
+      }
+      const clientRef = this.client;
+      if (!clientRef) {
+        resolve({ type: "missing_client" });
+        return;
+      }
+      let settled = false;
+      let timer = null;
+      const finish = (result) => {
+        if (settled) return;
+        settled = true;
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+        clientRef.removeListener("qr", onQr);
+        clientRef.removeListener("ready", onReady);
+        clientRef.removeListener("auth_failure", onAuthFailure);
+        clientRef.removeListener("disconnected", onDisconnected);
+        resolve(result);
+      };
+      const onQr = () => finish({ type: "qr" });
+      const onReady = () => finish({ type: "ready" });
+      const onAuthFailure = (message) => finish({
+        type: "error",
+        error: message ? String(message) : "WhatsApp authentication failed"
+      });
+      const onDisconnected = (reason) => finish({
+        type: "error",
+        error: `WhatsApp disconnected: ${String(reason || "unknown")}`
+      });
+      clientRef.on("qr", onQr);
+      clientRef.on("ready", onReady);
+      clientRef.on("auth_failure", onAuthFailure);
+      clientRef.on("disconnected", onDisconnected);
+      timer = setTimeout(() => finish({ type: "timeout" }), timeoutMs);
+    });
+  }
   async connect() {
     if (this.status.authenticated) {
       return { success: true };
+    }
+    if (this.status.qrCode) {
+      return { success: true, pendingScan: true };
     }
     if (this.connectInFlight) {
       return this.connectInFlight;
     }
     this.connectInFlight = (async () => {
-      const withTimeout = async (promise, timeoutMs) => new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error("WhatsApp connection timed out"));
-        }, timeoutMs);
-        promise.then((result) => {
-          clearTimeout(timeout);
-          resolve(result);
-        }).catch((error) => {
-          clearTimeout(timeout);
-          reject(error);
-        });
-      });
-      try {
-        if (!this.client) {
-          this.initialize();
+      const runConnect = async () => {
+        this.clearStaleSessionIfPresent();
+        const initPromise = this.startClientInitialization();
+        const firstSignal = await Promise.race([
+          this.waitForConnectionSignal(this.connectProbeTimeoutMs),
+          initPromise.then((result) => result.ok ? { type: "init_done" } : { type: "error", error: result.error })
+        ]);
+        if (firstSignal.type === "error") {
+          throw new Error(firstSignal.error || "WhatsApp initialization failed");
         }
-        await withTimeout(this.client.initialize(), 45e3);
-        return { success: true };
+        if (firstSignal.type === "ready" || this.status.authenticated) {
+          return { success: true };
+        }
+        if (firstSignal.type === "qr" || this.status.qrCode) {
+          return { success: true, pendingScan: true };
+        }
+        return { success: true, pendingScan: true };
+      };
+      try {
+        const result = await runConnect();
+        this.status.error = null;
+        this.emit("status", { ...this.status });
+        return result || { success: true };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        logToFile("ERROR", "WhatsApp connect error", { error: message });
         console.error("WhatsApp connect error:", message);
-        if (message.includes("already running") || message.includes("Singleton")) {
+        if (this.isRecoverableConnectError(message)) {
           try {
+            this.terminateStaleSessionBrowsers();
             this.cleanupAuthLocks();
             await this.resetClient();
-            await withTimeout(this.client.initialize(), 45e3);
+            const retryResult = await runConnect();
             this.status.error = null;
             this.emit("status", { ...this.status });
-            return { success: true };
+            return retryResult || { success: true };
           } catch (retryError) {
             const retryMessage = retryError instanceof Error ? retryError.message : String(retryError);
+            logToFile("ERROR", "WhatsApp connect retry error", { error: retryMessage });
+            if (this.shouldRecreateSessionOnError(retryMessage)) {
+              try {
+                this.terminateStaleSessionBrowsers();
+                this.cleanupAuthLocks();
+                this.recreateAuthSessionDirectory();
+                await this.resetClient();
+                const secondRetryResult = await runConnect();
+                this.status.error = null;
+                this.emit("status", { ...this.status });
+                return secondRetryResult || { success: true };
+              } catch (secondRetryError) {
+                const secondRetryMessage = secondRetryError instanceof Error ? secondRetryError.message : String(secondRetryError);
+                logToFile("ERROR", "WhatsApp connect second retry error", { error: secondRetryMessage });
+                this.status.error = secondRetryMessage;
+                this.emit("status", { ...this.status });
+                return { success: false, error: secondRetryMessage };
+              }
+            }
             this.status.error = retryMessage;
             this.emit("status", { ...this.status });
             return { success: false, error: retryMessage };
@@ -1838,6 +2161,7 @@ class WhatsAppService extends events.EventEmitter {
         this.isReady = false;
         this.client = null;
       }
+      this.initializeInFlight = null;
       this.status.connected = false;
       this.status.authenticated = false;
       this.status.qrCode = null;
@@ -1862,8 +2186,41 @@ class WhatsAppService extends events.EventEmitter {
     const whatsappId = cleaned.replace("+", "") + "@c.us";
     return whatsappId;
   }
+  async ensureClientReady(waitMs = 2e4) {
+    if (this.client && this.isReady) {
+      return true;
+    }
+    if (!this.client || !this.status.authenticated) {
+      return false;
+    }
+    const clientRef = this.client;
+    return await new Promise((resolve) => {
+      let settled = false;
+      let timer = null;
+      const finish = (ok) => {
+        if (settled) return;
+        settled = true;
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+        clientRef.removeListener("ready", onReady);
+        clientRef.removeListener("disconnected", onDisconnected);
+        clientRef.removeListener("auth_failure", onAuthFailure);
+        resolve(ok);
+      };
+      const onReady = () => finish(true);
+      const onDisconnected = () => finish(false);
+      const onAuthFailure = () => finish(false);
+      clientRef.on("ready", onReady);
+      clientRef.on("disconnected", onDisconnected);
+      clientRef.on("auth_failure", onAuthFailure);
+      timer = setTimeout(() => finish(false), waitMs);
+    });
+  }
   async sendMessage(phone, message) {
-    if (!this.client || !this.isReady) {
+    const ready = await this.ensureClientReady();
+    if (!ready || !this.client) {
       throw new Error("WhatsApp client is not ready");
     }
     try {
@@ -1876,7 +2233,8 @@ class WhatsAppService extends events.EventEmitter {
     }
   }
   async sendImage(phone, imagePath, caption) {
-    if (!this.client || !this.isReady) {
+    const ready = await this.ensureClientReady();
+    if (!ready || !this.client) {
       throw new Error("WhatsApp client is not ready");
     }
     try {
@@ -1891,7 +2249,8 @@ class WhatsAppService extends events.EventEmitter {
     }
   }
   async isRegistered(phone) {
-    if (!this.client || !this.isReady) {
+    const ready = await this.ensureClientReady(1e4);
+    if (!ready || !this.client) {
       throw new Error("WhatsApp client is not ready");
     }
     try {
@@ -2153,23 +2512,10 @@ function registerIpcHandlers() {
   electron.ipcMain.handle("owner:register", async (_event, phone, password, name) => {
     const existing = getOwnerByPhone(phone);
     if (existing) return { success: false, error: "Owner already exists" };
-    const onboardingComplete = getSetting("onboarding_complete", false);
-    const allowManualOtp = !onboardingComplete;
     const passwordHash = bcryptjs.hashSync(password, 10);
     const owner = createOwner(phone, passwordHash, name);
     const otp = createOtp(phone, "verify");
-    const sent = await sendOtpMessage(phone, otp.code, "verify", allowManualOtp);
-    if (electron.app.isPackaged && sent.sentVia !== "whatsapp" && !allowManualOtp) {
-      try {
-        deleteOtpById(otp.id);
-      } catch {
-      }
-      try {
-        deleteOwnerById(owner.id);
-      } catch {
-      }
-      return { success: false, error: "WhatsApp not connected" };
-    }
+    const sent = await sendOtpMessage(phone, otp.code, "verify", true);
     return { success: true, ownerId: owner.id, ...sent };
   });
   electron.ipcMain.handle("owner:verifyOtp", (_event, phone, code, purpose) => {
@@ -2221,18 +2567,8 @@ function registerIpcHandlers() {
   electron.ipcMain.handle("owner:requestPasswordReset", async (_event, phone) => {
     const owner = getOwnerByPhone(phone);
     if (!owner) return { success: false, error: "Owner not found" };
-    if (electron.app.isPackaged && !whatsappService.getStatus().authenticated) {
-      return { success: false, error: "WhatsApp not connected" };
-    }
     const otp = createOtp(phone, "reset");
-    const sent = await sendOtpMessage(phone, otp.code, "reset", false);
-    if (electron.app.isPackaged && sent.sentVia !== "whatsapp") {
-      try {
-        deleteOtpById(otp.id);
-      } catch {
-      }
-      return { success: false, error: "WhatsApp not connected" };
-    }
+    const sent = await sendOtpMessage(phone, otp.code, "reset", true);
     return { success: true, ...sent };
   });
   electron.ipcMain.handle(
@@ -2697,21 +3033,10 @@ function registerIpcHandlers() {
   });
   electron.ipcMain.handle("app:getVersion", () => electron.app.getVersion());
   electron.ipcMain.handle("app:checkForUpdates", async () => {
-    try {
-      return await getUpdateInfo();
-    } catch (error) {
-      return { available: false, error: String(error) };
-    }
+    return { available: false };
   });
-  electron.ipcMain.handle("app:downloadUpdate", async (_event, downloadUrl) => {
-    try {
-      const downloadDir = path.join(electron.app.getPath("userData"), "updates");
-      const filePath = await downloadFile(downloadUrl, downloadDir);
-      await launchInstaller(filePath);
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: String(error) };
-    }
+  electron.ipcMain.handle("app:downloadUpdate", async () => {
+    return { success: false, error: "Auto-update removed. Please download the latest version manually." };
   });
   electron.ipcMain.handle("app:logError", (_event, payload) => {
     logToFile("ERROR", payload?.message || "Renderer error", payload);
@@ -2782,179 +3107,7 @@ function registerIpcHandlers() {
     (_event, limit) => getRecentIncome(limit || 20)
   );
 }
-const UPDATE_URL = "https://api.github.com/repos/MahmoudMosalm88/gymflow/releases/latest";
-const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1e3;
-const DOWNLOAD_TIMEOUT_MS = 10 * 60 * 1e3;
-const UPDATE_TIMEOUT_MS = 15e3;
-let updateTimer = null;
-let updateInFlight = null;
-function compareVersions(a, b) {
-  const toParts = (value) => value.split("-")[0].split(".").map((part) => Number.parseInt(part, 10)).map((part) => Number.isFinite(part) ? part : 0);
-  const partsA = toParts(a);
-  const partsB = toParts(b);
-  const length = Math.max(partsA.length, partsB.length);
-  for (let i = 0; i < length; i += 1) {
-    const diff = (partsA[i] || 0) - (partsB[i] || 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
-}
-function resolveDownloadUrl(info) {
-  if (info.downloadUrl) return info.downloadUrl;
-  if (info.download_url) return info.download_url;
-  if (info.url) return info.url;
-  if (info.downloads) {
-    const platformKey = process.platform === "win32" ? "win" : process.platform === "darwin" ? "mac" : "linux";
-    return info.downloads[platformKey] || info.downloads[process.platform] || null;
-  }
-  return null;
-}
-function resolveFeedUrl(info) {
-  return info.feedUrl || info.feed_url || null;
-}
-function fetchJson(url, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    const parsedUrl = new URL(url);
-    const client = parsedUrl.protocol === "https:" ? https.request : http.request;
-    const req = client(url, { method: "GET", headers: { "User-Agent": "gymflow-updater" } }, (res) => {
-      if (!res.statusCode || res.statusCode >= 400) {
-        reject(new Error(`Update check failed (${res.statusCode})`));
-        res.resume();
-        return;
-      }
-      let data = "";
-      res.setEncoding("utf8");
-      res.on("data", (chunk) => {
-        data += chunk;
-      });
-      res.on("end", () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (error) {
-          reject(error);
-        }
-      });
-    });
-    req.on("error", reject);
-    req.setTimeout(timeoutMs, () => {
-      req.destroy(new Error("Update check timed out"));
-    });
-    req.end();
-  });
-}
-function downloadFile(url, destinationDir) {
-  return new Promise((resolve, reject) => {
-    const client = url.startsWith("https:") ? https.request : http.request;
-    const req = client(url, { method: "GET" }, (res) => {
-      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        res.resume();
-        const redirectUrl = new URL(res.headers.location, url).toString();
-        resolve(downloadFile(redirectUrl, destinationDir));
-        return;
-      }
-      if (!res.statusCode || res.statusCode >= 400) {
-        reject(new Error(`Update download failed (${res.statusCode})`));
-        res.resume();
-        return;
-      }
-      if (!fs.existsSync(destinationDir)) {
-        fs.mkdirSync(destinationDir, { recursive: true });
-      }
-      const fileName = path.basename(new URL(url).pathname) || `update-${Date.now()}`;
-      const filePath = path.join(destinationDir, fileName);
-      const fileStream = fs.createWriteStream(filePath);
-      res.pipe(fileStream);
-      fileStream.on("finish", () => {
-        fileStream.close(() => resolve(filePath));
-      });
-      fileStream.on("error", (error) => {
-        reject(error);
-      });
-    });
-    req.on("error", reject);
-    req.setTimeout(DOWNLOAD_TIMEOUT_MS, () => {
-      req.destroy(new Error("Update download timed out"));
-    });
-    req.end();
-  });
-}
-async function launchInstaller(filePath) {
-  const extension = path.extname(filePath).toLowerCase();
-  const platformAllowedExtension = process.platform === "win32" ? [".exe", ".msi"] : process.platform === "darwin" ? [".dmg", ".pkg"] : [".appimage", ".deb", ".rpm"];
-  if (!platformAllowedExtension.includes(extension)) {
-    throw new Error(`Unsupported update package for ${process.platform}: ${filePath}`);
-  }
-  const launchError = await electron.shell.openPath(filePath);
-  if (launchError) {
-    logToFile("ERROR", "Failed to launch installer", { error: launchError, filePath });
-    throw new Error(`Failed to launch installer: ${launchError}`);
-  }
-  electron.app.isQuitting = true;
-  setTimeout(() => {
-    electron.app.quit();
-  }, 1500);
-}
-async function getUpdateInfo() {
-  try {
-    const release = await fetchJson(UPDATE_URL, UPDATE_TIMEOUT_MS);
-    const tagVersion = (release.tag_name || "").replace(/^v/, "");
-    if (!tagVersion) {
-      return { available: false, error: "Update response missing version" };
-    }
-    const currentVersion = electron.app.getVersion();
-    if (compareVersions(tagVersion, currentVersion) <= 0) {
-      return { available: false, version: currentVersion };
-    }
-    const assets = Array.isArray(release.assets) ? release.assets : [];
-    const platformKey = process.platform === "win32" ? /\.exe$/i : process.platform === "darwin" ? /\.dmg$/i : /\.AppImage$/i;
-    const asset = assets.find((a) => platformKey.test(a.name || ""));
-    const downloadUrl = asset ? asset.browser_download_url : null;
-    if (!downloadUrl) {
-      return { available: false, error: "No matching installer for this platform" };
-    }
-    return { available: true, version: tagVersion, downloadUrl };
-  } catch (error) {
-    return { available: false, error: String(error) };
-  }
-}
-async function checkForUpdates() {
-  if (updateInFlight) {
-    return updateInFlight;
-  }
-  updateInFlight = (async () => {
-    try {
-      const info = await getUpdateInfo();
-      if (!info.available) return;
-      electron.BrowserWindow.getAllWindows().forEach((win) => {
-        try { win.webContents.send("app:updateAvailable", { version: info.version, downloadUrl: info.downloadUrl }); } catch {}
-      });
-      const { response } = await electron.dialog.showMessageBox({
-        type: "info",
-        message: "Update available",
-        detail: `A newer version (${info.version}) is available. Would you like to update now?`,
-        buttons: ["Update Now", "Later"]
-      });
-      if (response !== 0) {
-        return;
-      }
-      const downloadDir = path.join(electron.app.getPath("userData"), "updates");
-      const filePath = await downloadFile(info.downloadUrl, downloadDir);
-      await launchInstaller(filePath);
-    } catch (error) {
-      logToFile("ERROR", "Auto-updater failed", { error: String(error) });
-    } finally {
-      updateInFlight = null;
-    }
-  })();
-  return updateInFlight;
-}
-function startAutoUpdater() {
-  if (updateTimer) return;
-  checkForUpdates();
-  updateTimer = setInterval(() => {
-    checkForUpdates();
-  }, UPDATE_CHECK_INTERVAL_MS);
-}
+/* Auto-updater removed in v1.0.9 — users update manually */
 let mainWindow = null;
 let tray = null;
 let rendererRestartCount = 0;
@@ -3159,7 +3312,6 @@ The application will now exit.`
   tray.on("double-click", () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } });
   if (!isDev()) {
     electron.app.setLoginItemSettings({ openAtLogin: true, openAsHidden: false });
-    startAutoUpdater();
   }
   electron.app.on("activate", function() {
     if (mainWindow) { mainWindow.show(); } else { createWindow(); }

@@ -233,7 +233,7 @@ export default function Reports() {
                           )}
                         </>
                       )}
-                      <span className="text-xs text-muted-foreground mt-1 transform -rotate-45 origin-top-left whitespace-nowrap">
+                      <span className="text-xs text-muted-foreground mt-1 transform ltr:-rotate-45 ltr:origin-top-left rtl:rotate-45 rtl:origin-top-right whitespace-nowrap">
                         {formatDate(day.date)}
                       </span>
                     </div>

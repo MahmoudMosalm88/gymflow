@@ -160,6 +160,7 @@ export default function Dashboard(): JSX.Element {
           <button
             onClick={() => setError(null)}
             className="text-destructive hover:text-destructive/80 font-bold text-lg leading-none"
+            aria-label={t('common.close')}
           >
             ✕
           </button>
