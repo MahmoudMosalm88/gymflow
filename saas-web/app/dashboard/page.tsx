@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
+import { offlineCheckIn } from '@/lib/offline/check-in-engine';
 import StatCard from '@/components/dashboard/StatCard'; // Keeping existing StatCard for now, will update it later
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner'; // Keeping existing LoadingSpinner for now
 
@@ -30,6 +31,13 @@ type ScanResult = {
 export default function DashboardPage() {
   const { lang } = useLang();
   const labels = t[lang];
+  const reasonLabels: Record<string, string> = {
+    unknown_member: labels.scan_reason_unknown_member,
+    cooldown: labels.scan_reason_cooldown,
+    already_checked_in_today: labels.scan_reason_already_checked_in_today,
+    no_active_subscription: labels.scan_reason_no_active_subscription,
+    quota_exceeded: labels.scan_reason_quota_exceeded
+  };
 
   // Overview data
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -51,24 +59,41 @@ export default function DashboardPage() {
       .finally(() => setLoadingOverview(false));
   }, []);
 
-  // Handle scan submission
+  // Handle scan submission — tries online first, falls back to offline engine
   const handleScan = async () => {
     if (!scannedValue.trim() || scanning) return;
     setScanning(true);
-    setScanResult(null); // Clear previous result
+    setScanResult(null);
     try {
       const res = await api.post<ScanResult>('/api/attendance/check', {
         scannedValue: scannedValue.trim(),
         method: 'scan',
       });
-      setScanResult(res.data ?? { success: false, reason: labels.error });
+      const payload = res.data ?? { success: false, reason: labels.error };
+      setScanResult({
+        ...payload,
+        reason: payload.success ? payload.reason : (payload.reason ? (reasonLabels[payload.reason] ?? payload.reason) : labels.error)
+      });
     } catch (error) {
-      console.error("Scan error:", error);
-      setScanResult({ success: false, reason: labels.error_scan_failed }); // Use a specific error message
+      // Network failure — try offline check-in
+      try {
+        const offlineResult = await offlineCheckIn(scannedValue.trim(), 'scan');
+        setScanResult({
+          success: offlineResult.allowed,
+          memberName: offlineResult.member?.name,
+          sessionsRemaining: offlineResult.sessionsRemaining,
+          reason: offlineResult.allowed
+            ? `${offlineResult.member?.name} (${labels.offline_suffix})`
+            : (reasonLabels[offlineResult.reason] ?? offlineResult.reason),
+        });
+      } catch {
+        console.error("Scan error:", error);
+        setScanResult({ success: false, reason: labels.error_scan_failed });
+      }
     } finally {
-      setScannedValue(''); // Clear input after scan
+      setScannedValue('');
       setScanning(false);
-      inputRef.current?.focus(); // Re-focus for next scan
+      inputRef.current?.focus();
     }
   };
 

@@ -1,15 +1,30 @@
 import { join } from "node:path";
-import initSqlJs, { Database as SqlJsDatabase, SqlJsStatic } from "sql.js";
+import { createRequire } from "node:module";
 import { BranchArchive } from "@/lib/archive-engine";
+
+// Use createRequire so webpack ignores this import at build time.
+// sql.js UMD wrapper breaks when webpack bundles it.
+const nodeRequire = createRequire(import.meta.url);
+
+type SqlJsDatabase = {
+  exec: (sql: string) => Array<{ values: unknown[][] }>;
+  prepare: (sql: string) => {
+    step: () => boolean;
+    getAsObject: () => Record<string, unknown>;
+    free: () => void;
+  };
+  close: () => void;
+};
 
 type PlainRow = Record<string, unknown>;
 
-let sqlRuntime: Promise<SqlJsStatic> | null = null;
+let sqlRuntime: Promise<{ Database: new (data: Uint8Array) => SqlJsDatabase }> | null = null;
 
 function getSqlRuntime() {
   if (!sqlRuntime) {
+    const initSqlJs = nodeRequire("sql.js") as (opts?: Record<string, unknown>) => Promise<{ Database: new (data: Uint8Array) => SqlJsDatabase }>;
     sqlRuntime = initSqlJs({
-      locateFile: (file) => join(process.cwd(), "node_modules", "sql.js", "dist", file)
+      locateFile: (file: string) => join(process.cwd(), "node_modules", "sql.js", "dist", file)
     });
   }
   return sqlRuntime;

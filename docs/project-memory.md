@@ -1,7 +1,7 @@
 # GymFlow — Project Memory (Source of Truth)
 
 > Single living document. Combines git history, session logs, and all docs into one timeline.
-> Any new task should start here. Last updated: **February 18, 2026**.
+> Any new task should start here. Last updated: **February 19, 2026**.
 
 ---
 
@@ -324,18 +324,65 @@ Commit `e17aadd`: Desktop app converted to full dark premium palette.
 
 ---
 
-## Current State (Feb 18, 2026)
+### 2026-02-18 (late) → 2026-02-19 — Firebase Auth + PWA Offline Rollout
+
+#### Firebase auth stabilization
+- Added Google OAuth client credentials and validated Google sign-in flow end-to-end.
+- Fixed local phone auth blocking by enabling Firebase test phone numbers and localhost test-mode path.
+- Final local test numbers configured in Firebase Auth:
+  - `+16505550100` → `123456`
+  - `+16505550101` → `123456`
+- Local-only safeguard in `saas-web/app/(auth)/login/page.tsx`:
+  - `auth.settings.appVerificationDisabledForTesting = true` on `localhost` / `127.0.0.1`
+
+#### PWA + offline check-in implementation shipped
+- Added installable PWA shell:
+  - `saas-web/public/manifest.json`
+  - `saas-web/public/sw.js`
+  - `saas-web/public/offline.html`
+  - `saas-web/public/icons/*`
+- Added dashboard install + sync UX:
+  - `saas-web/components/dashboard/InstallPrompt.tsx`
+  - `saas-web/components/dashboard/SyncStatus.tsx`
+- Added offline engine and IndexedDB stack:
+  - `saas-web/lib/offline/*`
+  - `saas-web/lib/check-in/rules.ts`
+  - `saas-web/app/api/members/offline-bundle/route.ts`
+- Added offline sync/idempotency fields and validation support:
+  - `saas-web/app/api/attendance/check/route.ts`
+  - `saas-web/lib/validation.ts`
+  - `saas-web/db/schema.sql`
+  - `saas-web/db/migrations/004_offline_checkin.sql`
+
+#### Health check + fixes (Playwright + build/typecheck)
+- Verified in Playwright:
+  - service worker registration active on `/login`
+  - manifest and icons load correctly
+  - offline navigation fallback returns `offline.html`
+  - phone login/register with test numbers reaches `/dashboard`
+- Fixed issues found during QA:
+  - Dashboard showed raw offline reason codes (`unknown_member`) → now mapped to user-facing EN/AR copy in `saas-web/app/dashboard/page.tsx` + `saas-web/lib/i18n.ts`
+  - Missing favicon request and PWA meta warning cleanup in `saas-web/app/layout.tsx`
+  - Sync manager online listener cleanup to avoid repeated listeners in `saas-web/lib/offline/sync-manager.ts`
+- Validation:
+  - `npm run typecheck` ✅
+  - `npm run build` ✅
+
+---
+
+## Current State (Feb 19, 2026)
 
 ### What works
 - Desktop app: full dark UI, WhatsApp connect/disconnect/QR via Baileys, member management, QR check-in, attendance, subscriptions, reports, import/export, PDF generation, auto-update
 - SaaS web: full brutalist UI, Firebase auth, multi-tenant dashboard, members/subscriptions/attendance/reports, WhatsApp settings UI (polls for QR), backup/restore, Cloud Run deployment
+- SaaS web PWA: install prompt, service worker, offline fallback page, offline check-in queue + sync engine (initial production-ready version)
 - Landing page: 11-section brutalist dark marketing page → GitHub Pages
 
 ### What's NOT done yet
 | Item | Notes |
 |------|-------|
 | WhatsApp web worker | Code written but not deployed/tested end-to-end. Needs `ORGANIZATION_ID` + `BRANCH_ID` env vars when running |
-| PWA / offline check-in | Plan written in `docs/migration-to-PWA.md` — not started |
+| PWA / offline check-in | Implemented and locally validated. Next: production soak test and monitoring for sync edge-cases. |
 | Tests | Zero tests anywhere |
 | Staging environment | None — only production Cloud Run |
 | DB migrations in Cloud Build trigger | `cloudbuild.yaml` has the step, but trigger uses inline config that doesn't include it |
@@ -388,6 +435,6 @@ app/globals.css + landing.module.css — Full dark brutalist styles
 docs/project-memory.md          — THIS FILE (source of truth)
 docs/design-system.md           — Complete SaaS design token spec
 docs/desktop-app-whatsapp-fix-log.md — Full history of WhatsApp attempts + RESOLVED section
-docs/migration-to-PWA.md        — Detailed PWA offline check-in plan (not started)
+docs/migration-to-PWA.md        — PWA offline check-in plan (implemented baseline; use for future iterations)
 docs/future_reports.md          — Backlogged report ideas
 ```

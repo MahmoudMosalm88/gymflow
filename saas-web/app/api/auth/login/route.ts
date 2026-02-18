@@ -68,8 +68,13 @@ export async function POST(request: NextRequest) {
   try {
     // Rate limiting: 10 requests per minute per IP
     const forwarded = request.headers.get("x-forwarded-for");
-    const ip = forwarded ? forwarded.split(",")[0].trim() : "unknown";
-    const rateLimit = checkRateLimit(ip, 10, 60000);
+    const ip =
+      forwarded?.split(",")[0].trim() ||
+      request.headers.get("x-real-ip")?.trim() ||
+      request.headers.get("cf-connecting-ip")?.trim() ||
+      `ua:${request.headers.get("user-agent") || "unknown"}`;
+    const loginLimit = process.env.NODE_ENV === "development" ? 200 : 10;
+    const rateLimit = checkRateLimit(ip, loginLimit, 60000);
 
     if (!rateLimit.allowed) {
       const retryAfterSeconds = Math.ceil(rateLimit.retryAfterMs / 1000);

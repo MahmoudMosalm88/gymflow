@@ -6,6 +6,9 @@ import { LangContext, Lang } from '@/lib/i18n';
 import Sidebar from '@/components/dashboard/Sidebar';
 import Header from '@/components/dashboard/Header';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+import { fetchAndStoreBundle } from '@/lib/offline/offline-bundle';
+import { startSyncManager, stopSyncManager } from '@/lib/offline/sync-manager';
+import InstallPrompt from '@/components/dashboard/InstallPrompt';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { loading } = useAuth();
@@ -18,6 +21,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     const saved = localStorage.getItem('dashboard_lang') as Lang | null;
     if (saved === 'en' || saved === 'ar') setLangState(saved);
+  }, []);
+
+  // Offline bundle refresh + sync manager
+  useEffect(() => {
+    if (navigator.onLine) fetchAndStoreBundle();
+    startSyncManager();
+    return () => stopSyncManager();
   }, []);
 
   // Persist language changes
@@ -44,6 +54,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Main area */}
         <div className="flex flex-1 flex-col overflow-hidden">
           <Header onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
+          <InstallPrompt />
           <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
         </div>
       </div>

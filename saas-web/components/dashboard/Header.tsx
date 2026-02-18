@@ -3,6 +3,7 @@
 import { useAuth } from '@/lib/use-auth';
 import { useLang } from '@/lib/i18n';
 import Link from 'next/link';
+import SyncStatus from './SyncStatus';
 
 type Props = {
   onMenuToggle: () => void;
@@ -26,6 +27,7 @@ export default function Header({ onMenuToggle }: Props) {
       </div>
 
       <div className="flex items-center gap-2">
+        <SyncStatus />
         <div className="flex border-2 border-[#2a2a2a]">
           <button
             onClick={() => setLang('en')}

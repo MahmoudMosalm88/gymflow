@@ -123,8 +123,16 @@ CREATE TABLE IF NOT EXISTS logs (
   timestamp bigint NOT NULL,
   status text NOT NULL CHECK (status IN ('success', 'failure')),
   reason_code text NOT NULL,
+  operation_id uuid,
+  source text NOT NULL DEFAULT 'online' CHECK (source IN ('online', 'offline_sync')),
+  client_device_id text,
+  offline_recorded_at bigint,
   created_at timestamptz NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_logs_operation_id_unique
+  ON logs (organization_id, branch_id, operation_id)
+  WHERE operation_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_logs_branch_timestamp ON logs (organization_id, branch_id, timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_logs_branch_member ON logs (organization_id, branch_id, member_id, timestamp DESC);
