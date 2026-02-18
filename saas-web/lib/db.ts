@@ -6,10 +6,22 @@ declare global {
 }
 
 function buildPool() {
-  // Cloud SQL Proxy via unix socket: SSL handled by proxy, no SSL config needed
-  // Otherwise: Use SSL with strict validation in production, dev uses feature flag
-  const isCloudSqlProxy = env.DATABASE_URL.includes("/cloudsql/") || env.DATABASE_URL.includes("%2Fcloudsql%2F");
-  const useSSL = isCloudSqlProxy ? false : (env.NODE_ENV === "production" ? true : featureFlags.useDatabaseSsl);
+  // Cloud SQL Proxy (unix socket or localhost TCP): SSL handled by proxy tunnel.
+  // Otherwise: use strict SSL in production, feature-flagged SSL in development.
+  const isCloudSqlSocket =
+    env.DATABASE_URL.includes("/cloudsql/") || env.DATABASE_URL.includes("%2Fcloudsql%2F");
+  const isLocalTcpProxy = (() => {
+    try {
+      const parsed = new URL(env.DATABASE_URL);
+      return parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost";
+    } catch {
+      return false;
+    }
+  })();
+
+  const useSSL = (isCloudSqlSocket || isLocalTcpProxy)
+    ? false
+    : (env.NODE_ENV === "production" ? true : featureFlags.useDatabaseSsl);
 
   return new Pool({
     connectionString: env.DATABASE_URL,
