@@ -8,7 +8,7 @@ import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -108,8 +108,12 @@ export default function ProfilePage() {
 
   if (loading) return <LoadingSpinner />;
 
+  // Derived display values for the identity banner
+  const initials = (form.name || '?')[0].toUpperCase();
+  const orgLine = [form.organization_name, form.branch_name].filter(Boolean).join(' · ') || '—';
+
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 max-w-2xl mx-auto">
+    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
       <h1 className="text-3xl font-bold">{labels.profile}</h1>
 
       {/* Success alert */}
@@ -129,93 +133,117 @@ export default function ProfilePage() {
         </Alert>
       )}
 
-      {/* Personal info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{labels.profile}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="profile-name">{labels.name}</Label>
-            <Input
-              id="profile-name"
-              value={form.name || ''}
-              onChange={(e) => updateField('name', e.target.value)}
-            />
-          </div>
+      {/* ── Identity Banner ── */}
+      <div
+        className="flex items-center gap-4 p-5 bg-[#1e1e1e] border-2 border-[#2a2a2a] shadow-[6px_6px_0_#000000]"
+        style={{ borderLeft: '4px solid #e63946' }}
+      >
+        {/* Initials badge — same visual language as the sidebar GF logo */}
+        <span
+          style={{
+            background: '#e63946',
+            color: '#fff',
+            padding: '10px 14px',
+            fontWeight: 800,
+            fontSize: '1.1rem',
+            lineHeight: 1,
+            flexShrink: 0,
+          }}
+        >
+          {initials}
+        </span>
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <p className="font-bold text-lg text-[#e8e4df] truncate">{form.name || '—'}</p>
+          <p className="text-sm text-[#8a8578] truncate">{orgLine}</p>
+        </div>
+      </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="profile-email">{labels.email}</Label>
-            <Input
-              id="profile-email"
-              type="email"
-              value={form.email || ''}
-              onChange={(e) => updateField('email', e.target.value)}
-            />
-          </div>
+      {/* ── Two-column grid: Personal Info + Organization ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-          <div className="space-y-2">
-            <Label htmlFor="profile-phone">{labels.phone}</Label>
-            <Input
-              id="profile-phone"
-              type="tel"
-              value={form.phone || ''}
-              onChange={(e) => updateField('phone', e.target.value)}
-            />
-          </div>
-        </CardContent>
-      </Card>
+        {/* Personal Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{labels.personal_info}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="profile-name">{labels.name}</Label>
+              <Input
+                id="profile-name"
+                value={form.name || ''}
+                onChange={(e) => updateField('name', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-email">{labels.email}</Label>
+              <Input
+                id="profile-email"
+                type="email"
+                value={form.email || ''}
+                onChange={(e) => updateField('email', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-phone">{labels.phone}</Label>
+              <Input
+                id="profile-phone"
+                type="tel"
+                value={form.phone || ''}
+                onChange={(e) => updateField('phone', e.target.value)}
+              />
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Organization info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{labels.gym_name}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="profile-org">{labels.gym_name}</Label>
-            <Input
-              id="profile-org"
-              value={form.organization_name || ''}
-              onChange={(e) => updateField('organization_name', e.target.value)}
-            />
-          </div>
+        {/* Organization */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{labels.organization}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="profile-org">{labels.gym_name}</Label>
+              <Input
+                id="profile-org"
+                value={form.organization_name || ''}
+                onChange={(e) => updateField('organization_name', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-branch">{labels.branch_name}</Label>
+              <Input
+                id="profile-branch"
+                value={form.branch_name || ''}
+                onChange={(e) => updateField('branch_name', e.target.value)}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="profile-branch">{labels.branch_name}</Label>
-            <Input
-              id="profile-branch"
-              value={form.branch_name || ''}
-              onChange={(e) => updateField('branch_name', e.target.value)}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Password section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{labels.change_password}</CardTitle>
-        </CardHeader>
-        <CardContent>
+      {/* ── Security row ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-2 border-[#2a2a2a] bg-[#1e1e1e]">
+        <span className="text-xs font-semibold uppercase tracking-wider text-[#8a8578]">
+          {labels.security}
+        </span>
+        <div className="flex flex-wrap gap-3">
           <Link href="/forgot-password">
             <Button variant="outline">{labels.change_password}</Button>
           </Link>
-        </CardContent>
-      </Card>
+          <Button
+            variant="outline"
+            onClick={logout}
+            className="border-[#e63946] text-[#e63946] hover:bg-[#e63946] hover:text-white"
+          >
+            {labels.logout}
+          </Button>
+        </div>
+      </div>
 
-      {/* Save button */}
+      {/* ── Global Save button ── */}
       <Button onClick={handleSave} disabled={saving} className="w-full text-base">
         {saving ? labels.saving : labels.save}
-      </Button>
-
-      {/* Logout */}
-      <Button
-        variant="outline"
-        onClick={logout}
-        className="w-full text-base border-[#e63946] text-[#e63946] hover:bg-[#e63946] hover:text-white"
-      >
-        {labels.logout}
       </Button>
     </div>
   );
