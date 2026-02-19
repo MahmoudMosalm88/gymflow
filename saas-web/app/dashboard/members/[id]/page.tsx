@@ -116,7 +116,7 @@ export default function MemberDetailPage() {
             <Pencil1Icon className={lang === 'ar' ? 'ml-2 h-4 w-4' : 'mr-2 h-4 w-4'} />
             {labels.edit}
           </Button>
-          <Button onClick={() => router.push(`/dashboard/subscriptions/new?member_id=${id}`)}>
+          <Button onClick={() => router.push(`/dashboard/subscriptions?member_id=${id}&new=1`)}>
             <PlusIcon className={lang === 'ar' ? 'ml-2 h-4 w-4' : 'mr-2 h-4 w-4'} />
             {labels.add_subscription}
           </Button>
@@ -130,10 +130,19 @@ export default function MemberDetailPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align={lang === 'ar' ? 'start' : 'end'}>
               <DropdownMenuLabel>{labels.member_actions}</DropdownMenuLabel>
-              <DropdownMenuItem>{labels.view_attendance}</DropdownMenuItem>
-              <DropdownMenuItem>{labels.send_whatsapp}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push(`/dashboard/reports?member_id=${id}`)}>
+                {labels.view_attendance}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>
+                {labels.send_whatsapp}
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">{labels.delete_member}</DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => router.push('/dashboard/members')}
+              >
+                {labels.delete_member}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -178,7 +187,7 @@ export default function MemberDetailPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-lg font-semibold">{labels.subscriptions}</CardTitle>
-          <Button variant="ghost" size="sm" onClick={() => router.push(`/dashboard/subscriptions/new?member_id=${id}`)}>
+          <Button variant="ghost" size="sm" onClick={() => router.push(`/dashboard/subscriptions?member_id=${id}&new=1`)}>
             <PlusIcon className={lang === 'ar' ? 'ml-2 h-4 w-4' : 'mr-2 h-4 w-4'} />
             {labels.add_new}
           </Button>

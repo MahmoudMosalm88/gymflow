@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import styles from '../../landing.module.css';
 
 interface FooterProps {
@@ -24,8 +25,8 @@ export default function Footer({ t }: FooterProps) {
         </div>
         <div className={styles.footerRight}>
           <div className={styles.footerLinks}>
-            <a href="#" className={styles.footerLink}>{t.footerPrivacy}</a>
-            <a href="#" className={styles.footerLink}>{t.footerTerms}</a>
+            <Link href="/privacy-policy" className={styles.footerLink}>{t.footerPrivacy}</Link>
+            <Link href="/terms-of-service" className={styles.footerLink}>{t.footerTerms}</Link>
           </div>
           <p className={styles.footerCopy}>{t.footerCopyright}</p>
         </div>

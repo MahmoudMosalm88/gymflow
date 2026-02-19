@@ -339,7 +339,6 @@ export default function LoginPage() {
 
   const isArabic = lang === "ar";
   const t = useMemo(() => copy[lang], [lang]);
-  const isBusy = Boolean(busyKey);
 
   // Forms
   const setupForm = useForm<z.infer<typeof setupFieldsSchema>>({
@@ -381,7 +380,11 @@ export default function LoginPage() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const paramMode = searchParams.get("mode");
-    if (paramMode === "login" || paramMode === "register") setMode(paramMode);
+    if ((paramMode === "login" || paramMode === "register") && paramMode !== mode) {
+      setMode(paramMode);
+      setFeedback(null);
+      setOtpSent(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -776,9 +779,15 @@ export default function LoginPage() {
   }
 
   function switchMode() {
-    setMode(mode === "login" ? "register" : "login");
+    const nextMode: Mode = mode === "login" ? "register" : "login";
+    setMode(nextMode);
     setFeedback(null);
     setOtpSent(false);
+    setBusyKey(null);
+    const params = new URLSearchParams(window.location.search);
+    params.set("mode", nextMode);
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
   }
 
   /* ---------- Render ---------- */
@@ -937,7 +946,7 @@ export default function LoginPage() {
               type="button"
               className="w-full mb-4"
               onClick={onGoogleClick}
-              disabled={isBusy}
+              disabled={busyKey === "google"}
               variant="outline"
             >
               {/* Google icon */}
@@ -977,8 +986,9 @@ export default function LoginPage() {
 
             {/* ── Email form ── */}
             {method === "email" && (
-              <Form {...(mode === "register" ? emailRegisterForm : emailLoginForm) as any}>
+              <Form key={`email-form-${mode}`} {...(mode === "register" ? emailRegisterForm : emailLoginForm) as any}>
                 <form
+                  key={`email-form-inner-${mode}`}
                   onSubmit={mode === "register"
                     ? emailRegisterForm.handleSubmit(onEmailSubmit)
                     : emailLoginForm.handleSubmit(onEmailSubmit)}
@@ -987,6 +997,7 @@ export default function LoginPage() {
                   {mode === "register" ? (
                     <>
                       <FormField
+                        key="register-email"
                         control={emailRegisterForm.control}
                         name="email"
                         render={({ field }) => (
@@ -998,6 +1009,7 @@ export default function LoginPage() {
                         )}
                       />
                       <FormField
+                        key="register-phone"
                         control={emailRegisterForm.control}
                         name="phone"
                         render={({ field }) => (
@@ -1010,6 +1022,7 @@ export default function LoginPage() {
                         )}
                       />
                       <FormField
+                        key="register-password"
                         control={emailRegisterForm.control}
                         name="password"
                         render={({ field }) => (
@@ -1024,6 +1037,7 @@ export default function LoginPage() {
                   ) : (
                     <>
                       <FormField
+                        key="login-email"
                         control={emailLoginForm.control}
                         name="email"
                         render={({ field }) => (
@@ -1035,6 +1049,7 @@ export default function LoginPage() {
                         )}
                       />
                       <FormField
+                        key="login-password"
                         control={emailLoginForm.control}
                         name="password"
                         render={({ field }) => (
@@ -1048,7 +1063,7 @@ export default function LoginPage() {
                     </>
                   )}
 
-                  <Button type="submit" className="w-full" disabled={isBusy}>
+                  <Button type="submit" className="w-full" disabled={busyKey === "email"}>
                     {busyKey === "email"
                       ? (mode === "login" ? `${t.signIn}...` : `${t.createAccount}...`)
                       : (mode === "login" ? t.signIn : t.createAccount)}
@@ -1091,7 +1106,7 @@ export default function LoginPage() {
                         />
                       </form>
                     </Form>
-                    <Button className="w-full" type="button" onClick={onSendOtp} disabled={isBusy}>
+                    <Button className="w-full" type="button" onClick={onSendOtp} disabled={busyKey === "send-otp"}>
                       {busyKey === "send-otp" ? `${t.sendOtp}...` : t.sendOtp}
                     </Button>
                   </>
@@ -1120,14 +1135,14 @@ export default function LoginPage() {
                           <button
                             type="button"
                             onClick={onSendOtp}
-                            disabled={isBusy}
+                            disabled={busyKey === "send-otp"}
                             className="text-[#e63946] hover:underline font-medium"
                           >
                             {t.resendCode}
                           </button>
                         )}
                       </div>
-                      <Button className="w-full" type="submit" disabled={isBusy}>
+                      <Button className="w-full" type="submit" disabled={busyKey === "verify-otp"}>
                         {busyKey === "verify-otp" ? `${t.verifyOtp}...` : t.verifyOtp}
                       </Button>
                     </form>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { offlineCheckIn } from '@/lib/offline/check-in-engine';
@@ -29,6 +30,7 @@ type ScanResult = {
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { lang } = useLang();
   const labels = t[lang];
   const reasonLabels: Record<string, string> = {
@@ -221,8 +223,8 @@ export default function DashboardPage() {
           <CardTitle className="text-2xl">{labels.quick_actions}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-4">
-          <Button>{labels.add_new_member}</Button>
-          <Button variant="outline">{labels.view_reports}</Button>
+          <Button onClick={() => router.push('/dashboard/members/new')}>{labels.add_new_member}</Button>
+          <Button variant="outline" onClick={() => router.push('/dashboard/reports')}>{labels.view_reports}</Button>
           {/* Other quick actions */}
         </CardContent>
       </Card>

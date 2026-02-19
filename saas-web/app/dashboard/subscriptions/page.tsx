@@ -101,6 +101,7 @@ export default function SubscriptionsPage() {
   const labels = { ...t[lang], ...pageLabels[lang] };
   const searchParams = useSearchParams();
   const memberIdFilter = searchParams.get('member_id') || '';
+  const shouldOpenNewFromQuery = searchParams.get('new') === '1';
 
   // State
   const [subs, setSubs] = useState<Subscription[]>([]);
@@ -150,6 +151,12 @@ export default function SubscriptionsPage() {
     fetchSubs();
     fetchMembers();
   }, [memberIdFilter]);
+
+  useEffect(() => {
+    if (shouldOpenNewFromQuery) {
+      setModalOpen(true);
+    }
+  }, [shouldOpenNewFromQuery]);
 
   // Create subscription
   async function handleCreate(data: any) {
@@ -253,12 +260,8 @@ export default function SubscriptionsPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align={lang === 'ar' ? 'start' : 'end'}>
                           <DropdownMenuLabel>{labels.subscription_actions}</DropdownMenuLabel>
-                          {/* Future: View/Edit subscription details */}
-                          {/* <DropdownMenuItem onClick={() => router.push(`/dashboard/subscriptions/${sub.id}`)}>
+                          <DropdownMenuItem onClick={() => router.push(`/dashboard/members/${sub.member_id}`)}>
                             {labels.view}
-                          </DropdownMenuItem> */}
-                          <DropdownMenuItem onClick={() => { /* Implement edit logic */ }}>
-                            {labels.edit}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {sub.is_active && (

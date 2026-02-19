@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line
-} from 'recharts'; // Added LineChart, Line
+  ResponsiveContainer, PieChart, Pie, Cell
+} from 'recharts';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatDate, formatDateTime, daysUntil, formatCurrency } from '@/lib/format'; // Added formatCurrency
@@ -23,13 +23,9 @@ import { cn } from '@/lib/utils'; // cn helper
 // --- Tab definitions ---
 const TABS = [
   { key: 'overview', label: { en: 'Overview', ar: 'نظرة عامة' } },
-  { key: 'member-attendance-trends', label: { en: 'Attendance Trends', ar: 'اتجاهات الحضور' } }, // NEW
   { key: 'daily-stats', label: { en: 'Daily Stats', ar: 'إحصائيات يومية' } },
   { key: 'hourly', label: { en: 'Hourly', ar: 'بالساعة' } },
   { key: 'top-members', label: { en: 'Top Members', ar: 'أفضل الأعضاء' } },
-  { key: 'detailed-revenue-breakdown', label: { en: 'Revenue Breakdown', ar: 'تفاصيل الإيرادات' } }, // NEW
-  { key: 'outstanding-payments-debtors', label: { en: 'Outstanding Payments', ar: 'المدفوعات المستحقة' } }, // NEW
-  { key: 'peak-hours-capacity-utilization', label: { en: 'Peak Hours', ar: 'ساعات الذروة' } }, // NEW
   { key: 'denial-reasons', label: { en: 'Denial Reasons', ar: 'أسباب الرفض' } },
   { key: 'denied-entries', label: { en: 'Denied Entries', ar: 'دخول مرفوض' } },
   { key: 'expiring-subs', label: { en: 'Expiring Subs', ar: 'اشتراكات منتهية' } },
@@ -40,15 +36,11 @@ type TabKey = typeof TABS[number]['key'];
 
 // Which tabs show the days filter
 const DAYS_TABS: TabKey[] = [
-  'member-attendance-trends', // NEW
   'daily-stats',
   'top-members',
-  'detailed-revenue-breakdown', // NEW
-  'outstanding-payments-debtors', // NEW
   'denial-reasons',
   'denied-entries',
   'expiring-subs',
-  'peak-hours-capacity-utilization', // NEW (also a period filter)
 ];
 const DAYS_OPTIONS = [7, 14, 30, 60, 90];
 
@@ -77,13 +69,9 @@ export default function ReportsPage() {
   const buildUrl = useCallback((t: TabKey, d: number) => {
     switch (t) {
       case 'overview': return '/api/reports/overview';
-      case 'member-attendance-trends': return `/api/reports/member-attendance-trends?days=${d}`; // NEW API
       case 'daily-stats': return `/api/reports/daily-stats?days=${d}`;
       case 'hourly': return '/api/reports/hourly-distribution';
       case 'top-members': return `/api/reports/top-members?days=${d}&limit=10`;
-      case 'detailed-revenue-breakdown': return `/api/reports/detailed-revenue-breakdown?days=${d}`; // NEW API
-      case 'outstanding-payments-debtors': return `/api/reports/outstanding-payments-debtors?days=${d}`; // NEW API
-      case 'peak-hours-capacity-utilization': return `/api/reports/peak-hours-capacity-utilization?days=${d}`; // NEW API
       case 'denial-reasons': return `/api/reports/denial-reasons?days=${d}`;
       case 'denied-entries': return `/api/reports/denied-entries?days=${d}`;
       case 'expiring-subs': return `/api/reports/expiring-subscriptions?days=${d}`;
@@ -151,9 +139,9 @@ export default function ReportsPage() {
         <CardContent className="p-4 flex flex-col gap-4">
           {[
             { label: { en: 'Overview', ar: 'نظرة عامة' }, tabs: ['overview'] },
-            { label: { en: 'Attendance', ar: 'الحضور' }, tabs: ['member-attendance-trends', 'daily-stats', 'hourly', 'peak-hours-capacity-utilization'] },
+            { label: { en: 'Attendance', ar: 'الحضور' }, tabs: ['daily-stats', 'hourly'] },
             { label: { en: 'Members', ar: 'الأعضاء' }, tabs: ['top-members', 'expiring-subs', 'low-sessions'] },
-            { label: { en: 'Revenue', ar: 'الإيرادات' }, tabs: ['detailed-revenue-breakdown', 'outstanding-payments-debtors'] },
+            { label: { en: 'Revenue', ar: 'الإيرادات' }, tabs: ['overview'] },
             { label: { en: 'Access Control', ar: 'التحكم بالدخول' }, tabs: ['denial-reasons', 'denied-entries'] },
           ].map((group) => (
             <div key={group.label.en}>
@@ -249,32 +237,6 @@ export default function ReportsPage() {
             </div>
           )}
 
-          {/* NEW Report: Member Attendance Trends */}
-          {tab === 'member-attendance-trends' && Array.isArray(data) && (
-            <Card>
-              <CardHeader>
-                <CardTitle>{labels.member_attendance_trends}</CardTitle>
-                <CardDescription>{labels.member_attendance_trends_description}</CardDescription>
-              </CardHeader>
-              <CardContent className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={rechartStyles.gridStroke} />
-                    <XAxis dataKey="date" tick={rechartStyles.axis} />
-                    <YAxis tick={rechartStyles.axis} />
-                    <Tooltip
-                      contentStyle={rechartStyles.tooltipContent}
-                      labelStyle={rechartStyles.tooltipLabel}
-                      itemStyle={rechartStyles.tooltipItem}
-                    />
-                    <Legend wrapperStyle={{ color: rechartStyles.legendItem.color }}/>
-                    <Line type="monotone" dataKey="visits" stroke="hsl(var(--primary))" name={labels.visits} strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Daily Stats — stacked bar chart */}
           {tab === 'daily-stats' && Array.isArray(data) && (
             <Card>
@@ -344,91 +306,6 @@ export default function ReportsPage() {
               </CardContent>
             </Card>
           )}
-
-          {/* NEW Report: Detailed Revenue Breakdown */}
-          {tab === 'detailed-revenue-breakdown' && Array.isArray(data) && (
-            <Card>
-              <CardHeader>
-                <CardTitle>{labels.detailed_revenue_breakdown}</CardTitle>
-                <CardDescription>{labels.detailed_revenue_breakdown_description}</CardDescription>
-              </CardHeader>
-              <CardContent className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={data}
-                      dataKey="amount" // Assuming API returns [{ source: 'Subscriptions', amount: 1000 }]
-                      nameKey="source" // Key for the label
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={140}
-                      label={(props: any) => `${props.source} (${formatCurrency(props.amount)})`}
-                      labelLine={{ stroke: rechartStyles.gridStroke }}
-                    >
-                      {data.map((_: any, i: number) => (
-                        <Cell key={`cell-${i}`} fill={PIE_COLORS_TAILWIND[i % PIE_COLORS_TAILWIND.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={rechartStyles.tooltipContent}
-                      labelStyle={rechartStyles.tooltipLabel}
-                      itemStyle={rechartStyles.tooltipItem}
-                      formatter={((value: any, name: any) => [formatCurrency(value), name]) as any}
-                    />
-                    <Legend wrapperStyle={{ color: rechartStyles.legendItem.color }} formatter={(value: string) => <span style={{ color: rechartStyles.legendItem.color }}>{value}</span>} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* NEW Report: Outstanding Payments/Debtors Report */}
-          {tab === 'outstanding-payments-debtors' && Array.isArray(data) && (
-            <Card>
-              <CardHeader>
-                <CardTitle>{labels.outstanding_payments_debtors}</CardTitle>
-                <CardDescription>{labels.outstanding_payments_debtors_description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DataTable
-                  columns={[
-                    { key: 'name', label: labels.name },
-                    { key: 'phone', label: labels.phone },
-                    { key: 'amount_due', label: labels.amount_due, render: (row: any) => formatCurrency(row.amount_due) },
-                    { key: 'due_date', label: labels.due_date, render: (row: any) => formatDate(row.due_date, lang === 'ar' ? 'ar-EG' : 'en-US') },
-                  ]}
-                  data={data}
-                />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* NEW Report: Peak Hours/Capacity Utilization */}
-          {tab === 'peak-hours-capacity-utilization' && Array.isArray(data) && (
-            <Card>
-              <CardHeader>
-                <CardTitle>{labels.peak_hours_capacity_utilization}</CardTitle>
-                <CardDescription>{labels.peak_hours_capacity_utilization_description}</CardDescription>
-              </CardHeader>
-              <CardContent className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={rechartStyles.gridStroke} />
-                    <XAxis dataKey="hour" tick={rechartStyles.axis} />
-                    <YAxis tick={rechartStyles.axis} />
-                    <Tooltip
-                      contentStyle={rechartStyles.tooltipContent}
-                      labelStyle={rechartStyles.tooltipLabel}
-                      itemStyle={rechartStyles.tooltipItem}
-                    />
-                    <Legend wrapperStyle={{ color: rechartStyles.legendItem.color }}/>
-                    <Bar dataKey="visits" fill="hsl(var(--primary))" name={labels.visits} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
-
 
           {/* Denial Reasons — pie chart */}
           {tab === 'denial-reasons' && Array.isArray(data) && (

@@ -442,7 +442,6 @@ function BackupTab() {
                     <SelectValue placeholder={labels.select_placeholder} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="" disabled>{labels.select_placeholder}</SelectItem>
                     {completedBackups.map((b) => (
                       <SelectItem key={b.artifact_id} value={b.artifact_id}>
                         {formatDateTime(b.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')} — {b.source}

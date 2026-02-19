@@ -10,6 +10,7 @@ import { CalendarIcon } from '@radix-ui/react-icons'; // Assuming an icon for ca
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Form,
   FormControl,
@@ -245,17 +246,15 @@ export default function SubscriptionForm({ members, preselectedMemberId, onSubmi
             />
 
             {/* Auto-calculated end date (read only) */}
-            <FormItem>
-              <FormLabel>{labels.endDate}</FormLabel>
-              <FormControl>
-                <Input
-                  type="text"
-                  readOnly
-                  value={endDate ? format(endDate, "PPP") : ''}
-                  className="opacity-60"
-                />
-              </FormControl>
-            </FormItem>
+            <div className="space-y-2">
+              <Label>{labels.endDate}</Label>
+              <Input
+                type="text"
+                readOnly
+                value={endDate ? format(endDate, "PPP") : ''}
+                className="opacity-60"
+              />
+            </div>
 
             {/* Price Paid */}
             <FormField
@@ -302,4 +301,3 @@ export default function SubscriptionForm({ members, preselectedMemberId, onSubmi
     </Card>
   );
 }
-
