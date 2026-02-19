@@ -12,27 +12,139 @@ import { randomUUID } from "crypto";
 import pino from "pino";
 import QRCode from "qrcode";
 
-// ── Environment ────────────────────────────────────────────────────────────
+type StatusState = "disconnected" | "connecting" | "connected";
+
+type TenantStatusRow = {
+  organization_id: string;
+  branch_id: string;
+  value: unknown;
+};
+
+type TenantSettingRow = {
+  key: string;
+  value: unknown;
+};
+type SystemLanguage = "en" | "ar";
+
+type TenantRuntime = {
+  key: string;
+  organizationId: string;
+  branchId: string;
+  authPath: string;
+  desiredState: StatusState;
+  sock: WASocket | null;
+  isReady: boolean;
+  connecting: boolean;
+  intentionalDisconnect: boolean;
+  saveCreds: (() => Promise<void>) | null;
+};
 
 const databaseUrl = process.env.DATABASE_URL;
-const organizationId = process.env.ORGANIZATION_ID;
-const branchId = process.env.BRANCH_ID;
 const pollMs = Number(process.env.WORKER_POLL_MS || 5000);
 const connCheckMs = Number(process.env.CONN_CHECK_MS || 3000);
+const renewalCheckMs = Number(process.env.RENEWAL_CHECK_MS || 60 * 60 * 1000);
 const dryRun = process.env.WHATSAPP_DRY_RUN === "true";
-const authPath = process.env.BAILEYS_AUTH_PATH || "./baileys_auth";
+const authBasePath = process.env.BAILEYS_AUTH_PATH || "./baileys_auth";
+const reconnectDelayMs = Number(process.env.WHATSAPP_RECONNECT_DELAY_MS || 3000);
 
 if (!databaseUrl) throw new Error("DATABASE_URL is required");
-if (!organizationId) throw new Error("ORGANIZATION_ID is required");
-if (!branchId) throw new Error("BRANCH_ID is required");
-
-mkdirSync(authPath, { recursive: true });
-
-// ── DB pool ─────────────────────────────────────────────────────────────────
+mkdirSync(authBasePath, { recursive: true });
 
 const pool = new Pool({ connectionString: databaseUrl });
+const runtimes = new Map<string, TenantRuntime>();
+const reminderDefaultDays = [7, 3, 1];
+const defaultRenewalTemplateEn =
+  "Hi {name}, your subscription will expire on {expiryDate} ({daysLeft} days left). Please renew to keep access active.";
+const defaultRenewalTemplateAr =
+  "مرحباً {name}، ينتهي اشتراكك بتاريخ {expiryDate} (متبقي {daysLeft} أيام). يرجى التجديد للحفاظ على العضوية.";
 
-async function writeStatus(value: Record<string, unknown>) {
+function toTenantKey(organizationId: string, branchId: string) {
+  return `${organizationId}:${branchId}`;
+}
+
+function sanitizePathSegment(value: string) {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+function toAuthPath(organizationId: string, branchId: string) {
+  return `${authBasePath}/${sanitizePathSegment(organizationId)}__${sanitizePathSegment(branchId)}`;
+}
+
+function normalizeState(value: unknown): StatusState {
+  if (value === "connected") return "connected";
+  if (value === "connecting") return "connecting";
+  return "disconnected";
+}
+
+function normalizeSystemLanguage(value: unknown, fallback: SystemLanguage = "en"): SystemLanguage {
+  if (value === "ar" || value === "en") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "ar") return "ar";
+    if (normalized === "en") return "en";
+  }
+  return fallback;
+}
+
+function getTemplateKey(type: "renewal" | "welcome", lang: SystemLanguage) {
+  return `whatsapp_template_${type}_${lang}`;
+}
+
+function parseBooleanSetting(value: unknown, fallback = true) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  if (typeof value === "number") return value !== 0;
+  return fallback;
+}
+
+function parseReminderDays(value: unknown): number[] {
+  const source = typeof value === "string" && value.trim() ? value : reminderDefaultDays.join(",");
+  const parsed = source
+    .split(",")
+    .map((piece) => Number(piece.trim()))
+    .filter((num) => Number.isInteger(num) && num > 0 && num <= 60);
+  const unique = Array.from(new Set(parsed)).sort((a, b) => b - a);
+  return unique.length > 0 ? unique : reminderDefaultDays;
+}
+
+function renderTemplate(template: string, values: Record<string, string | number>) {
+  return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (_match, key: string) => {
+    const value = values[key];
+    return value === undefined || value === null ? "" : String(value);
+  });
+}
+
+function getRuntime(organizationId: string, branchId: string) {
+  const key = toTenantKey(organizationId, branchId);
+  let runtime = runtimes.get(key);
+  if (!runtime) {
+    runtime = {
+      key,
+      organizationId,
+      branchId,
+      authPath: toAuthPath(organizationId, branchId),
+      desiredState: "disconnected",
+      sock: null,
+      isReady: false,
+      connecting: false,
+      intentionalDisconnect: false,
+      saveCreds: null,
+    };
+    mkdirSync(runtime.authPath, { recursive: true });
+    runtimes.set(key, runtime);
+  }
+  return runtime;
+}
+
+async function writeStatus(
+  organizationId: string,
+  branchId: string,
+  value: Record<string, unknown>
+) {
   await pool.query(
     `INSERT INTO settings (organization_id, branch_id, key, value)
      VALUES ($1, $2, 'whatsapp_status', $3::jsonb)
@@ -42,114 +154,214 @@ async function writeStatus(value: Record<string, unknown>) {
   );
 }
 
-async function readStatus(): Promise<Record<string, unknown>> {
-  const res = await pool.query(
-    `SELECT value FROM settings
-      WHERE organization_id = $1 AND branch_id = $2 AND key = 'whatsapp_status'`,
-    [organizationId, branchId]
+async function listTenantStatuses() {
+  const res = await pool.query<TenantStatusRow>(
+    `SELECT organization_id, branch_id, value
+       FROM settings
+      WHERE key = 'whatsapp_status'`
   );
-  return (res.rows[0]?.value as Record<string, unknown>) || { state: "disconnected" };
+
+  return res.rows.map((row) => {
+    const value =
+      row.value && typeof row.value === "object"
+        ? (row.value as Record<string, unknown>)
+        : {};
+
+    return {
+      organizationId: row.organization_id,
+      branchId: row.branch_id,
+      state: normalizeState(value.state),
+    };
+  });
 }
 
-// ── Baileys socket ──────────────────────────────────────────────────────────
+async function readTenantSettings(organizationId: string, branchId: string) {
+  const rows = await pool.query<TenantSettingRow>(
+    `SELECT key, value
+       FROM settings
+      WHERE organization_id = $1
+        AND branch_id = $2
+        AND key = ANY($3::text[])`,
+    [
+      organizationId,
+      branchId,
+      [
+        "whatsapp_automation_enabled",
+        "system_language",
+        "whatsapp_template_renewal",
+        "whatsapp_template_renewal_en",
+        "whatsapp_template_renewal_ar",
+        "whatsapp_reminder_days",
+      ],
+    ]
+  );
 
-let sock: WASocket | null = null;
-let isReady = false;
-let saveCreds: (() => Promise<void>) | null = null;
-let intentionalDisconnect = false;
+  return Object.fromEntries(rows.rows.map((row) => [row.key, row.value])) as Record<string, unknown>;
+}
 
-async function initSocket() {
-  // Tear down any existing socket without logging out (preserve creds)
-  if (sock) {
-    try {
-      sock.end(new Error('cleanup'));
-    } catch {
-      // ignore
-    }
-    sock = null;
-    isReady = false;
+let cachedVersion: [number, number, number] | undefined;
+let versionFetchedAt = 0;
+
+async function getBaileysVersion() {
+  const now = Date.now();
+  if (!cachedVersion || now - versionFetchedAt > 6 * 60 * 60 * 1000) {
+    const latest = await fetchLatestBaileysVersion();
+    cachedVersion = latest.version;
+    versionFetchedAt = now;
   }
-
-  const { state, saveCreds: sc } = await useMultiFileAuthState(authPath);
-  saveCreds = sc;
-
-  const { version } = await fetchLatestBaileysVersion();
-
-  const s = makeWASocket({
-    version,
-    auth: state,
-    logger: pino({ level: "silent" }),
-    printQRInTerminal: false,
-    browser: ["GymFlow Worker", "Chrome", "1.0.0"],
-  });
-  sock = s;
-
-  s.ev.on("creds.update", () => saveCreds?.());
-
-  s.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
-    if (qr) {
-      try {
-        const buf = await QRCode.toBuffer(qr);
-        await writeStatus({ state: "connecting", qrCode: buf.toString("base64") });
-      } catch (err) {
-        console.error("QR generation failed", err);
-      }
-    }
-
-    if (connection === "open") {
-      isReady = true;
-      await writeStatus({ state: "connected", phone: s.user?.id, qrCode: null });
-      console.log("WhatsApp connected:", s.user?.id);
-    }
-
-    if (connection === "close") {
-      isReady = false;
-      const code = (lastDisconnect?.error as Boom)?.output?.statusCode;
-      const loggedOut = code === DisconnectReason.loggedOut;
-
-      if (loggedOut || intentionalDisconnect) {
-        await writeStatus({ state: "disconnected", qrCode: null });
-        sock = null;
-      } else {
-        console.log("Connection closed unexpectedly, reconnecting in 3 s...");
-        setTimeout(() => initSocket().catch(console.error), 3000);
-      }
-    }
-  });
+  return cachedVersion;
 }
 
-// ── Loop 1: Connection manager ─────────────────────────────────────────────
+async function disconnectRuntime(runtime: TenantRuntime, logout: boolean) {
+  const current = runtime.sock;
+  runtime.sock = null;
+  runtime.isReady = false;
+  runtime.connecting = false;
+  runtime.saveCreds = null;
+
+  if (!current) return;
+
+  runtime.intentionalDisconnect = true;
+  if (logout) {
+    try {
+      await current.logout();
+    } catch {
+      // Ignore logout errors.
+    }
+  }
+  try {
+    current.end(new Error("cleanup"));
+  } catch {
+    // Ignore socket close errors.
+  }
+  runtime.intentionalDisconnect = false;
+}
+
+async function ensureRuntimeSocket(runtime: TenantRuntime) {
+  if (runtime.connecting || runtime.sock || runtime.desiredState === "disconnected") return;
+
+  runtime.connecting = true;
+  runtime.intentionalDisconnect = false;
+
+  try {
+    mkdirSync(runtime.authPath, { recursive: true });
+    const { state, saveCreds } = await useMultiFileAuthState(runtime.authPath);
+    runtime.saveCreds = saveCreds;
+
+    const version = await getBaileysVersion();
+    const sock = makeWASocket({
+      version,
+      auth: state,
+      logger: pino({ level: "silent" }),
+      printQRInTerminal: false,
+      browser: ["GymFlow Worker", "Chrome", "1.0.0"],
+    });
+
+    runtime.sock = sock;
+    runtime.isReady = false;
+    runtime.connecting = false;
+
+    sock.ev.on("creds.update", () => {
+      runtime.saveCreds?.().catch((error) => {
+        console.error(`[${runtime.key}] failed to persist credentials`, error);
+      });
+    });
+
+    sock.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
+      if (qr) {
+        try {
+          const image = await QRCode.toBuffer(qr);
+          await writeStatus(runtime.organizationId, runtime.branchId, {
+            state: "connecting",
+            qrCode: image.toString("base64"),
+            requested_at: new Date().toISOString(),
+          });
+        } catch (error) {
+          console.error(`[${runtime.key}] QR generation failed`, error);
+        }
+      }
+
+      if (connection === "open") {
+        runtime.isReady = true;
+        await writeStatus(runtime.organizationId, runtime.branchId, {
+          state: "connected",
+          phone: sock.user?.id,
+          qrCode: null,
+          connected_at: new Date().toISOString(),
+        });
+        console.log(`[${runtime.key}] WhatsApp connected: ${sock.user?.id}`);
+      }
+
+      if (connection === "close") {
+        runtime.isReady = false;
+        runtime.sock = null;
+
+        const code = (lastDisconnect?.error as Boom | undefined)?.output?.statusCode;
+        const loggedOut = code === DisconnectReason.loggedOut;
+        const stopRequested = runtime.desiredState === "disconnected" || runtime.intentionalDisconnect;
+
+        if (loggedOut || stopRequested) {
+          await writeStatus(runtime.organizationId, runtime.branchId, {
+            state: "disconnected",
+            qrCode: null,
+            disconnected_at: new Date().toISOString(),
+          });
+          return;
+        }
+
+        await writeStatus(runtime.organizationId, runtime.branchId, {
+          state: "connecting",
+          qrCode: null,
+          requested_at: new Date().toISOString(),
+        });
+
+        setTimeout(() => {
+          ensureRuntimeSocket(runtime).catch((error) => {
+            console.error(`[${runtime.key}] reconnect failed`, error);
+          });
+        }, reconnectDelayMs);
+      }
+    });
+  } catch (error) {
+    runtime.connecting = false;
+    runtime.sock = null;
+    runtime.isReady = false;
+    console.error(`[${runtime.key}] socket init failed`, error);
+  }
+}
 
 async function connectionManagerLoop() {
   try {
-    const status = await readStatus();
-    const state = status.state as string;
+    const statuses = await listTenantStatuses();
+    const seen = new Set<string>();
 
-    if (state === "connecting" && !sock) {
-      console.log("Starting WhatsApp connection...");
-      intentionalDisconnect = false;
-      await initSocket();
-    } else if (state === "disconnected" && sock) {
-      console.log("Disconnecting WhatsApp...");
-      intentionalDisconnect = true;
-      try {
-        await sock.logout();
-      } catch {
-        // ignore — just ensure sock is nulled
+    for (const row of statuses) {
+      const runtime = getRuntime(row.organizationId, row.branchId);
+      runtime.desiredState = row.state;
+      seen.add(runtime.key);
+
+      if (row.state === "disconnected") {
+        await disconnectRuntime(runtime, true);
+        runtimes.delete(runtime.key);
+        continue;
       }
-      sock = null;
-      isReady = false;
+
+      await ensureRuntimeSocket(runtime);
     }
-  } catch (err) {
-    console.error("Connection manager error", err);
+
+    for (const [key, runtime] of runtimes.entries()) {
+      if (seen.has(key)) continue;
+      runtime.desiredState = "disconnected";
+      await disconnectRuntime(runtime, false);
+      runtimes.delete(key);
+    }
+  } catch (error) {
+    console.error("Connection manager error", error);
   }
 }
 
-// ── Loop 2: Queue processor ────────────────────────────────────────────────
-
-async function processQueue() {
-  // Skip if not ready — leave messages as pending, don't mark failed
-  if (!sock || !isReady) return;
+async function processTenantQueue(runtime: TenantRuntime) {
+  if (!runtime.sock || !runtime.isReady) return;
 
   const client: PoolClient = await pool.connect();
   try {
@@ -167,7 +379,7 @@ async function processQueue() {
         ORDER BY mq.scheduled_at ASC
         LIMIT 20
         FOR UPDATE SKIP LOCKED`,
-      [organizationId, branchId]
+      [runtime.organizationId, runtime.branchId]
     );
 
     for (const row of result.rows) {
@@ -183,28 +395,29 @@ async function processQueue() {
           `UPDATE message_queue SET status = 'sent', sent_at = NOW() WHERE id = $1`,
           [row.id]
         );
-        console.log(`[DRY RUN] Would send to ${row.member_phone}:`, row.payload);
+        console.log(`[${runtime.key}] [DRY RUN] marked sent queue=${row.id} type=${row.type}`);
         continue;
       }
 
       try {
         const raw = String(row.member_phone || "").replace(/[\s\-()]/g, "");
         const jid = (raw.startsWith("+") ? raw.slice(1) : raw) + "@s.whatsapp.net";
+        const payload = row.payload as Record<string, unknown> | null;
         const message =
-          (row.payload as Record<string, string>)?.message ||
-          (row.payload as Record<string, string>)?.text ||
+          (typeof payload?.message === "string" && payload.message) ||
+          (typeof payload?.text === "string" && payload.text) ||
           JSON.stringify(row.payload);
 
-        await sock!.sendMessage(jid, { text: message });
+        await runtime.sock.sendMessage(jid, { text: message });
 
         await client.query(
           `UPDATE message_queue SET status = 'sent', sent_at = NOW() WHERE id = $1`,
           [row.id]
         );
-      } catch (err) {
+      } catch (error) {
         await client.query(
           `UPDATE message_queue SET status = 'failed', last_error = $2 WHERE id = $1`,
-          [row.id, err instanceof Error ? err.message : String(err)]
+          [row.id, error instanceof Error ? error.message : String(error)]
         );
       }
     }
@@ -212,76 +425,159 @@ async function processQueue() {
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");
-    console.error("Queue loop failed", error);
+    console.error(`[${runtime.key}] queue loop failed`, error);
   } finally {
     client.release();
   }
 }
 
-// ── Loop 3: Renewal reminder scheduler ────────────────────────────────────
-// Runs every hour. Finds subscriptions expiring in 1–3 days and queues a
-// renewal reminder WhatsApp message if one hasn't been sent recently.
+async function processQueue() {
+  for (const runtime of runtimes.values()) {
+    await processTenantQueue(runtime);
+  }
+}
 
-const renewalCheckMs = Number(process.env.RENEWAL_CHECK_MS || 60 * 60 * 1000); // 1 hour
+async function scheduleRenewalRemindersForTenant(organizationId: string, branchId: string) {
+  const settings = await readTenantSettings(organizationId, branchId);
+  const automationEnabled = parseBooleanSetting(settings.whatsapp_automation_enabled, true);
+  if (!automationEnabled) return;
 
-async function scheduleRenewalReminders() {
-  // end_date is stored as bigint (Unix seconds) — compare as integers
+  const systemLanguage = normalizeSystemLanguage(settings.system_language, "en");
+  const languageTemplateKey = getTemplateKey("renewal", systemLanguage);
+  const languageTemplate =
+    typeof settings[languageTemplateKey] === "string"
+      ? String(settings[languageTemplateKey]).trim()
+      : "";
+  const fallbackTemplate =
+    typeof settings.whatsapp_template_renewal === "string"
+      ? settings.whatsapp_template_renewal.trim()
+      : "";
+  const legacyFallback = systemLanguage === "en" ? fallbackTemplate : "";
+  const renewalTemplate =
+    languageTemplate ||
+    legacyFallback ||
+    (systemLanguage === "ar" ? defaultRenewalTemplateAr : defaultRenewalTemplateEn);
+
+  const reminderDays = parseReminderDays(settings.whatsapp_reminder_days);
+  if (reminderDays.length === 0) return;
+
   const nowSec = Math.floor(Date.now() / 1000);
-  const in1DaySec = nowSec + 1 * 24 * 60 * 60;
-  const in3DaysSec = nowSec + 3 * 24 * 60 * 60;
+  const minOffset = Math.min(...reminderDays);
+  const maxOffset = Math.max(...reminderDays);
+  const minWindowSec = nowSec + minOffset * 24 * 60 * 60;
+  const maxWindowSec = nowSec + maxOffset * 24 * 60 * 60;
 
   const result = await pool.query(
-    `SELECT s.member_id, s.end_date, m.name, m.phone
+    `SELECT s.id AS subscription_id, s.member_id, s.end_date, m.name, m.phone
        FROM subscriptions s
        JOIN members m ON m.id = s.member_id
       WHERE s.is_active = true
         AND s.organization_id = $1
         AND s.branch_id = $2
         AND s.end_date >= $3
-        AND s.end_date <= $4
-        AND NOT EXISTS (
-          SELECT 1 FROM message_queue mq
-           WHERE mq.member_id = s.member_id
-             AND mq.organization_id = $1
-             AND mq.branch_id = $2
-             AND mq.type = 'renewal'
-             AND mq.status IN ('pending', 'sent', 'processing')
-             AND mq.created_at >= NOW() - INTERVAL '3 days'
-        )`,
-    [organizationId, branchId, in1DaySec, in3DaysSec]
+        AND s.end_date <= $4`,
+    [organizationId, branchId, minWindowSec, maxWindowSec]
   );
-
-  if (result.rows.length === 0) return;
 
   for (const row of result.rows) {
     if (!row.phone) continue;
 
-    // end_date is Unix seconds — multiply by 1000 for JS Date
-    const expiryDate = new Date(Number(row.end_date) * 1000).toLocaleDateString("ar-SA", {
+    const daysLeft = Math.ceil((Number(row.end_date) - nowSec) / (24 * 60 * 60));
+    if (!reminderDays.includes(daysLeft)) continue;
+
+    const exists = await pool.query(
+      `SELECT 1
+         FROM message_queue
+        WHERE organization_id = $1
+          AND branch_id = $2
+          AND member_id = $3
+          AND type = 'renewal'
+          AND status IN ('pending', 'sent', 'processing')
+          AND payload->>'subscription_id' = $4
+          AND payload->>'reminder_days' = $5
+        LIMIT 1`,
+      [organizationId, branchId, row.member_id, String(row.subscription_id), String(daysLeft)]
+    );
+
+    if (exists.rows.length > 0) continue;
+
+    const expiryDate = new Date(Number(row.end_date) * 1000).toLocaleDateString(
+      systemLanguage === "ar" ? "ar-EG" : "en-US",
+      {
       day: "2-digit",
-      month: "2-digit",
+      month: "short",
       year: "numeric",
+      }
+    );
+
+    const message = renderTemplate(renewalTemplate, {
+      name: row.name || "Member",
+      expiryDate,
+      daysLeft,
     });
 
-    const message = `عزيزي/عزيزتي ${row.name},\n\nتنتهي عضويتك في ${expiryDate}.\nيرجى تجديد اشتراكك قريباً لتجنب انقطاع الخدمة.\n\nشكراً لك!`;
-
-    // id has no DB default — must supply a UUID
     await pool.query(
       `INSERT INTO message_queue (id, organization_id, branch_id, member_id, type, payload, status, scheduled_at)
        VALUES ($1, $2, $3, $4, 'renewal', $5::jsonb, 'pending', NOW())`,
-      [randomUUID(), organizationId, branchId, row.member_id, JSON.stringify({ message, expiryDate, phone: row.phone, name: row.name })]
+      [
+        randomUUID(),
+        organizationId,
+        branchId,
+        row.member_id,
+        JSON.stringify({
+          message,
+          template: renewalTemplate,
+          subscription_id: row.subscription_id,
+          reminder_days: daysLeft,
+          expiryDate,
+          phone: row.phone,
+          name: row.name,
+          generated_at: new Date().toISOString(),
+        }),
+      ]
     );
-
-    console.log(`Renewal reminder queued for member ${row.member_id} (expires ${expiryDate})`);
   }
 }
 
-// ── Start ───────────────────────────────────────────────────────────────────
+async function scheduleRenewalReminders() {
+  try {
+    const statuses = await listTenantStatuses();
+    for (const tenant of statuses) {
+      await scheduleRenewalRemindersForTenant(tenant.organizationId, tenant.branchId);
+    }
+  } catch (error) {
+    console.error("Renewal scheduler error", error);
+  }
+}
 
-setInterval(() => connectionManagerLoop().catch(console.error), connCheckMs);
-setInterval(() => processQueue().catch(console.error), pollMs);
-setInterval(() => scheduleRenewalReminders().catch(console.error), renewalCheckMs);
+async function bootstrap() {
+  console.log(
+    `WhatsApp worker started (dryRun=${dryRun}, pollMs=${pollMs}, connCheckMs=${connCheckMs}, authBasePath=${authBasePath})`
+  );
 
-console.log(
-  `WhatsApp worker started (dryRun=${dryRun}, pollMs=${pollMs}, connCheckMs=${connCheckMs})`
-);
+  await connectionManagerLoop();
+  await scheduleRenewalReminders();
+  await processQueue();
+
+  setInterval(() => {
+    connectionManagerLoop().catch((error) => {
+      console.error("Connection manager interval error", error);
+    });
+  }, connCheckMs);
+
+  setInterval(() => {
+    processQueue().catch((error) => {
+      console.error("Queue processor interval error", error);
+    });
+  }, pollMs);
+
+  setInterval(() => {
+    scheduleRenewalReminders().catch((error) => {
+      console.error("Renewal scheduler interval error", error);
+    });
+  }, renewalCheckMs);
+}
+
+bootstrap().catch((error) => {
+  console.error("Worker bootstrap failed", error);
+});
