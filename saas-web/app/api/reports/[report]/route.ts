@@ -190,6 +190,40 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
       return ok(rows);
     }
 
+    // Legacy compatibility for older clients still requesting removed report ids.
+    if (report === "member-attendance-trends") {
+      const days = readDaysParam(url, 30);
+      const rangeStart = startOfDay - (days - 1) * 86400;
+
+      const rows = await query(
+        `WITH day_range AS (
+           SELECT generate_series(
+             date_trunc('day', to_timestamp($3)),
+             date_trunc('day', to_timestamp($4)),
+             interval '1 day'
+           ) AS day
+         ),
+         agg AS (
+           SELECT date_trunc('day', to_timestamp(timestamp)) AS day,
+                  COUNT(*) FILTER (WHERE status = 'success')::int AS visits
+             FROM logs
+            WHERE organization_id = $1
+              AND branch_id = $2
+              AND timestamp >= $3
+              AND timestamp < $5
+            GROUP BY 1
+         )
+         SELECT to_char(day_range.day, 'YYYY-MM-DD') AS date,
+                COALESCE(agg.visits, 0)::int AS visits
+           FROM day_range
+           LEFT JOIN agg ON agg.day = day_range.day
+          ORDER BY day_range.day ASC`,
+        [auth.organizationId, auth.branchId, rangeStart, startOfDay, startOfDay + 86400]
+      );
+
+      return ok(rows);
+    }
+
     if (report === "top-members") {
       const days = readDaysParam(url, 30);
       const limit = readLimitParam(url, 10, 100);
@@ -213,6 +247,74 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           ORDER BY visits DESC
           LIMIT $4`,
         [auth.organizationId, auth.branchId, rangeStart, limit]
+      );
+
+      return ok(rows);
+    }
+
+    if (report === "detailed-revenue-breakdown") {
+      const days = readDaysParam(url, 30);
+      const rangeStart = now - days * 86400;
+
+      const rows = await query(
+        `SELECT source, amount::float8 AS amount
+           FROM (
+             SELECT 'Subscriptions'::text AS source,
+                    COALESCE(SUM(COALESCE(price_paid, 0)), 0)::numeric(12, 2) AS amount
+               FROM subscriptions
+              WHERE organization_id = $1
+                AND branch_id = $2
+                AND created_at >= to_timestamp($3)
+             UNION ALL
+             SELECT 'Other'::text AS source, 0::numeric(12, 2) AS amount
+           ) grouped`,
+        [auth.organizationId, auth.branchId, rangeStart]
+      );
+
+      return ok(rows);
+    }
+
+    if (report === "outstanding-payments-debtors") {
+      const limit = readLimitParam(url, 200, 500);
+
+      // Back-compat approximation: expired active subscriptions are treated as renewals due.
+      const rows = await query(
+        `SELECT m.name,
+                m.phone,
+                COALESCE(s.price_paid, 0)::float8 AS amount_due,
+                s.end_date AS due_date
+           FROM subscriptions s
+           JOIN members m
+             ON m.id = s.member_id
+            AND m.organization_id = s.organization_id
+            AND m.branch_id = s.branch_id
+          WHERE s.organization_id = $1
+            AND s.branch_id = $2
+            AND s.is_active = true
+            AND s.end_date < $3
+          ORDER BY s.end_date DESC
+          LIMIT $4`,
+        [auth.organizationId, auth.branchId, now, limit]
+      );
+
+      return ok(rows);
+    }
+
+    if (report === "peak-hours-capacity-utilization") {
+      const days = readDaysParam(url, 30);
+      const rangeStart = now - days * 86400;
+
+      const rows = await query(
+        `SELECT EXTRACT(HOUR FROM to_timestamp(timestamp))::int AS hour,
+                COUNT(*)::int AS visits
+           FROM logs
+          WHERE organization_id = $1
+            AND branch_id = $2
+            AND status = 'success'
+            AND timestamp >= $3
+          GROUP BY 1
+          ORDER BY 1`,
+        [auth.organizationId, auth.branchId, rangeStart]
       );
 
       return ok(rows);
