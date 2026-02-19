@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
               b.status,
               b.storage_path,
               b.metadata,
-              b.created_at,
+              EXTRACT(EPOCH FROM b.created_at)::bigint AS created_at,
               a.id AS artifact_id
          FROM backups b
          LEFT JOIN backup_artifacts a ON a.backup_id = b.id
