@@ -76,7 +76,7 @@ export const memberSchema = z.object({
 export const subscriptionSchema = z.object({
   member_id: z.string().uuid(),
   start_date: z.number().int().positive(),
-  end_date: z.number().int().positive(),
+  end_date: z.number().int().positive().optional(),
   plan_months: z.number().int().positive(),
   price_paid: z.number().optional().nullable(),
   sessions_per_month: z.number().int().positive().optional().nullable()

@@ -2,21 +2,13 @@
 
 import { ReactNode, useState } from 'react';
 import { useLang, t } from '@/lib/i18n';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 
 type Column = {
   key: string;
   label: string;
   render?: (row: any) => ReactNode;
-  className?: string; // Optional for column-specific styling
+  className?: string;
 };
 
 type Props = {
@@ -31,8 +23,8 @@ export default function DataTable({ columns, data, searchable, onRowClick, empty
   const { lang } = useLang();
   const [query, setQuery] = useState('');
   const labels = t[lang];
+  const isRtl = lang === 'ar';
 
-  // Filter rows: check all string fields against search query
   const filtered = searchable && query
     ? data.filter((row) =>
         Object.values(row).some(
@@ -43,53 +35,69 @@ export default function DataTable({ columns, data, searchable, onRowClick, empty
 
   return (
     <div className="space-y-4">
-      {/* Search bar */}
       {searchable && (
         <Input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={labels.search_placeholder || "Search..."} // Using labels for i18n
+          placeholder={labels.search_placeholder || 'Search...'}
           className="max-w-sm"
         />
       )}
 
-      {/* Table */}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
+      <div className="border-2 border-[#2a2a2a] overflow-hidden">
+        <table className="w-full text-sm" dir={isRtl ? 'rtl' : 'ltr'}>
+
+          {/* Header — dark sidebar background, uppercase muted labels */}
+          <thead>
+            <tr className="bg-[#0a0a0a] border-b-2 border-[#2a2a2a]">
               {columns.map((col) => (
-                <TableHead key={col.key} className={col.className}>
+                <th
+                  key={col.key}
+                  className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider text-[#8a8578] ${isRtl ? 'text-right' : 'text-left'} ${col.className || ''}`}
+                >
                   {col.label}
-                </TableHead>
+                </th>
               ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+            </tr>
+          </thead>
+
+          {/* Body */}
+          <tbody>
             {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="h-24 text-center text-[#8a8578] bg-[#1e1e1e]"
+                >
                   {emptyMessage || labels.noData}
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             ) : (
               filtered.map((row, i) => (
-                <TableRow
-                  key={row.id || i} // Use row.id if available, otherwise index
+                <tr
+                  key={row.id ?? i}
                   onClick={() => onRowClick?.(row)}
-                  className={onRowClick ? 'cursor-pointer' : ''}
+                  className={[
+                    'border-b border-[#2a2a2a] transition-colors',
+                    i % 2 === 0 ? 'bg-[#1e1e1e]' : 'bg-[#141414]',
+                    onRowClick ? 'cursor-pointer hover:bg-[#2a2a2a]' : 'hover:bg-[#222222]',
+                  ].join(' ')}
                 >
                   {columns.map((col) => (
-                    <TableCell key={col.key} className={col.className}>
+                    <td
+                      key={col.key}
+                      className={`px-4 py-3 text-[#e8e4df] ${col.className || ''}`}
+                    >
                       {col.render ? col.render(row) : row[col.key]}
-                    </TableCell>
+                    </td>
                   ))}
-                </TableRow>
+                </tr>
               ))
             )}
-          </TableBody>
-        </Table>
+          </tbody>
+
+        </table>
       </div>
     </div>
   );

@@ -30,6 +30,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar'; // shadcn/ui calendar component
 import { cn } from '@/lib/utils'; // cn helper
+import { addCalendarMonths, toUnixSeconds } from '@/lib/subscription-dates';
 
 type Member = { id: string; name: string };
 
@@ -121,26 +122,14 @@ export default function SubscriptionForm({ members, preselectedMemberId, onSubmi
 
   const endDate = React.useMemo(() => {
     if (!watchStartDate || !watchPlanMonths) return null;
-    const d = new Date(watchStartDate);
-    d.setMonth(d.getMonth() + watchPlanMonths);
-    // Adjust day to be last day of month if original day was greater
-    // For example, Jan 31 + 1 month = Feb 28/29. If not adjusted, it could become March 2.
-    const originalDay = watchStartDate.getDate();
-    const newDay = d.getDate();
-    if (newDay < originalDay) {
-        d.setDate(0); // Set to last day of previous month, which is correct
-    }
-    return d;
+    return addCalendarMonths(watchStartDate, watchPlanMonths);
   }, [watchStartDate, watchPlanMonths]);
 
 
   function handleSubmit(values: SubscriptionFormData) {
-    // Convert Date objects to unix seconds before submitting
     const dataToSubmit = {
       ...values,
-      start_date: Math.floor(values.start_date.getTime() / 1000),
-      end_date: endDate ? Math.floor(endDate.getTime() / 1000) : 0, // Ensure endDate is calculated
-      // price_paid and sessions_per_month are already numbers or undefined
+      start_date: toUnixSeconds(values.start_date),
     };
     onSubmit(dataToSubmit as any);
   }

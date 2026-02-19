@@ -221,15 +221,25 @@ function readMessage(payload: unknown, fallback: string) {
 function mapFirebaseClientAuthError(code: string) {
   switch (code) {
     case "auth/invalid-credential":
+    case "auth/invalid-login-credentials":
     case "auth/wrong-password":
     case "auth/user-not-found":
       return "Incorrect email or password. Please check your credentials and try again.";
+    case "auth/invalid-email":
+      return "Email format is invalid. Please enter a valid email address.";
+    case "auth/operation-not-allowed":
+      return "Email/password sign-in is disabled in Firebase. Enable Email/Password provider in Firebase Auth settings.";
     case "auth/user-disabled":
       return "Your account has been disabled. Please contact support.";
     case "auth/too-many-requests":
       return "Too many attempts. Please wait a few minutes and try again.";
+    case "auth/network-request-failed":
+      return "Network issue while contacting Firebase. Check your connection and try again.";
+    case "auth/invalid-api-key":
+    case "auth/app-not-authorized":
+      return "Firebase client config is invalid for this app/domain. Check API key, auth domain, and authorized domains.";
     default:
-      return "We couldn't sign you in with Firebase. Please try again.";
+      return `Firebase sign-in failed (${code || "unknown"}). Please try again.`;
   }
 }
 
@@ -343,37 +353,37 @@ export default function LoginPage() {
   // Forms
   const setupForm = useForm<z.infer<typeof setupFieldsSchema>>({
     resolver: zodResolver(setupFieldsSchema),
-    mode: "onBlur",
+    mode: "onSubmit",
     defaultValues: { ownerName: "", organizationName: "", branchName: "" }
   });
 
   const emailLoginForm = useForm<z.infer<typeof emailLoginSchema>>({
     resolver: zodResolver(emailLoginSchema),
-    mode: "onBlur",
+    mode: "onSubmit",
     defaultValues: { email: "", password: "" }
   });
 
   const emailRegisterForm = useForm<z.infer<typeof emailRegisterSchema>>({
     resolver: zodResolver(emailRegisterSchema),
-    mode: "onBlur",
+    mode: "onSubmit",
     defaultValues: { email: "", password: "", phone: "" }
   });
 
   const phoneLoginForm = useForm<z.infer<typeof phoneLoginSchema>>({
     resolver: zodResolver(phoneLoginSchema),
-    mode: "onBlur",
+    mode: "onSubmit",
     defaultValues: { phone: "" }
   });
 
   const phoneRegisterForm = useForm<z.infer<typeof phoneRegisterSchema>>({
     resolver: zodResolver(phoneRegisterSchema),
-    mode: "onBlur",
+    mode: "onSubmit",
     defaultValues: { phone: "" }
   });
 
   const otpVerifyForm = useForm<z.infer<typeof otpVerifySchema>>({
     resolver: zodResolver(otpVerifySchema),
-    mode: "onBlur",
+    mode: "onSubmit",
     defaultValues: { otpCode: "" }
   });
 
@@ -431,6 +441,12 @@ export default function LoginPage() {
         typeof error === "object" && error && "code" in error
           ? String((error as { code?: string }).code || "")
           : "";
+      if (!code) {
+        if (error instanceof Error && error.message) {
+          throw new Error(error.message);
+        }
+        throw new Error("Firebase sign-in failed before request completion. Please try again.");
+      }
       throw new Error(mapFirebaseClientAuthError(code));
     }
   }
