@@ -10,6 +10,9 @@ import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { fetchAndStoreBundle } from '@/lib/offline/offline-bundle';
 import { startSyncManager, stopSyncManager } from '@/lib/offline/sync-manager';
 import InstallPrompt from '@/components/dashboard/InstallPrompt';
+import GlobalScanner from '@/components/dashboard/GlobalScanner';
+import { ScanProvider } from '@/lib/scan-context';
+import { Toaster } from '@/components/ui/sonner';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { loading } = useAuth();
@@ -67,7 +70,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Bump root font size + switch body font for Arabic
   useEffect(() => {
-    document.documentElement.style.fontSize = lang === 'ar' ? '18px' : '16px';
+    document.documentElement.style.fontSize = '16px';
     document.body.style.fontFamily = lang === 'ar' ? 'var(--font-arabic)' : 'var(--font-sans)';
     return () => {
       document.documentElement.style.fontSize = '';
@@ -86,17 +89,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <LangContext.Provider value={{ lang, setLang }}>
-      <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="flex h-screen bg-background text-foreground">
-        {/* Sidebar */}
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <ScanProvider>
+        <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="flex h-screen bg-background text-foreground">
+          {/* Sidebar */}
+          <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-        {/* Main area */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <Header onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
-          <InstallPrompt />
-          <main className="flex-1 overflow-y-auto p-4 md:p-6 no-scrollbar">{children}</main>
+          {/* Main area */}
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <Header onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
+            <InstallPrompt />
+            <main className="flex-1 overflow-y-auto p-4 md:p-6 no-scrollbar">{children}</main>
+          </div>
+
+          {/* Global barcode scanner listener + toast container */}
+          <GlobalScanner />
+          <Toaster />
         </div>
-      </div>
+      </ScanProvider>
     </LangContext.Provider>
   );
 }

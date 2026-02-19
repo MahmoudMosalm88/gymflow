@@ -71,7 +71,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Arabic overrides — triggered when dashboard wrapper sets dir="rtl" */
 [dir="rtl"] {
   font-family: var(--font-arabic);
-  line-height: 1.7;
+  line-height: 1.5;
 }
 
 [dir="rtl"] h1,
