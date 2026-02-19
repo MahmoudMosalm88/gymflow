@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
-import { formatDate, formatCurrency } from '@/lib/format';
-import LoadingSpinner from '@/components/dashboard/LoadingSpinner'; // Keeping existing LoadingSpinner for now
+import { formatDate, formatDateTime, formatCurrency } from '@/lib/format';
+import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ChevronLeftIcon, Pencil1Icon, PlusIcon, DotsHorizontalIcon } from '@radix-ui/react-icons'; // Icons for actions
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChevronLeftIcon, Pencil1Icon, PlusIcon, DotsHorizontalIcon } from '@radix-ui/react-icons';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,13 +18,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge'; // Assuming a badge component for status
+import { Badge } from '@/components/ui/badge';
+import MemberAvatar from '@/components/dashboard/MemberAvatar';
+import FreezeDialog from '@/components/dashboard/FreezeDialog';
 
 type Member = {
   id: string;
   name: string;
   phone: string;
-  gender: 'male' | 'female';
+  gender?: 'male' | 'female';
   photo_path?: string;
   access_tier: string;
   card_code?: string;
@@ -33,14 +35,45 @@ type Member = {
   updated_at: number;
 };
 
-type Subscription = {
-  id: string;
+type SubscriptionRaw = {
+  id: number;
   plan_name?: string;
   start_date: number;
   end_date: number;
-  price: number;
-  status: 'active' | 'expired' | 'pending'; // Added 'pending' for completeness
+  price_paid: number | null;
+  is_active: boolean;
+  plan_months: number;
+  sessions_per_month: number | null;
 };
+
+type Subscription = SubscriptionRaw & {
+  status: 'active' | 'expired' | 'pending';
+};
+
+function deriveStatus(sub: SubscriptionRaw): 'active' | 'expired' | 'pending' {
+  const now = Math.floor(Date.now() / 1000);
+  if (!sub.is_active) return 'expired';
+  if (sub.end_date < now) return 'expired';
+  if (sub.start_date > now) return 'pending';
+  return 'active';
+}
+
+type AttendanceLog = {
+  id: number;
+  timestamp: number;
+  method: string;
+};
+
+const METHOD_LABELS: Record<string, string> = {
+  qr_code: 'QR Code',
+  card_scan: 'Card Scan',
+  manual: 'Manual',
+  admin_override: 'Admin',
+};
+
+function formatMethod(method: string): string {
+  return METHOD_LABELS[method] ?? method.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export default function MemberDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -51,26 +84,27 @@ export default function MemberDetailPage() {
 
   const [member, setMember] = useState<Member | null>(null);
   const [subs, setSubs] = useState<Subscription[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [freezeSubId, setFreezeSubId] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
-        // Fetch all members and find the one matching the URL id
-        // In a real app, this would be a direct API call to /api/members/[id]
         const membersRes = await api.get<Member[]>('/api/members');
         const found = (membersRes.data ?? []).find((m) => m.id === id);
         if (found) {
           setMember(found);
-          // Fetch this member's subscriptions
-          const subsRes = await api.get<Subscription[]>(`/api/subscriptions?member_id=${id}`);
-          setSubs(subsRes.data ?? []);
+          const [subsRes, attRes] = await Promise.all([
+            api.get<SubscriptionRaw[]>(`/api/subscriptions?member_id=${id}`),
+            api.get<AttendanceLog[]>(`/api/attendance/logs?member_id=${id}&limit=20`),
+          ]);
+          setSubs((subsRes.data ?? []).map((s) => ({ ...s, status: deriveStatus(s) })));
+          setAttendance(attRes.data ?? []);
         } else {
-            // Member not found scenario
-            setMember(null);
+          setMember(null);
         }
       } catch {
-        // leave member null — UI will show not-found message
         setMember(null);
       } finally {
         setLoading(false);
@@ -92,7 +126,6 @@ export default function MemberDetailPage() {
     );
   }
 
-  // Helper to render a label + value row inside the info card
   const InfoRow = ({ label, value }: { label: string; value: string | JSX.Element }) => (
     <div className="flex items-center justify-between border-b border-border py-3 last:border-0">
       <span className="text-sm font-medium text-muted-foreground">{label}</span>
@@ -120,7 +153,22 @@ export default function MemberDetailPage() {
             <PlusIcon className={lang === 'ar' ? 'ml-2 h-4 w-4' : 'mr-2 h-4 w-4'} />
             {labels.add_subscription}
           </Button>
-          {/* Future: More actions via DropdownMenu */}
+          {subs.some((s) => s.status === 'active') && (
+            <Button
+              variant="outline"
+              className="border-blue-500 text-blue-400 hover:bg-blue-500/10"
+              onClick={() => {
+                const activeSub = subs.find((s) => s.status === 'active');
+                if (activeSub) setFreezeSubId(String(activeSub.id));
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className={lang === 'ar' ? 'ml-2' : 'mr-2'}>
+                <path d="M8 2v12M4 6v4M12 6v4" />
+              </svg>
+              {labels.freeze_subscription}
+            </Button>
+
+          )}
           <DropdownMenu dir={lang === 'ar' ? 'rtl' : 'ltr'}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-8 w-8 p-0">
@@ -130,9 +178,6 @@ export default function MemberDetailPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align={lang === 'ar' ? 'start' : 'end'}>
               <DropdownMenuLabel>{labels.member_actions}</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => router.push(`/dashboard/reports?member_id=${id}`)}>
-                {labels.view_attendance}
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>
                 {labels.send_whatsapp}
               </DropdownMenuItem>
@@ -154,32 +199,21 @@ export default function MemberDetailPage() {
           <CardTitle>{labels.member_information}</CardTitle>
         </CardHeader>
         <CardContent>
-          {member.photo_path && (
-            <div className="mb-4 flex justify-center">
-              <img
-                src={member.photo_path}
-                alt={member.name}
-                className="h-24 w-24 object-cover border-2 border-[#2a2a2a]"
-              />
-            </div>
-          )}
+          <div className="mb-4 flex justify-center">
+            <MemberAvatar
+              memberId={member.id}
+              name={member.name}
+              photoPath={member.photo_path}
+              onPhotoChange={(url) => setMember({ ...member, photo_path: url })}
+            />
+          </div>
           <InfoRow label={labels.name} value={member.name} />
           <InfoRow label={labels.phone} value={member.phone} />
-          <InfoRow
-            label={labels.gender}
-            value={member.gender === 'male' ? labels.male : labels.female}
-          />
           <InfoRow label={labels.access_tier} value={member.access_tier} />
           <InfoRow label={labels.card_code} value={member.card_code ?? ''} />
           <InfoRow label={labels.address} value={member.address ?? ''} />
-          <InfoRow
-            label={labels.created_at}
-            value={formatDate(member.created_at, locale)}
-          />
-          <InfoRow
-            label={labels.updated_at}
-            value={formatDate(member.updated_at, locale)}
-          />
+          <InfoRow label={labels.created_at} value={formatDate(member.created_at, locale)} />
+          <InfoRow label={labels.updated_at} value={formatDate(member.updated_at, locale)} />
         </CardContent>
       </Card>
 
@@ -208,22 +242,67 @@ export default function MemberDetailPage() {
                         {formatDate(sub.start_date, locale)} — {formatDate(sub.end_date, locale)}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold text-foreground">{formatCurrency(sub.price)}</p>
-                      <Badge
-                        className={
-                          sub.status === 'active'
-                            ? 'bg-success hover:bg-success/90'
-                            : sub.status === 'expired'
-                            ? 'bg-destructive hover:bg-destructive/90'
-                            : 'bg-info hover:bg-info/90' // pending
-                        }
-                      >
-                        {sub.status === 'active' ? labels.active : sub.status === 'expired' ? labels.expired : labels.pending}
-                      </Badge>
+                    <div className="flex items-center gap-2">
+                      {sub.status === 'active' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={() => setFreezeSubId(String(sub.id))}
+                        >
+                          {labels.freeze_subscription}
+                        </Button>
+                      )}
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-foreground">{formatCurrency(sub.price_paid ?? 0)}</p>
+                        <Badge
+                          className={
+                            sub.status === 'active'
+                              ? 'bg-success hover:bg-success/90'
+                              : sub.status === 'expired'
+                              ? 'bg-destructive hover:bg-destructive/90'
+                              : 'bg-info hover:bg-info/90'
+                          }
+                        >
+                          {sub.status === 'active' ? labels.active : sub.status === 'expired' ? labels.expired : labels.pending}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
                 </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Freeze dialog */}
+      <FreezeDialog
+        subscriptionId={freezeSubId || ''}
+        open={!!freezeSubId}
+        onOpenChange={(open) => { if (!open) setFreezeSubId(null); }}
+        onFrozen={() => {
+          // Reload subscriptions to reflect extended end date
+          api.get<SubscriptionRaw[]>(`/api/subscriptions?member_id=${id}`)
+            .then((res) => { if (res.data) setSubs(res.data.map((s) => ({ ...s, status: deriveStatus(s) }))); });
+        }}
+      />
+
+      {/* Attendance section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">{labels.attendance_history}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {attendance.length === 0 ? (
+            <p className="py-4 text-center text-muted-foreground">{labels.no_attendance_records}</p>
+          ) : (
+            <div className="divide-y divide-border">
+              {attendance.map((rec) => (
+                <div key={rec.id} className="flex items-center justify-between py-3">
+                  <span className="text-sm">{formatDateTime(rec.timestamp, locale)}</span>
+                  <span className="text-xs text-muted-foreground">{formatMethod(rec.method)}</span>
+                </div>
               ))}
             </div>
           )}

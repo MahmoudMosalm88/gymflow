@@ -15,8 +15,8 @@ type Member = {
   id: string;
   name: string;
   phone: string;
-  gender: 'male' | 'female';
-  access_tier: string;
+  gender?: 'male' | 'female';
+  access_tier: 'full' | 'limited';
   card_code?: string;
   address?: string;
 };
@@ -44,7 +44,7 @@ export default function EditMemberPage() {
   }, [id]);
 
   /** Send updated data to the API, then navigate back to the detail page */
-  const handleSubmit = async (data: { name: string; phone: string; gender: 'male' | 'female'; access_tier: string; card_code: string; address: string }) => {
+  const handleSubmit = async (data: { name: string; phone: string; access_tier: 'full' | 'limited'; card_code: string; address: string }) => {
     setSaving(true);
     setError('');
     try {
@@ -92,6 +92,7 @@ export default function EditMemberPage() {
           onSubmit={handleSubmit}
           onCancel={() => router.push(`/dashboard/members/${id}`)}
           loading={saving}
+          hideTitle
         />
       </div>
     </div>
