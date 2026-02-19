@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatDateTime } from '@/lib/format';
@@ -15,13 +15,21 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
+import { AlertCircle, CheckCircle, Terminal, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  DEFAULT_REMINDER_DAYS,
+  getDefaultRenewalTemplate,
+  getDefaultWelcomeTemplate,
+  getTemplateKey
+} from '@/lib/whatsapp-automation';
 
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type Tab = 'general' | 'whatsapp' | 'backup';
+type Tab = 'general' | 'whatsapp' | 'backup' | 'import';
 
 type WhatsAppStatus = { connected: boolean; state?: string; phone?: string; qrCode?: string };
 
@@ -43,9 +51,10 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('general');
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: 'general', label: labels.general_settings || 'General' },
+    { key: 'general',  label: labels.general_settings || 'General' },
     { key: 'whatsapp', label: 'WhatsApp' },
-    { key: 'backup', label: labels.backup_and_restore || 'Backup & Restore' },
+    { key: 'backup',   label: labels.backup_and_restore || 'Backup & Restore' },
+    { key: 'import',   label: labels.import_data || 'Import Data' },
   ];
 
   return (
@@ -53,7 +62,7 @@ export default function SettingsPage() {
       {/* Page heading */}
       <h1 className="text-3xl font-bold">{labels.settings}</h1>
 
-      {/* Tab bar — no card wrapper */}
+      {/* Tab bar */}
       <div className="flex flex-wrap gap-1 border-b border-border pb-2">
         {tabs.map((tab) => (
           <Button
@@ -68,9 +77,10 @@ export default function SettingsPage() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'general' && <GeneralTab />}
+      {activeTab === 'general'  && <GeneralTab />}
       {activeTab === 'whatsapp' && <WhatsAppTab />}
-      {activeTab === 'backup' && <BackupTab />}
+      {activeTab === 'backup'   && <BackupTab />}
+      {activeTab === 'import'   && <ImportTab />}
     </div>
   );
 }
@@ -109,7 +119,7 @@ function GeneralTab() {
       } else {
         setMessage({ type: 'destructive', text: res.message || labels.failed_to_save });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: 'destructive', text: labels.failed_to_save });
     } finally {
       setSaving(false);
@@ -125,7 +135,6 @@ function GeneralTab() {
         <CardDescription>{labels.general_settings_description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        {/* Scan cooldown */}
         <div>
           <Label htmlFor="scan-cooldown">{labels.scan_cooldown_seconds}</Label>
           <Input
@@ -137,8 +146,6 @@ function GeneralTab() {
             className="max-w-xs mt-1"
           />
         </div>
-
-        {/* Save button and message */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <Button onClick={handleSave} disabled={saving} className="min-w-[120px]">
             {saving ? labels.saving : labels.save}
@@ -161,18 +168,74 @@ function GeneralTab() {
 function WhatsAppTab() {
   const { lang } = useLang();
   const labels = t[lang];
+  const systemLanguage = lang === 'ar' ? 'ar' : 'en';
+  const defaultWelcomeTemplate = getDefaultWelcomeTemplate(systemLanguage);
+  const defaultRenewalTemplate = getDefaultRenewalTemplate(systemLanguage);
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [templatesSaving, setTemplatesSaving] = useState(false);
+  const [templateFeedback, setTemplateFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
+  const [welcomeTemplate, setWelcomeTemplate] = useState(defaultWelcomeTemplate);
+  const [renewalTemplate, setRenewalTemplate] = useState(defaultRenewalTemplate);
+  const [reminderDays, setReminderDays] = useState(DEFAULT_REMINDER_DAYS);
 
   const fetchStatus = useCallback(async () => {
-    const res = await api.get<WhatsAppStatus>('/api/whatsapp/status');
-    if (res.success && res.data) setStatus(res.data);
-    setLoading(false);
+    try {
+      const res = await api.get<WhatsAppStatus>('/api/whatsapp/status');
+      if (res.success && res.data) {
+        setStatus(res.data);
+      } else {
+        setError(res.message ?? 'Failed to fetch WhatsApp status');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Auto-poll every 3 s until connected
+  const fetchTemplates = useCallback(async () => {
+    setTemplatesLoading(true);
+    try {
+      const res = await api.get<Record<string, unknown>>('/api/settings');
+      if (res.success && res.data) {
+        const maybeWelcome =
+          res.data[getTemplateKey('welcome', systemLanguage)] ??
+          (systemLanguage === 'en' ? res.data.whatsapp_template_welcome : undefined);
+        const maybeRenewal =
+          res.data[getTemplateKey('renewal', systemLanguage)] ??
+          (systemLanguage === 'en' ? res.data.whatsapp_template_renewal : undefined);
+        const maybeDays = res.data.whatsapp_reminder_days;
+
+        if (typeof maybeWelcome === 'string' && maybeWelcome.trim()) {
+          setWelcomeTemplate(maybeWelcome);
+        } else {
+          setWelcomeTemplate(defaultWelcomeTemplate);
+        }
+        if (typeof maybeRenewal === 'string' && maybeRenewal.trim()) {
+          setRenewalTemplate(maybeRenewal);
+        } else {
+          setRenewalTemplate(defaultRenewalTemplate);
+        }
+        if (typeof maybeDays === 'string' && maybeDays.trim()) {
+          setReminderDays(maybeDays);
+        } else {
+          setReminderDays(DEFAULT_REMINDER_DAYS);
+        }
+      }
+    } catch (err) {
+      setTemplateFeedback({
+        type: 'destructive',
+        text: err instanceof Error ? err.message : 'Failed to load WhatsApp templates'
+      });
+    } finally {
+      setTemplatesLoading(false);
+    }
+  }, [defaultRenewalTemplate, defaultWelcomeTemplate, systemLanguage]);
+
   useEffect(() => {
     fetchStatus();
     const id = setInterval(() => {
@@ -181,11 +244,14 @@ function WhatsAppTab() {
     return () => clearInterval(id);
   }, [fetchStatus, status?.connected]);
 
+  useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
+
   const handleConnect = async () => {
     setActing(true);
     setError(null);
     try {
-      await api.post('/api/whatsapp/connect', {});
+      const res = await api.post('/api/whatsapp/connect', {});
+      if (!res.success) throw new Error(res.message ?? 'Failed to start WhatsApp connection');
       await fetchStatus();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -198,7 +264,8 @@ function WhatsAppTab() {
     setActing(true);
     setError(null);
     try {
-      await api.post('/api/whatsapp/disconnect', {});
+      const res = await api.post('/api/whatsapp/disconnect', {});
+      if (!res.success) throw new Error(res.message ?? 'Failed to disconnect WhatsApp');
       await fetchStatus();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -207,9 +274,44 @@ function WhatsAppTab() {
     }
   };
 
+  const handleTemplateSave = async () => {
+    setTemplatesSaving(true);
+    setTemplateFeedback(null);
+    try {
+      const resolvedWelcome = welcomeTemplate.trim() || defaultWelcomeTemplate;
+      const resolvedRenewal = renewalTemplate.trim() || defaultRenewalTemplate;
+      const values: Record<string, string | boolean> = {
+        [getTemplateKey('welcome', systemLanguage)]: resolvedWelcome,
+        [getTemplateKey('renewal', systemLanguage)]: resolvedRenewal,
+        whatsapp_reminder_days: reminderDays.trim() || DEFAULT_REMINDER_DAYS,
+        whatsapp_automation_enabled: true,
+        system_language: systemLanguage
+      };
+      if (systemLanguage === 'en') {
+        values.whatsapp_template_welcome = resolvedWelcome;
+        values.whatsapp_template_renewal = resolvedRenewal;
+      }
+      const res = await api.put('/api/settings', { values });
+      if (!res.success) throw new Error(res.message ?? 'Failed to save WhatsApp templates');
+      setTemplateFeedback({ type: 'success', text: labels.saved_successfully });
+    } catch (err) {
+      setTemplateFeedback({
+        type: 'destructive',
+        text: err instanceof Error ? err.message : labels.failed_to_save
+      });
+    } finally {
+      setTemplatesSaving(false);
+    }
+  };
+
   if (loading) return <LoadingSpinner />;
 
-  const connected = status?.connected ?? false;
+  const state = status?.state ?? (status?.connected ? 'connected' : 'disconnected');
+  const connected = status?.connected ?? state === 'connected';
+  const connecting = state === 'connecting' && !connected;
+  const showWaitingQr = connecting && !status?.qrCode;
+  const statusText = connected ? labels.connected : connecting ? (labels.connecting ?? 'Connecting...') : labels.disconnected;
+  const statusVariant = connected ? 'success' : connecting ? 'secondary' : 'destructive';
 
   return (
     <Card>
@@ -218,60 +320,95 @@ function WhatsAppTab() {
         <CardDescription>{labels.whatsapp_integration_description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        {/* Status indicator */}
         <div className="flex items-center gap-3">
-          <Badge variant={(connected ? 'success' : 'destructive') as any} className="text-sm">
-            {connected ? labels.connected : labels.disconnected}
-          </Badge>
+          <Badge variant={statusVariant as any} className="text-sm">{statusText}</Badge>
           {connected && status?.phone && (
             <span className="text-foreground font-medium">{status.phone}</span>
           )}
         </div>
 
-        {/* QR Code — shown once worker generates it */}
         {!connected && status?.qrCode && (
           <div className="flex flex-col items-center justify-center space-y-3">
             <p className="text-muted-foreground">{labels.scan_qr_code}</p>
-            <img
-              src={`data:image/png;base64,${status.qrCode}`}
-              alt="WhatsApp QR Code"
-              className="h-48 w-48 border-2 border-border"
-            />
+            <img src={`data:image/png;base64,${status.qrCode}`} alt="WhatsApp QR Code" className="h-48 w-48 border-2 border-border" />
             <p className="text-sm text-muted-foreground">{labels.scan_qr_instructions}</p>
           </div>
         )}
 
-        {/* QR placeholder — shown while worker is generating the QR */}
-        {!connected && !status?.qrCode && acting && (
+        {showWaitingQr && (
           <div className="h-48 w-48 border-2 border-border flex items-center justify-center text-sm text-muted-foreground">
             {'Waiting for QR...'}
           </div>
         )}
 
-        {/* Action buttons */}
         <div>
           {connected ? (
-            <Button
-              onClick={handleDisconnect}
-              disabled={acting}
-              variant="destructive"
-              className="min-w-[120px]"
-            >
+            <Button onClick={handleDisconnect} disabled={acting} variant="destructive" className="min-w-[120px]">
               {acting ? labels.disconnecting : labels.disconnect}
             </Button>
+          ) : connecting ? (
+            <Button onClick={handleDisconnect} disabled={acting} variant="outline" className="min-w-[120px]">
+              {acting ? labels.disconnecting : (labels.cancel ?? 'Cancel')}
+            </Button>
           ) : (
-            <Button
-              onClick={handleConnect}
-              disabled={acting}
-              className="min-w-[120px]"
-            >
+            <Button onClick={handleConnect} disabled={acting} className="min-w-[120px]">
               {acting ? labels.connecting : labels.connect}
             </Button>
           )}
+          {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+        </div>
 
-          {/* Error display */}
-          {error && (
-            <p className="mt-2 text-sm text-destructive">{error}</p>
+        <div className="rounded-md border border-border p-4 space-y-4">
+          <div>
+            <h3 className="text-base font-semibold">Automation Templates</h3>
+            <p className="text-sm text-muted-foreground">
+              Dry-run mode is enabled now. No real WhatsApp messages are sent while automation is tested.
+            </p>
+          </div>
+
+          {templatesLoading ? (
+            <p className="text-sm text-muted-foreground">{labels.loading}</p>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="welcome-template">Welcome Message Template</Label>
+                <p className="text-xs text-muted-foreground">Standard template</p>
+                <pre className="whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-2 text-xs">{defaultWelcomeTemplate}</pre>
+                <Textarea id="welcome-template" value={welcomeTemplate} onChange={(e) => setWelcomeTemplate(e.target.value)} placeholder={defaultWelcomeTemplate} />
+                <p className="text-xs text-muted-foreground">Placeholders: {'{name}'}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="renewal-template">Renewal Reminder Template</Label>
+                <p className="text-xs text-muted-foreground">Standard template</p>
+                <pre className="whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-2 text-xs">{defaultRenewalTemplate}</pre>
+                <Textarea id="renewal-template" value={renewalTemplate} onChange={(e) => setRenewalTemplate(e.target.value)} placeholder={defaultRenewalTemplate} />
+                <p className="text-xs text-muted-foreground">Placeholders: {'{name}'}, {'{expiryDate}'}, {'{daysLeft}'}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="reminder-days">Reminder Days (comma-separated)</Label>
+                <Input id="reminder-days" value={reminderDays} onChange={(e) => setReminderDays(e.target.value)} placeholder={DEFAULT_REMINDER_DAYS} />
+                <p className="text-xs text-muted-foreground">Example: 7,3,1</p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={handleTemplateSave} disabled={templatesSaving}>
+                  {templatesSaving ? labels.saving : labels.save}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => { setWelcomeTemplate(defaultWelcomeTemplate); setRenewalTemplate(defaultRenewalTemplate); setReminderDays(DEFAULT_REMINDER_DAYS); }}>
+                  Use Standard Templates
+                </Button>
+              </div>
+
+              {templateFeedback && (
+                <Alert variant={templateFeedback.type}>
+                  {templateFeedback.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                  <AlertTitle>{templateFeedback.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+                  <AlertDescription>{templateFeedback.text}</AlertDescription>
+                </Alert>
+              )}
+            </>
           )}
         </div>
       </CardContent>
@@ -279,23 +416,15 @@ function WhatsAppTab() {
   );
 }
 
-// ── Backup & Restore Tab ────────────────────────────────────────────────────
-// Merges the old "Backup" and "Data" tabs into one unified view:
-// Create backup → History table → Restore section
+// ── Backup & Restore Tab ───────────────────────────────────────────────────
 
 function BackupTab() {
   const { lang } = useLang();
   const labels = t[lang];
-
-  // Shared state
   const [history, setHistory] = useState<BackupEntry[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Create backup state
   const [exporting, setExporting] = useState(false);
   const [exportResult, setExportResult] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
-
-  // Restore state
   const [selectedId, setSelectedId] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [restoring, setRestoring] = useState(false);
@@ -305,8 +434,7 @@ function BackupTab() {
     try {
       const res = await api.get<BackupEntry[]>('/api/backup/history');
       if (res.success && res.data) setHistory(res.data);
-    } catch (error) {
-      console.error('Failed to fetch backup history:', error);
+    } catch {
       setExportResult({ type: 'destructive', text: labels.error_loading_history });
     } finally {
       setLoading(false);
@@ -319,16 +447,14 @@ function BackupTab() {
     setExporting(true);
     setExportResult(null);
     try {
-      const res = await api.post<{ backupId: string; rowCounts: Record<string, number> }>(
-        '/api/backup/export', {}
-      );
+      const res = await api.post<{ backupId: string; rowCounts: Record<string, number> }>('/api/backup/export', {});
       if (res.success) {
         setExportResult({ type: 'success', text: labels.backup_created_successfully });
         fetchHistory();
       } else {
         setExportResult({ type: 'destructive', text: res.message ?? labels.backup_failed });
       }
-    } catch (error) {
+    } catch {
       setExportResult({ type: 'destructive', text: labels.backup_failed });
     } finally {
       setExporting(false);
@@ -346,16 +472,14 @@ function BackupTab() {
       } else {
         setRestoreResult({ type: 'destructive', text: res.message ?? labels.restore_failed });
       }
-    } catch (error) {
+    } catch {
       setRestoreResult({ type: 'destructive', text: labels.restore_failed });
     } finally {
       setRestoring(false);
     }
   };
 
-  const statusLabel = (s: string) =>
-    s === 'completed' ? 'Completed' : s === 'failed' ? 'Failed' : 'Pending';
-
+  const statusLabel = (s: string) => s === 'completed' ? 'Completed' : s === 'failed' ? 'Failed' : 'Pending';
   const statusVariant = (s: string) =>
     s === 'completed' ? 'bg-success hover:bg-success/90' : s === 'failed' ? 'bg-destructive hover:bg-destructive/90' : 'bg-warning hover:bg-warning/90';
 
@@ -365,7 +489,6 @@ function BackupTab() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* ── Create backup ── */}
       <Card>
         <CardHeader>
           <CardTitle>{labels.create_backup}</CardTitle>
@@ -385,7 +508,6 @@ function BackupTab() {
             )}
           </div>
 
-          {/* History table */}
           <h3 className="text-base font-semibold text-foreground pt-2">{labels.backup_history}</h3>
           <div className="rounded-md border overflow-x-auto">
             <Table>
@@ -399,22 +521,14 @@ function BackupTab() {
               <TableBody>
                 {history.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                      {labels.no_backups_yet}
-                    </TableCell>
+                    <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">{labels.no_backups_yet}</TableCell>
                   </TableRow>
                 ) : (
                   history.map((b) => (
                     <TableRow key={b.id}>
-                      <TableCell className="font-medium">
-                        {formatDateTime(b.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')}
-                      </TableCell>
+                      <TableCell className="font-medium">{formatDateTime(b.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')}</TableCell>
                       <TableCell>{b.source}</TableCell>
-                      <TableCell>
-                        <Badge className={statusVariant(b.status)}>
-                          {statusLabel(b.status)}
-                        </Badge>
-                      </TableCell>
+                      <TableCell><Badge className={statusVariant(b.status)}>{statusLabel(b.status)}</Badge></TableCell>
                     </TableRow>
                   ))
                 )}
@@ -424,7 +538,6 @@ function BackupTab() {
         </CardContent>
       </Card>
 
-      {/* ── Restore ── */}
       <Card>
         <CardHeader>
           <CardTitle>{labels.restore_from_backup}</CardTitle>
@@ -450,13 +563,7 @@ function BackupTab() {
                   </SelectContent>
                 </Select>
               </div>
-
-              <Button
-                onClick={() => setConfirmOpen(true)}
-                disabled={!selectedId || restoring}
-                variant="destructive"
-                className="min-w-[120px]"
-              >
+              <Button onClick={() => setConfirmOpen(true)} disabled={!selectedId || restoring} variant="destructive" className="min-w-[120px]">
                 {restoring ? labels.restoring : labels.restore}
               </Button>
             </>
@@ -470,7 +577,6 @@ function BackupTab() {
             </Alert>
           )}
 
-          {/* Confirmation dialog */}
           <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
             <DialogContent>
               <DialogHeader>
@@ -478,17 +584,280 @@ function BackupTab() {
                 <DialogDescription>{labels.confirm_restore_description}</DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button onClick={() => setConfirmOpen(false)} variant="outline">
-                  {labels.cancel}
-                </Button>
-                <Button onClick={handleRestore} variant="destructive">
-                  {labels.yes_restore}
-                </Button>
+                <Button onClick={() => setConfirmOpen(false)} variant="outline">{labels.cancel}</Button>
+                <Button onClick={handleRestore} variant="destructive">{labels.yes_restore}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// ── Import Tab ─────────────────────────────────────────────────────────────
+
+type UploadResult  = { id: string; file_name: string; status: string; created_at: string };
+type ValidateResult = { schemaVersion: string; members: number; subscriptions: number; isValid: boolean };
+type ExecuteResult  = { jobId: string; status: string; report: Record<string, unknown> };
+type StatusResult   = { id: string; type: string; status: string; payload: Record<string, unknown>; result: Record<string, unknown> | null; started_at: string; finished_at: string };
+
+function StepIndicator({ current }: { current: number }) {
+  const { lang } = useLang();
+  const steps = [
+    { num: 1, label: t[lang].upload_file },
+    { num: 2, label: t[lang].validate_data },
+    { num: 3, label: t[lang].execute_import },
+  ];
+  return (
+    <div className="flex items-center justify-center gap-2 mb-6 text-sm">
+      {steps.map((step, i) => (
+        <React.Fragment key={step.num}>
+          <div className="flex flex-col items-center gap-1">
+            <div className={cn(
+              "w-9 h-9 flex items-center justify-center font-bold border-2 border-[#2a2a2a]",
+              step.num <= current ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            )}>
+              {step.num}
+            </div>
+            <span className={cn("text-xs mt-1", step.num <= current ? "text-foreground" : "text-muted-foreground")}>
+              {step.label}
+            </span>
+          </div>
+          {i < steps.length - 1 && (
+            <Separator orientation="horizontal" className={cn("w-12 h-0.5", step.num < current ? "bg-primary" : "bg-muted")} />
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+function ImportRow({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div className="flex justify-between items-center border-b border-border py-2 last:border-0">
+      <span className="text-sm font-medium text-muted-foreground">{label}</span>
+      <span className={cn("text-sm font-normal text-foreground", color)}>{value}</span>
+    </div>
+  );
+}
+
+function ImportTab() {
+  const { lang } = useLang();
+  const labels = t[lang];
+
+  const [step, setStep] = useState(1);
+  const [error, setError] = useState('');
+
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [artifactId, setArtifactId] = useState('');
+
+  const [validating, setValidating] = useState(false);
+  const [validation, setValidation] = useState<ValidateResult | null>(null);
+
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [executing, setExecuting] = useState(false);
+  const [result, setResult] = useState<StatusResult | null>(null);
+
+  async function handleUpload() {
+    setError('');
+    const file = fileRef.current?.files?.[0];
+    if (!file) { setError(labels.select_db_file); return; }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = localStorage.getItem('session_token');
+      const branchId = localStorage.getItem('branch_id');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (branchId) headers['x-branch-id'] = branchId;
+      const response = await fetch('/api/migration/upload', { method: 'POST', headers, body: formData });
+      const res = await response.json();
+      if (!res.success || !res.data) { setError(res.message || labels.upload_failed); return; }
+      setArtifactId(res.data.id);
+      setStep(2);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : labels.upload_failed);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (step !== 2 || !artifactId) return;
+    let cancelled = false;
+    async function validate() {
+      setValidating(true);
+      setError('');
+      try {
+        const res = await api.post<ValidateResult>('/api/migration/validate', { artifactId });
+        if (cancelled) return;
+        if (!res.success || !res.data) { setError(res.message || labels.validation_failed); }
+        else { setValidation(res.data); }
+      } catch (e: unknown) {
+        if (!cancelled) setError(e instanceof Error ? e.message : labels.validation_failed);
+      } finally {
+        if (!cancelled) setValidating(false);
+      }
+    }
+    validate();
+    return () => { cancelled = true; };
+  }, [step, artifactId, labels.validation_failed]);
+
+  const handleExecute = useCallback(async () => {
+    setShowConfirm(false);
+    setExecuting(true);
+    setError('');
+    try {
+      const res = await api.post<ExecuteResult>('/api/migration/execute', { artifactId });
+      if (!res.success || !res.data) { setError(res.message || labels.execution_failed); setExecuting(false); return; }
+      const jobId = res.data.jobId;
+      const poll = async () => {
+        const s = await api.get<StatusResult>(`/api/migration/status?jobId=${jobId}`);
+        if (s.data && (s.data.status === 'completed' || s.data.status === 'failed')) {
+          setResult(s.data);
+          setExecuting(false);
+        } else {
+          setTimeout(poll, 2000);
+        }
+      };
+      poll();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : labels.execution_failed);
+      setExecuting(false);
+    }
+  }, [artifactId, labels.execution_failed]);
+
+  return (
+    <div className="flex flex-col gap-6 max-w-2xl">
+      <StepIndicator current={step} />
+
+      {error && (
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>{labels.error_title}</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {step === 1 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{labels.upload_file}</CardTitle>
+            <CardDescription>{labels.upload_file_description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".db"
+              onChange={(e) => setFileName(e.target.files?.[0]?.name || '')}
+              style={{ display: 'block', width: '100%', padding: '16px', border: '2px dashed #3a3a3a', backgroundColor: 'transparent', color: '#8a8578', cursor: 'pointer' }}
+            />
+            <Button onClick={handleUpload} disabled={uploading || !fileName} className="w-full">
+              {uploading ? labels.uploading : labels.upload}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {step === 2 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{labels.validate_data}</CardTitle>
+            <CardDescription>{labels.validate_data_description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {validating && <LoadingSpinner />}
+            {!validating && validation && (
+              <div className="space-y-3 mb-6">
+                <ImportRow label={labels.schema_version} value={validation.schemaVersion} />
+                <ImportRow label={labels.members_count} value={String(validation.members)} />
+                <ImportRow label={labels.subscriptions_count} value={String(validation.subscriptions)} />
+                <ImportRow label={labels.status} value={validation.isValid ? labels.valid + ' ✓' : labels.invalid + ' ✗'} color={validation.isValid ? 'text-success' : 'text-destructive'} />
+              </div>
+            )}
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => { setStep(1); setValidation(null); setError(''); }}>{labels.back}</Button>
+              {validation?.isValid && <Button onClick={() => setStep(3)}>{labels.continue}</Button>}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {step === 3 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{labels.execute_import}</CardTitle>
+            <CardDescription>{labels.execute_import_description}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!executing && !result && !showConfirm && (
+              <>
+                <Alert variant={"warning" as any}>
+                  <Terminal className="h-4 w-4" />
+                  <AlertTitle>{labels.warning_title}</AlertTitle>
+                  <AlertDescription>{labels.warning_replace_data}</AlertDescription>
+                </Alert>
+                <div className="flex gap-3 justify-end">
+                  <Button variant="outline" onClick={() => { setStep(2); setError(''); }}>{labels.back}</Button>
+                  <Button onClick={() => setShowConfirm(true)}>{labels.execute_import_button}</Button>
+                </div>
+              </>
+            )}
+
+            {showConfirm && (
+              <Alert variant="destructive">
+                <Terminal className="h-4 w-4" />
+                <AlertTitle>{labels.confirm_action}</AlertTitle>
+                <AlertDescription>{labels.confirm_replace_data}</AlertDescription>
+                <div className="flex gap-3 justify-end mt-4">
+                  <Button variant="outline" onClick={() => setShowConfirm(false)}>{labels.cancel}</Button>
+                  <Button variant="destructive" onClick={handleExecute}>{labels.yes_execute}</Button>
+                </div>
+              </Alert>
+            )}
+
+            {executing && <LoadingSpinner />}
+
+            {result && (
+              <div className="space-y-4">
+                {result.status === 'completed' ? (
+                  <Alert variant={"success" as any}>
+                    <Check className="h-4 w-4" />
+                    <AlertTitle>{labels.import_successful}</AlertTitle>
+                    <AlertDescription>
+                      {labels.import_successful_description}
+                      {result.result && (
+                        <pre className="mt-2 text-xs p-2 bg-secondary text-secondary-foreground overflow-auto max-h-48 border-2 border-[#2a2a2a]">
+                          {JSON.stringify(result.result as Record<string, unknown>, null, 2)}
+                        </pre>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <Alert variant="destructive">
+                    <Terminal className="h-4 w-4" />
+                    <AlertTitle>{labels.import_failed}</AlertTitle>
+                    <AlertDescription>
+                      {labels.import_failed_description}
+                      {result.result && (
+                        <pre className="mt-2 text-xs p-2 bg-secondary text-secondary-foreground overflow-auto max-h-48 border-2 border-[#2a2a2a]">
+                          {JSON.stringify(result.result as Record<string, unknown>, null, 2)}
+                        </pre>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                <Button onClick={() => { window.location.href = '/dashboard'; }} className="w-full">{labels.done}</Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

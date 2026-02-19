@@ -58,23 +58,25 @@ const navItems = [
     ),
   },
   {
+    key: 'income' as const,
+    href: '/dashboard/income',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" strokeLinejoin="miter">
+        <rect x="2" y="3" width="16" height="14" rx="0" />
+        <path d="M2 7h16" />
+        <path d="M10 10v4" />
+        <path d="M7 12v2" />
+        <path d="M13 11v3" />
+      </svg>
+    ),
+  },
+  {
     key: 'settings' as const,
     href: '/dashboard/settings',
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="10" cy="10" r="3" />
         <path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M4.2 15.8l1.4-1.4M14.4 5.6l1.4-1.4" />
-      </svg>
-    ),
-  },
-  {
-    key: 'import' as const,
-    href: '/dashboard/import',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" strokeLinejoin="miter">
-        <path d="M10 14V4" />
-        <path d="M6 8l4-4 4 4" />
-        <path d="M3 14v2a2 2 0 002 2h10a2 2 0 002-2v-2" />
       </svg>
     ),
   },
