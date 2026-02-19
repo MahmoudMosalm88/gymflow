@@ -76,6 +76,71 @@ export async function POST(request: NextRequest) {
       })
     );
 
+    const criticalFailureMessages: string[] = [];
+    if (replay.report.sourceRowCounts.members > 0 && replay.report.inserted.members === 0) {
+      criticalFailureMessages.push(
+        "No members were imported from a non-empty source file."
+      );
+    }
+    if (
+      replay.report.sourceRowCounts.subscriptions > 0 &&
+      replay.report.inserted.subscriptions === 0
+    ) {
+      criticalFailureMessages.push(
+        "No subscriptions were imported from a non-empty source file."
+      );
+    }
+
+    if (criticalFailureMessages.length > 0) {
+      await query(
+        `UPDATE import_artifacts
+            SET status = 'failed',
+                validation_report = $4::jsonb,
+                updated_at = NOW()
+          WHERE id = $1
+            AND organization_id = $2
+            AND branch_id = $3`,
+        [
+          artifactId,
+          auth.organizationId,
+          auth.branchId,
+          JSON.stringify({
+            importJobId: jobId,
+            error: criticalFailureMessages.join(" "),
+            report: replay.report
+          })
+        ]
+      );
+
+      await query(
+        `UPDATE migration_jobs
+            SET status = 'failed',
+                result = $4::jsonb,
+                finished_at = NOW()
+          WHERE id = $1
+            AND organization_id = $2
+            AND branch_id = $3`,
+        [
+          jobId,
+          auth.organizationId,
+          auth.branchId,
+          JSON.stringify({
+            artifactId,
+            preImportBackupId: preImportSnapshot.backupId,
+            preImportArtifactId: preImportSnapshot.artifactId,
+            error: criticalFailureMessages.join(" "),
+            report: replay.report
+          })
+        ]
+      );
+
+      return fail(
+        `Import failed: ${criticalFailureMessages.join(" ")}`,
+        409,
+        { report: replay.report }
+      );
+    }
+
     await query(
       `UPDATE import_artifacts
           SET status = 'imported',

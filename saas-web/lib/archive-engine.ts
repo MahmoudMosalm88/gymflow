@@ -268,6 +268,26 @@ function recordError(
   report.errors.push({ table, index, reason });
 }
 
+async function runWithSavepoint<T>(
+  client: PoolClient,
+  savepointName: string,
+  operation: () => Promise<T>
+): Promise<{ ok: true; value: T } | { ok: false; error: unknown }> {
+  await client.query(`SAVEPOINT ${savepointName}`);
+  try {
+    const value = await operation();
+    await client.query(`RELEASE SAVEPOINT ${savepointName}`);
+    return { ok: true, value };
+  } catch (error) {
+    try {
+      await client.query(`ROLLBACK TO SAVEPOINT ${savepointName}`);
+    } finally {
+      await client.query(`RELEASE SAVEPOINT ${savepointName}`);
+    }
+    return { ok: false, error };
+  }
+}
+
 export async function buildBranchArchive(
   client: PoolClient,
   organizationId: string,
@@ -336,6 +356,8 @@ export async function replaceBranchFromArchive(
 
   const now = new Date();
   const nowEpoch = Math.floor(now.getTime() / 1000);
+  let savepointCounter = 0;
+  const nextSavepoint = () => `import_row_${savepointCounter += 1}`;
 
   await clearBranchData(client, organizationId, branchId);
 
@@ -350,11 +372,12 @@ export async function replaceBranchFromArchive(
     }
 
     const sourceId = String(raw.id ?? `member-${i}`);
-    const mappedId = memberIdMap.get(sourceId) || ensureUuid(raw.id);
-    memberIdMap.set(sourceId, mappedId);
+    const mappedId =
+      memberIdMap.get(sourceId) ||
+      (mode === "desktop_import" ? uuidv4() : ensureUuid(raw.id));
 
-    try {
-      await client.query(
+    const insertResult = await runWithSavepoint(client, nextSavepoint(), () =>
+      client.query(
         `INSERT INTO members (
             id, organization_id, branch_id, name, phone, gender, photo_path,
             access_tier, card_code, address, created_at, updated_at, deleted_at
@@ -377,11 +400,16 @@ export async function replaceBranchFromArchive(
           toDate(raw.updated_at, now),
           toDateOrNull(raw.deleted_at)
         ]
-      );
-      report.inserted.members += 1;
-    } catch (error) {
-      recordError(report, "members", i, error);
+      )
+    );
+
+    if (!insertResult.ok) {
+      recordError(report, "members", i, insertResult.error);
+      continue;
     }
+
+    memberIdMap.set(sourceId, mappedId);
+    report.inserted.members += 1;
   }
 
   for (let i = 0; i < archive.tables.subscriptions.length; i += 1) {
@@ -403,8 +431,8 @@ export async function replaceBranchFromArchive(
     const candidateEnd = toEpochSeconds(raw.end_date, defaultEnd);
     const endDate = candidateEnd > startDate ? candidateEnd : defaultEnd;
 
-    try {
-      const inserted = await client.query<{ id: number }>(
+    const insertResult = await runWithSavepoint(client, nextSavepoint(), () =>
+      client.query<{ id: number }>(
         `INSERT INTO subscriptions (
             organization_id, branch_id, member_id, start_date, end_date,
             plan_months, price_paid, sessions_per_month, is_active, created_at
@@ -425,14 +453,17 @@ export async function replaceBranchFromArchive(
           toBoolean(raw.is_active, true),
           toDate(raw.created_at, now)
         ]
-      );
+      )
+    );
 
-      const sourceSubscriptionId = String(raw.id ?? `subscription-${i}`);
-      subscriptionIdMap.set(sourceSubscriptionId, inserted.rows[0].id);
-      report.inserted.subscriptions += 1;
-    } catch (error) {
-      recordError(report, "subscriptions", i, error);
+    if (!insertResult.ok) {
+      recordError(report, "subscriptions", i, insertResult.error);
+      continue;
     }
+
+    const sourceSubscriptionId = String(raw.id ?? `subscription-${i}`);
+    subscriptionIdMap.set(sourceSubscriptionId, insertResult.value.rows[0].id);
+    report.inserted.subscriptions += 1;
   }
 
   for (let i = 0; i < archive.tables.subscription_freezes.length; i += 1) {
@@ -453,8 +484,8 @@ export async function replaceBranchFromArchive(
       continue;
     }
 
-    try {
-      await client.query(
+    const insertResult = await runWithSavepoint(client, nextSavepoint(), () =>
+      client.query(
         `INSERT INTO subscription_freezes (
             organization_id, branch_id, subscription_id, start_date, end_date, days, created_at
          ) VALUES (
@@ -469,11 +500,15 @@ export async function replaceBranchFromArchive(
           Math.max(1, toInteger(raw.days, 1)),
           toDate(raw.created_at, now)
         ]
-      );
-      report.inserted.subscription_freezes += 1;
-    } catch (error) {
-      recordError(report, "subscription_freezes", i, error);
+      )
+    );
+
+    if (!insertResult.ok) {
+      recordError(report, "subscription_freezes", i, insertResult.error);
+      continue;
     }
+
+    report.inserted.subscription_freezes += 1;
   }
 
   for (let i = 0; i < archive.tables.quotas.length; i += 1) {
@@ -491,8 +526,8 @@ export async function replaceBranchFromArchive(
       continue;
     }
 
-    try {
-      await client.query(
+    const insertResult = await runWithSavepoint(client, nextSavepoint(), () =>
+      client.query(
         `INSERT INTO quotas (
             organization_id, branch_id, member_id, subscription_id,
             cycle_start, cycle_end, sessions_used, sessions_cap,
@@ -520,11 +555,15 @@ export async function replaceBranchFromArchive(
           toDate(raw.created_at, now),
           toDate(raw.updated_at, now)
         ]
-      );
-      report.inserted.quotas += 1;
-    } catch (error) {
-      recordError(report, "quotas", i, error);
+      )
+    );
+
+    if (!insertResult.ok) {
+      recordError(report, "quotas", i, insertResult.error);
+      continue;
     }
+
+    report.inserted.quotas += 1;
   }
 
   for (let i = 0; i < archive.tables.logs.length; i += 1) {
@@ -537,8 +576,8 @@ export async function replaceBranchFromArchive(
     const sourceMemberId = raw.member_id;
     const mappedMemberId = sourceMemberId ? memberIdMap.get(String(sourceMemberId)) || null : null;
 
-    try {
-      await client.query(
+    const insertResult = await runWithSavepoint(client, nextSavepoint(), () =>
+      client.query(
         `INSERT INTO logs (
             organization_id, branch_id, member_id, scanned_value,
             method, timestamp, status, reason_code, created_at
@@ -557,11 +596,15 @@ export async function replaceBranchFromArchive(
           String(raw.reason_code || "unknown"),
           toDate(raw.created_at, now)
         ]
-      );
-      report.inserted.logs += 1;
-    } catch (error) {
-      recordError(report, "logs", i, error);
+      )
+    );
+
+    if (!insertResult.ok) {
+      recordError(report, "logs", i, insertResult.error);
+      continue;
     }
+
+    report.inserted.logs += 1;
   }
 
   for (let i = 0; i < archive.tables.guest_passes.length; i += 1) {
@@ -577,8 +620,8 @@ export async function replaceBranchFromArchive(
       continue;
     }
 
-    try {
-      await client.query(
+    const insertResult = await runWithSavepoint(client, nextSavepoint(), () =>
+      client.query(
         `INSERT INTO guest_passes (
             id, organization_id, branch_id, code, member_name,
             phone, expires_at, used_at, created_at
@@ -597,11 +640,15 @@ export async function replaceBranchFromArchive(
           toDateOrNull(raw.used_at),
           toDate(raw.created_at, now)
         ]
-      );
-      report.inserted.guest_passes += 1;
-    } catch (error) {
-      recordError(report, "guest_passes", i, error);
+      )
+    );
+
+    if (!insertResult.ok) {
+      recordError(report, "guest_passes", i, insertResult.error);
+      continue;
     }
+
+    report.inserted.guest_passes += 1;
   }
 
   for (let i = 0; i < archive.tables.settings.length; i += 1) {
@@ -617,18 +664,22 @@ export async function replaceBranchFromArchive(
       continue;
     }
 
-    try {
-      await client.query(
+    const insertResult = await runWithSavepoint(client, nextSavepoint(), () =>
+      client.query(
         `INSERT INTO settings (organization_id, branch_id, key, value, updated_at)
          VALUES ($1, $2, $3, $4::jsonb, $5)
          ON CONFLICT (organization_id, branch_id, key)
          DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at`,
         [organizationId, branchId, key, JSON.stringify(parseJsonLike(raw.value)), toDate(raw.updated_at, now)]
-      );
-      report.inserted.settings += 1;
-    } catch (error) {
-      recordError(report, "settings", i, error);
+      )
+    );
+
+    if (!insertResult.ok) {
+      recordError(report, "settings", i, insertResult.error);
+      continue;
     }
+
+    report.inserted.settings += 1;
   }
 
   for (let i = 0; i < archive.tables.message_queue.length; i += 1) {
@@ -644,8 +695,8 @@ export async function replaceBranchFromArchive(
       continue;
     }
 
-    try {
-      await client.query(
+    const insertResult = await runWithSavepoint(client, nextSavepoint(), () =>
+      client.query(
         `INSERT INTO message_queue (
             id, organization_id, branch_id, member_id, type,
             payload, status, attempts, scheduled_at, sent_at,
@@ -669,11 +720,15 @@ export async function replaceBranchFromArchive(
           raw.last_error ? String(raw.last_error) : null,
           toDate(raw.created_at, now)
         ]
-      );
-      report.inserted.message_queue += 1;
-    } catch (error) {
-      recordError(report, "message_queue", i, error);
+      )
+    );
+
+    if (!insertResult.ok) {
+      recordError(report, "message_queue", i, insertResult.error);
+      continue;
     }
+
+    report.inserted.message_queue += 1;
   }
 
   report.memberMappings = memberIdMap.size;
