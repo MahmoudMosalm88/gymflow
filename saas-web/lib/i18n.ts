@@ -137,6 +137,8 @@ export const t = {
     updated_at: "Updated",
     add_new: "Add New",
     no_subscriptions_found: "No subscriptions found.",
+    attendance_history: "Attendance History",
+    no_attendance_records: "No attendance records found.",
     subscription: "Subscription",
     pending: "Pending",
     // Edit member page
@@ -296,6 +298,22 @@ export const t = {
     vs_prev_month: "vs Previous Month",
     day_payments: "Payments on",
     no_payments_this_day: "No payments on this day.",
+    // Profile photo
+    change_photo: "Change photo",
+    uploading_photo: "Uploading photo...",
+    photo_updated: "Photo updated.",
+    // Subscription freeze
+    freeze_subscription: "Freeze",
+    freeze_days: "Freeze days",
+    freeze_start: "Start date",
+    freeze_end: "End date",
+    freeze_confirm: "Confirm Freeze",
+    frozen: "Frozen",
+    subscription_frozen: "Subscription is currently frozen.",
+    freeze_history: "Freeze History",
+    no_freezes: "No freezes.",
+    max_freeze_days: "max 7 days",
+    scan_reason_subscription_frozen: "This subscription is currently frozen.",
   },
   ar: {
     dashboard: "لوحة التحكم",
@@ -416,6 +434,8 @@ export const t = {
     updated_at: "آخر تحديث",
     add_new: "إضافة جديد",
     no_subscriptions_found: "لم يتم العثور على اشتراكات.",
+    attendance_history: "سجل الحضور",
+    no_attendance_records: "لا توجد سجلات حضور.",
     subscription: "اشتراك",
     pending: "معلّق",
     // Edit member page
@@ -575,5 +595,21 @@ export const t = {
     vs_prev_month: "مقارنة بالشهر السابق",
     day_payments: "مدفوعات يوم",
     no_payments_this_day: "لا مدفوعات في هذا اليوم.",
+    // Profile photo
+    change_photo: "تغيير الصورة",
+    uploading_photo: "جاري رفع الصورة...",
+    photo_updated: "تم تحديث الصورة.",
+    // Subscription freeze
+    freeze_subscription: "تجميد",
+    freeze_days: "عدد أيام التجميد",
+    freeze_start: "تاريخ البداية",
+    freeze_end: "تاريخ الانتهاء",
+    freeze_confirm: "تأكيد التجميد",
+    frozen: "مجمّد",
+    subscription_frozen: "الاشتراك مجمّد حالياً.",
+    freeze_history: "سجل التجميد",
+    no_freezes: "لا يوجد تجميد.",
+    max_freeze_days: "الحد الأقصى ٧ أيام",
+    scan_reason_subscription_frozen: "هذا الاشتراك مجمّد حالياً.",
   }
 } as const;

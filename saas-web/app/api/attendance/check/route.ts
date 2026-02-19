@@ -185,6 +185,24 @@ export async function POST(request: NextRequest) {
 
     const subscription = subscriptionRows[0];
 
+    // Check if subscription is currently frozen
+    const frozenRows = await query<{ id: number }>(
+      `SELECT id FROM subscription_freezes
+       WHERE subscription_id = $1 AND organization_id = $2 AND branch_id = $3
+         AND start_date <= $4 AND end_date > $4
+       LIMIT 1`,
+      [subscription.id, auth.organizationId, auth.branchId, checkTime]
+    );
+
+    if (frozenRows[0]) {
+      await query(
+        `INSERT INTO logs (organization_id, branch_id, member_id, scanned_value, method, timestamp, status, reason_code, operation_id, source, client_device_id, offline_recorded_at)
+         VALUES ($1, $2, $3, $4, $5, $6, 'failure', 'subscription_frozen', $7, $8, $9, $10)`,
+        [auth.organizationId, auth.branchId, member.id, scannedValue, payload.method, now, operationId, source, deviceId, offlineRecordedAt]
+      );
+      return ok({ success: false, reason: "subscription_frozen" });
+    }
+
     const { cycleStart, cycleEnd } = getMonthlyCycleWindow({
       subscriptionStart: subscription.start_date,
       subscriptionEnd: subscription.end_date,
