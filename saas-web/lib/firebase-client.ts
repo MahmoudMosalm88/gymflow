@@ -2,9 +2,10 @@
 
 import { FirebaseApp, FirebaseOptions, getApp, getApps, initializeApp } from "firebase/app";
 import { Auth, browserLocalPersistence, getAuth, inMemoryPersistence, setPersistence } from "firebase/auth";
+import { FirebaseStorage, getStorage } from "firebase/storage";
 
 export type FirebaseClientConfig = Pick<FirebaseOptions, "apiKey" | "authDomain" | "projectId"> &
-  Partial<Pick<FirebaseOptions, "appId" | "messagingSenderId">>;
+  Partial<Pick<FirebaseOptions, "appId" | "messagingSenderId" | "storageBucket">>;
 
 let firebaseApp: FirebaseApp | null = null;
 let firebaseAuthPromise: Promise<Auth> | null = null;
@@ -34,8 +35,14 @@ export async function getFirebaseClientAuth(config: FirebaseClientConfig) {
     firebaseAuthPromise = (async () => {
       const app = getOrInitApp(config);
       const auth = getAuth(app);
+      const host = typeof window !== "undefined" ? window.location.hostname : "";
       try {
-        await setPersistence(auth, browserLocalPersistence);
+        if (host === "localhost" || host === "127.0.0.1") {
+          // IndexedDB can be unstable in dev hot-reload/privacy contexts.
+          await setPersistence(auth, inMemoryPersistence);
+        } else {
+          await setPersistence(auth, browserLocalPersistence);
+        }
       } catch {
         // Some environments block local persistence (strict privacy modes, embedded browsers).
         await setPersistence(auth, inMemoryPersistence);
@@ -49,4 +56,13 @@ export async function getFirebaseClientAuth(config: FirebaseClientConfig) {
     firebaseAuthPromise = null;
     throw error;
   }
+}
+
+let firebaseStorage: FirebaseStorage | null = null;
+
+export function getFirebaseClientStorage(config: FirebaseClientConfig): FirebaseStorage {
+  if (firebaseStorage) return firebaseStorage;
+  const app = getOrInitApp(config);
+  firebaseStorage = getStorage(app);
+  return firebaseStorage;
 }

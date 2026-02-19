@@ -66,6 +66,7 @@ export function getFirebaseWebConfig() {
     authDomain: env.FIREBASE_AUTH_DOMAIN!,
     projectId: env.FIREBASE_PROJECT_ID,
     appId: env.FIREBASE_APP_ID || undefined,
-    messagingSenderId: env.FIREBASE_MESSAGING_SENDER_ID || undefined
+    messagingSenderId: env.FIREBASE_MESSAGING_SENDER_ID || undefined,
+    storageBucket: env.FIREBASE_PROJECT_ID ? `${env.FIREBASE_PROJECT_ID}.firebasestorage.app` : undefined
   };
 }
