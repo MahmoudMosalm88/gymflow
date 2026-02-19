@@ -18,6 +18,10 @@ steps:
       - push
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/gymflow-web:$COMMIT_SHA
 
+  # NOTE: this step is intentionally non-fatal (|| true).
+  # The runner image has no scripts/ or tsx — both are excluded from production.
+  # Cloud SQL unix socket is also unavailable inside `docker run` in Cloud Build.
+  # Run migrations manually: node --import tsx scripts/migrate.ts (with Cloud SQL proxy active).
   - id: Migrate
     name: gcr.io/cloud-builders/docker
     entrypoint: sh
@@ -27,7 +31,7 @@ steps:
         docker run --rm \
           -e DATABASE_URL="$$DATABASE_URL" \
           ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/gymflow-web:$COMMIT_SHA \
-          node --import tsx --no-warnings /app/scripts/migrate.ts
+          node --import tsx --no-warnings /app/scripts/migrate.ts || true
     secretEnv: ['DATABASE_URL']
 
   - id: Deploy
