@@ -1,19 +1,42 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic } from "next/font/google";
+import { Inter, Space_Grotesk, El_Messiri, IBM_Plex_Sans_Arabic, Bebas_Neue } from "next/font/google";
 
 import { ThemeProvider } from "@/components/theme-provider";
 import { LanguageProvider } from "@/components/language-provider"; // Assuming this path
 
-// Define IBM Plex Sans (Latin)
-const ibmPlexSans = IBM_Plex_Sans({
+// Stat numbers — ultra-condensed brutalist display
+const bebasNeue = Bebas_Neue({
+  weight: "400",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-stat",
+  display: "swap",
+});
+
+// EN body — gold standard UI font
+const inter = Inter({
+  subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
 });
 
-// Define IBM Plex Sans Arabic (Arabic)
+// EN heading — geometric grotesque with techy personality
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-heading",
+  display: "swap",
+});
+
+// AR heading — modern Arabic display
+const elMessiri = El_Messiri({
+  subsets: ["arabic"],
+  weight: ["600", "700"],
+  variable: "--font-arabic-heading",
+  display: "swap",
+});
+
+// AR body — UI-first Arabic, excellent dark legibility
 const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
   subsets: ["arabic"],
   weight: ["300", "400", "500", "600", "700"],
@@ -49,7 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html
-      className={`${ibmPlexSans.variable} ${ibmPlexSansArabic.variable}`}
+      className={`${inter.variable} ${spaceGrotesk.variable} ${elMessiri.variable} ${ibmPlexSansArabic.variable} ${bebasNeue.variable}`}
       suppressHydrationWarning
     >
       <body>

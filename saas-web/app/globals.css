@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
 :root {
   --background: 0 0% 8%;             /* #141414 dark charcoal */
   --foreground: 30 6% 90%;           /* #e8e4df warm off-white */
@@ -54,6 +59,30 @@ body {
   @apply font-sans;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
+}
+
+/* ── Typography hierarchy ── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+/* Arabic overrides — triggered when dashboard wrapper sets dir="rtl" */
+[dir="rtl"] {
+  font-family: var(--font-arabic);
+  line-height: 1.7;
+}
+
+[dir="rtl"] h1,
+[dir="rtl"] h2,
+[dir="rtl"] h3,
+[dir="rtl"] h4,
+[dir="rtl"] h5,
+[dir="rtl"] h6 {
+  font-family: var(--font-arabic-heading);
+  letter-spacing: 0;
+  line-height: 1.4;
 }
 
 *,

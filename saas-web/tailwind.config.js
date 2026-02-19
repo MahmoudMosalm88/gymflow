@@ -82,13 +82,28 @@ module.exports = {
   		fontFamily: {
   			sans: [
   				'var(--font-sans)',
-  				'IBM Plex Sans',
+  				'Inter',
+  				'sans-serif'
+  			],
+  			heading: [
+  				'var(--font-heading)',
+  				'Space Grotesk',
+  				'sans-serif'
+  			],
+  			stat: [
+  				'var(--font-stat)',
+  				'Bebas Neue',
   				'sans-serif'
   			],
   			arabic: [
   				'var(--font-arabic)',
   				'IBM Plex Sans Arabic',
   				'sans-serif'
+  			],
+  			'arabic-heading': [
+  				'var(--font-arabic-heading)',
+  				'El Messiri',
+  				'serif'
   			]
   		},
   		keyframes: {

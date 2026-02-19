@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/use-auth';
 import { LangContext, Lang } from '@/lib/i18n';
+import { api } from '@/lib/api-client';
 import Sidebar from '@/components/dashboard/Sidebar';
 import Header from '@/components/dashboard/Header';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
@@ -23,6 +24,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (saved === 'en' || saved === 'ar') setLangState(saved);
   }, []);
 
+  // Sync dashboard language with server-side settings so backend automations
+  // can use the same system language.
+  useEffect(() => {
+    if (loading) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await api.get<Record<string, unknown>>('/api/settings');
+        if (!res.success || !res.data || cancelled) return;
+        const systemLanguage = res.data.system_language;
+        if (systemLanguage === 'en' || systemLanguage === 'ar') {
+          setLangState(systemLanguage);
+          localStorage.setItem('dashboard_lang', systemLanguage);
+        }
+      } catch {
+        // Ignore sync failures; local language still works.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading]);
+
   // Offline bundle refresh + sync manager
   useEffect(() => {
     if (navigator.onLine) fetchAndStoreBundle();
@@ -34,7 +60,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const setLang = (l: Lang) => {
     setLangState(l);
     localStorage.setItem('dashboard_lang', l);
+    api.put('/api/settings', { values: { system_language: l } }).catch(() => {
+      // Ignore server-sync failures for language toggle UX.
+    });
   };
+
+  // Bump root font size + switch body font for Arabic
+  useEffect(() => {
+    document.documentElement.style.fontSize = lang === 'ar' ? '18px' : '16px';
+    document.body.style.fontFamily = lang === 'ar' ? 'var(--font-arabic)' : 'var(--font-sans)';
+    return () => {
+      document.documentElement.style.fontSize = '';
+      document.body.style.fontFamily = '';
+    };
+  }, [lang]);
 
   // Show spinner while auth is loading
   if (loading) {
@@ -55,7 +94,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex flex-1 flex-col overflow-hidden">
           <Header onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
           <InstallPrompt />
-          <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 no-scrollbar">{children}</main>
         </div>
       </div>
     </LangContext.Provider>
