@@ -425,8 +425,9 @@ export default function LoginPage() {
     const candidate = unwrapData(payload);
     if (!isFirebaseClientConfig(candidate)) throw new Error("Firebase auth configuration is incomplete.");
     const auth = await getFirebaseClientAuth(candidate as FirebaseClientConfig);
-    const host = window.location.hostname;
-    auth.settings.appVerificationDisabledForTesting = host === "localhost" || host === "127.0.0.1";
+    // Always use real app verification for real phone numbers.
+    // Firebase test-mode is only for fictional test numbers.
+    auth.settings.appVerificationDisabledForTesting = false;
     authRef.current = auth;
     return auth;
   }
