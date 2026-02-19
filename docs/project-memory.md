@@ -402,6 +402,36 @@ Commit `e17aadd`: Desktop app converted to full dark premium palette.
 
 ---
 
+### 2026-02-19 (WhatsApp automation) — Language-safe templates
+
+#### Problem
+- Arabic branches could still fall back to legacy single-template keys and accidentally send English WhatsApp messages.
+
+#### Fixes shipped in code
+- Added centralized language-aware template helpers in:
+  - `saas-web/lib/whatsapp-automation.ts`
+  - language defaults for EN/AR, key helper (`whatsapp_template_<type>_<lang>`), and language normalization.
+- Welcome queue generation now uses system language in:
+  - `saas-web/app/api/members/route.ts`
+  - selection order is language key first, and Arabic mode no longer falls back to legacy English key.
+- Renewal scheduler now uses system language in:
+  - `saas-web/worker/whatsapp-vm/src/index.ts`
+  - Arabic mode uses Arabic key/default only (no EN legacy fallback).
+- Settings WhatsApp template editor now works per current dashboard language in:
+  - `saas-web/app/dashboard/settings/page.tsx`
+  - reads/saves `*_en` or `*_ar` keys based on active language.
+  - legacy keys are only updated from EN mode for old-client compatibility.
+- Dashboard language toggle now syncs backend `system_language` in:
+  - `saas-web/app/dashboard/layout.tsx`
+  - keeps frontend language and backend automation language aligned.
+
+#### Validation
+- `cd saas-web && npm run typecheck` ✅
+- `cd saas-web && npm run build` ✅
+- `cd saas-web/worker/whatsapp-vm && npx tsc src/index.ts --module nodenext --moduleResolution nodenext --target es2022 --outDir dist` ✅
+
+---
+
 ## Current State (Feb 19, 2026)
 
 ### What works
