@@ -370,6 +370,38 @@ Commit `e17aadd`: Desktop app converted to full dark premium palette.
 
 ---
 
+### 2026-02-19 (live hardening) — Reports + Settings production fixes
+
+#### Root-cause found from live logs
+- Some live clients were still requesting removed reports endpoints (stale frontend bundles / cached sessions):
+  - `/api/reports/member-attendance-trends`
+  - `/api/reports/detailed-revenue-breakdown`
+  - `/api/reports/outstanding-payments-debtors`
+  - `/api/reports/peak-hours-capacity-utilization`
+- This produced `404 Unsupported report` errors in Reports for affected users.
+
+#### Fixes shipped
+- Added legacy endpoint compatibility in `saas-web/app/api/reports/[report]/route.ts`:
+  - `member-attendance-trends` (date + visits series)
+  - `detailed-revenue-breakdown` (source + amount payload)
+  - `outstanding-payments-debtors` (renewal-due approximation payload)
+  - `peak-hours-capacity-utilization` (hour + visits payload)
+- Fixed backup history date rendering bug (`Invalid Date`) by returning epoch seconds from:
+  - `saas-web/app/api/backup/history/route.ts`
+  - SQL change: `EXTRACT(EPOCH FROM b.created_at)::bigint AS created_at`
+
+#### Deployment + validation
+- Commits:
+  - `06abb95` — reports legacy compatibility
+  - `f65686e` — backup history timestamp fix
+- Deployed to Cloud Run service `gymflow-web-app` (region `europe-west1`), revision serving new image tag from `f65686e`.
+- Verified live with Playwright:
+  - reports buttons in current UI all load without unsupported-report errors
+  - legacy reports endpoints now return `200` (for stale clients)
+  - backup creation works; history timestamps are now parseable by frontend formatters
+
+---
+
 ## Current State (Feb 19, 2026)
 
 ### What works
