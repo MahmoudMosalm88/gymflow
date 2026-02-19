@@ -6,6 +6,7 @@ import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatCurrencyCompact } from '@/lib/format';
 import { offlineCheckIn } from '@/lib/offline/check-in-engine';
+import { useScanContext } from '@/lib/scan-context';
 import StatCard from '@/components/dashboard/StatCard';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 
@@ -48,6 +49,7 @@ export default function DashboardPage() {
     already_checked_in_today: labels.scan_reason_already_checked_in_today,
     no_active_subscription: labels.scan_reason_no_active_subscription,
     quota_exceeded: labels.scan_reason_quota_exceeded,
+    subscription_frozen: labels.scan_reason_subscription_frozen,
   };
 
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -60,6 +62,9 @@ export default function DashboardPage() {
 
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
+
+  // Sync with global scanner context
+  const { lastScan, setScan } = useScanContext();
 
   // Fetch overview on mount
   useEffect(() => {
@@ -91,11 +96,20 @@ export default function DashboardPage() {
         method: 'scan',
       });
       const payload = res.data ?? { success: false, reason: labels.error };
-      setScanResult({
+      const resolvedResult = {
         ...payload,
         reason: payload.success
           ? payload.reason
           : (payload.reason ? (reasonLabels[payload.reason] ?? payload.reason) : labels.error),
+      };
+      setScanResult(resolvedResult);
+      // Sync manual scan to global context
+      setScan({
+        success: resolvedResult.success,
+        memberName: resolvedResult.memberName,
+        sessionsRemaining: resolvedResult.sessionsRemaining,
+        reason: resolvedResult.reason,
+        timestamp: Date.now(),
       });
     } catch {
       try {
@@ -119,6 +133,20 @@ export default function DashboardPage() {
       refreshActivity();
     }
   };
+
+  // When a global scan happens (from any page), update hero zone + activity
+  const lastScanTimestampRef = useRef(0);
+  useEffect(() => {
+    if (!lastScan || lastScan.timestamp === lastScanTimestampRef.current) return;
+    lastScanTimestampRef.current = lastScan.timestamp;
+    setScanResult({
+      success: lastScan.success,
+      memberName: lastScan.memberName,
+      sessionsRemaining: lastScan.sessionsRemaining,
+      reason: lastScan.reason,
+    });
+    refreshActivity();
+  }, [lastScan, refreshActivity]);
 
   useEffect(() => { inputRef.current?.focus(); }, [scanning]);
 
