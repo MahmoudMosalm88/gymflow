@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatDate } from '@/lib/format';
-import LoadingSpinner from '@/components/dashboard/LoadingSpinner'; // Keeping existing LoadingSpinner for now
+import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+import AddMemberModal from '@/components/dashboard/AddMemberModal';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,8 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { DotsHorizontalIcon } from '@radix-ui/react-icons'; // For the actions menu icon
-import { cn } from '@/lib/utils'; // cn helper from shadcn/ui
+import { DotsHorizontalIcon } from '@radix-ui/react-icons';
 
 type Member = {
   id: string;
@@ -43,6 +43,7 @@ type Member = {
   gender: 'male' | 'female';
   card_code?: string;
   created_at: number;
+  sub_status: 'active' | 'expired' | 'no_sub';
 };
 
 export default function MembersPage() {
@@ -53,6 +54,9 @@ export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
+  // Add member modal state
+  const [addOpen, setAddOpen] = useState(false);
 
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
@@ -89,7 +93,6 @@ export default function MembersPage() {
     setDeleting(true);
     try {
       await api.delete('/api/members', { id: deleteTarget.id });
-      // Remove from local list so the table updates instantly
       setMembers((prev) => prev.filter((m) => m.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch {
@@ -99,23 +102,23 @@ export default function MembersPage() {
     }
   };
 
-  // Table column definitions for rendering
+  // Column definitions
   const columns = [
-    { key: 'name', label: labels.name, className: 'w-[150px]' },
-    { key: 'phone', label: labels.phone, className: 'hidden sm:table-cell' },
-    { key: 'gender', label: labels.gender, className: 'hidden md:table-cell' },
-    { key: 'card_code', label: labels.card_code, className: 'hidden lg:table-cell' },
-    { key: 'created_at', label: labels.date, className: 'hidden lg:table-cell' },
-    { key: '_actions', label: labels.actions, className: 'w-[50px] text-right' },
+    { key: 'name',       label: labels.name,     className: 'w-[150px]' },
+    { key: 'sub_status', label: labels.status,   className: '' },
+    { key: 'phone',      label: labels.phone,    className: 'hidden sm:table-cell' },
+    { key: 'gender',     label: labels.gender,   className: 'hidden md:table-cell' },
+    { key: 'card_code',  label: labels.card_code, className: 'hidden lg:table-cell' },
+    { key: 'created_at', label: labels.date,     className: 'hidden lg:table-cell' },
+    { key: '_actions',   label: labels.actions,  className: 'w-[50px] text-right' },
   ];
-
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
       {/* Header row: title + add button */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-3xl font-bold">{labels.members}</h1>
-        <Button onClick={() => router.push('/dashboard/members/new')} className="text-base">
+        <Button onClick={() => setAddOpen(true)} className="text-base">
           + {labels.add_member}
         </Button>
       </div>
@@ -147,14 +150,35 @@ export default function MembersPage() {
             <TableBody>
               {members.length > 0 ? (
                 members.map((member) => (
-                  <TableRow key={member.id} onClick={() => router.push(`/dashboard/members/${member.id}`)} className="cursor-pointer">
+                  <TableRow
+                    key={member.id}
+                    onClick={() => router.push(`/dashboard/members/${member.id}`)}
+                    className="cursor-pointer"
+                  >
                     <TableCell className="font-medium">{member.name}</TableCell>
+                    <TableCell>
+                      <span className={`text-xs font-semibold px-2 py-0.5 border ${
+                        member.sub_status === 'active'
+                          ? 'border-[#2a5c3a] text-[#4ade80] bg-[#0d2b1a]'
+                          : member.sub_status === 'expired'
+                          ? 'border-[#5c2a2a] text-[#e63946] bg-[#2b0d0d]'
+                          : 'border-[#2a2a2a] text-[#8a8578] bg-transparent'
+                      }`}>
+                        {member.sub_status === 'active'
+                          ? labels.active
+                          : member.sub_status === 'expired'
+                          ? labels.expired
+                          : labels.no_sub}
+                      </span>
+                    </TableCell>
                     <TableCell className="hidden sm:table-cell">{member.phone}</TableCell>
                     <TableCell className="hidden md:table-cell">
                       {member.gender === 'male' ? labels.male : labels.female}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">{member.card_code}</TableCell>
-                    <TableCell className="hidden lg:table-cell">{formatDate(member.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')}</TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      {formatDate(member.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')}
+                    </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                         <DropdownMenuTrigger asChild>
@@ -201,6 +225,13 @@ export default function MembersPage() {
         </div>
       )}
 
+      {/* Add member modal */}
+      <AddMemberModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onSuccess={() => fetchMembers(search || undefined)}
+      />
+
       {/* Delete confirmation dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <DialogContent>
@@ -221,4 +252,3 @@ export default function MembersPage() {
     </div>
   );
 }
-

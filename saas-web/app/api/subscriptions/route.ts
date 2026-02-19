@@ -3,6 +3,7 @@ import { query, withTransaction } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { subscriptionPatchSchema, subscriptionSchema } from "@/lib/validation";
+import { calculateSubscriptionEndDateUnix } from "@/lib/subscription-dates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,6 +35,13 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
     const payload = subscriptionSchema.parse(await request.json());
+    const hasLegacyEndDate =
+      typeof payload.end_date === "number" &&
+      Number.isFinite(payload.end_date) &&
+      payload.end_date > payload.start_date;
+    const endDate = hasLegacyEndDate
+      ? payload.end_date
+      : calculateSubscriptionEndDateUnix(payload.start_date, payload.plan_months);
 
     const output = await withTransaction(async (client) => {
       await client.query(
@@ -60,7 +68,7 @@ export async function POST(request: NextRequest) {
           auth.branchId,
           payload.member_id,
           payload.start_date,
-          payload.end_date,
+          endDate,
           payload.plan_months,
           payload.price_paid || null,
           payload.sessions_per_month || null

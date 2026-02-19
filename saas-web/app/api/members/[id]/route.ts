@@ -5,6 +5,25 @@ import { fail, ok, routeError } from "@/lib/http";
 import { memberSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const auth = await requireAuth(request);
+    const rows = await query(
+      `SELECT * FROM members
+        WHERE id = $1
+          AND organization_id = $2
+          AND branch_id = $3
+          AND deleted_at IS NULL`,
+      [params.id, auth.organizationId, auth.branchId]
+    );
+    if (!rows[0]) return fail("Member not found", 404);
+    return ok(rows[0]);
+  } catch (error) {
+    return routeError(error);
+  }
+}
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
