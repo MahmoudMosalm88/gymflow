@@ -17,6 +17,8 @@ export default function BlogListingPage() {
   const arPosts = posts.filter((p) => p.lang === "ar");
 
   return (
+    <>
+    <style dangerouslySetInnerHTML={{ __html: `.blog-card:hover { border-color: #e63946 !important; box-shadow: 4px 4px 0 #e63946; transform: translate(-2px,-2px); }` }} />
     <main
       style={{
         minHeight: "100vh",
@@ -74,6 +76,7 @@ export default function BlogListingPage() {
                 <a
                   key={post.slug}
                   href={`/blog/${post.slug}`}
+                  className="blog-card"
                   style={{
                     display: "block",
                     background: "#141414",
@@ -83,16 +86,7 @@ export default function BlogListingPage() {
                     color: "inherit",
                     transition: "border-color 0.15s, box-shadow 0.15s, transform 0.15s",
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = "#e63946";
-                    e.currentTarget.style.boxShadow = "4px 4px 0 #e63946";
-                    e.currentTarget.style.transform = "translate(-2px,-2px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "#2a2a2a";
-                    e.currentTarget.style.boxShadow = "none";
-                    e.currentTarget.style.transform = "none";
-                  }}
+
                 >
                   <span
                     style={{
@@ -142,6 +136,7 @@ export default function BlogListingPage() {
                 <a
                   key={post.slug}
                   href={`/blog/${post.slug}`}
+                  className="blog-card"
                   style={{
                     display: "block",
                     background: "#141414",
@@ -181,5 +176,6 @@ export default function BlogListingPage() {
         )}
       </div>
     </main>
+    </>
   );
 }
