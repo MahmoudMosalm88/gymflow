@@ -3,7 +3,7 @@
 // URL pattern: /features/[slug]
 
 import { Metadata } from "next";
-import Link from "next/link";
+
 import { notFound } from "next/navigation";
 import {
   getAllFeatures,
@@ -120,16 +120,16 @@ export default function FeaturePage({
 
         {/* ── Breadcrumb ── */}
         <div style={{ marginBottom: "2rem", fontSize: "0.875rem" }}>
-          <Link href="/" style={{ color: "#888", textDecoration: "none" }}>
+          <a href="/" style={{ color: "#888", textDecoration: "none" }}>
             GymFlow
-          </Link>
+          </a>
           <span style={{ color: "#444", margin: "0 0.5rem" }}>/</span>
-          <Link
+          <a
             href="/features"
             style={{ color: "#888", textDecoration: "none" }}
           >
             Features
-          </Link>
+          </a>
           <span style={{ color: "#444", margin: "0 0.5rem" }}>/</span>
           <span style={{ color: "#e63946" }}>{feature.titleEn}</span>
         </div>
@@ -175,7 +175,7 @@ export default function FeaturePage({
           </p>
 
           {/* Primary CTA */}
-          <Link
+          <a
             href="/login?mode=register"
             style={{
               display: "inline-flex",
@@ -192,7 +192,7 @@ export default function FeaturePage({
             }}
           >
             Start free →
-          </Link>
+          </a>
         </section>
 
         {/* ── Description ── */}
@@ -424,7 +424,7 @@ export default function FeaturePage({
               style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
             >
               {related.map((rf) => (
-                <Link
+                <a
                   key={rf.slug}
                   href={`/features/${rf.slug}`}
                   style={{
@@ -448,7 +448,7 @@ export default function FeaturePage({
                   >
                     {rf.heroEn}
                   </p>
-                </Link>
+                </a>
               ))}
             </div>
           </section>
@@ -479,7 +479,7 @@ export default function FeaturePage({
             Start free — no credit card required. Setup in 10 minutes.
           </p>
           <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
-            <Link
+            <a
               href="/login?mode=register"
               style={{
                 display: "inline-flex",
@@ -493,8 +493,8 @@ export default function FeaturePage({
               }}
             >
               Start free →
-            </Link>
-            <Link
+            </a>
+            <a
               href="/features"
               style={{
                 display: "inline-flex",
@@ -507,7 +507,7 @@ export default function FeaturePage({
               }}
             >
               All features
-            </Link>
+            </a>
           </div>
         </div>
 

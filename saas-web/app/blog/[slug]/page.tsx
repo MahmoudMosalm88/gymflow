@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import Link from "next/link";
+
 import { notFound } from "next/navigation";
 import { getAllPosts, getPostBySlug } from "@/lib/blog/registry";
 import type { Section, BlogPost } from "@/lib/blog/types";
@@ -140,7 +140,7 @@ function RenderSection({ section }: { section: Section }) {
     case "cta":
       return (
         <div style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}>
-          <Link
+          <a
             href={section.href}
             style={{
               display: "inline-flex",
@@ -157,7 +157,7 @@ function RenderSection({ section }: { section: Section }) {
             }}
           >
             {section.text} →
-          </Link>
+          </a>
         </div>
       );
 
@@ -239,13 +239,13 @@ export default function BlogPostPage({
       <article style={{ maxWidth: 720, margin: "0 auto" }}>
         {/* Breadcrumb */}
         <div style={{ marginBottom: "2rem", fontSize: "0.875rem" }}>
-          <Link href="/" style={{ color: "#888", textDecoration: "none" }}>
+          <a href="/" style={{ color: "#888", textDecoration: "none" }}>
             GymFlow
-          </Link>
+          </a>
           <span style={{ color: "#444", margin: "0 0.5rem" }}>/</span>
-          <Link href="/blog" style={{ color: "#888", textDecoration: "none" }}>
+          <a href="/blog" style={{ color: "#888", textDecoration: "none" }}>
             Blog
-          </Link>
+          </a>
           <span style={{ color: "#444", margin: "0 0.5rem" }}>/</span>
           <span style={{ color: "#e63946" }}>{post.category}</span>
         </div>
@@ -340,7 +340,7 @@ export default function BlogPostPage({
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               {relatedPosts.map((rp) => (
-                <Link
+                <a
                   key={rp.slug}
                   href={`/blog/${rp.slug}`}
                   style={{
@@ -356,7 +356,7 @@ export default function BlogPostPage({
                   <p style={{ color: "#888", fontSize: "0.85rem", margin: "0.25rem 0 0" }}>
                     {rp.description}
                   </p>
-                </Link>
+                </a>
               ))}
             </div>
           </div>
@@ -380,7 +380,7 @@ export default function BlogPostPage({
               ? "ابدأ مجاناً بدون بطاقة ائتمانية. الإعداد في 10 دقائق."
               : "Start free — no credit card required. Setup in 10 minutes."}
           </p>
-          <Link
+          <a
             href="/login?mode=register"
             style={{
               display: "inline-flex",
@@ -394,7 +394,7 @@ export default function BlogPostPage({
             }}
           >
             {isAr ? "ابدأ مجاناً" : "Start free"} →
-          </Link>
+          </a>
         </div>
       </article>
     </main>

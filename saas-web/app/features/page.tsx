@@ -2,7 +2,7 @@
 // URL: /features
 
 import { Metadata } from "next";
-import Link from "next/link";
+
 import { getAllFeatures } from "@/lib/features-data";
 
 export const metadata: Metadata = {
@@ -33,12 +33,12 @@ export default function FeaturesIndexPage() {
 
         {/* ── Header ── */}
         <div style={{ marginBottom: "3rem" }}>
-          <Link
+          <a
             href="/"
             style={{ color: "#888", textDecoration: "none", fontSize: "0.875rem" }}
           >
             &larr; GymFlow
-          </Link>
+          </a>
 
           {/* Section label */}
           <div
@@ -87,7 +87,7 @@ export default function FeaturesIndexPage() {
           }}
         >
           {features.map((feature) => (
-            <Link
+            <a
               key={feature.slug}
               href={`/features/${feature.slug}`}
               style={{
@@ -140,7 +140,7 @@ export default function FeaturesIndexPage() {
               >
                 Learn more →
               </span>
-            </Link>
+            </a>
           ))}
         </div>
 
@@ -173,7 +173,7 @@ export default function FeaturesIndexPage() {
           >
             Start free — no credit card required. Setup takes 10 minutes.
           </p>
-          <Link
+          <a
             href="/login?mode=register"
             style={{
               display: "inline-flex",
@@ -187,7 +187,7 @@ export default function FeaturesIndexPage() {
             }}
           >
             Start free →
-          </Link>
+          </a>
         </div>
 
       </div>

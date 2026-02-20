@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import Link from "next/link";
+
 import { solutions } from "@/lib/solutions-data";
 
 export const metadata: Metadata = {
@@ -20,12 +20,12 @@ export default function SolutionsIndexPage() {
       }}
     >
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
-        <Link
+        <a
           href="/"
           style={{ color: "#888", textDecoration: "none", fontSize: "0.875rem" }}
         >
           &larr; GymFlow
-        </Link>
+        </a>
         <h1
           style={{
             fontSize: "clamp(2rem, 4vw, 3rem)",
@@ -48,7 +48,7 @@ export default function SolutionsIndexPage() {
           }}
         >
           {solutions.map((s) => (
-            <Link
+            <a
               key={s.slug}
               href={`/solutions/${s.slug}`}
               style={{
@@ -81,7 +81,7 @@ export default function SolutionsIndexPage() {
               >
                 {s.descriptionEn}
               </p>
-            </Link>
+            </a>
           ))}
         </div>
       </div>

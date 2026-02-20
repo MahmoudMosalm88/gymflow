@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import Link from "next/link";
+
 import { notFound } from "next/navigation";
 import { solutions, getSolutionBySlug } from "@/lib/solutions-data";
 
@@ -66,16 +66,16 @@ export default function SolutionPage({
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
         {/* Breadcrumb */}
         <div style={{ marginBottom: "2rem", fontSize: "0.875rem" }}>
-          <Link href="/" style={{ color: "#888", textDecoration: "none" }}>
+          <a href="/" style={{ color: "#888", textDecoration: "none" }}>
             GymFlow
-          </Link>
+          </a>
           <span style={{ color: "#444", margin: "0 0.5rem" }}>/</span>
-          <Link
+          <a
             href="/solutions"
             style={{ color: "#888", textDecoration: "none" }}
           >
             Solutions
-          </Link>
+          </a>
           <span style={{ color: "#444", margin: "0 0.5rem" }}>/</span>
           <span style={{ color: "#e63946" }}>{page.titleEn}</span>
         </div>
@@ -298,7 +298,7 @@ export default function SolutionPage({
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
               {related.map((r) =>
                 r ? (
-                  <Link
+                  <a
                     key={r.slug}
                     href={`/solutions/${r.slug}`}
                     style={{
@@ -320,7 +320,7 @@ export default function SolutionPage({
                     >
                       {r.descriptionEn}
                     </p>
-                  </Link>
+                  </a>
                 ) : null
               )}
             </div>
@@ -354,7 +354,7 @@ export default function SolutionPage({
           >
             Start free — no credit card required. Setup in 10 minutes.
           </p>
-          <Link
+          <a
             href="/login?mode=register"
             style={{
               display: "inline-flex",
@@ -368,7 +368,7 @@ export default function SolutionPage({
             }}
           >
             Start free →
-          </Link>
+          </a>
         </div>
       </div>
     </main>

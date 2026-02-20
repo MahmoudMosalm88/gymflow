@@ -2,7 +2,7 @@
 // Route: /compare
 
 import type { Metadata } from "next";
-import Link from "next/link";
+
 import { comparisons } from "@/lib/comparisons-data";
 
 export const metadata: Metadata = {
@@ -36,9 +36,9 @@ export default function CompareIndexPage() {
 
         {/* ── Breadcrumb ── */}
         <nav style={{ marginBottom: "2rem", fontSize: "0.8125rem", color: "#888" }}>
-          <Link href="/" style={{ color: "#888", textDecoration: "none" }}>
+          <a href="/" style={{ color: "#888", textDecoration: "none" }}>
             GymFlow
-          </Link>
+          </a>
           {" / "}
           <span style={{ color: "#f0f0f0" }}>Compare</span>
         </nav>
@@ -99,7 +99,7 @@ export default function CompareIndexPage() {
               ).length;
 
               return (
-                <Link
+                <a
                   key={c.slug}
                   href={`/compare/gymflow-vs-${c.slug}`}
                   style={{ textDecoration: "none", display: "block" }}
@@ -196,7 +196,7 @@ export default function CompareIndexPage() {
                       </span>
                     </div>
                   </article>
-                </Link>
+                </a>
               );
             })}
           </div>
@@ -242,7 +242,7 @@ export default function CompareIndexPage() {
               Try GymFlow free — no credit card required.
             </p>
           </div>
-          <Link
+          <a
             href="/#pricing"
             style={{
               background: "#e63946",
@@ -255,7 +255,7 @@ export default function CompareIndexPage() {
             }}
           >
             Start Free Trial
-          </Link>
+          </a>
         </div>
 
       </div>

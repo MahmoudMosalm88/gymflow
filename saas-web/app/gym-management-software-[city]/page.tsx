@@ -3,7 +3,7 @@
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Link from "next/link";
+
 import { locationPages, locationPageMap } from "@/lib/locations-data";
 
 // ─── Static params ────────────────────────────────────────────────────────────
@@ -204,17 +204,17 @@ export default async function CityPage({
             zIndex: 50,
           }}
         >
-          <Link href="/" style={{ color: text, textDecoration: "none", fontWeight: 700, fontSize: 18, letterSpacing: "-0.02em" }}>
+          <a href="/" style={{ color: text, textDecoration: "none", fontWeight: 700, fontSize: 18, letterSpacing: "-0.02em" }}>
             GymFlow
-          </Link>
+          </a>
           <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
-            <Link href="/#features" style={{ color: muted, textDecoration: "none", fontSize: 14 }}>
+            <a href="/#features" style={{ color: muted, textDecoration: "none", fontSize: 14 }}>
               Features
-            </Link>
-            <Link href="/#faq" style={{ color: muted, textDecoration: "none", fontSize: 14 }}>
+            </a>
+            <a href="/#faq" style={{ color: muted, textDecoration: "none", fontSize: 14 }}>
               FAQ
-            </Link>
-            <Link
+            </a>
+            <a
               href="/dashboard"
               style={{
                 background: accent,
@@ -228,7 +228,7 @@ export default async function CityPage({
               }}
             >
               START FREE
-            </Link>
+            </a>
           </div>
         </nav>
 
@@ -298,7 +298,7 @@ export default async function CityPage({
           </p>
 
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-            <Link
+            <a
               href="/dashboard"
               style={{
                 background: accent,
@@ -313,8 +313,8 @@ export default async function CityPage({
               }}
             >
               START FREE — NO CREDIT CARD
-            </Link>
-            <Link
+            </a>
+            <a
               href="/#features"
               style={{
                 border: `1px solid ${border}`,
@@ -327,7 +327,7 @@ export default async function CityPage({
               }}
             >
               See features →
-            </Link>
+            </a>
           </div>
         </section>
 
@@ -567,9 +567,9 @@ export default async function CityPage({
 
           <p style={{ marginTop: 24, fontSize: 13, color: muted }}>
             See the full feature list →{" "}
-            <Link href="/#features" style={{ color: accent, textDecoration: "none" }}>
+            <a href="/#features" style={{ color: accent, textDecoration: "none" }}>
               gymflowsystem.com/#features
-            </Link>
+            </a>
           </p>
         </section>
 
@@ -701,7 +701,7 @@ export default async function CityPage({
           >
             Join gym owners across {page.cityEn} and {page.countryEn} who use GymFlow to automate the admin and focus on their members.
           </p>
-          <Link
+          <a
             href="/dashboard"
             style={{
               background: accent,
@@ -716,7 +716,7 @@ export default async function CityPage({
             }}
           >
             START FOR FREE
-          </Link>
+          </a>
           <p style={{ marginTop: 16, fontSize: 12, color: muted }}>
             No credit card · Setup in one day · Cancel anytime
           </p>
@@ -747,7 +747,7 @@ export default async function CityPage({
             {otherCities
               .filter((c) => c.slug !== page.slug)
               .map((c) => (
-                <Link
+                <a
                   key={c.slug}
                   href={`/gym-management-software-${c.slug}`}
                   style={{
@@ -761,7 +761,7 @@ export default async function CityPage({
                   }}
                 >
                   {c.labelEn}
-                </Link>
+                </a>
               ))}
           </div>
         </section>
@@ -783,15 +783,15 @@ export default async function CityPage({
             © {new Date().getFullYear()} GymFlow. Gym management software for {page.cityEn}.
           </span>
           <div style={{ display: "flex", gap: 20 }}>
-            <Link href="/privacy-policy" style={{ color: muted, fontSize: 12, textDecoration: "none" }}>
+            <a href="/privacy-policy" style={{ color: muted, fontSize: 12, textDecoration: "none" }}>
               Privacy
-            </Link>
-            <Link href="/terms-of-service" style={{ color: muted, fontSize: 12, textDecoration: "none" }}>
+            </a>
+            <a href="/terms-of-service" style={{ color: muted, fontSize: 12, textDecoration: "none" }}>
               Terms
-            </Link>
-            <Link href="/blog" style={{ color: muted, fontSize: 12, textDecoration: "none" }}>
+            </a>
+            <a href="/blog" style={{ color: muted, fontSize: 12, textDecoration: "none" }}>
               Blog
-            </Link>
+            </a>
           </div>
         </footer>
       </div>

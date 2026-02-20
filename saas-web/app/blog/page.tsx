@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import Link from "next/link";
+
 import { getAllPosts } from "@/lib/blog/registry";
 
 export const metadata: Metadata = {
@@ -28,7 +28,7 @@ export default function BlogListingPage() {
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
         {/* Header */}
         <div style={{ marginBottom: "3rem" }}>
-          <Link
+          <a
             href="/"
             style={{
               color: "#888",
@@ -37,7 +37,7 @@ export default function BlogListingPage() {
             }}
           >
             &larr; GymFlow
-          </Link>
+          </a>
           <h1
             style={{
               fontSize: "clamp(2rem, 4vw, 3rem)",
@@ -71,7 +71,7 @@ export default function BlogListingPage() {
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               {enPosts.map((post) => (
-                <Link
+                <a
                   key={post.slug}
                   href={`/blog/${post.slug}`}
                   style={{
@@ -117,7 +117,7 @@ export default function BlogListingPage() {
                   <p style={{ color: "#888", fontSize: "0.9rem", margin: 0 }}>
                     {post.description}
                   </p>
-                </Link>
+                </a>
               ))}
             </div>
           </section>
@@ -139,7 +139,7 @@ export default function BlogListingPage() {
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               {arPosts.map((post) => (
-                <Link
+                <a
                   key={post.slug}
                   href={`/blog/${post.slug}`}
                   style={{
@@ -174,7 +174,7 @@ export default function BlogListingPage() {
                   <p style={{ color: "#888", fontSize: "0.9rem", margin: 0 }}>
                     {post.description}
                   </p>
-                </Link>
+                </a>
               ))}
             </div>
           </section>

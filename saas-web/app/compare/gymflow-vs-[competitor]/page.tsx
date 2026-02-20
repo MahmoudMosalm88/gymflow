@@ -4,7 +4,7 @@
 
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import Link from "next/link";
+
 import { comparisons, getComparison } from "@/lib/comparisons-data";
 
 // ─────────────────────────────────────────────────────────
@@ -156,13 +156,13 @@ export default function ComparisonPage({
 
           {/* ── Breadcrumb ── */}
           <nav style={{ marginBottom: "2rem", fontSize: "0.8125rem", color: "#888" }}>
-            <Link href="/" style={{ color: "#888", textDecoration: "none" }}>
+            <a href="/" style={{ color: "#888", textDecoration: "none" }}>
               GymFlow
-            </Link>
+            </a>
             {" / "}
-            <Link href="/compare" style={{ color: "#888", textDecoration: "none" }}>
+            <a href="/compare" style={{ color: "#888", textDecoration: "none" }}>
               Compare
-            </Link>
+            </a>
             {" / "}
             <span style={{ color: "#f0f0f0" }}>
               GymFlow vs {data.competitorName}
@@ -731,7 +731,7 @@ export default function ComparisonPage({
                 { label: "All Comparisons", href: "/compare" },
                 { label: "Blog & Guides", href: "/blog" },
               ].map((link) => (
-                <Link
+                <a
                   key={link.href + link.label}
                   href={link.href}
                   style={{
@@ -746,7 +746,7 @@ export default function ComparisonPage({
                   }}
                 >
                   {link.label} →
-                </Link>
+                </a>
               ))}
             </div>
           </section>
@@ -792,7 +792,7 @@ export default function ComparisonPage({
                 جرّب GymFlow مجاناً — بدون بطاقة ائتمان.
               </p>
             </div>
-            <Link
+            <a
               href="/#pricing"
               style={{
                 background: "#e63946",
@@ -807,7 +807,7 @@ export default function ComparisonPage({
               }}
             >
               Start Free Trial
-            </Link>
+            </a>
           </section>
 
         </div>
