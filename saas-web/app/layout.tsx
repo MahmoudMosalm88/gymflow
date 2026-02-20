@@ -45,13 +45,51 @@ const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
 });
 
 export const metadata: Metadata = {
-  title: "GymFlow",
-  description: "GymFlow web SaaS on Google Cloud",
+  title: {
+    default: "GymFlow | Gym Management Software for MENA",
+    template: "%s | GymFlow",
+  },
+  description: "Manage memberships, automate check-ins, track attendance and revenue. Built for gyms in Egypt, Saudi Arabia and the Middle East. Arabic + English.",
   manifest: "/manifest.json",
+  metadataBase: new URL("https://gymflowsystem.com"),
   icons: {
     icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
     shortcut: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
     apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }]
+  },
+  openGraph: {
+    type: "website",
+    siteName: "GymFlow",
+    title: "GymFlow | Gym Management Software for MENA",
+    description: "Run your gym without the admin headache. QR check-ins, WhatsApp reminders, subscription management, real-time reports. Free trial, no credit card.",
+    url: "https://gymflowsystem.com",
+    locale: "en_US",
+    alternateLocale: "ar_EG",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "GymFlow - Gym Management Software",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GymFlow | Gym Management Software for MENA",
+    description: "Run your gym without the admin headache. QR check-ins, WhatsApp reminders, subscription management, real-time reports.",
+    images: ["/og-image.png"],
+  },
+  alternates: {
+    canonical: "https://gymflowsystem.com",
+    languages: {
+      "en": "https://gymflowsystem.com",
+      "ar": "https://gymflowsystem.com/ar",
+    },
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
   appleWebApp: {
     capable: true,

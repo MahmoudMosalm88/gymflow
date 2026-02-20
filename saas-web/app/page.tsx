@@ -10,6 +10,7 @@ import Features from "./components/landing/Features";
 import FAQ from "./components/landing/FAQ";
 import CTA from "./components/landing/CTA";
 import Footer from "./components/landing/Footer";
+import StructuredData from "./components/landing/StructuredData";
 
 type Lang = "en" | "ar";
 
@@ -17,6 +18,7 @@ const copy = {
   en: {
     /* Navbar */
     navFeatures: "Features",
+    navBlog: "Blog",
     navFaq: "FAQ",
     navCta: "Get started free",
 
@@ -81,10 +83,26 @@ const copy = {
     footerPrivacy: "Privacy Policy",
     footerTerms: "Terms of Service",
     footerCopyright: "© 2026 GymFlow. All rights reserved.",
+    footerProduct: "Product",
+    footerAllFeatures: "All Features",
+    footerQrCheckin: "QR Check-in",
+    footerWhatsapp: "WhatsApp Notifications",
+    footerSubscriptions: "Subscription Management",
+    footerResources: "Resources",
+    footerBlog: "Blog",
+    footerSolutions: "Solutions",
+    footerCompare: "Compare",
+    footerLocations: "Locations",
+    footerLocationCairo: "Cairo",
+    footerLocationRiyadh: "Riyadh",
+    footerLocationDubai: "Dubai",
+    footerLocationJeddah: "Jeddah",
+    footerLocationAlex: "Alexandria",
   },
   ar: {
     /* Navbar */
     navFeatures: "المزايا",
+    navBlog: "المدونة",
     navFaq: "الأسئلة الشائعة",
     navCta: "ابدأ مجاناً",
 
@@ -149,6 +167,21 @@ const copy = {
     footerPrivacy: "سياسة الخصوصية",
     footerTerms: "شروط الخدمة",
     footerCopyright: "© 2026 GymFlow. جميع الحقوق محفوظة.",
+    footerProduct: "المنتج",
+    footerAllFeatures: "جميع المزايا",
+    footerQrCheckin: "تسجيل دخول QR",
+    footerWhatsapp: "إشعارات واتساب",
+    footerSubscriptions: "إدارة الاشتراكات",
+    footerResources: "الموارد",
+    footerBlog: "المدونة",
+    footerSolutions: "الحلول",
+    footerCompare: "المقارنات",
+    footerLocations: "المواقع",
+    footerLocationCairo: "القاهرة",
+    footerLocationRiyadh: "الرياض",
+    footerLocationDubai: "دبي",
+    footerLocationJeddah: "جدة",
+    footerLocationAlex: "الإسكندرية",
   },
 } as const;
 
@@ -159,6 +192,7 @@ export default function HomePage() {
 
   return (
     <main className={styles.page} dir={isArabic ? "rtl" : "ltr"}>
+      <StructuredData />
       <Navbar lang={lang} setLang={setLang} t={t} />
       <Hero t={t} />
       <Problem t={t} />
