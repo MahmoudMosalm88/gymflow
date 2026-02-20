@@ -2,6 +2,7 @@
 
 import { FirebaseApp, FirebaseOptions, getApp, getApps, initializeApp } from "firebase/app";
 import { Auth, browserLocalPersistence, getAuth, inMemoryPersistence, setPersistence } from "firebase/auth";
+import { browserSessionPersistence } from "firebase/auth";
 import { FirebaseStorage, getStorage } from "firebase/storage";
 
 export type FirebaseClientConfig = Pick<FirebaseOptions, "apiKey" | "authDomain" | "projectId"> &
@@ -38,8 +39,8 @@ export async function getFirebaseClientAuth(config: FirebaseClientConfig) {
       const host = typeof window !== "undefined" ? window.location.hostname : "";
       try {
         if (host === "localhost" || host === "127.0.0.1") {
-          // IndexedDB can be unstable in dev hot-reload/privacy contexts.
-          await setPersistence(auth, inMemoryPersistence);
+          // Keep Firebase user across redirects in local dev without IndexedDB reliance.
+          await setPersistence(auth, browserSessionPersistence);
         } else {
           await setPersistence(auth, browserLocalPersistence);
         }

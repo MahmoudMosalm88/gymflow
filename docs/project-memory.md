@@ -500,3 +500,59 @@ docs/desktop-app-whatsapp-fix-log.md — Full history of WhatsApp attempts + RES
 docs/migration-to-PWA.md        — PWA offline check-in plan (implemented baseline; use for future iterations)
 docs/future_reports.md          — Backlogged report ideas
 ```
+
+---
+
+### 2026-02-19 — Firebase Auth Deep Dive + Profile Phone OTP Hardening
+
+**Goal**: eliminate recurring Firebase auth failures in local testing and enforce OTP verification when adding/changing phone from Profile.
+
+**Scope completed**:
+- Added mandatory OTP verification gate before saving a changed phone number in profile.
+- Audited Firebase project/auth settings through CLI and direct Identity Toolkit admin API calls.
+- Reworked local Firebase client persistence for stable auth state during dev.
+- Validated flow with Playwright and isolated remaining failures to account-level conflicts instead of captcha credential errors.
+
+**Code changes**:
+- `saas-web/app/dashboard/profile/page.tsx`
+  - Added profile phone OTP workflow (`Send code` -> `Verify code`) before save.
+  - Blocked save when phone is changed and not yet verified.
+  - Added E.164 validation and clearer OTP status/error messaging.
+  - Replaced profile verification internals with `PhoneAuthProvider.verifyPhoneNumber(...)` + `linkWithCredential(...)`.
+  - Added recaptcha lifecycle hardening:
+    - dedicated hidden container
+    - reset/clear behavior on retry and known auth failures
+    - fresh verifier per send attempt
+  - Added explicit handling for phone-already-linked conflicts:
+    - `auth/account-exists-with-different-credential`
+    - `auth/credential-already-in-use`
+    - `auth/phone-number-already-exists`
+  - Added action hint in UI when number belongs to another account.
+
+- `saas-web/lib/firebase-client.ts`
+  - Localhost persistence changed from `inMemoryPersistence` to `browserSessionPersistence`.
+  - Rationale: avoid IndexedDB instability while preserving Firebase `currentUser` across local redirects/navigation.
+
+- `saas-web/app/(auth)/login/page.tsx`
+  - Removed localhost test-mode app verification toggle (`appVerificationDisabledForTesting` now false for real numbers).
+
+**Firebase/GCP config actions executed**:
+- Verified project and credentials for `gymflow-saas-260215-251`.
+- Verified enabled services include:
+  - `identitytoolkit.googleapis.com`
+  - `securetoken.googleapis.com`
+  - `recaptchaenterprise.googleapis.com`
+- Verified Auth settings:
+  - phone provider enabled
+  - authorized domains include `localhost` and `127.0.0.1`
+- Inspected API key restrictions for active web key.
+- Rotated recaptcha enterprise key once during investigation, then removed explicit `recaptchaKeys` binding to return to Firebase-managed default behavior.
+
+**Playwright verification results**:
+- Auth page phone send-code flow succeeded (recaptcha visible, OTP sent).
+- Profile page send-code flow succeeded after persistence + recaptcha fixes.
+- A failing verification case reproduced as account conflict (`auth/account-exists-with-different-credential`) rather than captcha credential failure.
+
+**Important outcome**:
+- The persistent `Invalid phone verification credential` failure path in profile send flow was addressed and no longer reproduced in Playwright for new local account/session.
+- Remaining verify failures are now clearly surfaced as data/account conflicts when the phone is already attached elsewhere.

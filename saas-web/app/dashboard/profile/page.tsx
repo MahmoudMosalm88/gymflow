@@ -46,6 +46,7 @@ export default function ProfilePage() {
   const [otpCode, setOtpCode] = useState('');
   const [otpBusy, setOtpBusy] = useState(false);
   const [otpMessage, setOtpMessage] = useState('');
+  const [otpConflict, setOtpConflict] = useState(false);
 
   const [form, setForm] = useState<ProfileData>({
     name: '',
@@ -129,6 +130,7 @@ export default function ProfilePage() {
         setOtpStatus('idle');
         setOtpCode('');
         setOtpMessage('');
+        setOtpConflict(false);
         setVerificationId(null);
 
         // Update localStorage so Header reflects changes immediately
@@ -165,6 +167,7 @@ export default function ProfilePage() {
         setOtpStatus('idle');
         setOtpCode('');
         setOtpMessage('');
+        setOtpConflict(false);
         setVerificationId(null);
       }
       return next;
@@ -218,6 +221,7 @@ export default function ProfilePage() {
     setError('');
     setSuccess('');
     setOtpMessage('');
+    setOtpConflict(false);
     const phone = (form.phone || '').trim();
     const savedPhone = (saved.phone || '').trim();
 
@@ -268,11 +272,29 @@ export default function ProfilePage() {
         resetRecaptcha();
       }
       const message =
+        code === 'auth/account-exists-with-different-credential'
+          ? 'This phone number is already linked to another account. Use a different number.'
+          : code === 'auth/credential-already-in-use'
+            ? 'This phone number is already linked to another account. Use a different number.'
+            : code === 'auth/phone-number-already-exists'
+              ? 'This phone number is already linked to another account. Use a different number.'
+              : code === 'auth/invalid-phone-number'
+                ? 'Invalid phone number format. Use E.164 format, e.g. +15551234567.'
+                : code === 'auth/too-many-requests'
+                  ? 'Too many attempts. Wait a few minutes and try again.'
+                  : code === 'auth/invalid-app-credential'
+                    ? 'Invalid phone verification credential. Re-run captcha and send code again.'
+                    : err instanceof Error
+                      ? err.message
+                      : 'Failed to send verification code.';
+      if (
         code === 'auth/invalid-app-credential'
-          ? 'Invalid phone verification credential. Re-run captcha and send code again.'
-          : err instanceof Error
-            ? err.message
-            : 'Failed to send verification code.';
+          || code === 'auth/account-exists-with-different-credential'
+          || code === 'auth/credential-already-in-use'
+          || code === 'auth/phone-number-already-exists'
+      ) {
+        setOtpConflict(code !== 'auth/invalid-app-credential');
+      }
       setOtpMessage(message);
     } finally {
       setOtpBusy(false);
@@ -281,6 +303,7 @@ export default function ProfilePage() {
 
   async function verifyPhoneOtp() {
     setOtpMessage('');
+    setOtpConflict(false);
     if (!verificationId) {
       setOtpMessage('Please send code first.');
       return;
@@ -305,7 +328,27 @@ export default function ProfilePage() {
       setOtpMessage('Phone number verified. You can save now.');
       setVerificationId(null);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Invalid verification code.';
+      const code =
+        typeof err === 'object' && err && 'code' in err
+          ? String((err as { code?: string }).code || '')
+          : '';
+      const message =
+        code === 'auth/account-exists-with-different-credential'
+          ? 'This phone number is already linked to another account. Use a different number.'
+          : code === 'auth/credential-already-in-use'
+            ? 'This phone number is already linked to another account. Use a different number.'
+            : code === 'auth/phone-number-already-exists'
+              ? 'This phone number is already linked to another account. Use a different number.'
+          : err instanceof Error
+            ? err.message
+            : 'Invalid verification code.';
+      if (
+        code === 'auth/account-exists-with-different-credential' ||
+        code === 'auth/credential-already-in-use' ||
+        code === 'auth/phone-number-already-exists'
+      ) {
+        setOtpConflict(true);
+      }
       setOtpMessage(message);
     } finally {
       setOtpBusy(false);
@@ -451,6 +494,11 @@ export default function ProfilePage() {
                       {otpStatus === 'verified' ? <Check className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
                       <AlertDescription>{otpMessage}</AlertDescription>
                     </Alert>
+                  )}
+                  {otpConflict && (
+                    <p className="text-xs text-muted-foreground">
+                      Action: enter a different phone number, then send a new code.
+                    </p>
                   )}
                   <div
                     ref={recaptchaContainerRef}
