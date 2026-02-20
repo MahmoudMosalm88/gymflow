@@ -290,11 +290,15 @@ export default function DashboardPage() {
                   >
                     <div className="flex items-center gap-3">
                       <span className={`text-sm font-bold w-4 text-center shrink-0 ${
-                        entry.result === 'allowed'  ? 'text-success' :
-                        entry.result === 'warning'  ? 'text-warning' :
+                        entry.result === 'allowed' || entry.result === 'success' ? 'text-success' :
+                        entry.result === 'warning' ? 'text-warning' :
                         'text-destructive'
                       }`}>
-                        {entry.result === 'allowed' ? '✓' : entry.result === 'warning' ? '!' : '✗'}
+                        {entry.result === 'allowed' || entry.result === 'success'
+                          ? '✓'
+                          : entry.result === 'warning'
+                            ? '!'
+                            : '✗'}
                       </span>
                       <span className="text-sm text-[#e8e4df] truncate">
                         {entry.member_name || entry.scanned_value}

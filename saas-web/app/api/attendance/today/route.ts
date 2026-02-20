@@ -20,7 +20,9 @@ export async function GET(request: NextRequest) {
       scanned_value: string;
       member_name: string | null;
     }>(
-      `SELECT l.id, l.timestamp, l.result, l.reason_code, l.scanned_value,
+      `SELECT l.id, l.timestamp,
+              CASE WHEN l.status = 'success' THEN 'allowed' ELSE 'denied' END AS result,
+              l.reason_code, l.scanned_value,
               m.name AS member_name
          FROM logs l
          LEFT JOIN members m ON l.member_id = m.id
