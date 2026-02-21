@@ -28,10 +28,86 @@ type ExistingLog = {
 };
 
 function normalizeScan(input: string) {
-  return input.trim();
+  // Normalize scanner noise: trim whitespace/control chars and strip trailing '%' sent by some devices.
+  return input
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .trim()
+    .replace(/%+$/g, "");
 }
 
 const MAX_OFFLINE_AGE_SECONDS = 72 * 3600; // 72 hours default
+
+async function findMember(organizationId: string, branchId: string, scannedValue: string) {
+  const scannedDigits = scannedValue.replace(/\D/g, "");
+  return await query<Member>(
+    `SELECT id, name, gender
+       FROM members
+      WHERE organization_id = $1
+        AND branch_id = $2
+        AND deleted_at IS NULL
+        AND (
+          id::text = $3
+          OR COALESCE(card_code, '') = $3
+          OR phone = $3
+          OR ($4 <> '' AND regexp_replace(COALESCE(phone, ''), '\\D', '', 'g') = $4)
+        )
+      LIMIT 1`,
+    [organizationId, branchId, scannedValue, scannedDigits]
+  );
+}
+
+async function backfillCardCodeForScannedValue(
+  organizationId: string,
+  branchId: string,
+  scannedValue: string
+) {
+  const artifactRows = await query<{ payload: unknown }>(
+    `SELECT payload FROM import_artifacts
+     WHERE organization_id = $1
+       AND branch_id = $2
+       AND status = 'imported'
+     ORDER BY updated_at DESC
+     LIMIT 1`,
+    [organizationId, branchId]
+  );
+
+  const archive = artifactRows[0]?.payload as { tables?: { members?: unknown[] } } | undefined;
+  const members = archive?.tables?.members;
+  if (!Array.isArray(members) || members.length === 0) return false;
+
+  const scanned = scannedValue.trim();
+  const scannedDigits = scanned.replace(/\D/g, "");
+  const raw = members.find((row) => {
+    if (!row || typeof row !== "object") return false;
+    const rec = row as Record<string, unknown>;
+    const id = String(rec.id ?? "").trim();
+    const cardCode = String(rec.card_code ?? "").trim();
+    return id === scanned || cardCode === scanned;
+  });
+  if (!raw || typeof raw !== "object") return false;
+
+  const rec = raw as Record<string, unknown>;
+  const oldId = String(rec.id ?? "").trim();
+  const phone = String(rec.phone ?? "").trim();
+  const phoneDigits = phone.replace(/\D/g, "");
+  if (!oldId || (!phone && !phoneDigits && !scannedDigits)) return false;
+
+  const result = await query<{ id: string }>(
+    `UPDATE members
+        SET card_code = $1, updated_at = NOW()
+      WHERE organization_id = $2
+        AND branch_id = $3
+        AND deleted_at IS NULL
+        AND (card_code IS NULL OR card_code = '')
+        AND (
+          phone = $4
+          OR ($5 <> '' AND regexp_replace(COALESCE(phone, ''), '\\D', '', 'g') = $5)
+        )
+      RETURNING id`,
+    [oldId, organizationId, branchId, phone, phoneDigits]
+  );
+  return result.length > 0;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -106,16 +182,19 @@ export async function POST(request: NextRequest) {
           ? Number(rawCooldown) || 30
           : 30;
 
-    const memberRows = await query<Member>(
-      `SELECT id, name, gender
-         FROM members
-        WHERE organization_id = $1
-          AND branch_id = $2
-          AND deleted_at IS NULL
-          AND (id = $3 OR phone = $3 OR COALESCE(card_code, '') = $3)
-        LIMIT 1`,
-      [auth.organizationId, auth.branchId, scannedValue]
-    );
+    let memberRows = await findMember(auth.organizationId, auth.branchId, scannedValue);
+
+    if (!memberRows[0]) {
+      // Fallback for legacy desktop QR IDs: attempt targeted server-side backfill and retry once.
+      const repaired = await backfillCardCodeForScannedValue(
+        auth.organizationId,
+        auth.branchId,
+        scannedValue
+      );
+      if (repaired) {
+        memberRows = await findMember(auth.organizationId, auth.branchId, scannedValue);
+      }
+    }
 
     if (!memberRows[0]) {
       await query(
