@@ -83,8 +83,22 @@ export async function POST(request: NextRequest) {
     const payload = memberSchema.parse(await request.json());
     const now = new Date();
     const id = payload.id || uuidv4();
+    const requestedCardCode = (payload.card_code || "").trim();
 
     const output = await withTransaction(async (client) => {
+      if (requestedCardCode) {
+        // Release card codes from soft-deleted members so codes are reusable.
+        await client.query(
+          `UPDATE members
+              SET card_code = NULL, updated_at = NOW()
+            WHERE organization_id = $1
+              AND branch_id = $2
+              AND deleted_at IS NOT NULL
+              AND card_code = $3`,
+          [auth.organizationId, auth.branchId, requestedCardCode]
+        );
+      }
+
       const inserted = await client.query(
         `INSERT INTO members (
             id, organization_id, branch_id, name, phone, gender, photo_path,
@@ -194,6 +208,19 @@ export async function PATCH(request: NextRequest) {
 
     const payload = memberSchema.partial().parse(body);
 
+    const requestedCardCode = (payload.card_code || "").trim();
+    if (requestedCardCode) {
+      await query(
+        `UPDATE members
+            SET card_code = NULL, updated_at = NOW()
+          WHERE organization_id = $1
+            AND branch_id = $2
+            AND deleted_at IS NOT NULL
+            AND card_code = $3`,
+        [auth.organizationId, auth.branchId, requestedCardCode]
+      );
+    }
+
     const rows = await query(
       `UPDATE members
           SET name = COALESCE($4, name),
@@ -242,7 +269,9 @@ export async function DELETE(request: NextRequest) {
 
     const rows = await query(
       `UPDATE members
-          SET deleted_at = NOW(), updated_at = NOW()
+          SET deleted_at = NOW(),
+              card_code = NULL,
+              updated_at = NOW()
         WHERE id = $1
           AND organization_id = $2
           AND branch_id = $3

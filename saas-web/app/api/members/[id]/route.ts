@@ -30,6 +30,19 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const auth = await requireAuth(request);
     const payload = memberSchema.partial().parse(await request.json());
     const id = params.id;
+    const requestedCardCode = (payload.card_code || "").trim();
+
+    if (requestedCardCode) {
+      await query(
+        `UPDATE members
+            SET card_code = NULL, updated_at = NOW()
+          WHERE organization_id = $1
+            AND branch_id = $2
+            AND deleted_at IS NOT NULL
+            AND card_code = $3`,
+        [auth.organizationId, auth.branchId, requestedCardCode]
+      );
+    }
 
     const rows = await query(
       `UPDATE members
@@ -72,7 +85,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     const auth = await requireAuth(request);
     const rows = await query(
       `UPDATE members
-          SET deleted_at = NOW(), updated_at = NOW()
+          SET deleted_at = NOW(),
+              card_code = NULL,
+              updated_at = NOW()
         WHERE id = $1
           AND organization_id = $2
           AND branch_id = $3
