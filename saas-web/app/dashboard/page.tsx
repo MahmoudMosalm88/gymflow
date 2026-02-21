@@ -74,6 +74,16 @@ export default function DashboardPage() {
       .finally(() => setLoadingOverview(false));
   }, []);
 
+  // One-time backfill: write old desktop member IDs into card_code
+  // so QR codes printed from the desktop app work with the web scanner
+  useEffect(() => {
+    const key = 'card_code_backfill_done';
+    if (localStorage.getItem(key)) return;
+    api.post('/api/migration/backfill-card-codes', {})
+      .then(() => localStorage.setItem(key, '1'))
+      .catch(() => {});
+  }, []);
+
   // Fetch today's activity log
   const refreshActivity = useCallback(async () => {
     try {
