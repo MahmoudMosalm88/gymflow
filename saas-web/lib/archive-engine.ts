@@ -394,7 +394,7 @@ export async function replaceBranchFromArchive(
           normalizeGender(raw.gender),
           raw.photo_path ? String(raw.photo_path) : null,
           raw.access_tier ? String(raw.access_tier) : "full",
-          raw.card_code ? String(raw.card_code) : null,
+          raw.card_code ? String(raw.card_code) : (mode === "desktop_import" ? sourceId : null),
           raw.address ? String(raw.address) : null,
           toDate(raw.created_at, now),
           toDate(raw.updated_at, now),
