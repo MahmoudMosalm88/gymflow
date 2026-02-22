@@ -11,6 +11,8 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
+    const now = Math.floor(Date.now() / 1000);
+    const startOfDay = now - (now % 86400);
 
     const rows = await query<{
       id: string;
@@ -28,10 +30,11 @@ export async function GET(request: NextRequest) {
          LEFT JOIN members m ON l.member_id = m.id
         WHERE l.organization_id = $1
           AND l.branch_id = $2
-          AND l.timestamp >= EXTRACT(EPOCH FROM date_trunc('day', NOW()))::bigint
+          AND l.timestamp >= $3
+          AND l.timestamp < $4
         ORDER BY l.timestamp DESC
         LIMIT 50`,
-      [auth.organizationId, auth.branchId]
+      [auth.organizationId, auth.branchId, startOfDay, startOfDay + 86400]
     );
 
     return ok(rows);

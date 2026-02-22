@@ -27,6 +27,15 @@ type LowSessionRow = {
   sessions_cap: number | null;
 };
 
+type EndedSubscriptionRow = {
+  id: number;
+  member_id: string;
+  name: string;
+  phone: string | null;
+  end_date: number;
+  is_active: boolean;
+};
+
 function toNumber(value: unknown, fallback = 0) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
@@ -122,6 +131,7 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
         activeSubscriptions: toNumber(activeSubs[0]?.count),
         expiredSubscriptions: toNumber(expiredSubs[0]?.count),
         totalRevenue: toNumber(revenue[0]?.total),
+        todayCheckIns: toNumber(today[0]?.allowed),
         todayStats: {
           allowed: toNumber(today[0]?.allowed),
           warning: toNumber(today[0]?.warning),
@@ -390,6 +400,41 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
       );
 
       return ok(rows);
+    }
+
+    if (report === "ended-subscriptions") {
+      const limit = readLimitParam(url, 100, 500);
+
+      const rows = await query<EndedSubscriptionRow>(
+        `SELECT s.id,
+                s.member_id,
+                s.end_date,
+                s.is_active,
+                m.name,
+                m.phone
+           FROM subscriptions s
+           JOIN members m
+             ON m.id = s.member_id
+            AND m.organization_id = s.organization_id
+            AND m.branch_id = s.branch_id
+          WHERE s.organization_id = $1
+            AND s.branch_id = $2
+            AND (s.end_date <= $3 OR s.is_active = false)
+          ORDER BY s.end_date DESC
+          LIMIT $4`,
+        [auth.organizationId, auth.branchId, now, limit]
+      );
+
+      const output = rows.map((row) => ({
+        subscription_id: row.id,
+        member_id: row.member_id,
+        name: row.name,
+        phone: row.phone,
+        end_date: row.end_date,
+        status: row.end_date <= now ? "expired" : "inactive"
+      }));
+
+      return ok(output);
     }
 
     if (report === "low-sessions") {

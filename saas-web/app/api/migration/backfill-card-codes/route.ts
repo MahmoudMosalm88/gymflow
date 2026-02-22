@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (!artifactRows[0]) {
-      return fail("No imported desktop backup found for this branch.", 404);
+      return ok({ updated: 0, skipped: 0, notFound: 0, noArtifact: true });
     }
 
     const archive = artifactRows[0].payload as {

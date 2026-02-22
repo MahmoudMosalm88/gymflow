@@ -89,15 +89,57 @@ export async function PATCH(request: NextRequest) {
     const auth = await requireAuth(request);
     const payload = subscriptionPatchSchema.parse(await request.json());
 
+    const currentRows = await query<{
+      id: number;
+      start_date: number;
+      end_date: number;
+      plan_months: number;
+      price_paid: number | null;
+      sessions_per_month: number | null;
+      is_active: boolean;
+    }>(
+      `SELECT id, start_date, end_date, plan_months, price_paid, sessions_per_month, is_active
+         FROM subscriptions
+        WHERE id = $1
+          AND organization_id = $2
+          AND branch_id = $3
+        LIMIT 1`,
+      [payload.id, auth.organizationId, auth.branchId]
+    );
+    if (!currentRows[0]) return fail("Subscription not found", 404);
+
+    const current = currentRows[0];
+    const nextStart = payload.start_date ?? current.start_date;
+    const nextPlanMonths = payload.plan_months ?? current.plan_months;
+    const nextEnd =
+      payload.end_date ??
+      (payload.start_date !== undefined || payload.plan_months !== undefined
+        ? calculateSubscriptionEndDateUnix(nextStart, nextPlanMonths)
+        : current.end_date);
+
     const rows = await query(
       `UPDATE subscriptions
           SET is_active = COALESCE($4, is_active),
-              price_paid = COALESCE($5, price_paid)
+              price_paid = COALESCE($5, price_paid),
+              start_date = $6,
+              end_date = $7,
+              plan_months = $8,
+              sessions_per_month = COALESCE($9, sessions_per_month)
         WHERE id = $1
           AND organization_id = $2
           AND branch_id = $3
       RETURNING *`,
-      [payload.id, auth.organizationId, auth.branchId, payload.is_active, payload.price_paid]
+      [
+        payload.id,
+        auth.organizationId,
+        auth.branchId,
+        payload.is_active,
+        payload.price_paid,
+        nextStart,
+        nextEnd,
+        nextPlanMonths,
+        payload.sessions_per_month
+      ]
     );
 
     if (!rows[0]) return fail("Subscription not found", 404);
