@@ -114,7 +114,7 @@ export default function ProfilePage() {
     const newPhoneNeedsVerification = phoneChanged && currentPhone.length > 0;
 
     if (newPhoneNeedsVerification && verifiedPhone !== currentPhone) {
-      setError('Please verify your new phone number with OTP before saving.');
+      setError(labels.verify_phone_otp);
       return;
     }
 
@@ -226,15 +226,15 @@ export default function ProfilePage() {
     const savedPhone = (saved.phone || '').trim();
 
     if (!phone) {
-      setOtpMessage('Enter a phone number first.');
+      setOtpMessage(labels.enter_phone_first);
       return;
     }
     if (!e164Regex.test(phone)) {
-      setOtpMessage('Use E.164 format, e.g. +15551234567.');
+      setOtpMessage(labels.use_e164_format);
       return;
     }
     if (phone === savedPhone) {
-      setOtpMessage('Phone number is already saved.');
+      setOtpMessage(labels.phone_already_saved);
       return;
     }
 
@@ -258,7 +258,7 @@ export default function ProfilePage() {
       const id = await provider.verifyPhoneNumber(phone, verifier);
       setVerificationId(id);
       setOtpStatus('sent');
-      setOtpMessage('Verification code sent. Enter it below.');
+      setOtpMessage(labels.otp_sent);
     } catch (err) {
       const code =
         typeof err === 'object' && err && 'code' in err
@@ -325,7 +325,7 @@ export default function ProfilePage() {
       const phone = (form.phone || '').trim();
       setVerifiedPhone(phone);
       setOtpStatus('verified');
-      setOtpMessage('Phone number verified. You can save now.');
+      setOtpMessage(labels.phone_verified);
       setVerificationId(null);
     } catch (err) {
       const code =
@@ -402,8 +402,8 @@ export default function ProfilePage() {
 
       {/* ── Identity Banner ── */}
       <div
-        className="flex items-center gap-4 p-5 bg-[#1e1e1e] border-2 border-[#2a2a2a] shadow-[6px_6px_0_#000000]"
-        style={{ borderLeft: '4px solid #e63946' }}
+        className="flex items-center gap-4 p-5 bg-card border-2 border-border shadow-[6px_6px_0_#000000]"
+        style={{ borderInlineStart: '4px solid var(--accent-red, #e63946)' }}
       >
         {/* Initials badge — same visual language as the sidebar GF logo */}
         <span
@@ -420,8 +420,8 @@ export default function ProfilePage() {
           {initials}
         </span>
         <div className="flex flex-col gap-0.5 min-w-0">
-          <p className="font-bold text-lg text-[#e8e4df] truncate">{form.name || '—'}</p>
-          <p className="text-sm text-[#8a8578] truncate">{orgLine}</p>
+          <p className="font-bold text-lg text-foreground truncate">{form.name || '—'}</p>
+          <p className="text-sm text-muted-foreground truncate">{orgLine}</p>
         </div>
       </div>
 
@@ -462,15 +462,15 @@ export default function ProfilePage() {
               {phoneChanged && (
                 <div className="rounded-md border border-border p-3 space-y-3">
                   <p className="text-xs text-muted-foreground">
-                    New phone numbers require OTP verification before saving.
+                    {labels.verify_phone_otp}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <Button type="button" variant="outline" onClick={sendPhoneOtp} disabled={otpBusy}>
-                      {otpBusy ? 'Sending...' : 'Send code'}
+                      {otpBusy ? labels.sending_code : labels.send_code}
                     </Button>
                     {otpStatus === 'verified' && (
                       <span className="text-xs text-emerald-600 font-medium">
-                        Verified
+                        {labels.verified}
                       </span>
                     )}
                   </div>
@@ -479,13 +479,13 @@ export default function ProfilePage() {
                       <Input
                         type="text"
                         inputMode="numeric"
-                        placeholder="Enter OTP code"
+                        placeholder={labels.enter_otp}
                         value={otpCode}
                         onChange={(e) => setOtpCode(e.target.value)}
                         className="max-w-[180px]"
                       />
                       <Button type="button" onClick={verifyPhoneOtp} disabled={otpBusy || otpStatus === 'verified'}>
-                        {otpBusy ? 'Verifying...' : 'Verify code'}
+                        {otpBusy ? labels.verifying : labels.verify_code}
                       </Button>
                     </div>
                   )}
@@ -538,8 +538,8 @@ export default function ProfilePage() {
       </div>
 
       {/* ── Security row ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-2 border-[#2a2a2a] bg-[#1e1e1e]">
-        <span className="text-xs font-semibold uppercase tracking-wider text-[#8a8578]">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-2 border-border bg-card">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           {labels.security}
         </span>
         <div className="flex flex-wrap gap-3">
@@ -549,7 +549,7 @@ export default function ProfilePage() {
           <Button
             variant="outline"
             onClick={logout}
-            className="border-[#e63946] text-[#e63946] hover:bg-[#e63946] hover:text-white"
+            className="border-destructive text-destructive hover:bg-destructive hover:text-white"
           >
             {labels.logout}
           </Button>

@@ -337,7 +337,7 @@ function WhatsAppTab() {
 
         {showWaitingQr && (
           <div className="h-48 w-48 border-2 border-border flex items-center justify-center text-sm text-muted-foreground">
-            {'Waiting for QR...'}
+            {labels.waiting_for_qr}
           </div>
         )}
 
@@ -360,9 +360,9 @@ function WhatsAppTab() {
 
         <div className="rounded-md border border-border p-4 space-y-4">
           <div>
-            <h3 className="text-base font-semibold">Automation Templates</h3>
+            <h3 className="text-base font-semibold">{labels.automation_templates}</h3>
             <p className="text-sm text-muted-foreground">
-              Dry-run mode is enabled now. No real WhatsApp messages are sent while automation is tested.
+              {labels.dry_run_enabled}
             </p>
           </div>
 
@@ -371,23 +371,23 @@ function WhatsAppTab() {
           ) : (
             <>
               <div className="space-y-2">
-                <Label htmlFor="welcome-template">Welcome Message Template</Label>
-                <p className="text-xs text-muted-foreground">Standard template</p>
+                <Label htmlFor="welcome-template">{labels.welcome_message_template}</Label>
+                <p className="text-xs text-muted-foreground">{labels.use_standard_templates}</p>
                 <pre className="whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-2 text-xs">{defaultWelcomeTemplate}</pre>
                 <Textarea id="welcome-template" value={welcomeTemplate} onChange={(e) => setWelcomeTemplate(e.target.value)} placeholder={defaultWelcomeTemplate} />
                 <p className="text-xs text-muted-foreground">Placeholders: {'{name}'}</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="renewal-template">Renewal Reminder Template</Label>
-                <p className="text-xs text-muted-foreground">Standard template</p>
+                <Label htmlFor="renewal-template">{labels.renewal_reminder_template}</Label>
+                <p className="text-xs text-muted-foreground">{labels.use_standard_templates}</p>
                 <pre className="whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-2 text-xs">{defaultRenewalTemplate}</pre>
                 <Textarea id="renewal-template" value={renewalTemplate} onChange={(e) => setRenewalTemplate(e.target.value)} placeholder={defaultRenewalTemplate} />
                 <p className="text-xs text-muted-foreground">Placeholders: {'{name}'}, {'{expiryDate}'}, {'{daysLeft}'}</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="reminder-days">Reminder Days (comma-separated)</Label>
+                <Label htmlFor="reminder-days">{labels.reminder_days_label}</Label>
                 <Input id="reminder-days" value={reminderDays} onChange={(e) => setReminderDays(e.target.value)} placeholder={DEFAULT_REMINDER_DAYS} />
                 <p className="text-xs text-muted-foreground">Example: 7,3,1</p>
               </div>
@@ -397,7 +397,7 @@ function WhatsAppTab() {
                   {templatesSaving ? labels.saving : labels.save}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => { setWelcomeTemplate(defaultWelcomeTemplate); setRenewalTemplate(defaultRenewalTemplate); setReminderDays(DEFAULT_REMINDER_DAYS); }}>
-                  Use Standard Templates
+                  {labels.use_standard_templates}
                 </Button>
               </div>
 
@@ -429,11 +429,24 @@ function BackupTab() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [restoreResult, setRestoreResult] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
+  const [autoEnabled, setAutoEnabled] = useState(false);
+  const [intervalHours, setIntervalHours] = useState('24');
+  const [windowStart, setWindowStart] = useState('0');
+  const [windowEnd, setWindowEnd] = useState('24');
+  const [savingSchedule, setSavingSchedule] = useState(false);
 
   const fetchHistory = useCallback(async () => {
     try {
+      await api.post('/api/backup/auto-run', {});
       const res = await api.get<BackupEntry[]>('/api/backup/history');
       if (res.success && res.data) setHistory(res.data);
+      const settingsRes = await api.get<Record<string, unknown>>('/api/settings');
+      if (settingsRes.success && settingsRes.data) {
+        setAutoEnabled(Boolean(settingsRes.data.backup_auto_enabled));
+        setIntervalHours(String(settingsRes.data.backup_auto_interval_hours ?? 24));
+        setWindowStart(String(settingsRes.data.backup_auto_window_start ?? 0));
+        setWindowEnd(String(settingsRes.data.backup_auto_window_end ?? 24));
+      }
     } catch {
       setExportResult({ type: 'destructive', text: labels.error_loading_history });
     } finally {
@@ -479,7 +492,29 @@ function BackupTab() {
     }
   };
 
-  const statusLabel = (s: string) => s === 'completed' ? 'Completed' : s === 'failed' ? 'Failed' : 'Pending';
+  const saveSchedule = async () => {
+    setSavingSchedule(true);
+    try {
+      const values = {
+        backup_auto_enabled: autoEnabled,
+        backup_auto_interval_hours: Number(intervalHours) || 24,
+        backup_auto_window_start: Number(windowStart) || 0,
+        backup_auto_window_end: Number(windowEnd) || 24,
+      };
+      const res = await api.put('/api/settings', { values });
+      if (res.success) {
+        setExportResult({ type: 'success', text: labels.saved_successfully });
+      } else {
+        setExportResult({ type: 'destructive', text: res.message ?? labels.failed_to_save });
+      }
+    } catch {
+      setExportResult({ type: 'destructive', text: labels.failed_to_save });
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  const statusLabel = (s: string) => s === 'completed' ? labels.backup_status_completed : s === 'failed' ? labels.backup_status_failed : labels.backup_status_pending;
   const statusVariant = (s: string) =>
     s === 'completed' ? 'bg-success hover:bg-success/90' : s === 'failed' ? 'bg-destructive hover:bg-destructive/90' : 'bg-warning hover:bg-warning/90';
 
@@ -495,6 +530,36 @@ function BackupTab() {
           <CardDescription>{labels.backup_and_restore_description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="rounded-md border border-border p-4 space-y-3">
+            <h3 className="text-base font-semibold">{labels.periodic_backups}</h3>
+            <div className="flex items-center gap-2">
+              <input
+                id="auto-backup-enabled"
+                type="checkbox"
+                checked={autoEnabled}
+                onChange={(e) => setAutoEnabled(e.target.checked)}
+              />
+              <Label htmlFor="auto-backup-enabled">{labels.enable_auto_backups}</Label>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div>
+                <Label htmlFor="backup-interval-hours">{labels.backup_interval_hours}</Label>
+                <Input id="backup-interval-hours" type="number" min={1} max={168} value={intervalHours} onChange={(e) => setIntervalHours(e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="backup-window-start">{labels.backup_window_start}</Label>
+                <Input id="backup-window-start" type="number" min={0} max={23} value={windowStart} onChange={(e) => setWindowStart(e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="backup-window-end">{labels.backup_window_end}</Label>
+                <Input id="backup-window-end" type="number" min={1} max={24} value={windowEnd} onChange={(e) => setWindowEnd(e.target.value)} />
+              </div>
+            </div>
+            <Button onClick={saveSchedule} disabled={savingSchedule}>
+              {savingSchedule ? labels.saving : labels.save}
+            </Button>
+          </div>
+
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <Button onClick={handleExport} disabled={exporting} className="min-w-[150px]">
               {exporting ? labels.creating_backup : labels.create_backup}
@@ -615,7 +680,7 @@ function StepIndicator({ current }: { current: number }) {
         <React.Fragment key={step.num}>
           <div className="flex flex-col items-center gap-1">
             <div className={cn(
-              "w-9 h-9 flex items-center justify-center font-bold border-2 border-[#2a2a2a]",
+              "w-9 h-9 flex items-center justify-center font-bold border-2 border-border",
               step.num <= current ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
             )}>
               {step.num}
@@ -832,7 +897,7 @@ function ImportTab() {
                     <AlertDescription>
                       {labels.import_successful_description}
                       {result.result && (
-                        <pre className="mt-2 text-xs p-2 bg-secondary text-secondary-foreground overflow-auto max-h-48 border-2 border-[#2a2a2a]">
+                        <pre className="mt-2 text-xs p-2 bg-secondary text-secondary-foreground overflow-auto max-h-48 border-2 border-border">
                           {JSON.stringify(result.result as Record<string, unknown>, null, 2)}
                         </pre>
                       )}
@@ -845,7 +910,7 @@ function ImportTab() {
                     <AlertDescription>
                       {labels.import_failed_description}
                       {result.result && (
-                        <pre className="mt-2 text-xs p-2 bg-secondary text-secondary-foreground overflow-auto max-h-48 border-2 border-[#2a2a2a]">
+                        <pre className="mt-2 text-xs p-2 bg-secondary text-secondary-foreground overflow-auto max-h-48 border-2 border-border">
                           {JSON.stringify(result.result as Record<string, unknown>, null, 2)}
                         </pre>
                       )}

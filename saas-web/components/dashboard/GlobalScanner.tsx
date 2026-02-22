@@ -104,7 +104,7 @@ export default function GlobalScanner() {
       if (result.success) {
         playSuccess();
         toast.custom(() => (
-          <div className="bg-[#0d2b1a] border-2 border-[#4ade80]/30 px-4 py-3 shadow-[4px_4px_0_#000000] min-w-[280px]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+          <div className="bg-[#0d2b1a] border-2 border-[#4ade80]/30 px-4 py-3 shadow-[6px_6px_0_#000000] min-w-[280px]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
             <p className="text-sm font-bold text-[#4ade80]">
               {labels.welcome_name.replace('{name}', result.memberName || '')}
             </p>
@@ -118,9 +118,9 @@ export default function GlobalScanner() {
       } else {
         playDenied();
         toast.custom(() => (
-          <div className="bg-[#2b0d0d] border-2 border-[#e63946]/30 px-4 py-3 shadow-[4px_4px_0_#000000] min-w-[280px]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+          <div className="bg-[#2b0d0d] border-2 border-[#e63946]/30 px-4 py-3 shadow-[6px_6px_0_#000000] min-w-[280px]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
             <p className="text-sm font-bold text-[#e63946]">
-              {lang === 'ar' ? 'دخول مرفوض' : 'Entry Denied'}
+              {labels.entry_denied}
             </p>
             <p className="text-xs text-[#e63946]/70">{result.reason}</p>
           </div>

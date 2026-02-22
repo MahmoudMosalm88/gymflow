@@ -47,7 +47,7 @@ const schema = z.object({
   card_code: z.string().optional(),
   address: z.string().optional(),
   // Subscription fields
-  plan_months: z.enum(['1', '3', '6', '12']),
+  plan_months: z.enum(['1', '3', '6', '12', '18', '24']),
   sessions_per_month: z.preprocess(
     (v) => (v === '' || v === undefined || v === null ? undefined : Number(v)),
     z.number().int().positive().optional()
@@ -274,8 +274,8 @@ export default function AddMemberModal({ open, onClose, onSuccess }: Props) {
             )} />
 
             {/* ── Subscription ── */}
-            <div className="pt-2 border-t border-[#2a2a2a]" />
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#8a8578]">
+            <div className="pt-2 border-t border-border" />
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {labels.subscription}
             </p>
 
@@ -284,8 +284,8 @@ export default function AddMemberModal({ open, onClose, onSuccess }: Props) {
               <FormItem>
                 <FormLabel>{labels.plan_duration}</FormLabel>
                 <FormControl>
-                  <div className="flex gap-0">
-                    {(['1', '3', '6', '12'] as const).map((m) => (
+                  <div className="flex flex-wrap gap-0">
+                    {(['1', '3', '6', '12', '18', '24'] as const).map((m) => (
                       <button
                         key={m}
                         type="button"

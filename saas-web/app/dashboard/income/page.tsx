@@ -73,8 +73,8 @@ export default function IncomePage() {
     >
       {/* Title */}
       <div>
-        <h1 className="text-2xl font-bold text-[#e8e4df]">{labels.income}</h1>
-        <p className="text-sm text-[#8a8578]">{labels.income_subtitle}</p>
+        <h1 className="text-2xl font-bold text-foreground">{labels.income}</h1>
+        <p className="text-sm text-muted-foreground">{labels.income_subtitle}</p>
       </div>
 
       {/* Summary stats */}
@@ -93,11 +93,11 @@ export default function IncomePage() {
         </CardHeader>
         <CardContent>
           {monthly.length === 0 ? (
-            <p className="text-sm text-[#8a8578] py-8 text-center">{labels.no_income_yet}</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">{labels.no_income_yet}</p>
           ) : (
-            <div className="overflow-auto border border-[#2a2a2a]">
+            <div className="overflow-auto border border-border">
               <table className="w-full text-sm">
-                <thead className="bg-[#1a1a1a] text-[#8a8578]">
+                <thead className="bg-secondary text-muted-foreground">
                   <tr>
                     <th className="text-start px-4 py-2.5 font-medium">{labels.month_col}</th>
                     <th className="text-end px-4 py-2.5 font-medium">{labels.revenue_col}</th>
@@ -108,12 +108,12 @@ export default function IncomePage() {
                 </thead>
                 <tbody>
                   {monthly.map((row) => (
-                    <tr key={row.month} className="border-t border-[#2a2a2a] hover:bg-[#1e1e1e] cursor-pointer" onClick={() => setSelectedMonth(row.month)}>
-                      <td className="px-4 py-2.5 font-medium text-[#e8e4df]">{fmtMonth(row.month)}</td>
-                      <td className="px-4 py-2.5 text-end font-semibold text-[#e8e4df]">{fmt(row.revenue)}</td>
-                      <td className="px-4 py-2.5 text-end text-[#8a8578] hidden sm:table-cell">{fmt(row.subscriptionRevenue)}</td>
-                      <td className="px-4 py-2.5 text-end text-[#8a8578] hidden sm:table-cell">{fmt(row.guestRevenue)}</td>
-                      <td className="px-4 py-2.5 text-end text-[#8a8578]">{row.count}</td>
+                    <tr key={row.month} className="border-t border-border hover:bg-card cursor-pointer" onClick={() => setSelectedMonth(row.month)}>
+                      <td className="px-4 py-2.5 font-medium text-foreground">{fmtMonth(row.month)}</td>
+                      <td className="px-4 py-2.5 text-end font-semibold text-foreground">{fmt(row.revenue)}</td>
+                      <td className="px-4 py-2.5 text-end text-muted-foreground hidden sm:table-cell">{fmt(row.subscriptionRevenue)}</td>
+                      <td className="px-4 py-2.5 text-end text-muted-foreground hidden sm:table-cell">{fmt(row.guestRevenue)}</td>
+                      <td className="px-4 py-2.5 text-end text-muted-foreground">{row.count}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -129,18 +129,18 @@ export default function IncomePage() {
           <CardTitle>{labels.recent_payments}</CardTitle>
           <CardDescription className="flex items-center justify-between">
             <span>{labels.recent_payments_hint}</span>
-            <Link href="/dashboard/income/payments" className="text-[#e63946] text-xs font-medium hover:underline">
+            <Link href="/dashboard/income/payments" className="text-destructive text-xs font-medium hover:underline">
               {labels.view_all_payments}
             </Link>
           </CardDescription>
         </CardHeader>
         <CardContent>
           {recent.length === 0 ? (
-            <p className="text-sm text-[#8a8578] py-8 text-center">{labels.no_income_yet}</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">{labels.no_income_yet}</p>
           ) : (
-            <div className="overflow-auto border border-[#2a2a2a]">
+            <div className="overflow-auto border border-border">
               <table className="w-full text-sm">
-                <thead className="bg-[#1a1a1a] text-[#8a8578]">
+                <thead className="bg-secondary text-muted-foreground">
                   <tr>
                     <th className="text-start px-4 py-2.5 font-medium">{labels.date_col}</th>
                     <th className="text-start px-4 py-2.5 font-medium">{labels.name_col}</th>
@@ -150,11 +150,11 @@ export default function IncomePage() {
                 </thead>
                 <tbody>
                   {recent.map((p) => (
-                    <tr key={p.id} className="border-t border-[#2a2a2a] hover:bg-[#1e1e1e]">
-                      <td className="px-4 py-2.5 text-[#8a8578]">{formatDate(p.date, locale)}</td>
-                      <td className="px-4 py-2.5 text-[#e8e4df]">{p.name}</td>
-                      <td className="px-4 py-2.5 text-end font-semibold text-[#e8e4df]">{fmt(p.amount)}</td>
-                      <td className="px-4 py-2.5 text-[#8a8578] hidden sm:table-cell">
+                    <tr key={p.id} className="border-t border-border hover:bg-card">
+                      <td className="px-4 py-2.5 text-muted-foreground">{formatDate(p.date, locale)}</td>
+                      <td className="px-4 py-2.5 text-foreground">{p.name}</td>
+                      <td className="px-4 py-2.5 text-end font-semibold text-foreground">{fmt(p.amount)}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">
                         {p.planMonths} {labels.months_label}
                         {p.sessionsPerMonth != null && `, ${p.sessionsPerMonth} ${labels.sessions_per_month_label}`}
                       </td>

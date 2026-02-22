@@ -844,12 +844,12 @@ export default function LoginPage() {
 
           <div className="space-y-4">
             {(isArabic ? [
-              "تسجيل دخول الأعضاء في ثوانٍ",
+              "تسجيل دخول العملاء في ثوانٍ",
               "اشتراكات ومدفوعات وتقارير فورية",
               "اللغة العربية والإنجليزية مدمجتان",
               "يعمل على الهاتف والكمبيوتر",
             ] : [
-              "Member check-in in seconds",
+              "Client check-in in seconds",
               "Subscriptions, payments & instant reports",
               "Arabic & English built-in",
               "Works on mobile and desktop",
@@ -866,7 +866,7 @@ export default function LoginPage() {
           <div className="flex gap-8 border-t-2 border-[#2a2a2a] pt-8 mb-8">
             <div>
               <p className="text-2xl font-black text-white">∞</p>
-              <p className="text-xs text-[#555555] mt-1">{isArabic ? "أعضاء بدون حد" : "Unlimited members"}</p>
+              <p className="text-xs text-[#555555] mt-1">{isArabic ? "عملاء بدون حد" : "Unlimited clients"}</p>
             </div>
             <div>
               <p className="text-2xl font-black text-white">2 min</p>

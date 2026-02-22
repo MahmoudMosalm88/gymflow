@@ -66,7 +66,7 @@ export const memberSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().min(2),
   phone: z.string().min(5),
-  gender: z.enum(["male", "female"]),
+  gender: z.enum(["male", "female"]).default("male"),
   photo_path: z.string().optional().nullable(),
   access_tier: z.string().default("full"),
   card_code: z.string().optional().nullable(),
@@ -83,9 +83,13 @@ export const subscriptionSchema = z.object({
 });
 
 export const subscriptionPatchSchema = z.object({
-  id: z.number().int().positive(),
+  id: z.coerce.number().int().positive(),
   is_active: z.boolean().optional(),
-  price_paid: z.number().optional().nullable()
+  price_paid: z.number().optional().nullable(),
+  start_date: z.number().int().positive().optional(),
+  end_date: z.number().int().positive().optional(),
+  plan_months: z.number().int().positive().optional(),
+  sessions_per_month: z.number().int().positive().optional().nullable()
 });
 
 export const attendanceSchema = z.object({

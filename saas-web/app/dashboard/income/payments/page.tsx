@@ -75,13 +75,13 @@ export default function AllPaymentsPage() {
     >
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/dashboard/income" className="text-[#8a8578] hover:text-[#e8e4df] transition-colors">
+        <Link href="/dashboard/income" className="text-muted-foreground hover:text-foreground transition-colors">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <path d={lang === 'ar' ? 'M8 4l6 6-6 6' : 'M12 4l-6 6 6 6'} />
           </svg>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-[#e8e4df]">{labels.all_payments}</h1>
+          <h1 className="text-2xl font-bold text-foreground">{labels.all_payments}</h1>
         </div>
       </div>
 
@@ -91,7 +91,7 @@ export default function AllPaymentsPage() {
         value={search}
         onChange={(e) => handleSearchChange(e.target.value)}
         placeholder={labels.search_by_name}
-        className="w-full max-w-sm px-4 py-2.5 bg-[#1e1e1e] border border-[#3a3a3a] text-sm text-[#e8e4df] placeholder-[#8a8578] outline-none focus:border-[#e63946]"
+        className="w-full max-w-sm px-4 py-2.5 bg-card border border-input text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-destructive"
       />
 
       {/* Table */}
@@ -105,12 +105,12 @@ export default function AllPaymentsPage() {
               <LoadingSpinner />
             </div>
           ) : payments.length === 0 ? (
-            <p className="text-sm text-[#8a8578] py-8 text-center">{labels.no_income_yet}</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">{labels.no_income_yet}</p>
           ) : (
             <>
-              <div className="overflow-auto border border-[#2a2a2a]">
+              <div className="overflow-auto border border-border">
                 <table className="w-full text-sm">
-                  <thead className="bg-[#1a1a1a] text-[#8a8578]">
+                  <thead className="bg-secondary text-muted-foreground">
                     <tr>
                       <th className="text-start px-4 py-2.5 font-medium">{labels.date_col}</th>
                       <th className="text-start px-4 py-2.5 font-medium">{labels.name_col}</th>
@@ -120,11 +120,11 @@ export default function AllPaymentsPage() {
                   </thead>
                   <tbody>
                     {payments.map((p) => (
-                      <tr key={p.id} className="border-t border-[#2a2a2a] hover:bg-[#1e1e1e]">
-                        <td className="px-4 py-2.5 text-[#8a8578]">{formatDate(p.date, locale)}</td>
-                        <td className="px-4 py-2.5 text-[#e8e4df]">{p.name}</td>
-                        <td className="px-4 py-2.5 text-end font-semibold text-[#e8e4df]">{formatCurrency(p.amount)}</td>
-                        <td className="px-4 py-2.5 text-[#8a8578] hidden sm:table-cell">
+                      <tr key={p.id} className="border-t border-border hover:bg-card">
+                        <td className="px-4 py-2.5 text-muted-foreground">{formatDate(p.date, locale)}</td>
+                        <td className="px-4 py-2.5 text-foreground">{p.name}</td>
+                        <td className="px-4 py-2.5 text-end font-semibold text-foreground">{formatCurrency(p.amount)}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">
                           {p.planMonths} {labels.months_label}
                           {p.sessionsPerMonth != null && `, ${p.sessionsPerMonth} ${labels.sessions_per_month_label}`}
                         </td>
@@ -140,7 +140,7 @@ export default function AllPaymentsPage() {
                   <button
                     onClick={handleLoadMore}
                     disabled={loadingMore}
-                    className="px-6 py-2.5 bg-[#1e1e1e] border border-[#2a2a2a] text-sm text-[#e8e4df] hover:bg-[#262626] disabled:opacity-50 transition-colors"
+                    className="px-6 py-2.5 bg-card border border-border text-sm text-foreground hover:bg-secondary disabled:opacity-50 transition-colors"
                   >
                     {loadingMore ? labels.loading : labels.load_more}
                   </button>

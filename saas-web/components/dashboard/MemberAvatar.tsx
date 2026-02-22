@@ -79,7 +79,7 @@ export default function MemberAvatar({ memberId, name, photoPath, onPhotoChange 
         type="button"
         onClick={() => fileRef.current?.click()}
         disabled={uploading}
-        className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-[#2a2a2a] bg-[#262626] flex items-center justify-center cursor-pointer hover:border-[#e63946] transition-colors"
+        className="relative w-24 h-24 overflow-hidden border-2 border-border bg-secondary flex items-center justify-center cursor-pointer hover:border-[#e63946] transition-colors"
       >
         {uploading ? (
           <LoadingSpinner />

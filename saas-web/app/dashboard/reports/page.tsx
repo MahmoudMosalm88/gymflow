@@ -22,9 +22,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 const TABS = [
   { key: 'daily-stats',    label: { en: 'Daily Stats',  ar: 'إحصائيات يومية' } },
   { key: 'hourly',         label: { en: 'Hourly',        ar: 'بالساعة' } },
-  { key: 'top-members',    label: { en: 'Top Members',   ar: 'أفضل الأعضاء' } },
-  { key: 'expiring-subs',  label: { en: 'Expiring',      ar: 'منتهية' } },
-  { key: 'low-sessions',   label: { en: 'Low Sessions',  ar: 'جلسات منخفضة' } },
+  { key: 'top-members',    label: { en: 'Top Clients',   ar: 'أفضل العملاء' } },
+  { key: 'expiring-subs',  label: { en: 'Expiring',      ar: 'تنتهي قريباً' } },
+  { key: 'ended-subs',     label: { en: 'Ended Subs',    ar: 'اشتراكات منتهية' } },
   { key: 'denial-reasons', label: { en: 'Denials',       ar: 'أسباب الرفض' } },
   { key: 'denied-entries', label: { en: 'Denied Log',    ar: 'سجل الرفض' } },
 ] as const;
@@ -76,7 +76,7 @@ export default function ReportsPage() {
       case 'denial-reasons': return `/api/reports/denial-reasons?days=${d}`;
       case 'denied-entries': return `/api/reports/denied-entries?days=${d}`;
       case 'expiring-subs':  return `/api/reports/expiring-subscriptions?days=${d}`;
-      case 'low-sessions':   return '/api/reports/low-sessions?threshold=3';
+      case 'ended-subs':     return '/api/reports/ended-subscriptions?limit=200';
     }
   }, []);
 
@@ -122,7 +122,7 @@ export default function ReportsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {overviewLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="border-2 border-[#2a2a2a] bg-[#1e1e1e] h-[80px] animate-pulse" />
+            <div key={i} className="border-2 border-border bg-card h-[80px] animate-pulse" />
           ))
         ) : overviewData ? (
           <>
@@ -137,7 +137,7 @@ export default function ReportsPage() {
       </div>
 
       {/* ── Horizontal command bar ── */}
-      <div className="flex items-stretch border-b border-[#2a2a2a] overflow-x-auto no-scrollbar">
+      <div className="flex items-stretch border-b border-border overflow-x-auto no-scrollbar">
         {TABS.map((item, i) => (
           <button
             key={item.key}
@@ -148,8 +148,8 @@ export default function ReportsPage() {
             }}
             className={cn(
               'px-4 py-3 text-sm whitespace-nowrap shrink-0 cursor-pointer transition-colors',
-              i < TABS.length - 1 && 'border-r border-[#2a2a2a]',
-              tab === item.key ? 'text-[#e8e4df]' : 'text-[#8a8578] hover:text-[#e8e4df]'
+              i < TABS.length - 1 && 'border-e border-border',
+              tab === item.key ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
             )}
           >
             {item.label[lang]}
@@ -158,7 +158,7 @@ export default function ReportsPage() {
 
         {/* Period filter — floats to the right of the command bar */}
         {showDaysFilter && (
-          <div className="ml-auto flex items-center px-4 shrink-0 border-l border-[#2a2a2a]">
+          <div className="ms-auto flex items-center px-4 shrink-0 border-s border-border">
             <Select value={days.toString()} onValueChange={(v) => setDays(Number(v))} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
               <SelectTrigger className="w-[120px] h-8 text-sm">
                 <SelectValue />
@@ -178,7 +178,7 @@ export default function ReportsPage() {
         <LoadingSpinner size="lg" />
       ) : error ? (
         <Alert variant="destructive">
-          <Terminal className={cn("h-4 w-4", lang === 'ar' ? "ml-2" : "mr-2")} />
+          <Terminal className={cn("h-4 w-4 me-2")} />
           <AlertTitle>{labels.error_title}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
@@ -262,18 +262,21 @@ export default function ReportsPage() {
             </Card>
           )}
 
-          {/* Low Sessions — data table */}
-          {tab === 'low-sessions' && Array.isArray(data) && (
+          {/* Ended Subscriptions — data table */}
+          {tab === 'ended-subs' && Array.isArray(data) && (
             <Card>
-              <CardHeader><CardTitle>{labels.low_sessions}</CardTitle></CardHeader>
+              <CardHeader><CardTitle>{labels.expired_subscriptions}</CardTitle></CardHeader>
               <CardContent>
                 <DataTable
                   columns={[
                     { key: 'name', label: labels.name },
                     { key: 'phone', label: labels.phone },
-                    { key: 'sessions_remaining', label: labels.sessions_remaining, render: (row: any) => (
-                      <span className={row.sessions_remaining <= 1 ? 'text-destructive font-bold' : 'text-warning'}>{row.sessions_remaining}</span>
-                    )},
+                    { key: 'end_date', label: labels.end_date, render: (row: any) => formatDate(row.end_date, lang === 'ar' ? 'ar-EG' : 'en-US') },
+                    { key: 'status', label: labels.status, render: (row: any) => (
+                      <span className={row.status === 'expired' ? 'text-destructive font-bold' : 'text-warning'}>
+                        {row.status}
+                      </span>
+                    ) },
                   ]}
                   data={data}
                 />

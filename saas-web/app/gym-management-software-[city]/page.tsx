@@ -105,18 +105,18 @@ const features = [
     titleEn: "QR Check-In",
     titleAr: "تسجيل دخول QR",
     bodyEn:
-      "Members scan a code on their phone. Check-in logs instantly — no manual search, no queue.",
+      "Clients scan a code on their phone. Check-in logs instantly — no manual search, no queue.",
     bodyAr:
-      "يمسح الأعضاء رمزاً على هواتفهم. يُسجَّل الحضور فوراً — بلا بحث يدوي، بلا طابور.",
+      "يمسح العملاء رمزاً على هواتفهم. يُسجَّل الحضور فوراً — بلا بحث يدوي، بلا طابور.",
   },
   {
     icon: "🔔",
     titleEn: "WhatsApp Renewals",
     titleAr: "تجديدات واتساب",
     bodyEn:
-      "Automated messages go out 7, 3, and 1 day before expiry. Members renew without your staff lifting a finger.",
+      "Automated messages go out 7, 3, and 1 day before expiry. Clients renew without your staff lifting a finger.",
     bodyAr:
-      "تُرسل رسائل تلقائية قبل 7 و3 ويوم من انتهاء الصلاحية. يجدد الأعضاء دون أن يتحرك موظفوك.",
+      "تُرسل رسائل تلقائية قبل 7 و3 ويوم من انتهاء الصلاحية. يجدد العملاء دون أن يتحرك موظفوك.",
   },
   {
     icon: "📊",
@@ -132,18 +132,18 @@ const features = [
     titleEn: "Subscription Freeze",
     titleAr: "تجميد الاشتراك",
     bodyEn:
-      "Members can pause for a set number of days. Billing resumes automatically — you keep the member.",
+      "Clients can pause for a set number of days. Billing resumes automatically — you keep the client.",
     bodyAr:
-      "يمكن للأعضاء الإيقاف المؤقت لعدد محدد من الأيام. تستأنف الفوترة تلقائياً — تحتفظ بالعضو.",
+      "يمكن للعملاء الإيقاف المؤقت لعدد محدد من الأيام. تستأنف الفوترة تلقائياً — تحتفظ بالعميل.",
   },
   {
     icon: "🏢",
     titleEn: "Multi-Branch",
     titleAr: "فروع متعددة",
     bodyEn:
-      "Run every branch from one login. Consolidated revenue, per-branch attendance, shared member profiles.",
+      "Run every branch from one login. Consolidated revenue, per-branch attendance, shared client profiles.",
     bodyAr:
-      "أدر كل فرع من تسجيل دخول واحد. إيرادات موحدة، حضور لكل فرع، ملفات أعضاء مشتركة.",
+      "أدر كل فرع من تسجيل دخول واحد. إيرادات موحدة، حضور لكل فرع، ملفات عملاء مشتركة.",
   },
   {
     icon: "☁️",
@@ -699,7 +699,7 @@ export default async function CityPage({
               lineHeight: 1.6,
             }}
           >
-            Join gym owners across {page.cityEn} and {page.countryEn} who use GymFlow to automate the admin and focus on their members.
+            Join gym owners across {page.cityEn} and {page.countryEn} who use GymFlow to automate the admin and focus on their clients.
           </p>
           <a
             href="/dashboard"

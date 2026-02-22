@@ -73,7 +73,7 @@ export default function FeaturesIndexPage() {
               lineHeight: 1.65,
             }}
           >
-            Everything you need to run your gym — from member check-in to
+            Everything you need to run your gym — from client check-in to
             subscription tracking to automated WhatsApp reminders.
           </p>
         </div>

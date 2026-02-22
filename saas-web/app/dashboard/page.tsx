@@ -170,23 +170,23 @@ export default function DashboardPage() {
 
       {/* ── Hero Scanner ── */}
       <div
-        className="border-2 border-[#2a2a2a] bg-[#1e1e1e] shadow-[6px_6px_0_#000000]"
-        style={{ borderLeft: '4px solid #e63946' }}
+        className="border-2 border-border bg-card shadow-[6px_6px_0_#000000]"
+        style={{ borderInlineStart: '4px solid var(--accent-red, #e63946)' }}
       >
         {/* Always-visible status zone */}
         <div
           className={`min-h-[72px] px-6 pt-5 pb-3 flex items-center transition-colors ${
-            heroSuccess ? 'bg-[#0d2b1a]' :
-            heroDenied  ? 'bg-[#2b0d0d]' :
+            heroSuccess ? 'bg-success/10' :
+            heroDenied  ? 'bg-destructive/10' :
             'bg-transparent'
           }`}
           dir={lang === 'ar' ? 'rtl' : 'ltr'}
         >
           {heroIdle && (
-            <span className="text-sm text-[#8a8578]">{labels.scan_qr_or_enter_id}</span>
+            <span className="text-sm text-muted-foreground">{labels.scan_qr_or_enter_id}</span>
           )}
           {scanning && (
-            <span className="text-sm text-[#8a8578]">{labels.scanning}</span>
+            <span className="text-sm text-muted-foreground">{labels.scanning}</span>
           )}
           {heroSuccess && scanResult && (
             <div className="flex items-center gap-4">
@@ -198,11 +198,11 @@ export default function DashboardPage() {
                 />
               )}
               <div style={{ textAlign: lang === 'ar' ? 'right' : 'left' }}>
-                <p className="text-xl font-bold text-[#4ade80]">
+                <p className="text-xl font-bold text-success">
                   {labels.welcome_name.replace('{name}', scanResult.memberName || '')}
                 </p>
                 {scanResult.sessionsRemaining !== undefined && (
-                  <p className="text-sm text-[#4ade80]/70">
+                  <p className="text-sm text-success/70">
                     {labels.sessions_remaining.replace('{sessions}', String(scanResult.sessionsRemaining))}
                   </p>
                 )}
@@ -210,7 +210,7 @@ export default function DashboardPage() {
             </div>
           )}
           {heroDenied && scanResult && (
-            <p className="text-sm font-medium text-[#e63946]">{scanResult.reason}</p>
+            <p className="text-sm font-medium text-destructive">{scanResult.reason}</p>
           )}
         </div>
 
@@ -239,7 +239,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {loadingOverview ? (
           Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="border-2 border-[#2a2a2a] bg-[#1e1e1e] h-[100px] animate-pulse" />
+            <div key={i} className="border-2 border-border bg-card h-[100px] animate-pulse" />
           ))
         ) : (
           <>
@@ -276,6 +276,9 @@ export default function DashboardPage() {
               <Button variant="outline" onClick={() => router.push('/dashboard/reports')}>
                 {labels.view_reports}
               </Button>
+              <Button variant="outline" onClick={() => router.push('/dashboard/guest-passes')}>
+                {labels.guest_passes}
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -291,11 +294,11 @@ export default function DashboardPage() {
             ) : activityLog.length === 0 ? (
               <p className="p-4 text-sm text-muted-foreground">{labels.noData}</p>
             ) : (
-              <div className="divide-y divide-[#2a2a2a] max-h-[360px] overflow-y-auto no-scrollbar">
+              <div className="divide-y divide-border max-h-[360px] overflow-y-auto no-scrollbar">
                 {activityLog.map((entry) => (
                   <div
                     key={entry.id}
-                    className="flex items-center justify-between px-4 py-3 hover:bg-[#222222] transition-colors"
+                    className="flex items-center justify-between px-4 py-3 hover:bg-secondary transition-colors"
                     dir={lang === 'ar' ? 'rtl' : 'ltr'}
                   >
                     <div className="flex items-center gap-3">
@@ -310,11 +313,11 @@ export default function DashboardPage() {
                             ? '!'
                             : '✗'}
                       </span>
-                      <span className="text-sm text-[#e8e4df] truncate">
+                      <span className="text-sm text-foreground truncate">
                         {entry.member_name || entry.scanned_value}
                       </span>
                     </div>
-                    <span className="text-xs text-[#8a8578] shrink-0 ml-2">
+                    <span className="text-xs text-muted-foreground shrink-0 ms-2">
                       {new Date(entry.timestamp * 1000).toLocaleTimeString(
                         lang === 'ar' ? 'ar-EG' : 'en-US',
                         { hour: '2-digit', minute: '2-digit' }

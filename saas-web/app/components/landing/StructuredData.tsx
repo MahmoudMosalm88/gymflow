@@ -15,7 +15,7 @@ const softwareApp = {
     "description": "Free trial — no credit card required",
   },
   "description":
-    "GymFlow is a cloud-based gym management platform that automates member check-ins, subscription tracking, WhatsApp reminders, and financial reporting for gyms in the Middle East and North Africa.",
+    "GymFlow is a cloud-based gym management platform that automates client check-ins, subscription tracking, WhatsApp reminders, and financial reporting for gyms in the Middle East and North Africa.",
   "featureList": [
     "QR Code Check-in",
     "Membership & Subscription Management",
@@ -58,10 +58,10 @@ const faqPage = {
   "mainEntity": [
     {
       "@type": "Question",
-      "name": "How do I migrate my existing member data to GymFlow?",
+      "name": "How do I migrate my existing client data to GymFlow?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "You can import members via CSV upload or use our migration tool to bring data from your current system. Our support team assists with any complex transfers.",
+        "text": "You can import clients via CSV upload or use our migration tool to bring data from your current system. Our support team assists with any complex transfers.",
       },
     },
     {
@@ -74,15 +74,15 @@ const faqPage = {
     },
     {
       "@type": "Question",
-      "name": "What happens when a member's subscription expires?",
+      "name": "What happens when a client's subscription expires?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Expired members are automatically denied entry at check-in. You can configure automated WhatsApp renewal reminders to go out 7, 3, and 1 day before expiry.",
+        "text": "Expired clients are automatically denied entry at check-in. You can configure automated WhatsApp renewal reminders to go out 7, 3, and 1 day before expiry.",
       },
     },
     {
       "@type": "Question",
-      "name": "Is my members' data secure?",
+      "name": "Is my clients' data secure?",
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "All data is encrypted in transit and at rest. We use Google Cloud infrastructure with daily backups and ISO-standard security practices.",

@@ -10,6 +10,7 @@ import AddMemberModal from '@/components/dashboard/AddMemberModal';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -54,6 +55,7 @@ export default function MembersPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'expired' | 'no_sub'>('all');
 
   // Add member modal state
   const [addOpen, setAddOpen] = useState(false);
@@ -102,6 +104,11 @@ export default function MembersPage() {
     }
   };
 
+  // Client-side status filter
+  const filtered = statusFilter === 'all'
+    ? members
+    : members.filter((m) => m.sub_status === statusFilter);
+
   // Column definitions
   const columns = [
     { key: 'name',       label: labels.name,     className: 'w-[150px]' },
@@ -110,7 +117,7 @@ export default function MembersPage() {
     { key: 'gender',     label: labels.gender,   className: 'hidden md:table-cell' },
     { key: 'card_code',  label: labels.card_code, className: 'hidden lg:table-cell' },
     { key: 'created_at', label: labels.date,     className: 'hidden lg:table-cell' },
-    { key: '_actions',   label: labels.actions,  className: 'w-[50px] text-right' },
+    { key: '_actions',   label: labels.actions,  className: 'w-[50px] text-end' },
   ];
 
   return (
@@ -123,20 +130,33 @@ export default function MembersPage() {
         </Button>
       </div>
 
-      {/* Search bar */}
-      <Input
-        type="text"
-        placeholder={labels.search_members}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="max-w-sm"
-      />
+      {/* Search + filter */}
+      <div className="flex flex-wrap gap-3">
+        <Input
+          type="text"
+          placeholder={labels.search_members}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-sm"
+        />
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{labels.all_statuses}</SelectItem>
+            <SelectItem value="active">{labels.active}</SelectItem>
+            <SelectItem value="expired">{labels.expired}</SelectItem>
+            <SelectItem value="no_sub">{labels.no_sub}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Members table */}
       {loading ? (
         <LoadingSpinner />
       ) : (
-        <div className="border-2 border-[#2a2a2a]">
+        <div className="border-2 border-border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -148,8 +168,8 @@ export default function MembersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {members.length > 0 ? (
-                members.map((member) => (
+              {filtered.length > 0 ? (
+                filtered.map((member) => (
                   <TableRow
                     key={member.id}
                     onClick={() => router.push(`/dashboard/members/${member.id}`)}
@@ -159,10 +179,10 @@ export default function MembersPage() {
                     <TableCell>
                       <span className={`text-xs font-semibold px-2 py-0.5 border ${
                         member.sub_status === 'active'
-                          ? 'border-[#2a5c3a] text-[#4ade80] bg-[#0d2b1a]'
+                          ? 'border-success/30 text-success bg-success/10'
                           : member.sub_status === 'expired'
-                          ? 'border-[#5c2a2a] text-[#e63946] bg-[#2b0d0d]'
-                          : 'border-[#2a2a2a] text-[#8a8578] bg-transparent'
+                          ? 'border-destructive/30 text-destructive bg-destructive/10'
+                          : 'border-border text-muted-foreground bg-transparent'
                       }`}>
                         {member.sub_status === 'active'
                           ? labels.active
@@ -179,7 +199,7 @@ export default function MembersPage() {
                     <TableCell className="hidden lg:table-cell">
                       {formatDate(member.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-end">
                       <DropdownMenu dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" className="h-8 w-8 p-0">

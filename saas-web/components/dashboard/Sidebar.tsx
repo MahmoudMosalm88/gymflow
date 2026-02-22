@@ -108,13 +108,13 @@ export default function Sidebar({ open, onClose }: Props) {
             key={item.key}
             href={item.href}
             onClick={onClose}
-            className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors ${
+            className={`flex items-center gap-3 px-3 py-3 text-sm font-medium transition-colors ${
               active
-                ? 'border-l-[4px] border-[#e63946] text-[#e63946] bg-[#e63946]/10'
-                : 'border-l-[4px] border-transparent text-[#888888] hover:text-[#f0f0f0] hover:bg-white/5'
+                ? 'border-s-[4px] border-[#e63946] text-[#e63946] bg-[#e63946]/10'
+                : 'border-s-[4px] border-transparent text-muted-foreground hover:text-[#f0f0f0] hover:bg-white/5'
             }`}
           >
-            <span className={active ? 'text-[#e63946]' : 'text-[#888888]'}>{item.icon}</span>
+            <span className={active ? 'text-[#e63946]' : 'text-muted-foreground'} aria-hidden="true">{item.icon}</span>
             {t[lang][item.key]}
           </Link>
         );
@@ -129,8 +129,8 @@ export default function Sidebar({ open, onClose }: Props) {
       )}
 
       <aside
-        className={`fixed top-0 left-0 z-50 h-full w-64 bg-[#0a0a0a] border-r-2 border-[#2a2a2a] flex flex-col transition-transform lg:static lg:translate-x-0 ${
-          open ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed top-0 start-0 z-50 h-full w-64 bg-[#0a0a0a] border-e-2 border-border flex flex-col transition-transform lg:static lg:translate-x-0 rtl:lg:translate-x-0 ${
+          open ? 'translate-x-0 rtl:-translate-x-0' : '-translate-x-full rtl:translate-x-full'
         }`}
       >
         <div className="flex items-center gap-2 px-5 py-5">

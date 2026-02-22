@@ -64,15 +64,14 @@ type AttendanceLog = {
   method: string;
 };
 
-const METHOD_LABELS: Record<string, string> = {
-  qr_code: 'QR Code',
-  card_scan: 'Card Scan',
-  manual: 'Manual',
-  admin_override: 'Admin',
-};
-
-function formatMethod(method: string): string {
-  return METHOD_LABELS[method] ?? method.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+function getMethodLabels(labels: Record<string, string>): Record<string, string> {
+  return {
+    qr_code: labels.method_qr_code,
+    card_scan: labels.method_card_scan,
+    manual: labels.method_manual,
+    admin_override: labels.method_admin,
+    scan: labels.method_scan,
+  };
 }
 
 export default function MemberDetailPage() {
@@ -146,11 +145,11 @@ export default function MemberDetailPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => router.push(`/dashboard/members/${id}/edit`)} variant="outline">
-            <Pencil1Icon className={lang === 'ar' ? 'ml-2 h-4 w-4' : 'mr-2 h-4 w-4'} />
+            <Pencil1Icon className="me-2 h-4 w-4" />
             {labels.edit}
           </Button>
           <Button onClick={() => router.push(`/dashboard/subscriptions?member_id=${id}&new=1`)}>
-            <PlusIcon className={lang === 'ar' ? 'ml-2 h-4 w-4' : 'mr-2 h-4 w-4'} />
+            <PlusIcon className="me-2 h-4 w-4" />
             {labels.add_subscription}
           </Button>
           {subs.some((s) => s.status === 'active') && (
@@ -162,7 +161,7 @@ export default function MemberDetailPage() {
                 if (activeSub) setFreezeSubId(String(activeSub.id));
               }}
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className={lang === 'ar' ? 'ml-2' : 'mr-2'}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="me-2">
                 <path d="M8 2v12M4 6v4M12 6v4" />
               </svg>
               {labels.freeze_subscription}
@@ -222,7 +221,7 @@ export default function MemberDetailPage() {
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-lg font-semibold">{labels.subscriptions}</CardTitle>
           <Button variant="ghost" size="sm" onClick={() => router.push(`/dashboard/subscriptions?member_id=${id}&new=1`)}>
-            <PlusIcon className={lang === 'ar' ? 'ml-2 h-4 w-4' : 'mr-2 h-4 w-4'} />
+            <PlusIcon className="me-2 h-4 w-4" />
             {labels.add_new}
           </Button>
         </CardHeader>
@@ -253,7 +252,7 @@ export default function MemberDetailPage() {
                           {labels.freeze_subscription}
                         </Button>
                       )}
-                      <div className="text-right">
+                      <div className="text-end">
                         <p className="text-sm font-semibold text-foreground">{formatCurrency(sub.price_paid ?? 0)}</p>
                         <Badge
                           className={
@@ -301,7 +300,7 @@ export default function MemberDetailPage() {
               {attendance.map((rec) => (
                 <div key={rec.id} className="flex items-center justify-between py-3">
                   <span className="text-sm">{formatDateTime(rec.timestamp, locale)}</span>
-                  <span className="text-xs text-muted-foreground">{formatMethod(rec.method)}</span>
+                  <span className="text-xs text-muted-foreground">{getMethodLabels(labels)[rec.method] ?? rec.method.replace(/_/g, ' ')}</span>
                 </div>
               ))}
             </div>
