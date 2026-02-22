@@ -49,10 +49,24 @@ async function headers() {
   ];
 }
 
+async function rewrites() {
+  return [
+    {
+      source: "/gym-management-software-:city",
+      destination: "/gym-management-software/:city"
+    },
+    {
+      source: "/compare/gymflow-vs-:competitor",
+      destination: "/compare/gymflow-vs/:competitor"
+    }
+  ];
+}
+
 const nextConfig = {
   output: "standalone",
   poweredByHeader: false,
   headers,
+  rewrites,
   experimental: {
     serverComponentsExternalPackages: ["sql.js"]
   }
