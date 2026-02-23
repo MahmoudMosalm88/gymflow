@@ -118,7 +118,7 @@ export default function GuestPassesPage() {
                 <TableRow key={row.id}>
                   <TableCell className="font-medium font-mono text-xs">{row.code}</TableCell>
                   <TableCell>{row.member_name}</TableCell>
-                  <TableCell>{row.phone || '-'}</TableCell>
+                  <TableCell dir="ltr">{row.phone || '-'}</TableCell>
                   <TableCell>
                     <Badge className={row.used_at ? 'bg-muted text-muted-foreground' : 'bg-success/10 text-success border border-success/30'}>
                       {row.used_at ? labels.guest_used : labels.guest_open}

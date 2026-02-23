@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLang, t } from "@/lib/i18n";
 
 const DISMISS_KEY = "gymflow_install_dismissed";
 
@@ -11,6 +12,8 @@ const DISMISS_KEY = "gymflow_install_dismissed";
  * - Dismissal persists in localStorage.
  */
 export default function InstallPrompt() {
+  const { lang } = useLang();
+  const labels = t[lang];
   const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
   const [showBanner, setShowBanner] = useState(false);
   const [isIos, setIsIos] = useState(false);
@@ -61,15 +64,15 @@ export default function InstallPrompt() {
 
   return (
     <div
-      className="flex items-center justify-between gap-3 bg-[#1e1e1e] border-2 border-[#2a2a2a] px-4 py-3 mx-4 mt-4"
+      className="flex items-center justify-between gap-3 bg-card border-2 border-border px-4 py-3 mx-4 mt-4"
       style={{ boxShadow: "4px 4px 0 #000" }}
     >
       <div className="flex items-center gap-3 min-w-0">
         <span className="bg-[#e63946] text-white font-extrabold text-xs px-2 py-1 shrink-0">GF</span>
-        <p className="text-sm text-[#e8e4df] truncate">
+        <p className="text-sm text-foreground truncate">
           {isIos
-            ? "Tap the share button, then \"Add to Home Screen\" to install GymFlow."
-            : "Install GymFlow for faster access and offline check-ins."}
+            ? labels.install_ios_instructions
+            : labels.install_prompt}
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
@@ -78,14 +81,14 @@ export default function InstallPrompt() {
             onClick={handleInstall}
             className="bg-[#e63946] text-white text-xs font-bold px-3 py-1.5 border-2 border-[#e63946] hover:opacity-90 transition-opacity"
           >
-            Install
+            {labels.install}
           </button>
         )}
         <button
           onClick={dismiss}
-          className="text-[#8a8578] text-xs font-bold hover:text-[#e8e4df] transition-colors"
+          className="text-muted-foreground text-xs font-bold hover:text-foreground transition-colors"
         >
-          Dismiss
+          {labels.dismiss}
         </button>
       </div>
     </div>

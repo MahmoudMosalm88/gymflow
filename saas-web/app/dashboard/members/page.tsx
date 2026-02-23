@@ -191,7 +191,7 @@ export default function MembersPage() {
                           : labels.no_sub}
                       </span>
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell">{member.phone}</TableCell>
+                    <TableCell className="hidden sm:table-cell" dir="ltr">{member.phone}</TableCell>
                     <TableCell className="hidden md:table-cell">
                       {member.gender === 'male' ? labels.male : labels.female}
                     </TableCell>

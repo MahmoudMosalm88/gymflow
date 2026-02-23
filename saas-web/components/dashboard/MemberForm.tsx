@@ -101,7 +101,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, loading, h
                 <FormItem>
                   <FormLabel>{labels.phone} *</FormLabel>
                   <FormControl>
-                    <Input placeholder={labels.phone_placeholder} {...field} />
+                    <Input placeholder={labels.phone_placeholder} dir="ltr" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

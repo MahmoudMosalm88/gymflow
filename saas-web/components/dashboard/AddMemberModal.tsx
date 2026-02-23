@@ -200,7 +200,7 @@ export default function AddMemberModal({ open, onClose, onSuccess }: Props) {
               <FormItem>
                 <FormLabel>{labels.phone} *</FormLabel>
                 <FormControl>
-                  <Input placeholder={labels.phone_placeholder} {...field} />
+                  <Input placeholder={labels.phone_placeholder} dir="ltr" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
