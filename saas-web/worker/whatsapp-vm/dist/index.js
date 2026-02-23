@@ -1,6 +1,7 @@
 import { Pool } from "pg";
+import http from "node:http";
 import { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, } from "@whiskeysockets/baileys";
-import { mkdirSync } from "fs";
+import { mkdirSync, rmSync } from "fs";
 import { randomUUID } from "crypto";
 import pino from "pino";
 import QRCode from "qrcode";
@@ -11,6 +12,10 @@ const renewalCheckMs = Number(process.env.RENEWAL_CHECK_MS || 60 * 60 * 1000);
 const dryRun = process.env.WHATSAPP_DRY_RUN === "true";
 const authBasePath = process.env.BAILEYS_AUTH_PATH || "./baileys_auth";
 const reconnectDelayMs = Number(process.env.WHATSAPP_RECONNECT_DELAY_MS || 3000);
+const port = Number(process.env.PORT || 8080);
+const workerBatchLimit = Math.max(1, Number(process.env.WORKER_BATCH_LIMIT || 5));
+const minSendIntervalMs = Math.max(0, Number(process.env.WHATSAPP_MIN_SEND_INTERVAL_MS || 12000));
+const sendJitterMs = Math.max(0, Number(process.env.WHATSAPP_SEND_JITTER_MS || 4000));
 if (!databaseUrl)
     throw new Error("DATABASE_URL is required");
 mkdirSync(authBasePath, { recursive: true });
@@ -19,6 +24,15 @@ const runtimes = new Map();
 const reminderDefaultDays = [7, 3, 1];
 const defaultRenewalTemplateEn = "Hi {name}, your subscription will expire on {expiryDate} ({daysLeft} days left). Please renew to keep access active.";
 const defaultRenewalTemplateAr = "مرحباً {name}، ينتهي اشتراكك بتاريخ {expiryDate} (متبقي {daysLeft} أيام). يرجى التجديد للحفاظ على العضوية.";
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+async function throttleSend() {
+    if (minSendIntervalMs <= 0 && sendJitterMs <= 0)
+        return;
+    const jitter = sendJitterMs > 0 ? Math.floor(Math.random() * (sendJitterMs + 1)) : 0;
+    await sleep(minSendIntervalMs + jitter);
+}
 function toTenantKey(organizationId, branchId) {
     return `${organizationId}:${branchId}`;
 }
@@ -27,6 +41,20 @@ function sanitizePathSegment(value) {
 }
 function toAuthPath(organizationId, branchId) {
     return `${authBasePath}/${sanitizePathSegment(organizationId)}__${sanitizePathSegment(branchId)}`;
+}
+function normalizePhoneToJid(rawPhone) {
+    let digits = String(rawPhone || "").replace(/\D/g, "");
+    // Convert common local Egyptian mobile format 01XXXXXXXXX to 201XXXXXXXXX.
+    if (digits.length === 11 && digits.startsWith("01")) {
+        digits = `2${digits}`;
+    }
+    // Convert accidental +0... input (e.g. +010...) to country-prefixed form.
+    if (digits.length >= 8 && digits.startsWith("0")) {
+        digits = digits.replace(/^0+/, "");
+    }
+    if (!digits)
+        throw new Error("Missing valid phone number for WhatsApp delivery");
+    return `${digits}@s.whatsapp.net`;
 }
 function normalizeState(value) {
     if (value === "connected")
@@ -210,6 +238,7 @@ async function ensureRuntimeSocket(runtime) {
                         qrCode: image.toString("base64"),
                         requested_at: new Date().toISOString(),
                     });
+                    console.log(`[${runtime.key}] QR updated`);
                 }
                 catch (error) {
                     console.error(`[${runtime.key}] QR generation failed`, error);
@@ -231,7 +260,19 @@ async function ensureRuntimeSocket(runtime) {
                 const code = lastDisconnect?.error?.output?.statusCode;
                 const loggedOut = code === DisconnectReason.loggedOut;
                 const stopRequested = runtime.desiredState === "disconnected" || runtime.intentionalDisconnect;
+                const reasonText = lastDisconnect?.error?.message || "unknown";
+                console.warn(`[${runtime.key}] connection closed code=${code ?? "n/a"} loggedOut=${loggedOut} stopRequested=${stopRequested} reason=${reasonText}`);
                 if (loggedOut || stopRequested) {
+                    if (loggedOut) {
+                        try {
+                            rmSync(runtime.authPath, { recursive: true, force: true });
+                            mkdirSync(runtime.authPath, { recursive: true });
+                            console.warn(`[${runtime.key}] cleared auth path after loggedOut`);
+                        }
+                        catch (error) {
+                            console.error(`[${runtime.key}] failed clearing auth path`, error);
+                        }
+                    }
                     await writeStatus(runtime.organizationId, runtime.branchId, {
                         state: "disconnected",
                         qrCode: null,
@@ -293,16 +334,28 @@ async function processTenantQueue(runtime) {
     try {
         await client.query("BEGIN");
         const result = await client.query(`SELECT mq.id, mq.member_id, mq.type, mq.payload,
-              m.phone AS member_phone
+              m.phone AS member_phone,
+              m.card_code AS member_card_code
          FROM message_queue mq
          JOIN members m ON m.id = mq.member_id
-        WHERE mq.status = 'pending'
-          AND mq.scheduled_at <= NOW()
+        WHERE mq.scheduled_at <= NOW()
+          AND (
+            mq.status = 'pending'
+            OR (mq.status = 'failed' AND mq.attempts < 3)
+          )
           AND mq.organization_id = $1
           AND mq.branch_id = $2
-        ORDER BY mq.scheduled_at ASC
-        LIMIT 20
-        FOR UPDATE SKIP LOCKED`, [runtime.organizationId, runtime.branchId]);
+        ORDER BY
+          CASE mq.type
+            WHEN 'welcome' THEN 0
+            WHEN 'qr_code' THEN 1
+            WHEN 'manual' THEN 2
+            WHEN 'renewal' THEN 3
+            ELSE 9
+          END,
+          mq.scheduled_at ASC
+        LIMIT $3
+        FOR UPDATE SKIP LOCKED`, [runtime.organizationId, runtime.branchId, workerBatchLimit]);
         for (const row of result.rows) {
             await client.query(`UPDATE message_queue
             SET status = 'processing', attempts = attempts + 1
@@ -313,17 +366,40 @@ async function processTenantQueue(runtime) {
                 continue;
             }
             try {
-                const raw = String(row.member_phone || "").replace(/[\s\-()]/g, "");
-                const jid = (raw.startsWith("+") ? raw.slice(1) : raw) + "@s.whatsapp.net";
                 const payload = row.payload;
+                const rawPhone = String(row.member_phone || (typeof payload?.phone === "string" ? payload.phone : ""));
+                const jid = normalizePhoneToJid(rawPhone);
                 const message = (typeof payload?.message === "string" && payload.message) ||
                     (typeof payload?.text === "string" && payload.text) ||
                     JSON.stringify(row.payload);
-                await runtime.sock.sendMessage(jid, { text: message });
+                let sentId;
+                if (row.type === "qr_code") {
+                    const code = (typeof payload?.code === "string" && payload.code.trim()) ||
+                        (typeof row.member_card_code === "string" && row.member_card_code.trim()) ||
+                        String(row.member_id);
+                    const qrImage = await QRCode.toBuffer(code, { width: 512, margin: 1 });
+                    const sent = await runtime.sock.sendMessage(jid, {
+                        image: qrImage,
+                        caption: message,
+                    });
+                    sentId = sent?.key?.id;
+                }
+                else {
+                    const sent = await runtime.sock.sendMessage(jid, { text: message });
+                    sentId = sent?.key?.id;
+                }
+                await throttleSend();
                 await client.query(`UPDATE message_queue SET status = 'sent', sent_at = NOW() WHERE id = $1`, [row.id]);
+                console.log(`[${runtime.key}] sent queue=${row.id} type=${row.type} jid=${jid} waMessageId=${sentId ?? "n/a"}`);
             }
             catch (error) {
-                await client.query(`UPDATE message_queue SET status = 'failed', last_error = $2 WHERE id = $1`, [row.id, error instanceof Error ? error.message : String(error)]);
+                const errText = error instanceof Error ? error.message : String(error);
+                await client.query(`UPDATE message_queue
+              SET status = CASE WHEN attempts >= 3 THEN 'failed' ELSE 'pending' END,
+                  scheduled_at = CASE WHEN attempts >= 3 THEN scheduled_at ELSE NOW() + interval '2 minutes' END,
+                  last_error = $2
+            WHERE id = $1`, [row.id, errText]);
+                console.error(`[${runtime.key}] send failed queue=${row.id} type=${row.type} error=${errText}`);
             }
         }
         await client.query("COMMIT");
@@ -362,9 +438,7 @@ async function scheduleRenewalRemindersForTenant(organizationId, branchId) {
     if (reminderDays.length === 0)
         return;
     const nowSec = Math.floor(Date.now() / 1000);
-    const minOffset = Math.min(...reminderDays);
     const maxOffset = Math.max(...reminderDays);
-    const minWindowSec = nowSec + minOffset * 24 * 60 * 60;
     const maxWindowSec = nowSec + maxOffset * 24 * 60 * 60;
     const result = await pool.query(`SELECT s.id AS subscription_id, s.member_id, s.end_date, m.name, m.phone
        FROM subscriptions s
@@ -372,8 +446,8 @@ async function scheduleRenewalRemindersForTenant(organizationId, branchId) {
       WHERE s.is_active = true
         AND s.organization_id = $1
         AND s.branch_id = $2
-        AND s.end_date >= $3
-        AND s.end_date <= $4`, [organizationId, branchId, minWindowSec, maxWindowSec]);
+        AND s.end_date > $3
+        AND s.end_date <= $4`, [organizationId, branchId, nowSec, maxWindowSec]);
     for (const row of result.rows) {
         if (!row.phone)
             continue;
@@ -433,7 +507,17 @@ async function scheduleRenewalReminders() {
     }
 }
 async function bootstrap() {
-    console.log(`WhatsApp worker started (dryRun=${dryRun}, pollMs=${pollMs}, connCheckMs=${connCheckMs}, authBasePath=${authBasePath})`);
+    const server = http.createServer((req, res) => {
+        if (req.url === "/health") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ status: "ok" }));
+            return;
+        }
+        res.writeHead(200, { "Content-Type": "text/plain" });
+        res.end("ok");
+    });
+    server.listen(port, "0.0.0.0");
+    console.log(`WhatsApp worker started (dryRun=${dryRun}, pollMs=${pollMs}, connCheckMs=${connCheckMs}, authBasePath=${authBasePath}, batch=${workerBatchLimit}, minSendIntervalMs=${minSendIntervalMs}, sendJitterMs=${sendJitterMs})`);
     await connectionManagerLoop();
     await scheduleRenewalReminders();
     await processQueue();

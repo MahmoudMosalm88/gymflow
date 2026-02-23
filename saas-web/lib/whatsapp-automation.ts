@@ -65,5 +65,20 @@ export function parseBooleanSetting(value: unknown, fallback = true): boolean {
     if (normalized === "false") return false;
   }
   if (typeof value === "number") return value !== 0;
+  if (value && typeof value === "object") {
+    const rec = value as Record<string, unknown>;
+    if ("raw" in rec) return parseBooleanSetting(rec.raw, fallback);
+    if ("value" in rec) return parseBooleanSetting(rec.value, fallback);
+  }
   return fallback;
+}
+
+export function parseTextSetting(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (value && typeof value === "object") {
+    const rec = value as Record<string, unknown>;
+    if (typeof rec.raw === "string") return rec.raw.trim();
+    if (typeof rec.value === "string") return rec.value.trim();
+  }
+  return "";
 }

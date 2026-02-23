@@ -15,12 +15,17 @@ export async function GET(request: NextRequest) {
     const memberId = url.searchParams.get("member_id");
 
     const rows = await query(
-      `SELECT *
-         FROM subscriptions
-        WHERE organization_id = $1
-          AND branch_id = $2
-          AND ($3::uuid IS NULL OR member_id = $3::uuid)
-        ORDER BY created_at DESC
+      `SELECT s.*
+         FROM subscriptions s
+         JOIN members m
+           ON m.id = s.member_id
+          AND m.organization_id = s.organization_id
+          AND m.branch_id = s.branch_id
+          AND m.deleted_at IS NULL
+        WHERE s.organization_id = $1
+          AND s.branch_id = $2
+          AND ($3::uuid IS NULL OR s.member_id = $3::uuid)
+        ORDER BY s.created_at DESC
         LIMIT 500`,
       [auth.organizationId, auth.branchId, memberId]
     );

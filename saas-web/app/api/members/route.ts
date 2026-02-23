@@ -8,6 +8,7 @@ import {
   getDefaultWelcomeTemplate,
   getTemplateKey,
   normalizeSystemLanguage,
+  parseTextSetting,
   parseBooleanSetting,
   renderWhatsappTemplate
 } from "@/lib/whatsapp-automation";
@@ -150,14 +151,8 @@ export async function POST(request: NextRequest) {
 
       if (automationEnabled) {
         const templateByLanguageKey = getTemplateKey("welcome", systemLanguage);
-        const byLanguage =
-          typeof settings[templateByLanguageKey] === "string"
-            ? String(settings[templateByLanguageKey]).trim()
-            : "";
-        const rawTemplate =
-          typeof settings.whatsapp_template_welcome === "string"
-            ? settings.whatsapp_template_welcome.trim()
-            : "";
+        const byLanguage = parseTextSetting(settings[templateByLanguageKey]);
+        const rawTemplate = parseTextSetting(settings.whatsapp_template_welcome);
         const legacyFallback = systemLanguage === "en" ? rawTemplate : "";
         const template = byLanguage || legacyFallback || getDefaultWelcomeTemplate(systemLanguage);
 
