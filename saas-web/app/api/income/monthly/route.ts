@@ -16,17 +16,34 @@ export async function GET(request: NextRequest) {
   try {
     const { organizationId, branchId } = await requireAuth(request);
 
-    const rows = await query<MonthRow>(
-      `SELECT
-         to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM') AS month,
-         COALESCE(SUM(price_paid), 0) AS revenue,
-         COUNT(*)::text AS count
-       FROM subscriptions
-       WHERE organization_id = $1 AND branch_id = $2 AND price_paid IS NOT NULL
-       GROUP BY month
-       ORDER BY month DESC`,
-      [organizationId, branchId]
-    );
+    let rows: MonthRow[] = [];
+    try {
+      rows = await query<MonthRow>(
+        `SELECT
+           to_char(COALESCE(updated_at, created_at) AT TIME ZONE 'UTC', 'YYYY-MM') AS month,
+           COALESCE(SUM(price_paid), 0) AS revenue,
+           COUNT(*)::text AS count
+         FROM subscriptions
+         WHERE organization_id = $1 AND branch_id = $2 AND price_paid IS NOT NULL
+         GROUP BY month
+         ORDER BY month DESC`,
+        [organizationId, branchId]
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes("updated_at")) throw error;
+      rows = await query<MonthRow>(
+        `SELECT
+           to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM') AS month,
+           COALESCE(SUM(price_paid), 0) AS revenue,
+           COUNT(*)::text AS count
+         FROM subscriptions
+         WHERE organization_id = $1 AND branch_id = $2 AND price_paid IS NOT NULL
+         GROUP BY month
+         ORDER BY month DESC`,
+        [organizationId, branchId]
+      );
+    }
 
     const data = rows.map((r) => ({
       month: r.month,

@@ -67,12 +67,20 @@ export default function DashboardPage() {
   const { lastScan, setScan } = useScanContext();
 
   // Fetch overview on mount
-  useEffect(() => {
-    api.get<Overview>('/api/reports/overview')
-      .then((res) => { if (res.data) setOverview(res.data); })
-      .catch(() => {})
-      .finally(() => setLoadingOverview(false));
+  const refreshOverview = useCallback(async () => {
+    try {
+      const res = await api.get<Overview>('/api/reports/overview');
+      if (res.data) setOverview(res.data);
+    } catch {
+      // Keep prior values on transient failures.
+    } finally {
+      setLoadingOverview(false);
+    }
   }, []);
+
+  useEffect(() => {
+    refreshOverview();
+  }, [refreshOverview]);
 
   // One-time backfill: write old desktop member IDs into card_code
   // so QR codes printed from the desktop app work with the web scanner
@@ -94,6 +102,27 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => { refreshActivity(); }, [refreshActivity]);
+
+  // Keep dashboard cards/feed fresh even without manual scans.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshOverview();
+      refreshActivity();
+    }, 30_000);
+
+    const onFocus = () => {
+      refreshOverview();
+      refreshActivity();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [refreshActivity, refreshOverview]);
 
   // Scan handler — online first, offline fallback
   const handleScan = async () => {
@@ -141,6 +170,7 @@ export default function DashboardPage() {
       inputRef.current?.focus();
       // Refresh activity feed after each scan
       refreshActivity();
+      refreshOverview();
     }
   };
 

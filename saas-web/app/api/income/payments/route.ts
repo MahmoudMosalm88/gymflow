@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 type PaymentRow = {
   id: number;
-  created_at: string;
+  effective_at: string;
   name: string;
   phone: string;
   price_paid: string;
@@ -32,25 +32,47 @@ export async function GET(request: NextRequest) {
       params.push(`%${search}%`);
     }
 
-    const rows = await query<PaymentRow>(
-      `SELECT s.id, s.created_at, m.name, m.phone,
-              s.price_paid, s.plan_months, s.sessions_per_month
-       FROM subscriptions s
-       JOIN members m ON s.member_id = m.id
-       WHERE s.organization_id = $1 AND s.branch_id = $2
-         AND s.price_paid IS NOT NULL
-         ${searchClause}
-       ORDER BY s.created_at DESC
-       LIMIT $3 OFFSET $4`,
-      params
-    );
+    let rows: PaymentRow[] = [];
+    try {
+      rows = await query<PaymentRow>(
+        `SELECT s.id,
+                COALESCE(s.updated_at, s.created_at) AS effective_at,
+                m.name, m.phone,
+                s.price_paid, s.plan_months, s.sessions_per_month
+         FROM subscriptions s
+         JOIN members m ON s.member_id = m.id
+         WHERE s.organization_id = $1 AND s.branch_id = $2
+           AND s.price_paid IS NOT NULL
+           ${searchClause}
+         ORDER BY COALESCE(s.updated_at, s.created_at) DESC
+         LIMIT $3 OFFSET $4`,
+        params
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes("updated_at")) throw error;
+      rows = await query<PaymentRow>(
+        `SELECT s.id,
+                s.created_at AS effective_at,
+                m.name, m.phone,
+                s.price_paid, s.plan_months, s.sessions_per_month
+         FROM subscriptions s
+         JOIN members m ON s.member_id = m.id
+         WHERE s.organization_id = $1 AND s.branch_id = $2
+           AND s.price_paid IS NOT NULL
+           ${searchClause}
+         ORDER BY s.created_at DESC
+         LIMIT $3 OFFSET $4`,
+        params
+      );
+    }
 
     const hasMore = rows.length > limit;
     const trimmed = hasMore ? rows.slice(0, limit) : rows;
 
     const data = trimmed.map((r) => ({
       id: r.id,
-      date: r.created_at,
+      date: r.effective_at,
       type: "subscription",
       name: r.name,
       amount: Number(r.price_paid),

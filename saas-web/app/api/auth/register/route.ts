@@ -6,6 +6,7 @@ import { getFirebaseAdminAuth, getFirebaseAdminDiagnostics } from "@/lib/firebas
 import { fail, ok, routeError } from "@/lib/http";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { registerSchema } from "@/lib/validation";
+import { sendNewSignupNotification } from "@/lib/signup-notifications";
 
 export const runtime = "nodejs";
 
@@ -222,6 +223,21 @@ export async function POST(request: NextRequest) {
          VALUES ($1, $2, 'owner')`,
         [ownerId, branchId]
       );
+    });
+
+    // Best-effort notification: do not block account creation if provider is down.
+    sendNewSignupNotification({
+      authMethod: payload.authMethod,
+      ownerName: payload.ownerName,
+      ownerEmail,
+      ownerPhone,
+      organizationName: payload.organizationName,
+      branchName: payload.branchName,
+      organizationId,
+      branchId,
+      ownerId
+    }).catch((error) => {
+      console.error("[auth/register] signup notification failed:", error);
     });
 
     return ok(

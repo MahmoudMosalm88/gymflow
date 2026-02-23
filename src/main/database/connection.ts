@@ -303,4 +303,16 @@ function runMigrations(database: Database.Database): void {
 
     database.prepare('INSERT INTO migrations (name) VALUES (?)').run('007_guest_passes_freezes')
   }
+
+  if (!appliedMigrations.includes('008_performance_indexes')) {
+    database.exec(`
+      CREATE INDEX IF NOT EXISTS idx_members_created_at ON members(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_members_name ON members(name);
+      CREATE INDEX IF NOT EXISTS idx_subscriptions_created_at ON subscriptions(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_logs_scanned_value ON logs(scanned_value, timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_message_queue_member_status ON message_queue(member_id, status, scheduled_at);
+    `)
+
+    database.prepare('INSERT INTO migrations (name) VALUES (?)').run('008_performance_indexes')
+  }
 }

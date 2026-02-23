@@ -372,8 +372,11 @@ async function processTenantQueue(runtime: TenantRuntime) {
               m.phone AS member_phone
          FROM message_queue mq
          JOIN members m ON m.id = mq.member_id
-        WHERE mq.status = 'pending'
-          AND mq.scheduled_at <= NOW()
+        WHERE mq.scheduled_at <= NOW()
+          AND (
+            mq.status = 'pending'
+            OR (mq.status = 'failed' AND mq.attempts < 3)
+          )
           AND mq.organization_id = $1
           AND mq.branch_id = $2
         ORDER BY mq.scheduled_at ASC
@@ -400,9 +403,15 @@ async function processTenantQueue(runtime: TenantRuntime) {
       }
 
       try {
-        const raw = String(row.member_phone || "").replace(/[\s\-()]/g, "");
-        const jid = (raw.startsWith("+") ? raw.slice(1) : raw) + "@s.whatsapp.net";
         const payload = row.payload as Record<string, unknown> | null;
+        const rawPhone = String(
+          row.member_phone || (typeof payload?.phone === "string" ? payload.phone : "")
+        );
+        const normalizedDigits = rawPhone.replace(/\D/g, "");
+        if (!normalizedDigits) {
+          throw new Error("Missing valid phone number for WhatsApp delivery");
+        }
+        const jid = `${normalizedDigits}@s.whatsapp.net`;
         const message =
           (typeof payload?.message === "string" && payload.message) ||
           (typeof payload?.text === "string" && payload.text) ||
@@ -416,7 +425,11 @@ async function processTenantQueue(runtime: TenantRuntime) {
         );
       } catch (error) {
         await client.query(
-          `UPDATE message_queue SET status = 'failed', last_error = $2 WHERE id = $1`,
+          `UPDATE message_queue
+              SET status = CASE WHEN attempts >= 3 THEN 'failed' ELSE 'pending' END,
+                  scheduled_at = CASE WHEN attempts >= 3 THEN scheduled_at ELSE NOW() + interval '2 minutes' END,
+                  last_error = $2
+            WHERE id = $1`,
           [row.id, error instanceof Error ? error.message : String(error)]
         );
       }

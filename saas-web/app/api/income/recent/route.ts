@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 type PaymentRow = {
   id: number;
-  created_at: string;
+  effective_at: string;
   name: string;
   phone: string;
   price_paid: string;
@@ -23,21 +23,42 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 10)));
 
-    const rows = await query<PaymentRow>(
-      `SELECT s.id, s.created_at, m.name, m.phone,
-              s.price_paid, s.plan_months, s.sessions_per_month
-       FROM subscriptions s
-       JOIN members m ON s.member_id = m.id
-       WHERE s.organization_id = $1 AND s.branch_id = $2
-         AND s.price_paid IS NOT NULL
-       ORDER BY s.created_at DESC
-       LIMIT $3`,
-      [organizationId, branchId, limit]
-    );
+    let rows: PaymentRow[] = [];
+    try {
+      rows = await query<PaymentRow>(
+        `SELECT s.id,
+                COALESCE(s.updated_at, s.created_at) AS effective_at,
+                m.name, m.phone,
+                s.price_paid, s.plan_months, s.sessions_per_month
+         FROM subscriptions s
+         JOIN members m ON s.member_id = m.id
+         WHERE s.organization_id = $1 AND s.branch_id = $2
+           AND s.price_paid IS NOT NULL
+         ORDER BY COALESCE(s.updated_at, s.created_at) DESC
+         LIMIT $3`,
+        [organizationId, branchId, limit]
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes("updated_at")) throw error;
+      rows = await query<PaymentRow>(
+        `SELECT s.id,
+                s.created_at AS effective_at,
+                m.name, m.phone,
+                s.price_paid, s.plan_months, s.sessions_per_month
+         FROM subscriptions s
+         JOIN members m ON s.member_id = m.id
+         WHERE s.organization_id = $1 AND s.branch_id = $2
+           AND s.price_paid IS NOT NULL
+         ORDER BY s.created_at DESC
+         LIMIT $3`,
+        [organizationId, branchId, limit]
+      );
+    }
 
     const data = rows.map((r) => ({
       id: r.id,
-      date: r.created_at,
+      date: r.effective_at,
       type: "subscription",
       name: r.name,
       amount: Number(r.price_paid),

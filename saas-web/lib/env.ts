@@ -15,6 +15,9 @@ const schema = z.object({
   FIREBASE_CLIENT_EMAIL: z.string().optional(),
   FIREBASE_PRIVATE_KEY: z.string().optional(),
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
+  NOTIFY_SIGNUPS_TO: z.string().optional(),
+  NOTIFY_SIGNUPS_FROM: z.string().optional(),
   GCS_BACKUPS_BUCKET: z.string().default("gymflow-backups"),
   GCS_IMPORTS_BUCKET: z.string().default("gymflow-imports"),
   GCS_PHOTOS_BUCKET: z.string().default("gymflow-photos")
