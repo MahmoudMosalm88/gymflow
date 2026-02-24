@@ -146,7 +146,7 @@ export default function FreezeDialog({ subscriptionId, open, onOpenChange, onFro
             <Button
               onClick={handleSubmit}
               disabled={submitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-[#e63946] hover:bg-[#d32f3b] text-white"
             >
               {submitting ? labels.loading : labels.freeze_confirm}
             </Button>

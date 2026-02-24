@@ -152,11 +152,23 @@ export default function IncomePage() {
                   {recent.map((p) => (
                     <tr key={p.id} className="border-t border-border hover:bg-card">
                       <td className="px-4 py-2.5 text-muted-foreground">{formatDate(p.date, locale)}</td>
-                      <td className="px-4 py-2.5 text-foreground">{p.name}</td>
+                      <td className="px-4 py-2.5 text-foreground">
+                        {p.name}
+                        {p.type === 'guest_pass' && (
+                          <span className="ml-2 inline-block text-[10px] font-bold tracking-wide px-1.5 py-0.5 bg-muted text-muted-foreground border border-border">
+                            {labels.guest_tag}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-2.5 text-end font-semibold text-foreground">{fmt(p.amount)}</td>
                       <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">
-                        {p.planMonths} {labels.months_label}
-                        {p.sessionsPerMonth != null && `, ${p.sessionsPerMonth} ${labels.sessions_per_month_label}`}
+                        {p.type === 'guest_pass'
+                          ? labels.guest_passes
+                          : <>
+                              {p.planMonths} {labels.months_label}
+                              {p.sessionsPerMonth != null && `, ${p.sessionsPerMonth} ${labels.sessions_per_month_label}`}
+                            </>
+                        }
                       </td>
                     </tr>
                   ))}

@@ -88,12 +88,14 @@ export default function SettingsPage() {
 // ── General Tab ────────────────────────────────────────────────────────────
 
 function GeneralTab() {
-  const { lang } = useLang();
+  const { lang, setLang } = useLang();
   const labels = t[lang];
   const [cooldown, setCooldown] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
+  const [backfillRunning, setBackfillRunning] = useState(false);
+  const [backfillMessage, setBackfillMessage] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
 
   useEffect(() => {
     api.get<Record<string, string>>('/api/settings').then((res) => {
@@ -126,6 +128,47 @@ function GeneralTab() {
     }
   };
 
+  const handleCardCodeBackfill = async () => {
+    setBackfillRunning(true);
+    setBackfillMessage(null);
+    try {
+      const res = await api.post<{ updated?: number; skipped?: number; notFound?: number; noArtifact?: boolean }>(
+        '/api/migration/backfill-card-codes',
+        {}
+      );
+      if (!res.success || !res.data) {
+        setBackfillMessage({
+          type: 'destructive',
+          text: res.message || (lang === 'ar' ? 'فشل تنفيذ المزامنة.' : 'Failed to run backfill.'),
+        });
+        return;
+      }
+
+      if (res.data.noArtifact) {
+        setBackfillMessage({
+          type: 'success',
+          text: lang === 'ar' ? 'لا توجد بيانات استيراد سابقة للمزامنة.' : 'No imported artifact found to backfill.',
+        });
+        return;
+      }
+
+      setBackfillMessage({
+        type: 'success',
+        text:
+          lang === 'ar'
+            ? `تمت المزامنة. تم تحديث ${res.data.updated ?? 0} سجل، وتخطي ${res.data.skipped ?? 0}.`
+            : `Backfill complete. Updated ${res.data.updated ?? 0}, skipped ${res.data.skipped ?? 0}.`,
+      });
+    } catch {
+      setBackfillMessage({
+        type: 'destructive',
+        text: lang === 'ar' ? 'فشل تنفيذ المزامنة.' : 'Failed to run backfill.',
+      });
+    } finally {
+      setBackfillRunning(false);
+    }
+  };
+
   if (loading) return <LoadingSpinner />;
 
   return (
@@ -135,6 +178,28 @@ function GeneralTab() {
         <CardDescription>{labels.general_settings_description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
+        <div>
+          <Label>{labels.language}</Label>
+          <div className="flex border border-[#2a2a2a] mt-1 w-fit">
+            <button
+              onClick={() => { setLang('en'); api.put('/api/settings', { values: { system_language: 'en' } }); }}
+              className={`px-4 py-2 text-sm font-bold transition-colors ${
+                lang === 'en' ? 'bg-[#e63946] text-white' : 'bg-[#1e1e1e] text-[#888888] hover:text-[#e8e4df]'
+              }`}
+            >
+              English
+            </button>
+            <button
+              onClick={() => { setLang('ar'); api.put('/api/settings', { values: { system_language: 'ar' } }); }}
+              className={`px-4 py-2 text-sm font-bold transition-colors ${
+                lang === 'ar' ? 'bg-[#e63946] text-white' : 'bg-[#1e1e1e] text-[#888888] hover:text-[#e8e4df]'
+              }`}
+            >
+              العربية
+            </button>
+          </div>
+        </div>
+        <Separator />
         <div>
           <Label htmlFor="scan-cooldown">{labels.scan_cooldown_seconds}</Label>
           <Input
@@ -157,6 +222,33 @@ function GeneralTab() {
               <AlertDescription>{message.text}</AlertDescription>
             </Alert>
           )}
+        </div>
+        <Separator />
+        <div className="space-y-3">
+          <div>
+            <p className="text-sm font-medium">
+              {lang === 'ar' ? 'صيانة رموز بطاقات العملاء' : 'Client Card Code Maintenance'}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {lang === 'ar'
+                ? 'تشغيل مزامنة رموز البطاقات يدويًا بعد استيراد بيانات قديمة فقط.'
+                : 'Run card-code backfill manually only after importing legacy data.'}
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <Button onClick={handleCardCodeBackfill} disabled={backfillRunning} variant="outline">
+              {backfillRunning
+                ? (lang === 'ar' ? 'جاري التنفيذ...' : 'Running...')
+                : (lang === 'ar' ? 'تشغيل المزامنة الآن' : 'Run Backfill Now')}
+            </Button>
+            {backfillMessage && (
+              <Alert variant={backfillMessage.type} className="max-w-md">
+                {backfillMessage.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                <AlertTitle>{backfillMessage.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+                <AlertDescription>{backfillMessage.text}</AlertDescription>
+              </Alert>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -313,91 +405,230 @@ function WhatsAppTab() {
   const statusText = connected ? labels.connected : connecting ? (labels.connecting ?? 'Connecting...') : labels.disconnected;
   const statusVariant = connected ? 'success' : connecting ? 'secondary' : 'destructive';
 
+  // ── Live preview helpers ──
+  const sampleName = labels.sample_name;
+  const sampleExpiry = new Date(Date.now() + 30 * 86400000).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+  function previewText(template: string, type: 'welcome' | 'renewal') {
+    let text = template || (type === 'welcome' ? defaultWelcomeTemplate : defaultRenewalTemplate);
+    text = text.replace(/\{name\}/g, sampleName);
+    if (type === 'renewal') {
+      text = text.replace(/\{expiryDate\}/g, sampleExpiry);
+      text = text.replace(/\{daysLeft\}/g, '7');
+    }
+    return text;
+  }
+
+  // ── Reminder days as chip set ──
+  const REMINDER_OPTIONS = [1, 3, 7];
+  const selectedDays = new Set(
+    reminderDays.split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n))
+  );
+
+  function toggleDay(day: number) {
+    const next = new Set(selectedDays);
+    if (next.has(day)) next.delete(day); else next.add(day);
+    setReminderDays(Array.from(next).sort((a, b) => b - a).join(','));
+  }
+
+  // ── Status badge styling ──
+  const badgeDotColor = connected ? 'bg-emerald-500' : connecting ? 'bg-amber-400' : 'bg-red-500';
+  const badgeBgColor = connected ? 'bg-emerald-900/40 text-emerald-400 border-emerald-700' : connecting ? 'bg-amber-900/40 text-amber-400 border-amber-700' : 'bg-red-900/40 text-red-400 border-red-700';
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>WhatsApp {labels.integration}</CardTitle>
-        <CardDescription>{labels.whatsapp_integration_description}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div className="flex items-center gap-3">
-          <Badge variant={statusVariant as any} className="text-sm">{statusText}</Badge>
-          {connected && status?.phone && (
-            <span className="text-foreground font-medium">{status.phone}</span>
-          )}
-        </div>
-
-        {!connected && status?.qrCode && (
-          <div className="flex flex-col items-center justify-center space-y-3">
-            <p className="text-muted-foreground">{labels.scan_qr_code}</p>
-            <img src={`data:image/png;base64,${status.qrCode}`} alt="WhatsApp QR Code" className="h-48 w-48 border-2 border-border" />
-            <p className="text-sm text-muted-foreground">{labels.scan_qr_instructions}</p>
+    <div className="flex flex-col gap-6">
+      {/* ── Connection Card ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>WhatsApp {labels.integration}</CardTitle>
+          <CardDescription>{labels.whatsapp_integration_description}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center gap-3">
+            <span className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-semibold border ${badgeBgColor}`}>
+              <span className={`h-2 w-2 rounded-full ${badgeDotColor}`} />
+              {statusText}
+            </span>
+            {connected && status?.phone && (
+              <span className="text-foreground font-medium">{status.phone}</span>
+            )}
           </div>
-        )}
 
-        {showWaitingQr && (
-          <div className="h-48 w-48 border-2 border-border flex items-center justify-center text-sm text-muted-foreground">
-            {labels.waiting_for_qr}
-          </div>
-        )}
-
-        <div>
-          {connected ? (
-            <Button onClick={handleDisconnect} disabled={acting} variant="destructive" className="min-w-[120px]">
-              {acting ? labels.disconnecting : labels.disconnect}
-            </Button>
-          ) : connecting ? (
-            <Button onClick={handleDisconnect} disabled={acting} variant="outline" className="min-w-[120px]">
-              {acting ? labels.disconnecting : (labels.cancel ?? 'Cancel')}
-            </Button>
-          ) : (
-            <Button onClick={handleConnect} disabled={acting} className="min-w-[120px]">
-              {acting ? labels.connecting : labels.connect}
-            </Button>
+          {!connected && status?.qrCode && (
+            <div className="flex flex-col items-center justify-center space-y-3">
+              <p className="text-muted-foreground">{labels.scan_qr_code}</p>
+              <img src={`data:image/png;base64,${status.qrCode}`} alt="WhatsApp QR Code" className="h-48 w-48 border-2 border-border" />
+              <p className="text-sm text-muted-foreground">{labels.scan_qr_instructions}</p>
+            </div>
           )}
-          {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
-        </div>
 
-        <div className="rounded-md border border-border p-4 space-y-4">
+          {showWaitingQr && (
+            <div className="h-48 w-48 border-2 border-border flex items-center justify-center text-sm text-muted-foreground">
+              {labels.waiting_for_qr}
+            </div>
+          )}
+
           <div>
-            <h3 className="text-base font-semibold">{labels.automation_templates}</h3>
-            <p className="text-sm text-muted-foreground">
-              {labels.dry_run_enabled}
-            </p>
+            {connected ? (
+              <Button onClick={handleDisconnect} disabled={acting} variant="destructive" className="min-w-[120px]">
+                {acting ? labels.disconnecting : labels.disconnect}
+              </Button>
+            ) : connecting ? (
+              <Button onClick={handleDisconnect} disabled={acting} variant="outline" className="min-w-[120px]">
+                {acting ? labels.disconnecting : (labels.cancel ?? 'Cancel')}
+              </Button>
+            ) : (
+              <Button onClick={handleConnect} disabled={acting} className="min-w-[120px]">
+                {acting ? labels.connecting : labels.connect}
+              </Button>
+            )}
+            {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
           </div>
+        </CardContent>
+      </Card>
 
+      {/* ── Message Templates Card ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{labels.automation_templates}</CardTitle>
+          <CardDescription>{labels.dry_run_enabled}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
           {templatesLoading ? (
             <p className="text-sm text-muted-foreground">{labels.loading}</p>
           ) : (
             <>
-              <div className="space-y-2">
+              {/* Welcome Message */}
+              <div className="space-y-3">
                 <Label htmlFor="welcome-template">{labels.welcome_message_template}</Label>
-                <p className="text-xs text-muted-foreground">{labels.use_standard_templates}</p>
-                <pre className="whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-2 text-xs">{defaultWelcomeTemplate}</pre>
-                <Textarea id="welcome-template" value={welcomeTemplate} onChange={(e) => setWelcomeTemplate(e.target.value)} placeholder={defaultWelcomeTemplate} />
+                <Textarea
+                  id="welcome-template"
+                  value={welcomeTemplate}
+                  onChange={(e) => setWelcomeTemplate(e.target.value)}
+                  placeholder={defaultWelcomeTemplate}
+                  rows={3}
+                />
                 <p className="text-xs text-muted-foreground">Placeholders: {'{name}'}</p>
+
+                {/* WhatsApp Chat Preview */}
+                <div className="max-w-xs">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">{labels.preview_label}</p>
+                  <div className="border border-[#2a2a2a] overflow-hidden" style={{ background: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`, backgroundColor: '#0b141a' }}>
+                    {/* Chat header */}
+                    <div className="flex items-center gap-2 bg-[#1f2c33] px-3 py-2">
+                      <div className="w-8 h-8 rounded-full bg-[#2a3942] flex items-center justify-center">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="#8696a0"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-[#e9edef]">{sampleName}</p>
+                        <p className="text-[10px] text-[#8696a0]">online</p>
+                      </div>
+                    </div>
+                    {/* Chat body */}
+                    <div className="p-3 space-y-1 min-h-[120px]">
+                      {/* Outgoing message bubble */}
+                      <div className="flex justify-end">
+                        <div className="relative bg-[#005c4b] text-[#e9edef] text-[13px] leading-[19px] px-2.5 py-1.5 max-w-[85%]" style={{ borderRadius: '7.5px 0 7.5px 7.5px' }}>
+                          <p className="whitespace-pre-wrap">{previewText(welcomeTemplate, 'welcome')}</p>
+                          <span className="float-right mt-1 ml-2 text-[10px] text-[#ffffff99]">10:30 AM</span>
+                        </div>
+                      </div>
+                      {/* QR image bubble */}
+                      <div className="flex justify-end">
+                        <div className="bg-[#005c4b] px-1 py-1 max-w-[65%]" style={{ borderRadius: '7.5px 0 7.5px 7.5px' }}>
+                          <div className="bg-[#0b141a] border border-[#ffffff15] h-28 w-28 flex flex-col items-center justify-center gap-1">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ffffff40" strokeWidth="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/><rect x="18" y="18" width="3" height="3"/></svg>
+                            <span className="text-[9px] text-[#ffffff40]">Check-in QR</span>
+                          </div>
+                          <span className="float-right mt-0.5 mr-1 text-[10px] text-[#ffffff99]">10:30 AM</span>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Input bar */}
+                    <div className="flex items-center gap-2 bg-[#1f2c33] px-3 py-2">
+                      <div className="flex-1 bg-[#2a3942] rounded-full px-3 py-1.5 text-[13px] text-[#8696a0]">Type a message</div>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="#8696a0"><path d="M12 14.95q-.425 0-.712-.288T11 13.95V6.35L9.1 8.25q-.3.3-.7.3-.4 0-.7-.3-.3-.3-.3-.713 0-.412.3-.712l3.6-3.6q.15-.15.325-.213.175-.062.375-.062.2 0 .375.062.175.063.325.213l3.6 3.6q.3.3.3.712 0 .413-.3.713-.3.3-.7.3-.4 0-.7-.3L13 6.35v7.6q0 .425-.287.713-.288.287-.713.287zM6 20q-.825 0-1.413-.588T4 18v-2q0-.425.288-.713T5 15q.425 0 .713.288T6 16v2h12v-2q0-.425.288-.713T19 15q.425 0 .713.288T20 16v2q0 .825-.588 1.413T18 20H6z"/></svg>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-2">
+              <Separator />
+
+              {/* Renewal Reminder */}
+              <div className="space-y-3">
                 <Label htmlFor="renewal-template">{labels.renewal_reminder_template}</Label>
-                <p className="text-xs text-muted-foreground">{labels.use_standard_templates}</p>
-                <pre className="whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-2 text-xs">{defaultRenewalTemplate}</pre>
-                <Textarea id="renewal-template" value={renewalTemplate} onChange={(e) => setRenewalTemplate(e.target.value)} placeholder={defaultRenewalTemplate} />
+                <Textarea
+                  id="renewal-template"
+                  value={renewalTemplate}
+                  onChange={(e) => setRenewalTemplate(e.target.value)}
+                  placeholder={defaultRenewalTemplate}
+                  rows={3}
+                />
                 <p className="text-xs text-muted-foreground">Placeholders: {'{name}'}, {'{expiryDate}'}, {'{daysLeft}'}</p>
+
+                {/* WhatsApp Chat Preview */}
+                <div className="max-w-xs">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">{labels.preview_label}</p>
+                  <div className="border border-[#2a2a2a] overflow-hidden" style={{ background: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`, backgroundColor: '#0b141a' }}>
+                    {/* Chat header */}
+                    <div className="flex items-center gap-2 bg-[#1f2c33] px-3 py-2">
+                      <div className="w-8 h-8 rounded-full bg-[#2a3942] flex items-center justify-center">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="#8696a0"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-[#e9edef]">{sampleName}</p>
+                        <p className="text-[10px] text-[#8696a0]">online</p>
+                      </div>
+                    </div>
+                    {/* Chat body */}
+                    <div className="p-3 min-h-[80px]">
+                      <div className="flex justify-end">
+                        <div className="relative bg-[#005c4b] text-[#e9edef] text-[13px] leading-[19px] px-2.5 py-1.5 max-w-[85%]" style={{ borderRadius: '7.5px 0 7.5px 7.5px' }}>
+                          <p className="whitespace-pre-wrap">{previewText(renewalTemplate, 'renewal')}</p>
+                          <span className="float-right mt-1 ml-2 text-[10px] text-[#ffffff99]">10:30 AM</span>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Input bar */}
+                    <div className="flex items-center gap-2 bg-[#1f2c33] px-3 py-2">
+                      <div className="flex-1 bg-[#2a3942] rounded-full px-3 py-1.5 text-[13px] text-[#8696a0]">Type a message</div>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="#8696a0"><path d="M12 14.95q-.425 0-.712-.288T11 13.95V6.35L9.1 8.25q-.3.3-.7.3-.4 0-.7-.3-.3-.3-.3-.713 0-.412.3-.712l3.6-3.6q.15-.15.325-.213.175-.062.375-.062.2 0 .375.062.175.063.325.213l3.6 3.6q.3.3.3.712 0 .413-.3.713-.3.3-.7.3-.4 0-.7-.3L13 6.35v7.6q0 .425-.287.713-.288.287-.713.287zM6 20q-.825 0-1.413-.588T4 18v-2q0-.425.288-.713T5 15q.425 0 .713.288T6 16v2h12v-2q0-.425.288-.713T19 15q.425 0 .713.288T20 16v2q0 .825-.588 1.413T18 20H6z"/></svg>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="reminder-days">{labels.reminder_days_label}</Label>
-                <Input id="reminder-days" value={reminderDays} onChange={(e) => setReminderDays(e.target.value)} placeholder={DEFAULT_REMINDER_DAYS} />
-                <p className="text-xs text-muted-foreground">Example: 7,3,1</p>
+              <Separator />
+
+              {/* Reminder Days — Chip Picker */}
+              <div className="space-y-3">
+                <Label>{labels.reminder_days_label}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {REMINDER_OPTIONS.map((day) => {
+                    const active = selectedDays.has(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => toggleDay(day)}
+                        className={`px-3 py-1.5 text-sm font-semibold border transition-colors ${
+                          active
+                            ? 'bg-[#e63946] text-white border-[#e63946]'
+                            : 'bg-[#1e1e1e] text-[#8a8578] border-[#2a2a2a] hover:text-[#e8e4df] hover:border-[#3a3a3a]'
+                        }`}
+                      >
+                        {day} {day === 1 ? (lang === 'ar' ? 'يوم' : 'day') : (lang === 'ar' ? 'أيام' : 'days')}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
+              {/* Save */}
               <div className="flex flex-wrap gap-2">
                 <Button onClick={handleTemplateSave} disabled={templatesSaving}>
                   {templatesSaving ? labels.saving : labels.save}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => { setWelcomeTemplate(defaultWelcomeTemplate); setRenewalTemplate(defaultRenewalTemplate); setReminderDays(DEFAULT_REMINDER_DAYS); }}>
-                  {labels.use_standard_templates}
                 </Button>
               </div>
 
@@ -410,9 +641,9 @@ function WhatsAppTab() {
               )}
             </>
           )}
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

@@ -8,8 +8,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 
 type Payment = {
-  id: number;
+  id: number | string;
   date: string;
+  type: string;
   name: string;
   amount: number;
   planMonths: number;
@@ -67,10 +68,22 @@ export default function DayPaymentsSheet({ date, open, onOpenChange }: Props) {
                 className="flex items-center justify-between px-3 py-3 bg-[#1e1e1e] border border-[#2a2a2a]"
               >
                 <div>
-                  <p className="text-sm font-medium text-[#e8e4df]">{p.name}</p>
+                  <p className="text-sm font-medium text-[#e8e4df]">
+                    {p.name}
+                    {p.type === 'guest_pass' && (
+                      <span className="ml-2 inline-block text-[10px] font-bold tracking-wide px-1.5 py-0.5 bg-[#262626] text-[#8a8578] border border-[#2a2a2a]">
+                        {labels.guest_tag}
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs text-[#8a8578]">
-                    {p.planMonths} {labels.months_label}
-                    {p.sessionsPerMonth != null && `, ${p.sessionsPerMonth} ${labels.sessions_per_month_label}`}
+                    {p.type === 'guest_pass'
+                      ? labels.guest_passes
+                      : <>
+                          {p.planMonths} {labels.months_label}
+                          {p.sessionsPerMonth != null && `, ${p.sessionsPerMonth} ${labels.sessions_per_month_label}`}
+                        </>
+                    }
                   </p>
                 </div>
                 <span className="text-sm font-semibold text-[#e8e4df]">{formatCurrency(p.amount)}</span>

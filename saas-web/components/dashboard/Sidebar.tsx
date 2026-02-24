@@ -71,6 +71,16 @@ const navItems = [
     ),
   },
   {
+    key: 'notifications' as const,
+    href: '/dashboard/notifications',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12.5 15.5h4l-1.2-1.2a1.7 1.7 0 0 1-.5-1.2v-2.8a4.8 4.8 0 1 0-9.6 0v2.8c0 .5-.2.9-.5 1.2l-1.2 1.2h4" />
+        <path d="M7.5 15.5a2.5 2.5 0 0 0 5 0" />
+      </svg>
+    ),
+  },
+  {
     key: 'settings' as const,
     href: '/dashboard/settings',
     icon: (

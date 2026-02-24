@@ -6,7 +6,7 @@ interface ProblemProps {
   t: {
     problemLabel: string;
     problemTitle: string;
-    problemCards: readonly { icon: string; title: string; body: string }[];
+    problemCards: readonly { title: string; body: string }[];
   };
 }
 
@@ -21,7 +21,6 @@ export default function Problem({ t }: ProblemProps) {
         <div className={styles.problemGrid}>
           {t.problemCards.map((card) => (
             <div key={card.title} className={styles.problemCard}>
-              <span className={styles.problemIcon}>{card.icon}</span>
               <h3 className={styles.problemCardTitle}>{card.title}</h3>
               <p className={styles.problemCardBody}>{card.body}</p>
             </div>

@@ -155,6 +155,7 @@ CREATE TABLE IF NOT EXISTS guest_passes (
   phone text,
   expires_at timestamptz NOT NULL,
   used_at timestamptz,
+  amount numeric(12,2),
   created_at timestamptz NOT NULL DEFAULT NOW()
 );
 
@@ -175,6 +176,47 @@ CREATE TABLE IF NOT EXISTS message_queue (
 
 CREATE INDEX IF NOT EXISTS idx_message_queue_ready
   ON message_queue (organization_id, branch_id, status, scheduled_at);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id uuid PRIMARY KEY,
+  source text NOT NULL CHECK (source IN ('system', 'broadcast')),
+  type text NOT NULL,
+  title text NOT NULL,
+  body text NOT NULL,
+  severity text NOT NULL CHECK (severity IN ('info', 'warning', 'critical')),
+  action_url text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  expires_at timestamptz
+);
+
+CREATE TABLE IF NOT EXISTS notification_recipients (
+  id uuid PRIMARY KEY,
+  notification_id uuid NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  branch_id uuid REFERENCES branches(id) ON DELETE CASCADE,
+  read_at timestamptz,
+  delivered_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_recipient_unique_target
+  ON notification_recipients (
+    notification_id,
+    organization_id,
+    COALESCE(branch_id, '00000000-0000-0000-0000-000000000000'::uuid)
+  );
+
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at
+  ON notifications (created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_source_type
+  ON notifications (source, type, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_notification_recipients_unread
+  ON notification_recipients (organization_id, branch_id, read_at, delivered_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_notification_recipients_org
+  ON notification_recipients (organization_id, branch_id, delivered_at DESC);
 
 CREATE TABLE IF NOT EXISTS backups (
   id uuid PRIMARY KEY,

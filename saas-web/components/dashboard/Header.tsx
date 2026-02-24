@@ -1,9 +1,9 @@
 'use client';
 
 import { useAuth } from '@/lib/use-auth';
-import { useLang } from '@/lib/i18n';
 import Link from 'next/link';
 import SyncStatus from './SyncStatus';
+import NotificationBell from './NotificationBell';
 
 type Props = {
   onMenuToggle: () => void;
@@ -11,8 +11,6 @@ type Props = {
 
 export default function Header({ onMenuToggle }: Props) {
   const { profile } = useAuth();
-  const { lang, setLang } = useLang();
-
   // Get initials for avatar (first letter of name)
   const initials = (profile?.name || 'O').charAt(0).toUpperCase();
 
@@ -28,27 +26,10 @@ export default function Header({ onMenuToggle }: Props) {
 
       <div className="flex items-center gap-2">
         <SyncStatus />
-        <div className="flex border-2 border-[#2a2a2a]">
-          <button
-            onClick={() => setLang('en')}
-            className={`px-2 py-1 text-xs font-bold transition-colors ${
-              lang === 'en' ? 'bg-[#e63946] text-white' : 'bg-[#1e1e1e] text-[#888888] hover:text-[#e8e4df]'
-            }`}
-          >
-            EN
-          </button>
-          <button
-            onClick={() => setLang('ar')}
-            className={`px-2 py-1 text-xs font-bold transition-colors ${
-              lang === 'ar' ? 'bg-[#e63946] text-white' : 'bg-[#1e1e1e] text-[#888888] hover:text-[#e8e4df]'
-            }`}
-          >
-            AR
-          </button>
-        </div>
+        <NotificationBell />
 
         <Link href="/dashboard/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <div className="w-8 h-8 bg-[#e63946] flex items-center justify-center text-white text-sm font-bold">
+          <div className="w-9 h-9 bg-[#e63946] flex items-center justify-center text-white text-sm font-bold border border-[#2a2a2a]">
             {initials}
           </div>
         </Link>

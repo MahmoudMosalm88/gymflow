@@ -10,23 +10,31 @@ export async function GET(request: NextRequest) {
   try {
     const { organizationId, branchId } = await requireAuth(request);
 
-    const [totalRows] = await query<{ total: string }>(
-      `SELECT COALESCE(SUM(price_paid), 0) AS total
-       FROM subscriptions
-       WHERE organization_id = $1 AND branch_id = $2 AND price_paid IS NOT NULL`,
-      [organizationId, branchId]
-    );
-
-    const [expectedRows] = await query<{ total: string }>(
-      `SELECT COALESCE(SUM(price_paid / NULLIF(plan_months, 0)), 0) AS total
-       FROM subscriptions
-       WHERE organization_id = $1 AND branch_id = $2
-         AND is_active = true AND price_paid IS NOT NULL`,
-      [organizationId, branchId]
-    );
+    const [[subTotal], [guestTotal], [expectedRows]] = await Promise.all([
+      query<{ total: string }>(
+        `SELECT COALESCE(SUM(price_paid), 0) AS total
+         FROM subscriptions
+         WHERE organization_id = $1 AND branch_id = $2 AND price_paid IS NOT NULL`,
+        [organizationId, branchId]
+      ),
+      query<{ total: string }>(
+        `SELECT COALESCE(SUM(amount), 0) AS total
+         FROM guest_passes
+         WHERE organization_id = $1 AND branch_id = $2
+           AND used_at IS NOT NULL AND amount IS NOT NULL`,
+        [organizationId, branchId]
+      ),
+      query<{ total: string }>(
+        `SELECT COALESCE(SUM(price_paid / NULLIF(plan_months, 0)), 0) AS total
+         FROM subscriptions
+         WHERE organization_id = $1 AND branch_id = $2
+           AND is_active = true AND price_paid IS NOT NULL`,
+        [organizationId, branchId]
+      ),
+    ]);
 
     return ok({
-      totalRevenue: Number(totalRows?.total ?? 0),
+      totalRevenue: Number(subTotal?.total ?? 0) + Number(guestTotal?.total ?? 0),
       expectedMonthly: Number(expectedRows?.total ?? 0),
     });
   } catch (error) {

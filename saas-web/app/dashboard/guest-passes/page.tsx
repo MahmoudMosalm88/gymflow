@@ -17,6 +17,7 @@ type GuestPass = {
   code: string;
   member_name: string;
   phone: string | null;
+  amount: string | null;
   expires_at: string;
   used_at: string | null;
   created_at: string;
@@ -31,6 +32,7 @@ export default function GuestPassesPage() {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [amount, setAmount] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -47,15 +49,19 @@ export default function GuestPassesPage() {
 
   async function createPass() {
     if (!name.trim() || saving) return;
+    const parsedAmount = amount ? Number(amount) : undefined;
+    if (amount && (isNaN(parsedAmount!) || parsedAmount! < 0)) return;
     setSaving(true);
     try {
       const res = await api.post('/api/guest-passes', {
         member_name: name.trim(),
         phone: phone.trim() || undefined,
+        amount: parsedAmount,
       });
       if (res.success) {
         setName('');
         setPhone('');
+        setAmount('');
         await load();
       }
     } finally {
@@ -71,13 +77,13 @@ export default function GuestPassesPage() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
+    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <h1 className="text-3xl font-bold">{labels.guest_passes}</h1>
       <Card>
         <CardHeader>
           <CardTitle>{labels.add_guest_pass}</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3">
+        <CardContent className="grid gap-3 md:grid-cols-4">
           <div className="space-y-1">
             <Label>{labels.name}</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
@@ -85,6 +91,17 @@ export default function GuestPassesPage() {
           <div className="space-y-1">
             <Label>{labels.phone}</Label>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label>{labels.guest_amount}</Label>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
           </div>
           <div className="flex items-end">
             <Button onClick={createPass} disabled={saving}>{saving ? labels.saving : labels.save}</Button>
@@ -96,13 +113,14 @@ export default function GuestPassesPage() {
         <CardHeader>
           <CardTitle>{labels.guest_pass_list}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>{labels.guest_code}</TableHead>
                 <TableHead>{labels.name}</TableHead>
                 <TableHead>{labels.phone}</TableHead>
+                <TableHead>{labels.guest_amount}</TableHead>
                 <TableHead>{labels.status}</TableHead>
                 <TableHead />
               </TableRow>
@@ -110,7 +128,7 @@ export default function GuestPassesPage() {
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                     {labels.no_guest_passes}
                   </TableCell>
                 </TableRow>
@@ -119,6 +137,7 @@ export default function GuestPassesPage() {
                   <TableCell className="font-medium font-mono text-xs">{row.code}</TableCell>
                   <TableCell>{row.member_name}</TableCell>
                   <TableCell dir="ltr">{row.phone || '-'}</TableCell>
+                  <TableCell>{row.amount ? Number(row.amount).toLocaleString() : '-'}</TableCell>
                   <TableCell>
                     <Badge className={row.used_at ? 'bg-muted text-muted-foreground' : 'bg-success/10 text-success border border-success/30'}>
                       {row.used_at ? labels.guest_used : labels.guest_open}
@@ -135,7 +154,6 @@ export default function GuestPassesPage() {
                         size="sm"
                         variant="default"
                         onClick={() => {
-                          // Navigate to add client page with guest data pre-filled
                           const params = new URLSearchParams({
                             name: row.member_name,
                             ...(row.phone ? { phone: row.phone } : {}),

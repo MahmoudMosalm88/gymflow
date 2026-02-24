@@ -28,6 +28,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import MemberAvatar from '@/components/dashboard/MemberAvatar';
+import FreezeDialog from '@/components/dashboard/FreezeDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { addCalendarMonths, toUnixSeconds } from '@/lib/subscription-dates';
 import { UpdateIcon } from '@radix-ui/react-icons';
@@ -114,6 +115,7 @@ export default function MemberDetailPage() {
   const [loading, setLoading] = useState(true);
   const [waFeedback, setWaFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
   const [sendingWaType, setSendingWaType] = useState<'welcome' | 'qr_code' | null>(null);
+  const [freezeSubId, setFreezeSubId] = useState<string | null>(null);
   const [renewSub, setRenewSub] = useState<Subscription | null>(null);
   const [renewForm, setRenewForm] = useState({ plan_months: '1', sessions_per_month: '', price_paid: '' });
   const [renewing, setRenewing] = useState(false);
@@ -375,6 +377,11 @@ export default function MemberDetailPage() {
                       >
                         {sub.status === 'active' ? labels.active : sub.status === 'expired' ? labels.expired : labels.pending}
                       </Badge>
+                      {sub.status === 'active' && (
+                        <Button size="sm" className="bg-[#3b82f6] hover:bg-[#2563eb] text-white" onClick={() => setFreezeSubId(String(sub.id))}>
+                          {labels.freeze_subscription}
+                        </Button>
+                      )}
                       <Button variant="outline" size="sm" onClick={() => openRenewModal(sub)}>
                         <UpdateIcon className="me-1 h-3 w-3" />
                         {lang === 'ar' ? 'تجديد' : 'Renew'}
@@ -387,6 +394,14 @@ export default function MemberDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Freeze subscription dialog */}
+      <FreezeDialog
+        subscriptionId={freezeSubId || ''}
+        open={!!freezeSubId}
+        onOpenChange={(o) => { if (!o) setFreezeSubId(null); }}
+        onFrozen={() => { setFreezeSubId(null); window.location.reload(); }}
+      />
 
       {/* Renew subscription modal */}
       <Dialog open={!!renewSub} onOpenChange={(o) => { if (!o) setRenewSub(null); }}>

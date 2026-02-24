@@ -556,3 +556,120 @@ docs/future_reports.md          — Backlogged report ideas
 **Important outcome**:
 - The persistent `Invalid phone verification credential` failure path in profile send flow was addressed and no longer reproduced in Playwright for new local account/session.
 - Remaining verify failures are now clearly surfaced as data/account conflicts when the phone is already attached elsewhere.
+
+---
+
+### 2026-02-23 — Deployment Stability Hardening + WhatsApp Member Action Fix
+
+**Goal**: reduce user-visible slowdowns during deploys, and fix broken WhatsApp send action from member profile menu.
+
+**Scope completed**:
+- Implemented safer Cloud Run rollout logic in build configs (canary-like traffic shifting with rollback guard).
+- Removed dashboard auto-triggered card-code backfill maintenance call.
+- Added manual admin backfill action in Settings.
+- Fixed member profile WhatsApp menu flow to queue QR/check-in code and welcome message directly (no redirect to Settings).
+- Applied live Cloud Run scaling update to keep more warm capacity.
+
+**Code/config changes**:
+- `saas-web/cloudbuild.yaml`
+  - deploy window guard (UTC 00:00-06:00)
+  - deploy with `--no-traffic`
+  - smoke checks (`/api/health`, `/login`)
+  - staged traffic shift `10% -> 50% -> 100%`
+  - rollback to previous revision if canary checks fail
+  - enforce `--min-instances=2` on deploy
+- `saas-web/cloudbuild.trigger.yaml`
+  - same rollout hardening and guard logic as above
+- `saas-web/app/dashboard/page.tsx`
+  - removed automatic `/api/migration/backfill-card-codes` call from normal dashboard load
+- `saas-web/app/dashboard/settings/page.tsx`
+  - added manual “Run Backfill Now” action (Arabic + English) with success/error feedback
+- `saas-web/app/api/whatsapp/send/route.ts`
+  - member-aware payload generation for `welcome` and `qr_code` send types
+  - language-aware message defaults + template rendering
+- `saas-web/app/dashboard/members/[id]/page.tsx`
+  - member actions menu now exposes direct send actions:
+    - send check-in code
+    - send welcome message
+  - added inline success/error feedback
+
+**Live infra action executed**:
+- Ran:
+  - `gcloud run services update gymflow-web-app --region=europe-west1 --min-instances=2`
+- Verified live service annotation:
+  - `autoscaling.knative.dev/minScale: '2'`
+
+**Validation performed**:
+- `cd saas-web && npm run build` ✅
+- Playwright verification (authenticated session) ✅:
+  - member menu no longer redirects to settings
+  - both send actions call `POST /api/whatsapp/send`
+  - both return `202 Accepted`
+
+**Commits pushed**:
+- `cdde381` — `fix(whatsapp): send member QR/welcome from profile actions`
+- `161cab7` — `fix(core): stabilize auth, income, dashboard, worker and db performance`
+
+### 2026-02-23 (Late) — WhatsApp Automation Recovery + Reminder Window Fix + QR Image Rollout
+
+**Goal**: fix missing auto-welcome/reminder sends, switch QR sends from text-only code to real QR image, and clean deleted test profiles from subscriptions view.
+
+**What was verified and fixed**:
+- Root causes found in production:
+  - Mixed settings value shapes (`string` vs `{ raw: ... }`) caused fragile template/boolean parsing.
+  - Reminder scheduler excluded records inside last 24 hours (`>= now + minOffset`), so `1-day` reminders could be skipped.
+  - Some phone inputs like `+010...` timed out at send time.
+  - Legacy worker period had `DRY RUN` sends that marked rows as sent but did not deliver.
+- Fixed parsing in API paths:
+  - `saas-web/lib/whatsapp-automation.ts`
+    - added `parseTextSetting(...)`
+    - hardened `parseBooleanSetting(...)` for wrapped objects
+  - `saas-web/app/api/members/route.ts`
+  - `saas-web/app/api/whatsapp/send/route.ts`
+- Worker hardening and behavior fixes:
+  - `saas-web/worker/whatsapp-vm/src/index.ts`
+    - queue priority: `welcome`/`qr_code` ahead of `renewal`
+    - throttle and jitter kept for anti-ban pacing
+    - normalized phone send target (handles common local `01...` forms)
+    - `qr_code` now sends **image QR** (+ caption), not just text digits
+    - enriched send logs with `jid` and `waMessageId`
+    - reminder window fixed to include `> now` through max reminder horizon
+- Subscriptions cleanup and API guard:
+  - `saas-web/app/api/subscriptions/route.ts` now excludes deleted members via join (`m.deleted_at IS NULL`).
+  - Live data cleanup executed for user profile `201208377611`: removed subscription rows tied to deleted members (10 rows).
+
+**Live verification highlights**:
+- For profile `201208377611`, 4 members shown as `1 day left` were correctly queued and sent with `reminder_days=1` after fix.
+- Re-queued and delivered 3 user-reported missing welcome messages with confirmed `waMessageId`:
+  - عمر محمد ابراهيم
+  - سامح عبدالوهاب قرقر
+  - عمر هيثم سرور
+- Bulk QR rollout queued for all active subscribers on this profile:
+  - active subscribers found: 92
+  - queued QR image sends: 92 (processed gradually by throttle).
+
+**Commit pushed**:
+- `4becfaf` — `fix(whatsapp): restore automated sends and qr image delivery`
+
+---
+
+## Lessons Learned
+
+1. **Do not trust DB `sent` status alone**.
+   - During historical dry-run mode, rows were marked `sent` without real delivery.
+   - Always correlate with worker logs and, when possible, `waMessageId`.
+
+2. **Date-window math must match product language**.
+   - “1 day left” in UI can include <24h when using ceil logic.
+   - Scheduler windows must be aligned with that rule, or users see report/reminder mismatch.
+
+3. **Phone normalization must happen server-side before send**.
+   - Frontend validation is not enough; imported/manual data can still be malformed.
+
+4. **Deleted member hygiene must be enforced at query level**.
+   - Relying only on UI cleanup allows stale records to leak into lists.
+   - API joins with `deleted_at IS NULL` prevent repeated regressions.
+
+5. **Queue priority matters for UX**.
+   - Welcome/QR messages should not wait behind renewal backlog.
+   - Prioritization significantly improves perceived reliability.

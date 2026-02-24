@@ -12,6 +12,7 @@ import {
   parseBooleanSetting,
   renderWhatsappTemplate
 } from "@/lib/whatsapp-automation";
+import { createNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -181,10 +182,31 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      return member;
+      return { member, systemLanguage };
     });
 
-    return ok(output, { status: 201 });
+    const isAr = output.systemLanguage === 'ar';
+    const member = output.member;
+
+    createNotification(
+      {
+        source: "system",
+        type: "member_created",
+        title: isAr ? "تمت إضافة عميل جديد" : "New client added",
+        body: isAr ? `تمت إضافة ${member.name || "عميل"} إلى قائمة العملاء.` : `${member.name || "A client"} was added to your client list.`,
+        severity: "info",
+        actionUrl: `/dashboard/members/${member.id}`,
+        metadata: {
+          memberId: member.id,
+          memberName: member.name || null,
+        },
+      },
+      [{ organizationId: auth.organizationId, branchId: auth.branchId }]
+    ).catch(() => {
+      // Non-blocking: member creation should not fail if notification insert fails.
+    });
+
+    return ok(member, { status: 201 });
   } catch (error) {
     // Handle duplicate key errors specifically for user-friendly feedback
     if (error instanceof Error && (error.message.includes("duplicate") || error.message.includes("unique"))) {

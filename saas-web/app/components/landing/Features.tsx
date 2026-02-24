@@ -36,6 +36,23 @@ const sizeClass = {
   small: styles.bentoSmall,
 };
 
+// Real screenshot previews — one per feature card (index-matched)
+// Each shows a cropped region of the actual demo dashboard
+const screenshotPanels: { src: string; position: string }[] = [
+  /* 0 — Smart Check-ins: scanner area at top of dashboard */
+  { src: '/demo-screens/dashboard.png', position: '65% 12%' },
+  /* 1 — Real-time Reports: chart area */
+  { src: '/demo-screens/reports.png', position: '65% 80%' },
+  /* 2 — WhatsApp: templates section */
+  { src: '/demo-screens/settings-whatsapp.png', position: '65% 72%' },
+  /* 3 — Subscription Plans: subscription table */
+  { src: '/demo-screens/subscriptions.png', position: '65% 42%' },
+  /* 4 — Multi-branch: members table (shows multi-client management) */
+  { src: '/demo-screens/members.png', position: '65% 40%' },
+  /* 5 — Cloud Backup: backup settings */
+  { src: '/demo-screens/settings-backup.png', position: '65% 55%' },
+];
+
 export default function Features({ t }: FeaturesProps) {
   return (
     <section id="features" className={styles.features}>
@@ -47,6 +64,21 @@ export default function Features({ t }: FeaturesProps) {
         <div className={styles.bento}>
           {t.featuresCards.map((card, i) => (
             <div key={card.title} className={`${styles.bentoCard} ${sizeClass[card.size]}`}>
+              <div className={styles.miniPanel}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={screenshotPanels[i]?.src}
+                  alt=""
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    objectPosition: screenshotPanels[i]?.position,
+                    display: 'block',
+                    opacity: 0.85,
+                  }}
+                />
+              </div>
               <div className={styles.bentoIcon}>{icons[i]}</div>
               <h3 className={styles.bentoTitle}>{card.title}</h3>
               <p className={styles.bentoBody}>{card.body}</p>
