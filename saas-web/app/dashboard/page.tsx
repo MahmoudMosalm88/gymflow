@@ -20,6 +20,11 @@ type Overview = {
   activeSubscriptions: number;
   todayCheckIns: number;
   totalRevenue: number;
+  todayStats?: {
+    allowed: number;
+    warning: number;
+    denied: number;
+  };
 };
 
 type ScanResult = {
@@ -51,6 +56,10 @@ export default function DashboardPage() {
     quota_exceeded: labels.scan_reason_quota_exceeded,
     subscription_frozen: labels.scan_reason_subscription_frozen,
   };
+  const attendanceLabels =
+    lang === 'ar'
+      ? { allowed: 'مسموح', warning: 'تحذير', denied: 'مرفوض' }
+      : { allowed: 'Allowed', warning: 'Warning', denied: 'Denied' };
 
   const [overview, setOverview] = useState<Overview | null>(null);
   const [loadingOverview, setLoadingOverview] = useState(true);
@@ -81,16 +90,6 @@ export default function DashboardPage() {
   useEffect(() => {
     refreshOverview();
   }, [refreshOverview]);
-
-  // One-time backfill: write old desktop member IDs into card_code
-  // so QR codes printed from the desktop app work with the web scanner
-  useEffect(() => {
-    const key = 'card_code_backfill_done';
-    if (localStorage.getItem(key)) return;
-    api.post('/api/migration/backfill-card-codes', {})
-      .then(() => localStorage.setItem(key, '1'))
-      .catch(() => {});
-  }, []);
 
   // Fetch today's activity log
   const refreshActivity = useCallback(async () => {
@@ -291,7 +290,28 @@ export default function DashboardPage() {
               <CardTitle>{labels.attendance_snapshot}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">{labels.attendance_snapshot_content}</p>
+              {loadingOverview ? (
+                <div className="grid grid-cols-3 gap-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="h-16 border-2 border-border bg-secondary/20 animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-3" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                  <div className="border-2 border-border bg-secondary/20 p-3">
+                    <p className="text-xs text-muted-foreground">{attendanceLabels.allowed}</p>
+                    <p className="text-2xl font-bold text-success">{overview?.todayStats?.allowed ?? 0}</p>
+                  </div>
+                  <div className="border-2 border-border bg-secondary/20 p-3">
+                    <p className="text-xs text-muted-foreground">{attendanceLabels.warning}</p>
+                    <p className="text-2xl font-bold text-warning">{overview?.todayStats?.warning ?? 0}</p>
+                  </div>
+                  <div className="border-2 border-border bg-secondary/20 p-3">
+                    <p className="text-xs text-muted-foreground">{attendanceLabels.denied}</p>
+                    <p className="text-2xl font-bold text-destructive">{overview?.todayStats?.denied ?? 0}</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

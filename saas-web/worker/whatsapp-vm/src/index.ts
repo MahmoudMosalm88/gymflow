@@ -479,10 +479,10 @@ async function processTenantQueue(runtime: TenantRuntime) {
             image: qrImage,
             caption: message,
           });
-          sentId = sent?.key?.id;
+          sentId = sent?.key?.id ?? undefined;
         } else {
           const sent = await runtime.sock.sendMessage(jid, { text: message });
-          sentId = sent?.key?.id;
+          sentId = sent?.key?.id ?? undefined;
         }
         await throttleSend();
 
