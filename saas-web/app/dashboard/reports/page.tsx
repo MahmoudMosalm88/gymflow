@@ -206,23 +206,99 @@ export default function ReportsPage() {
             </Card>
           )}
 
-          {/* Hourly Distribution — single bar chart */}
-          {tab === 'hourly' && Array.isArray(data) && (
-            <Card>
-              <CardHeader><CardTitle>{labels.hourly_distribution}</CardTitle></CardHeader>
-              <CardContent className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={rs.gridStroke} />
-                    <XAxis dataKey="hour" tick={rs.axis} />
-                    <YAxis tick={rs.axis} />
-                    <Tooltip contentStyle={rs.tooltipContent} labelStyle={rs.tooltipLabel} itemStyle={rs.tooltipItem} />
-                    <Bar dataKey="count" fill="hsl(var(--primary))" name={labels.visits} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
+          {/* Hourly Distribution — heat map */}
+          {tab === 'hourly' && Array.isArray(data) && (() => {
+            // Build a 7×24 grid from API data (dow 0=Sun..6=Sat, hour 0..23)
+            const grid: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+            let maxCount = 0;
+            for (const row of data as { dow: number; hour: number; count: number }[]) {
+              const d = Number(row.dow);
+              const h = Number(row.hour);
+              const c = Number(row.count);
+              if (d >= 0 && d < 7 && h >= 0 && h < 24) {
+                grid[d][h] = c;
+                if (c > maxCount) maxCount = c;
+              }
+            }
+
+            const dayLabels = lang === 'ar'
+              ? ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
+              : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+            // Color intensity: transparent → accent red
+            const getCellColor = (count: number) => {
+              if (count === 0 || maxCount === 0) return 'bg-[#1a1a1a]';
+              const intensity = count / maxCount;
+              if (intensity < 0.2) return 'bg-[#2b1215]';
+              if (intensity < 0.4) return 'bg-[#3d1519]';
+              if (intensity < 0.6) return 'bg-[#5c1a1f]';
+              if (intensity < 0.8) return 'bg-[#8b2029]';
+              return 'bg-[#e63946]';
+            };
+
+            // Only show hours 5 AM – 11 PM (typical gym hours)
+            const startHour = 5;
+            const endHour = 23;
+            const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => i + startHour);
+
+            return (
+              <Card>
+                <CardHeader>
+                  <CardTitle>{labels.hourly_distribution}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {lang === 'ar' ? 'آخر 4 أسابيع — اللون الأغمق = حركة أكثر' : 'Last 4 weeks — darker = more activity'}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    {/* Hour labels row */}
+                    <div className="flex">
+                      <div className="w-16 shrink-0" />
+                      {hours.map((h) => (
+                        <div key={h} className="flex-1 min-w-[32px] text-center text-[10px] text-muted-foreground pb-2">
+                          {h === 12 ? (lang === 'ar' ? '12م' : '12p')
+                            : h > 12 ? `${h - 12}${lang === 'ar' ? 'م' : 'p'}`
+                            : h === 0 ? (lang === 'ar' ? '12ص' : '12a')
+                            : `${h}${lang === 'ar' ? 'ص' : 'a'}`}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Grid rows */}
+                    {dayLabels.map((dayLabel, dow) => (
+                      <div key={dow} className="flex items-center">
+                        <div className="w-16 shrink-0 text-xs text-muted-foreground pe-3 text-end">{dayLabel}</div>
+                        {hours.map((h) => {
+                          const count = grid[dow][h];
+                          return (
+                            <div
+                              key={h}
+                              className={`flex-1 min-w-[32px] aspect-square m-[1px] ${getCellColor(count)} border border-[#0a0a0a] transition-colors group relative`}
+                              title={`${dayLabel} ${h}:00 — ${count} ${lang === 'ar' ? 'تسجيل' : 'check-ins'}`}
+                            >
+                              {/* Show count on hover */}
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 text-[10px] font-bold text-white z-10">
+                                {count > 0 ? count : ''}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+
+                    {/* Legend */}
+                    <div className="flex items-center justify-end gap-2 pt-4">
+                      <span className="text-[10px] text-muted-foreground">{lang === 'ar' ? 'أقل' : 'Less'}</span>
+                      {['bg-[#1a1a1a]', 'bg-[#2b1215]', 'bg-[#3d1519]', 'bg-[#5c1a1f]', 'bg-[#8b2029]', 'bg-[#e63946]'].map((c, i) => (
+                        <div key={i} className={`w-4 h-4 ${c} border border-[#0a0a0a]`} />
+                      ))}
+                      <span className="text-[10px] text-muted-foreground">{lang === 'ar' ? 'أكثر' : 'More'}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* Top Members — data table */}
           {tab === 'top-members' && Array.isArray(data) && (

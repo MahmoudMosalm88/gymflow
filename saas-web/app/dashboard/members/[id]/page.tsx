@@ -19,8 +19,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import MemberAvatar from '@/components/dashboard/MemberAvatar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { addCalendarMonths, toUnixSeconds } from '@/lib/subscription-dates';
+import { UpdateIcon } from '@radix-ui/react-icons';
 
 type Member = {
   id: string;
@@ -51,10 +61,14 @@ type Subscription = SubscriptionRaw & {
 };
 
 function deriveStatus(sub: SubscriptionRaw): 'active' | 'expired' | 'pending' {
-  const now = Math.floor(Date.now() / 1000);
+  // Compare at day level — timestamps are anchored to 12:00 UTC so
+  // comparing raw seconds against Date.now() can cause off-by-half-day issues
+  const nowDate = new Date();
+  const todayStart = Date.UTC(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()) / 1000;
+  const todayEnd = todayStart + 86400;
   if (!sub.is_active) return 'expired';
-  if (sub.end_date < now) return 'expired';
-  if (sub.start_date > now) return 'pending';
+  if (sub.end_date < todayStart) return 'expired';
+  if (sub.start_date >= todayEnd) return 'pending';
   return 'active';
 }
 
@@ -62,6 +76,18 @@ type AttendanceLog = {
   id: number;
   timestamp: number;
   method: string;
+};
+
+type Payment = {
+  id: number;
+  amount: string;
+  type: string;
+  note: string | null;
+  created_at: string;
+  subscription_id: number | null;
+  guest_pass_id: string | null;
+  plan_months: number | null;
+  sessions_per_month: number | null;
 };
 
 function getMethodLabels(labels: Record<string, string>): Record<string, string> {
@@ -84,9 +110,14 @@ export default function MemberDetailPage() {
   const [member, setMember] = useState<Member | null>(null);
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [attendance, setAttendance] = useState<AttendanceLog[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [waFeedback, setWaFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
   const [sendingWaType, setSendingWaType] = useState<'welcome' | 'qr_code' | null>(null);
+  const [renewSub, setRenewSub] = useState<Subscription | null>(null);
+  const [renewForm, setRenewForm] = useState({ plan_months: '1', sessions_per_month: '', price_paid: '' });
+  const [renewing, setRenewing] = useState(false);
+  const [renewError, setRenewError] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -95,12 +126,14 @@ export default function MemberDetailPage() {
         const found = (membersRes.data ?? []).find((m) => m.id === id);
         if (found) {
           setMember(found);
-          const [subsRes, attRes] = await Promise.all([
+          const [subsRes, attRes, payRes] = await Promise.all([
             api.get<SubscriptionRaw[]>(`/api/subscriptions?member_id=${id}`),
             api.get<AttendanceLog[]>(`/api/attendance/logs?member_id=${id}&limit=20`),
+            api.get<Payment[]>(`/api/payments?member_id=${id}`),
           ]);
           setSubs((subsRes.data ?? []).map((s) => ({ ...s, status: deriveStatus(s) })));
           setAttendance(attRes.data ?? []);
+          setPayments(payRes.data ?? []);
         } else {
           setMember(null);
         }
@@ -159,6 +192,73 @@ export default function MemberDetailPage() {
       setSendingWaType(null);
     }
   }
+
+  function openRenewModal(sub: Subscription) {
+    setRenewSub(sub);
+    setRenewForm({
+      plan_months: String(sub.plan_months || 1),
+      sessions_per_month: sub.sessions_per_month != null ? String(sub.sessions_per_month) : '',
+      price_paid: '',
+    });
+    setRenewError('');
+  }
+
+  async function handleRenew() {
+    if (!member || !renewSub || renewing) return;
+    setRenewing(true);
+    setRenewError('');
+    try {
+      const additionalMonths = parseInt(renewForm.plan_months, 10) || 1;
+      const existingMonths = typeof renewSub.plan_months === 'string' ? parseInt(renewSub.plan_months, 10) : (renewSub.plan_months || 0);
+      const newTotalMonths = existingMonths + additionalMonths;
+
+      // Add renewal amount to existing price so income tracking stays accurate
+      const renewalAmount = renewForm.price_paid ? parseFloat(renewForm.price_paid) : 0;
+      const existingPrice = typeof renewSub.price_paid === 'string' ? parseFloat(renewSub.price_paid) : (renewSub.price_paid ?? 0);
+      const newTotalPrice = existingPrice + renewalAmount;
+
+      const res = await api.patch('/api/subscriptions', {
+        id: Number(renewSub.id),
+        plan_months: newTotalMonths,
+        price_paid: newTotalPrice,
+        sessions_per_month: renewForm.sessions_per_month ? parseInt(renewForm.sessions_per_month, 10) : null,
+        is_active: true,
+      });
+
+      if (!res.success) throw new Error(res.message || labels.error);
+
+      // Record the payment
+      if (renewalAmount > 0) {
+        await api.post('/api/payments', {
+          member_id: member.id,
+          amount: renewalAmount,
+          type: 'renewal',
+          subscription_id: Number(renewSub.id),
+        });
+      }
+
+      // Refresh subs list and payment history
+      const [subsRes, payRes] = await Promise.all([
+        api.get<SubscriptionRaw[]>(`/api/subscriptions?member_id=${id}`),
+        api.get<Payment[]>(`/api/payments?member_id=${id}`),
+      ]);
+      setSubs((subsRes.data ?? []).map((s) => ({ ...s, status: deriveStatus(s) })));
+      setPayments(payRes.data ?? []);
+      setRenewSub(null);
+    } catch (err: any) {
+      setRenewError(err?.message || labels.error);
+    } finally {
+      setRenewing(false);
+    }
+  }
+
+  const planOptions = ['1', '3', '6', '12', '18', '24'];
+  const radioOption = (selected: boolean) =>
+    `flex-1 py-2 px-3 text-sm font-medium border-2 cursor-pointer text-center transition-colors ${
+      selected
+        ? 'border-[#e63946] bg-[#2b0d0d] text-[#e63946]'
+        : 'border-[#2a2a2a] bg-[#1e1e1e] text-[#8a8578] hover:border-[#3a3a3a]'
+    }`;
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
@@ -275,10 +375,137 @@ export default function MemberDetailPage() {
                       >
                         {sub.status === 'active' ? labels.active : sub.status === 'expired' ? labels.expired : labels.pending}
                       </Badge>
+                      <Button variant="outline" size="sm" onClick={() => openRenewModal(sub)}>
+                        <UpdateIcon className="me-1 h-3 w-3" />
+                        {lang === 'ar' ? 'تجديد' : 'Renew'}
+                      </Button>
                     </div>
                   </div>
                 </Card>
               ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Renew subscription modal */}
+      <Dialog open={!!renewSub} onOpenChange={(o) => { if (!o) setRenewSub(null); }}>
+        <DialogContent className="max-w-md" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+          <DialogHeader>
+            <DialogTitle>{lang === 'ar' ? 'تجديد الاشتراك' : 'Renew Subscription'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {/* Warning if subscription still has days left */}
+            {renewSub && renewSub.status === 'active' && (() => {
+              const nowDate = new Date();
+              const todayStart = Date.UTC(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()) / 1000;
+              const daysLeft = Math.ceil((renewSub.end_date - todayStart) / 86400);
+              if (daysLeft <= 0) return null;
+              return (
+                <div className="border-2 border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
+                  {lang === 'ar'
+                    ? `⚠ هذا الاشتراك لا يزال نشطاً ومتبقي عليه ${daysLeft} يوم. التجديد سيمدد تاريخ الانتهاء.`
+                    : `⚠ This subscription is still active with ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining. Renewing will extend the end date.`}
+                </div>
+              );
+            })()}
+            {/* Plan Duration — radio buttons */}
+            <div className="space-y-2">
+              <Label>{lang === 'ar' ? 'إضافة مدة' : 'Add Duration'}</Label>
+              <div className="flex flex-wrap gap-0">
+                {planOptions.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className={radioOption(renewForm.plan_months === m)}
+                    onClick={() => setRenewForm((f) => ({ ...f, plan_months: m }))}
+                  >
+                    {labels[`month_${m}` as keyof typeof labels]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Sessions per month */}
+            <div className="space-y-2">
+              <Label>{labels.sessionsPerMonth}</Label>
+              <Input
+                type="number"
+                min={1}
+                placeholder="e.g. 12"
+                value={renewForm.sessions_per_month}
+                onChange={(e) => setRenewForm((f) => ({ ...f, sessions_per_month: e.target.value }))}
+              />
+            </div>
+
+            {/* Price */}
+            <div className="space-y-2">
+              <Label>{labels.pricePaid}</Label>
+              <Input
+                type="number"
+                min={0}
+                placeholder="e.g. 500"
+                value={renewForm.price_paid}
+                onChange={(e) => setRenewForm((f) => ({ ...f, price_paid: e.target.value }))}
+              />
+            </div>
+
+            {renewError && (
+              <p className="text-sm text-[#e63946] border border-[#5c2a2a] bg-[#2b0d0d] px-3 py-2">{renewError}</p>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setRenewSub(null)} disabled={renewing}>
+                {labels.cancel}
+              </Button>
+              <Button onClick={handleRenew} disabled={renewing}>
+                {renewing ? labels.loading : (lang === 'ar' ? 'تجديد' : 'Renew')}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment History section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">
+            {lang === 'ar' ? 'سجل المدفوعات' : 'Payment History'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {payments.length === 0 ? (
+            <p className="py-4 text-center text-muted-foreground">
+              {lang === 'ar' ? 'لا توجد مدفوعات مسجلة.' : 'No payments recorded.'}
+            </p>
+          ) : (
+            <div className="divide-y divide-border">
+              {payments.map((pay) => {
+                const typeLabel = {
+                  subscription: lang === 'ar' ? 'اشتراك جديد' : 'New Subscription',
+                  renewal: lang === 'ar' ? 'تجديد' : 'Renewal',
+                  guest_pass: lang === 'ar' ? 'تذكرة زائر' : 'Guest Pass',
+                  other: lang === 'ar' ? 'أخرى' : 'Other',
+                }[pay.type] || pay.type;
+
+                const planInfo = pay.plan_months
+                  ? `${pay.plan_months} ${lang === 'ar' ? 'شهر' : 'mo'}`
+                  : '';
+
+                return (
+                  <div key={pay.id} className="flex items-center justify-between py-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{typeLabel}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(pay.created_at).toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' })}
+                        {planInfo && ` · ${planInfo}`}
+                        {pay.note && ` · ${pay.note}`}
+                      </p>
+                    </div>
+                    <p className="text-sm font-semibold text-success">{formatCurrency(parseFloat(pay.amount))}</p>
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>

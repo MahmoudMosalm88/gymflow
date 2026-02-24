@@ -184,8 +184,13 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
     }
 
     if (report === "hourly-distribution") {
-      const rows = await query(
-        `SELECT EXTRACT(HOUR FROM to_timestamp(timestamp))::int AS hour,
+      // Heat map data: day-of-week × hour grid over the last 4 weeks
+      const weeksBack = 4;
+      const rangeStart = startOfDay - weeksBack * 7 * 86400;
+
+      const rows = await query<{ dow: number; hour: number; count: number }>(
+        `SELECT EXTRACT(DOW FROM to_timestamp(timestamp))::int AS dow,
+                EXTRACT(HOUR FROM to_timestamp(timestamp))::int AS hour,
                 COUNT(*)::int AS count
            FROM logs
           WHERE organization_id = $1
@@ -193,9 +198,9 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
             AND status = 'success'
             AND timestamp >= $3
             AND timestamp < $4
-          GROUP BY 1
-          ORDER BY 1`,
-        [auth.organizationId, auth.branchId, startOfDay, startOfDay + 86400]
+          GROUP BY 1, 2
+          ORDER BY 1, 2`,
+        [auth.organizationId, auth.branchId, rangeStart, startOfDay + 86400]
       );
       return ok(rows);
     }
