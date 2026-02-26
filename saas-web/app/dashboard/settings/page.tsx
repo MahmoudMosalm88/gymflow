@@ -649,9 +649,34 @@ function WhatsAppTab() {
 
 // ── Backup & Restore Tab ───────────────────────────────────────────────────
 
+function triggerDownload(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function getDownloadFileName(contentDisposition: string | null, fallback: string): string {
+  if (!contentDisposition) return fallback;
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) return decodeURIComponent(utf8Match[1]);
+  const normalMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
+  if (normalMatch?.[1]) return normalMatch[1];
+  return fallback;
+}
+
 function BackupTab() {
   const { lang } = useLang();
   const labels = t[lang];
+  const [cardCount, setCardCount] = useState('500');
+  const [cardFormat, setCardFormat] = useState<'pdf' | 'csv'>('pdf');
+  const [cardNextPreview, setCardNextPreview] = useState('');
+  const [cardGenerating, setCardGenerating] = useState(false);
+  const [cardResult, setCardResult] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
   const [history, setHistory] = useState<BackupEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -671,6 +696,10 @@ function BackupTab() {
       await api.post('/api/backup/auto-run', {});
       const res = await api.get<BackupEntry[]>('/api/backup/history');
       if (res.success && res.data) setHistory(res.data);
+      const cardPreviewRes = await api.get<{ next: string }>('/api/cards/next-preview');
+      if (cardPreviewRes.success && cardPreviewRes.data?.next) {
+        setCardNextPreview(cardPreviewRes.data.next);
+      }
       const settingsRes = await api.get<Record<string, unknown>>('/api/settings');
       if (settingsRes.success && settingsRes.data) {
         setAutoEnabled(Boolean(settingsRes.data.backup_auto_enabled));
@@ -686,6 +715,58 @@ function BackupTab() {
   }, [labels.error_loading_history]);
 
   useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+  const handleGenerateCards = async () => {
+    setCardResult(null);
+    const count = Number(cardCount);
+    if (!Number.isFinite(count) || count < 1 || count > 2000 || !Number.isInteger(count)) {
+      setCardResult({ type: 'destructive', text: labels.cards_count_error || 'Enter a valid count between 1 and 2000.' });
+      return;
+    }
+
+    setCardGenerating(true);
+    try {
+      const token = localStorage.getItem('session_token');
+      const branchId = localStorage.getItem('branch_id');
+      const response = await fetch('/api/cards/generate-batch-file', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+          ...(branchId ? { 'x-branch-id': branchId } : {}),
+        },
+        body: JSON.stringify({ count, format: cardFormat }),
+      });
+
+      if (!response.ok) {
+        const errPayload = await response.json().catch(() => null);
+        const errMessage = errPayload?.message || labels.error;
+        setCardResult({ type: 'destructive', text: errMessage });
+        return;
+      }
+
+      const fileBlob = await response.blob();
+      const contentDisposition = response.headers.get('content-disposition');
+      const fallbackName = cardFormat === 'pdf' ? 'GymFlow-Cards.pdf' : 'GymFlow-Cards.csv';
+      const fileName = getDownloadFileName(contentDisposition, fallbackName);
+      const from = response.headers.get('x-card-from') ?? '';
+      const to = response.headers.get('x-card-to') ?? '';
+      triggerDownload(fileBlob, fileName);
+      setCardResult({
+        type: 'success',
+        text: `${labels.cards_generated || 'Generated'} ${from} → ${to}. ${labels.cards_download_started || 'Files downloaded successfully.'}`,
+      });
+
+      const preview = await api.get<{ next: string }>('/api/cards/next-preview');
+      if (preview.success && preview.data?.next) {
+        setCardNextPreview(preview.data.next);
+      }
+    } catch {
+      setCardResult({ type: 'destructive', text: labels.error });
+    } finally {
+      setCardGenerating(false);
+    }
+  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -755,6 +836,61 @@ function BackupTab() {
 
   return (
     <div className="flex flex-col gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>{labels.cards_title || 'Pre-Printed Cards'}</CardTitle>
+          <CardDescription>{labels.cards_description || 'Generate A4 QR code sheets for printing.'}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <Label htmlFor="card-count">{labels.cards_count || 'How many codes?'}</Label>
+              <Input
+                id="card-count"
+                type="number"
+                min={1}
+                max={2000}
+                value={cardCount}
+                onChange={(e) => setCardCount(e.target.value)}
+                className="max-w-xs mt-1"
+              />
+            </div>
+                    <div>
+                      <Label htmlFor="card-next">{labels.cards_next || 'Next code'}</Label>
+                      <Input id="card-next" value={cardNextPreview} readOnly className="max-w-xs mt-1" />
+                    </div>
+                    <div>
+                      <Label>{labels.export_format || 'Export format'}</Label>
+                      <Select value={cardFormat} onValueChange={(v) => setCardFormat(v as 'pdf' | 'csv')} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                        <SelectTrigger className="max-w-xs mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pdf">{labels.pdf_format || 'PDF'}</SelectItem>
+                          <SelectItem value="csv">{labels.csv_format || 'CSV'}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <Button onClick={handleGenerateCards} disabled={cardGenerating}>
+                      {cardGenerating
+                        ? labels.loading
+                        : (cardFormat === 'pdf'
+                          ? (labels.cards_generate_pdf || 'Generate PDF')
+                          : (labels.cards_generate_csv || 'Generate CSV'))}
+                    </Button>
+            {cardResult && (
+              <Alert variant={cardResult.type} className="max-w-xl">
+                {cardResult.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                <AlertTitle>{cardResult.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+                <AlertDescription>{cardResult.text}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>{labels.create_backup}</CardTitle>
