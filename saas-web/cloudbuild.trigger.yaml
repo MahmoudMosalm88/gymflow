@@ -3,7 +3,7 @@ substitutions:
   _REGION: europe-west1
   _REPOSITORY: gymflow
   _DEPLOY_WINDOW_START_UTC: "00"
-  _DEPLOY_WINDOW_END_UTC: "06"
+  _DEPLOY_WINDOW_END_UTC: "24"
 
 steps:
   - id: Build
@@ -28,20 +28,20 @@ steps:
     args:
       - -ceu
       - |
-        HOUR_UTC="$(date -u +%H)"
+        HOUR_UTC="$$(date -u +%H)"
         START="${_DEPLOY_WINDOW_START_UTC}"
         END="${_DEPLOY_WINDOW_END_UTC}"
-        if [ "$HOUR_UTC" -lt "$START" ] || [ "$HOUR_UTC" -ge "$END" ]; then
-          echo "Outside deploy window: UTC hour=$HOUR_UTC window=${START}-${END}. Failing safely."
+        if [ "$$HOUR_UTC" -lt "$$START" ] || [ "$$HOUR_UTC" -ge "$$END" ]; then
+          echo "Outside deploy window: UTC hour=$$HOUR_UTC window=$${START}-$${END}. Failing safely."
           exit 1
         fi
 
         IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/gymflow-web:$COMMIT_SHA"
-        PREV_REV="$(gcloud run services describe ${_SERVICE_NAME} --region=${_REGION} --format='value(status.traffic[0].revisionName)')"
-        echo "Previous serving revision: ${PREV_REV}"
+        PREV_REV="$$(gcloud run services describe ${_SERVICE_NAME} --region=${_REGION} --format='value(status.traffic[0].revisionName)')"
+        echo "Previous serving revision: $${PREV_REV}"
 
         gcloud run deploy ${_SERVICE_NAME} \
-          --image="${IMAGE}" \
+          --image="$$IMAGE" \
           --region=${_REGION} \
           --platform=managed \
           --allow-unauthenticated \
@@ -50,56 +50,56 @@ steps:
           --update-env-vars=NODE_ENV=production \
           --no-traffic
 
-        NEW_REV="$(gcloud run services describe ${_SERVICE_NAME} --region=${_REGION} --format='value(status.latestReadyRevisionName)')"
-        NEW_URL="$(gcloud run revisions describe ${NEW_REV} --region=${_REGION} --format='value(status.url)')"
-        echo "New revision: ${NEW_REV}"
-        echo "New revision URL: ${NEW_URL}"
+        NEW_REV="$$(gcloud run services describe ${_SERVICE_NAME} --region=${_REGION} --format='value(status.latestReadyRevisionName)')"
+        NEW_URL="$$(gcloud run revisions describe $${NEW_REV} --region=${_REGION} --format='value(status.url)')"
+        echo "New revision: $${NEW_REV}"
+        echo "New revision URL: $${NEW_URL}"
 
-        if [ -z "${PREV_REV}" ]; then
+        if [ -z "$${PREV_REV}" ]; then
           echo "No previous revision found. Promoting new revision to 100%."
           gcloud run services update-traffic ${_SERVICE_NAME} \
             --region=${_REGION} \
-            --to-revisions ${NEW_REV}=100
+            --to-revisions $${NEW_REV}=100
           exit 0
         fi
 
         smoke_check() {
-          local target_url="$1"
+          local target_url="$$1"
           local ok=0
           for i in 1 2 3; do
-            if curl -fsS "${target_url}/api/health" >/dev/null; then
+            if curl -fsS "$${target_url}/api/health" >/dev/null; then
               ok=1
               break
             fi
             sleep 5
           done
-          if [ "$ok" -ne 1 ]; then
+          if [ "$$ok" -ne 1 ]; then
             return 1
           fi
-          curl -fsS "${target_url}/login" >/dev/null
+          curl -fsS "$${target_url}/login" >/dev/null
         }
 
         shift_with_guard() {
-          local percent="$1"
-          echo "Shifting ${percent}% traffic to ${NEW_REV}"
+          local percent="$$1"
+          echo "Shifting $${percent}% traffic to $${NEW_REV}"
           gcloud run services update-traffic ${_SERVICE_NAME} \
             --region=${_REGION} \
-            --to-revisions ${NEW_REV}=${percent},${PREV_REV}=$((100-percent))
+            --to-revisions $${NEW_REV}=$${percent},$${PREV_REV}=$$((100-percent))
           sleep 30
-          if ! smoke_check "${NEW_URL}"; then
-            echo "Canary check failed at ${percent}% rollout. Rolling back to ${PREV_REV}."
+          if ! smoke_check "$${NEW_URL}"; then
+            echo "Canary check failed at $${percent}% rollout. Rolling back to $${PREV_REV}."
             gcloud run services update-traffic ${_SERVICE_NAME} \
               --region=${_REGION} \
-              --to-revisions ${PREV_REV}=100
+              --to-revisions $${PREV_REV}=100
             exit 1
           fi
         }
 
-        if ! smoke_check "${NEW_URL}"; then
-          echo "Smoke check failed before traffic shift. Rolling back to ${PREV_REV}."
+        if ! smoke_check "$${NEW_URL}"; then
+          echo "Smoke check failed before traffic shift. Rolling back to $${PREV_REV}."
           gcloud run services update-traffic ${_SERVICE_NAME} \
             --region=${_REGION} \
-            --to-revisions ${PREV_REV}=100
+            --to-revisions $${PREV_REV}=100
           exit 1
         fi
 
@@ -107,7 +107,7 @@ steps:
         shift_with_guard 50
         gcloud run services update-traffic ${_SERVICE_NAME} \
           --region=${_REGION} \
-          --to-revisions ${NEW_REV}=100
+          --to-revisions $${NEW_REV}=100
         echo "Canary rollout completed successfully."
 
 images:
