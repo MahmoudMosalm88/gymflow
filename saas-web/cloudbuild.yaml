@@ -2,8 +2,6 @@ substitutions:
   _SERVICE_NAME: gymflow-web-app
   _REGION: europe-west1
   _REPOSITORY: gymflow
-  _DEPLOY_WINDOW_START_UTC: "00"
-  _DEPLOY_WINDOW_END_UTC: "24"
 
 steps:
   - id: Build
