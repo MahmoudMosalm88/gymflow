@@ -333,12 +333,12 @@ body,
 
 /* Firefox Scrollbar */
 * {
-  scrollbar-color: theme('colors.primary') theme('colors.background'); /* Use primary and background HSL vars */
+  scrollbar-color: hsl(var(--primary)) hsl(var(--background));
   scrollbar-width: thin;
 }
 
 html.dark * {
-  scrollbar-color: theme('colors.primary') theme('colors.background');
+  scrollbar-color: hsl(var(--primary)) hsl(var(--background));
 }
 
 /* Animations */
