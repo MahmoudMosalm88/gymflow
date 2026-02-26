@@ -1,6 +1,6 @@
 // app/components/Navbar.jsx
 import Link from 'next/link'; // Use Next.js Link for navigation
-import { cn } from '@/lib/utils'; // Assuming cn utility is available in root lib
+import { cn } from '../lib/utils'; // Assuming cn utility is available in root lib
 
 export default function Navbar() {
   return (

@@ -1,6 +1,6 @@
 // app/components/CTA.jsx
 import { Download } from 'lucide-react'; // Import Download icon
-import { cn } from '@/lib/utils'; // Assuming cn utility is available in root lib
+import { cn } from '../lib/utils'; // Assuming cn utility is available in root lib
 
 export default function CTA({ downloads }) {
   return (

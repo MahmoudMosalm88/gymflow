@@ -1,6 +1,6 @@
 // app/components/Hero.jsx
 import Link from 'next/link';
-import { cn } from '@/lib/utils'; // Assuming cn utility is available in root lib
+import { cn } from '../lib/utils'; // Assuming cn utility is available in root lib
 import { CheckCircle, Download } from 'lucide-react'; // Lucide icons
 
 export default function Hero({ downloads, preferredOS }) {

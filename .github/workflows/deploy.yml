@@ -28,7 +28,7 @@ jobs:
           node-version: 20.x
 
       - name: Install landing page build dependencies
-        run: npm install --no-save next@14 react@18 react-dom@18 tailwindcss@3 postcss@8 autoprefixer@10
+        run: npm install --no-save next@14 react@18 react-dom@18 tailwindcss@3 postcss@8 autoprefixer@10 lucide-react clsx tailwind-merge
 
       - name: Build landing page
         run: npx next build
