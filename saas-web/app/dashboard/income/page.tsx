@@ -19,7 +19,7 @@ type MonthlyRow = {
   count: number;
 };
 type Payment = {
-  id: number;
+  id: number | string;
   date: string;
   type: string;
   name: string;
@@ -40,6 +40,7 @@ export default function IncomePage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [monthly, setMonthly] = useState<MonthlyRow[]>([]);
   const [recent, setRecent] = useState<Payment[]>([]);
+  const [recentError, setRecentError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
 
@@ -52,6 +53,8 @@ export default function IncomePage() {
         api.get<PaymentsResponse>('/api/income/payments?limit=10&offset=0'),
       ]);
 
+      const recentFallback = await api.get<Payment[]>('/api/income/recent?limit=10').catch(() => null);
+
       if (!mounted) return;
 
       if (s.status === 'fulfilled' && s.value.data) {
@@ -60,8 +63,25 @@ export default function IncomePage() {
       if (m.status === 'fulfilled' && m.value.data) {
         setMonthly(m.value.data);
       }
-      if (p.status === 'fulfilled' && p.value.data?.data) {
-        setRecent(p.value.data.data);
+      const paymentsData = p.status === 'fulfilled' ? p.value.data : undefined;
+      const paymentsRows = Array.isArray((paymentsData as unknown as { data?: unknown })?.data)
+        ? ((paymentsData as unknown as { data: Payment[] }).data)
+        : Array.isArray(paymentsData)
+          ? (paymentsData as unknown as Payment[])
+          : [];
+
+      const fallbackRows = recentFallback?.data && Array.isArray(recentFallback.data)
+        ? recentFallback.data
+        : [];
+
+      const mergedRecent = paymentsRows.length > 0 ? paymentsRows : fallbackRows;
+      if (mergedRecent.length > 0) {
+        setRecent(mergedRecent);
+        setRecentError(false);
+      } else {
+        const paymentsFailed = p.status !== 'fulfilled' || !p.value.success;
+        const fallbackFailed = !recentFallback || !recentFallback.success;
+        setRecentError(paymentsFailed && fallbackFailed);
       }
 
       setLoading(false);
@@ -153,6 +173,13 @@ export default function IncomePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {recentError && (
+            <p className="text-xs text-destructive mb-3">
+              {lang === 'ar'
+                ? 'تعذّر تحميل آخر المدفوعات الآن. حاول تحديث الصفحة.'
+                : 'Could not load recent payments right now. Please refresh the page.'}
+            </p>
+          )}
           {recent.length === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center">{labels.no_income_yet}</p>
           ) : (
