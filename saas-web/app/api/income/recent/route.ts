@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       plan_months: number | null;
     }>(
       `SELECT s.id,
-              COALESCE(s.updated_at, s.created_at) AS effective_at,
+              s.created_at AS effective_at,
               (
                 SELECT m.name
                   FROM members m
