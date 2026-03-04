@@ -27,6 +27,10 @@ type Payment = {
   planMonths: number;
   sessionsPerMonth: number | null;
 };
+type PaymentsResponse = {
+  data: Payment[];
+  hasMore: boolean;
+};
 
 export default function IncomePage() {
   const { lang } = useLang();
@@ -40,18 +44,32 @@ export default function IncomePage() {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      api.get<Summary>('/api/income/summary'),
-      api.get<MonthlyRow[]>('/api/income/monthly'),
-      api.get<Payment[]>('/api/income/recent?limit=10'),
-    ])
-      .then(([s, m, r]) => {
-        if (s.data) setSummary(s.data);
-        if (m.data) setMonthly(m.data);
-        if (r.data) setRecent(r.data);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    let mounted = true;
+    (async () => {
+      const [s, m, p] = await Promise.allSettled([
+        api.get<Summary>('/api/income/summary'),
+        api.get<MonthlyRow[]>('/api/income/monthly'),
+        api.get<PaymentsResponse>('/api/income/payments?limit=10&offset=0'),
+      ]);
+
+      if (!mounted) return;
+
+      if (s.status === 'fulfilled' && s.value.data) {
+        setSummary(s.value.data);
+      }
+      if (m.status === 'fulfilled' && m.value.data) {
+        setMonthly(m.value.data);
+      }
+      if (p.status === 'fulfilled' && p.value.data?.data) {
+        setRecent(p.value.data.data);
+      }
+
+      setLoading(false);
+    })();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const fmt = (n: number) => formatCurrency(n);
