@@ -1,7 +1,7 @@
 // GymFlow Service Worker
 // Strategy: network-first for HTML, stale-while-revalidate for static assets, passthrough for API
 
-const CACHE_NAME = "gymflow-shell-v1";
+const CACHE_NAME = "gymflow-shell-v2";
 const OFFLINE_URL = "/offline.html";
 
 // Pre-cache the offline fallback page on install
@@ -32,9 +32,9 @@ self.addEventListener("fetch", (event) => {
   // API calls: pass through — app code handles offline via IndexedDB
   if (url.pathname.startsWith("/api/")) return;
 
-  // Static assets (Next.js bundles, fonts, icons): stale-while-revalidate
+  // Fonts/icons only: stale-while-revalidate
+  // Do NOT cache Next.js JS bundles to avoid stale client code after deploy.
   if (
-    url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/icons/") ||
     url.pathname.endsWith(".woff2") ||
     url.pathname.endsWith(".woff")
