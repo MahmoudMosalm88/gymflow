@@ -6,112 +6,129 @@ import { ok, routeError } from "@/lib/http";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type Row = {
+type PaymentItem = {
   id: number | string;
-  effective_at: string;
+  date: string;
+  type: "subscription" | "guest_pass";
   name: string;
-  phone: string | null;
-  price_paid: string;
-  plan_months: number;
-  sessions_per_month: number | null;
-  payment_type: string;
+  amount: number;
+  planMonths: number;
+  sessionsPerMonth: number | null;
 };
+
+function toMillis(input: unknown): number {
+  if (input instanceof Date) return input.getTime();
+  if (typeof input === "number" && Number.isFinite(input)) {
+    return input > 1_000_000_000_000 ? input : input * 1000;
+  }
+  if (typeof input === "string") {
+    const n = Number(input);
+    if (Number.isFinite(n)) return n > 1_000_000_000_000 ? n : n * 1000;
+    const parsed = Date.parse(input);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return 0;
+}
+
+function toIso(input: unknown): string {
+  const ms = toMillis(input);
+  if (!ms) return new Date(0).toISOString();
+  return new Date(ms).toISOString();
+}
 
 export async function GET(request: NextRequest) {
   try {
     const { organizationId, branchId } = await requireAuth(request);
-
     const url = new URL(request.url);
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 10)));
 
-    let rows: Row[] = [];
+    // Subscription rows should always show if price_paid exists, even if member linkage drifted.
+    const subscriptionRows = await query<{
+      id: number | string;
+      effective_at: unknown;
+      name: string | null;
+      price_paid: string | number;
+      plan_months: number | null;
+    }>(
+      `SELECT s.id,
+              COALESCE(s.updated_at, s.created_at) AS effective_at,
+              (
+                SELECT m.name
+                  FROM members m
+                 WHERE m.id = s.member_id
+                   AND m.organization_id = s.organization_id
+                   AND m.branch_id = s.branch_id
+                 LIMIT 1
+              ) AS name,
+              s.price_paid,
+              s.plan_months
+         FROM subscriptions s
+        WHERE s.organization_id = $1
+          AND s.branch_id = $2
+          AND s.price_paid IS NOT NULL`,
+      [organizationId, branchId]
+    );
+
+    let guestRows: {
+      id: string;
+      effective_at: unknown;
+      name: string | null;
+      amount: string | number;
+    }[] = [];
+
+    // Guest pass schema can drift on older tenants; skip if missing columns/tables.
     try {
-      rows = await query<Row>(
-        `(
-          SELECT s.id,
-                 COALESCE(s.updated_at, s.created_at) AS effective_at,
-                 COALESCE(NULLIF(m.name, ''), 'Unknown client') AS name,
-                 m.phone,
-                 s.price_paid, s.plan_months, s.sessions_per_month,
-                 'subscription' AS payment_type
-          FROM subscriptions s
-          LEFT JOIN members m
-            ON s.member_id = m.id
-           AND m.organization_id = s.organization_id
-           AND m.branch_id = s.branch_id
-          WHERE s.organization_id = $1
-            AND s.branch_id = $2
-            AND s.price_paid IS NOT NULL
-        )
-        UNION ALL
-        (
-          SELECT g.id::text AS id,
-                 g.used_at AS effective_at,
-                 g.member_name AS name,
-                 g.phone,
-                 g.amount::text AS price_paid,
-                 0 AS plan_months,
-                 NULL::int AS sessions_per_month,
-                 'guest_pass' AS payment_type
-          FROM guest_passes g
+      guestRows = await query<{
+        id: string;
+        effective_at: unknown;
+        name: string | null;
+        amount: string | number;
+      }>(
+        `SELECT g.id::text AS id,
+                g.used_at AS effective_at,
+                g.member_name AS name,
+                g.amount AS amount
+           FROM guest_passes g
           WHERE g.organization_id = $1
             AND g.branch_id = $2
             AND g.used_at IS NOT NULL
-            AND g.amount IS NOT NULL
-        )
-        ORDER BY effective_at DESC
-        LIMIT $3`,
-        [organizationId, branchId, limit]
+            AND g.amount IS NOT NULL`,
+        [organizationId, branchId]
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-
-      // Backward-compatible fallback for older schemas missing updated_at/sessions_per_month/guest-pass optional fields.
       if (
-        !message.includes("updated_at")
-        && !message.includes("sessions_per_month")
-        && !message.includes("member_name")
+        !message.includes("relation")
+        && !message.includes("does not exist")
         && !message.includes("column")
       ) {
         throw error;
       }
-
-      rows = await query<Row>(
-        `(
-          SELECT s.id,
-                 s.created_at AS effective_at,
-                 COALESCE(NULLIF(m.name, ''), 'Unknown client') AS name,
-                 m.phone,
-                 s.price_paid,
-                 s.plan_months,
-                 NULL::int AS sessions_per_month,
-                 'subscription' AS payment_type
-          FROM subscriptions s
-          LEFT JOIN members m
-            ON s.member_id = m.id
-           AND m.organization_id = s.organization_id
-           AND m.branch_id = s.branch_id
-          WHERE s.organization_id = $1
-            AND s.branch_id = $2
-            AND s.price_paid IS NOT NULL
-        )
-        ORDER BY effective_at DESC
-        LIMIT $3`,
-        [organizationId, branchId, limit]
-      );
     }
 
-    const data = rows.map((r) => ({
-      id: r.id,
-      date: r.effective_at,
-      type: r.payment_type,
-      name: r.name,
-      amount: Number(r.price_paid),
-      planMonths: r.plan_months,
-      sessionsPerMonth: r.sessions_per_month,
-    }));
+    const payments: PaymentItem[] = [
+      ...subscriptionRows.map((row) => ({
+        id: row.id,
+        date: toIso(row.effective_at),
+        type: "subscription" as const,
+        name: row.name?.trim() || "Unknown client",
+        amount: Number(row.price_paid || 0),
+        planMonths: Number(row.plan_months || 0),
+        sessionsPerMonth: null,
+      })),
+      ...guestRows.map((row) => ({
+        id: row.id,
+        date: toIso(row.effective_at),
+        type: "guest_pass" as const,
+        name: row.name?.trim() || "Guest",
+        amount: Number(row.amount || 0),
+        planMonths: 0,
+        sessionsPerMonth: null,
+      })),
+    ];
 
-    return ok(data);
+    payments.sort((a, b) => toMillis(b.date) - toMillis(a.date));
+    return ok(payments.slice(0, limit));
   } catch (error) {
     return routeError(error);
   }
