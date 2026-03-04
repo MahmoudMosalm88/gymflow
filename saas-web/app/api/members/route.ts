@@ -180,6 +180,31 @@ export async function POST(request: NextRequest) {
             })
           ]
         );
+
+        const qrCodeValue = String(member.card_code || member.id);
+        const qrMessage =
+          systemLanguage === "ar"
+            ? `مرحباً ${member.name || "عميل"}.\nهذا رمز الدخول الخاص بك. يرجى إبرازه عند تسجيل الدخول.`
+            : `Hi ${member.name || "Member"}.\nThis is your check-in QR code. Please show it at the front desk.`;
+
+        await client.query(
+          `INSERT INTO message_queue (
+              id, organization_id, branch_id, member_id, type, payload, status, attempts, scheduled_at
+           ) VALUES (
+              $1, $2, $3, $4, 'qr_code', $5::jsonb, 'pending', 0, NOW()
+           )`,
+          [
+            uuidv4(),
+            auth.organizationId,
+            auth.branchId,
+            member.id,
+            JSON.stringify({
+              message: qrMessage,
+              code: qrCodeValue,
+              generated_at: new Date().toISOString()
+            })
+          ]
+        );
       }
 
       return { member, systemLanguage };

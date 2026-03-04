@@ -30,24 +30,34 @@ export async function GET(request: NextRequest) {
         `(
           SELECT s.id,
                  COALESCE(s.updated_at, s.created_at) AS effective_at,
-                 m.name, m.phone,
+                 COALESCE(NULLIF(m.name, ''), 'Unknown client') AS name,
+                 m.phone,
                  s.price_paid, s.plan_months, s.sessions_per_month,
                  'subscription' AS payment_type
           FROM subscriptions s
-          JOIN members m ON s.member_id = m.id
-          WHERE s.organization_id = $1 AND s.branch_id = $2
+          LEFT JOIN members m
+            ON s.member_id = m.id
+           AND m.organization_id = s.organization_id
+           AND m.branch_id = s.branch_id
+          WHERE s.organization_id = $1
+            AND s.branch_id = $2
             AND s.price_paid IS NOT NULL
         )
         UNION ALL
         (
           SELECT g.id::text AS id,
                  g.used_at AS effective_at,
-                 g.member_name AS name, g.phone,
-                 g.amount::text AS price_paid, 0 AS plan_months, NULL::int AS sessions_per_month,
+                 g.member_name AS name,
+                 g.phone,
+                 g.amount::text AS price_paid,
+                 0 AS plan_months,
+                 NULL::int AS sessions_per_month,
                  'guest_pass' AS payment_type
           FROM guest_passes g
-          WHERE g.organization_id = $1 AND g.branch_id = $2
-            AND g.used_at IS NOT NULL AND g.amount IS NOT NULL
+          WHERE g.organization_id = $1
+            AND g.branch_id = $2
+            AND g.used_at IS NOT NULL
+            AND g.amount IS NOT NULL
         )
         ORDER BY effective_at DESC
         LIMIT $3`,
@@ -55,29 +65,35 @@ export async function GET(request: NextRequest) {
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes("updated_at")) throw error;
+
+      // Backward-compatible fallback for older schemas missing updated_at/sessions_per_month/guest-pass optional fields.
+      if (
+        !message.includes("updated_at")
+        && !message.includes("sessions_per_month")
+        && !message.includes("member_name")
+        && !message.includes("column")
+      ) {
+        throw error;
+      }
+
       rows = await query<Row>(
         `(
           SELECT s.id,
                  s.created_at AS effective_at,
-                 m.name, m.phone,
-                 s.price_paid, s.plan_months, s.sessions_per_month,
+                 COALESCE(NULLIF(m.name, ''), 'Unknown client') AS name,
+                 m.phone,
+                 s.price_paid,
+                 s.plan_months,
+                 NULL::int AS sessions_per_month,
                  'subscription' AS payment_type
           FROM subscriptions s
-          JOIN members m ON s.member_id = m.id
-          WHERE s.organization_id = $1 AND s.branch_id = $2
+          LEFT JOIN members m
+            ON s.member_id = m.id
+           AND m.organization_id = s.organization_id
+           AND m.branch_id = s.branch_id
+          WHERE s.organization_id = $1
+            AND s.branch_id = $2
             AND s.price_paid IS NOT NULL
-        )
-        UNION ALL
-        (
-          SELECT g.id::text AS id,
-                 g.used_at AS effective_at,
-                 g.member_name AS name, g.phone,
-                 g.amount::text AS price_paid, 0 AS plan_months, NULL::int AS sessions_per_month,
-                 'guest_pass' AS payment_type
-          FROM guest_passes g
-          WHERE g.organization_id = $1 AND g.branch_id = $2
-            AND g.used_at IS NOT NULL AND g.amount IS NOT NULL
         )
         ORDER BY effective_at DESC
         LIMIT $3`,
