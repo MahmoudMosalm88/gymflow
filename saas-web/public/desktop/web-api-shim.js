@@ -12,28 +12,12 @@
 
   const nowUnix = () => Math.floor(Date.now() / 1000);
 
-  function daysInMonthUtc(year, monthIndex) {
-    return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
-  }
+  const SECONDS_PER_DAY = 24 * 60 * 60;
+  const DAYS_PER_CYCLE = 30;
 
   function addCalendarMonths(epoch, months) {
-    const base = new Date(epoch * 1000);
-    const anchorDay = base.getUTCDate();
-    const totalMonths = base.getUTCMonth() + months;
-    const targetYear = base.getUTCFullYear() + Math.floor(totalMonths / 12);
-    const targetMonth = ((totalMonths % 12) + 12) % 12;
-    const day = Math.min(anchorDay, daysInMonthUtc(targetYear, targetMonth));
-
-    return Math.floor(
-      Date.UTC(
-        targetYear,
-        targetMonth,
-        day,
-        base.getUTCHours(),
-        base.getUTCMinutes(),
-        base.getUTCSeconds()
-      ) / 1000
-    );
+    const count = Math.max(0, Math.floor(Number(months) || 0));
+    return Math.floor(epoch + count * DAYS_PER_CYCLE * SECONDS_PER_DAY);
   }
 
   function getMonthlyCycleWindow(subscriptionStart, subscriptionEnd, reference) {
