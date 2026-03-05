@@ -37,6 +37,15 @@ steps:
           --min-instances=2 \
           --update-env-vars=NODE_ENV=production
 
+        # Force traffic to latest revision to avoid stale pinned revision routing.
+        gcloud run services update-traffic ${_SERVICE_NAME} \
+          --region=${_REGION} \
+          --to-latest
+
+        gcloud run services describe ${_SERVICE_NAME} \
+          --region=${_REGION} \
+          --format='value(status.latestCreatedRevisionName,status.latestReadyRevisionName,spec.traffic[0].latestRevision,spec.traffic[0].percent)'
+
         echo "Deploy completed successfully."
 
 images:
