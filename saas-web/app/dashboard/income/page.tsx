@@ -32,6 +32,27 @@ type PaymentsResponse = {
   hasMore: boolean;
 };
 
+async function fetchWithoutBranch<T>(url: string): Promise<T | null> {
+  try {
+    const token = localStorage.getItem('session_token');
+    if (!token) return null;
+    const res = await fetch(url, {
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+      },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const payload = await res.json().catch(() => null);
+    if (!payload || typeof payload !== 'object') return null;
+    if ((payload as { success?: boolean }).success !== true) return null;
+    return ((payload as { data?: T }).data ?? null) as T | null;
+  } catch {
+    return null;
+  }
+}
+
 export default function IncomePage() {
   const { lang } = useLang();
   const labels = t[lang];
@@ -74,7 +95,21 @@ export default function IncomePage() {
         ? recentFallback.data
         : [];
 
-      const mergedRecent = paymentsRows.length > 0 ? paymentsRows : fallbackRows;
+      let mergedRecent = paymentsRows.length > 0 ? paymentsRows : fallbackRows;
+
+      // Last-resort retry without x-branch-id header to recover from stale local branch context.
+      if (mergedRecent.length === 0) {
+        const noBranchPayments = await fetchWithoutBranch<PaymentsResponse>('/api/income/payments?limit=10&offset=0');
+        if (noBranchPayments?.data && Array.isArray(noBranchPayments.data) && noBranchPayments.data.length > 0) {
+          mergedRecent = noBranchPayments.data;
+        } else {
+          const noBranchRecent = await fetchWithoutBranch<Payment[]>('/api/income/recent?limit=10');
+          if (Array.isArray(noBranchRecent) && noBranchRecent.length > 0) {
+            mergedRecent = noBranchRecent;
+          }
+        }
+      }
+
       if (mergedRecent.length > 0) {
         setRecent(mergedRecent);
         setRecentError(false);
