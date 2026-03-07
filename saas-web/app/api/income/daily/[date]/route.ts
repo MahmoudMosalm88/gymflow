@@ -70,6 +70,7 @@ export async function GET(
 
     return ok(data);
   } catch (error) {
+    console.error("[income/daily]", error);
     return routeError(error);
   }
 }
