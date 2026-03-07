@@ -31,7 +31,7 @@ export async function GET(
 
     const rows = await query<Row>(
       `(
-        SELECT s.id,
+        SELECT s.id::text AS id,
                s.created_at AS effective_at,
                m.name, m.phone,
                s.price_paid, s.plan_months, s.sessions_per_month,
