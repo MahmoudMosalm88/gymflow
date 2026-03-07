@@ -33,8 +33,11 @@ export async function GET(
       `(
         SELECT s.id::text AS id,
                s.created_at AS effective_at,
-               m.name, m.phone,
-               s.price_paid, s.plan_months, s.sessions_per_month,
+               m.name,
+               m.phone,
+               s.price_paid::numeric AS price_paid,
+               s.plan_months::int AS plan_months,
+               s.sessions_per_month::int AS sessions_per_month,
                'subscription' AS payment_type
         FROM subscriptions s
         JOIN members m ON s.member_id = m.id
@@ -46,8 +49,11 @@ export async function GET(
       (
         SELECT g.id::text AS id,
                g.used_at AS effective_at,
-               g.member_name AS name, g.phone,
-               g.amount::text AS price_paid, 0 AS plan_months, NULL::int AS sessions_per_month,
+               g.member_name AS name,
+               g.phone,
+               g.amount::numeric AS price_paid,
+               0::int AS plan_months,
+               NULL::int AS sessions_per_month,
                'guest_pass' AS payment_type
         FROM guest_passes g
         WHERE g.organization_id = $1 AND g.branch_id = $2
