@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { Pencil, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatCurrency, formatDate } from '@/lib/format';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type Payment = {
@@ -19,6 +21,10 @@ type Payment = {
 };
 
 type PaymentsResponse = { data: Payment[]; hasMore: boolean };
+type ConfirmState =
+  | { type: 'save' }
+  | { type: 'delete'; row: Payment }
+  | null;
 
 const LIMIT = 20;
 
@@ -32,6 +38,11 @@ export default function AllPaymentsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [search, setSearch] = useState('');
+  const [editRow, setEditRow] = useState<Payment | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [confirmState, setConfirmState] = useState<ConfirmState>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const fetchPayments = useCallback((searchTerm: string, offset: number, append: boolean) => {
@@ -67,6 +78,64 @@ export default function AllPaymentsPage() {
 
   const handleLoadMore = () => {
     fetchPayments(search, payments.length, true);
+  };
+
+  const refreshCurrent = useCallback(() => {
+    fetchPayments(search, 0, false);
+  }, [fetchPayments, search]);
+
+  const openEdit = (row: Payment) => {
+    const dt = new Date(row.date);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const local = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    setEditRow(row);
+    setEditAmount(String(row.amount));
+    setEditDate(local);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editRow) return;
+
+    const amount = Number(editAmount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      alert(lang === 'ar' ? 'المبلغ غير صالح.' : 'Invalid amount.');
+      return;
+    }
+
+    setConfirmState({ type: 'save' });
+  };
+
+  const executeSaveEdit = async () => {
+    if (!editRow) return;
+    const amount = Number(editAmount);
+    setSaving(true);
+    try {
+      await api.patch(`/api/income/payments/${encodeURIComponent(String(editRow.id))}`, {
+        amount,
+        date: new Date(editDate).toISOString(),
+      });
+      setConfirmState(null);
+      setEditRow(null);
+      refreshCurrent();
+    } catch {
+      alert(lang === 'ar' ? 'فشل تعديل الدفعة.' : 'Failed to update payment.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = (row: Payment) => {
+    setConfirmState({ type: 'delete', row });
+  };
+
+  const executeDelete = async (row: Payment) => {
+    try {
+      await api.delete(`/api/income/payments/${encodeURIComponent(String(row.id))}`);
+      setConfirmState(null);
+      refreshCurrent();
+    } catch {
+      alert(lang === 'ar' ? 'فشل حذف الدفعة.' : 'Failed to delete payment.');
+    }
   };
 
   return (
@@ -117,11 +186,12 @@ export default function AllPaymentsPage() {
                       <th className="text-start px-4 py-2.5 font-medium">{labels.name_col}</th>
                       <th className="text-end px-4 py-2.5 font-medium">{labels.amount_col}</th>
                       <th className="text-start px-4 py-2.5 font-medium hidden sm:table-cell">{labels.details_col}</th>
+                      <th className="text-end px-4 py-2.5 font-medium">{lang === 'ar' ? 'إجراءات' : 'Actions'}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {payments.map((p) => (
-                      <tr key={p.id} className="border-t border-border hover:bg-card">
+                      <tr key={`${p.type}-${p.id}`} className="border-t border-border hover:bg-card">
                         <td className="px-4 py-2.5 text-muted-foreground">{formatDate(p.date, locale)}</td>
                         <td className="px-4 py-2.5 text-foreground">
                           {p.name}
@@ -140,6 +210,26 @@ export default function AllPaymentsPage() {
                                 {p.sessionsPerMonth != null && `, ${p.sessionsPerMonth} ${labels.sessions_per_month_label}`}
                               </>
                           }
+                        </td>
+                        <td className="px-4 py-2.5 text-end">
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(p)}
+                              className="inline-flex h-8 w-8 items-center justify-center border border-border bg-card text-foreground hover:bg-secondary"
+                              aria-label={lang === 'ar' ? 'تعديل الدفعة' : 'Edit payment'}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(p)}
+                              className="inline-flex h-8 w-8 items-center justify-center border border-border bg-card text-destructive hover:bg-secondary"
+                              aria-label={lang === 'ar' ? 'حذف الدفعة' : 'Delete payment'}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -163,6 +253,112 @@ export default function AllPaymentsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!editRow} onOpenChange={(open) => { if (!open) setEditRow(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{lang === 'ar' ? 'تعديل دفعة' : 'Edit Payment'}</DialogTitle>
+            <DialogDescription>
+              {lang === 'ar'
+                ? 'يمكنك تعديل مبلغ الدفعة وتاريخها فقط. سيتم تطبيق التغييرات على الإيرادات والتقارير.'
+                : 'You can only edit payment amount and date. Changes will be applied to income and reports.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm text-muted-foreground">{labels.amount_col}</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={editAmount}
+                onChange={(e) => setEditAmount(e.target.value)}
+                className="w-full px-3 py-2 border border-input bg-card text-foreground"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm text-muted-foreground">{labels.date_col}</label>
+              <input
+                type="datetime-local"
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+                className="w-full px-3 py-2 border border-input bg-card text-foreground"
+              />
+            </div>
+            <p className="text-xs text-destructive">
+              {lang === 'ar'
+                ? 'تحذير: تعديل الدفعة سيؤثر على الإيرادات والتقارير ذات الصلة.'
+                : 'Warning: editing this payment will affect related income and reports.'}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditRow(null)}
+                className="px-4 py-2 border border-border bg-card text-foreground hover:bg-secondary"
+              >
+                {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={handleSaveEdit}
+                className="px-4 py-2 border border-border bg-destructive text-destructive-foreground disabled:opacity-60"
+              >
+                {saving ? labels.loading : (lang === 'ar' ? 'حفظ' : 'Save')}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!confirmState} onOpenChange={(open) => { if (!open) setConfirmState(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{lang === 'ar' ? 'تأكيد مطلوب' : 'Confirmation Required'}</DialogTitle>
+            <DialogDescription>
+              {lang === 'ar'
+                ? 'راجع التحذير قبل المتابعة، لأن هذا الإجراء يؤثر على بيانات الإيرادات والتقارير.'
+                : 'Review this warning before continuing, because this action affects income and report data.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-foreground">
+              {confirmState?.type === 'save'
+                ? (lang === 'ar'
+                  ? 'تحذير قوي: أنت على وشك تعديل مبلغ أو تاريخ دفعة مسجلة. هذا سيؤثر على الإيرادات والتقارير. هل تريد المتابعة؟'
+                  : 'Strong warning: you are about to edit a logged payment amount or date. This will affect income and reports. Do you want to continue?')
+                : (lang === 'ar'
+                  ? 'تحذير قوي: حذف هذه الدفعة سيؤثر على الإيرادات والتقارير ذات الصلة، ولا يمكن التراجع عن الحذف. هل تريد المتابعة؟'
+                  : 'Strong warning: deleting this payment will affect related income and reports, and cannot be undone. Do you want to continue?')}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmState(null)}
+                className="px-4 py-2 border border-border bg-card text-foreground hover:bg-secondary"
+              >
+                {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  if (confirmState?.type === 'save') {
+                    executeSaveEdit();
+                    return;
+                  }
+                  if (confirmState?.type === 'delete') {
+                    executeDelete(confirmState.row);
+                  }
+                }}
+                className="px-4 py-2 border border-border bg-destructive text-destructive-foreground disabled:opacity-60"
+              >
+                {saving ? labels.loading : (lang === 'ar' ? 'تأكيد' : 'Confirm')}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
