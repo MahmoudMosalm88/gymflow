@@ -23,6 +23,18 @@ const OWNER_PROFILE_KEY = "owner_profile";
 let firebaseAuthPromise: Promise<Auth | null> | null = null;
 let rehydratePromise: Promise<boolean> | null = null;
 
+function decodeJwtUid(token: string | null) {
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+  try {
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof payload?.sub === "string" ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
+
 function clearSessionAndRedirect() {
   localStorage.removeItem(SESSION_TOKEN_KEY);
   localStorage.removeItem(BRANCH_ID_KEY);
@@ -66,10 +78,18 @@ async function resolveBearerToken(forceRefresh = false) {
     const auth = await getFirebaseAuthForSession();
     const currentUser = auth?.currentUser;
     if (currentUser) {
-      const fresh = await currentUser.getIdToken(forceRefresh);
-      if (fresh) {
-        token = fresh;
-        localStorage.setItem(SESSION_TOKEN_KEY, fresh);
+      const storedUid = decodeJwtUid(token);
+      const currentUid = currentUser.uid || null;
+
+      // If localStorage already points to a different signed-in owner than the
+      // Firebase browser session, prefer the stored session token. This avoids
+      // browser-cached Firebase users hijacking API requests for another owner.
+      if (!storedUid || storedUid === currentUid) {
+        const fresh = await currentUser.getIdToken(forceRefresh);
+        if (fresh) {
+          token = fresh;
+          localStorage.setItem(SESSION_TOKEN_KEY, fresh);
+        }
       }
     }
   } catch {
