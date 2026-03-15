@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
+import { ensurePaymentsTable, incomeEventsCte } from "@/lib/income-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,7 @@ export async function GET(
 ) {
   try {
     const { organizationId, branchId } = await requireAuth(request);
+    await ensurePaymentsTable();
     const { month } = await params;
 
     if (!/^\d{4}-\d{2}$/.test(month)) {
@@ -28,46 +30,22 @@ export async function GET(
     }
 
     const [dayRows, prevRows] = await Promise.all([
-      // Combine subscription + guest pass revenue per day
       query<DayRow>(
-        `SELECT day, SUM(revenue)::text AS revenue, SUM(count)::text AS count FROM (
-          (
-            SELECT DATE(created_at AT TIME ZONE 'UTC')::text AS day,
-                   COALESCE(SUM(price_paid), 0) AS revenue,
-                   COUNT(*) AS count
-            FROM subscriptions
-            WHERE organization_id = $1 AND branch_id = $2
-              AND price_paid IS NOT NULL
-              AND to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM') = $3
-            GROUP BY day
-          )
-          UNION ALL
-          (
-            SELECT DATE(used_at AT TIME ZONE 'UTC')::text AS day,
-                   COALESCE(SUM(amount), 0) AS revenue,
-                   COUNT(*) AS count
-            FROM guest_passes
-            WHERE organization_id = $1 AND branch_id = $2
-              AND used_at IS NOT NULL AND amount IS NOT NULL
-              AND to_char(used_at AT TIME ZONE 'UTC', 'YYYY-MM') = $3
-            GROUP BY day
-          )
-        ) combined
-        GROUP BY day ORDER BY day`,
+        `${incomeEventsCte}
+         SELECT DATE(effective_at AT TIME ZONE 'UTC')::text AS day,
+                COALESCE(SUM(amount), 0)::text AS revenue,
+                COUNT(*)::text AS count
+           FROM income_events
+          WHERE to_char(effective_at AT TIME ZONE 'UTC', 'YYYY-MM') = $3
+          GROUP BY day
+          ORDER BY day`,
         [organizationId, branchId, month]
       ),
-      // Previous month total (subscription + guest)
       query<RevenueRow>(
-        `SELECT (
-          COALESCE((SELECT SUM(price_paid) FROM subscriptions
-            WHERE organization_id = $1 AND branch_id = $2 AND price_paid IS NOT NULL
-              AND to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM') = $3), 0)
-          +
-          COALESCE((SELECT SUM(amount) FROM guest_passes
-            WHERE organization_id = $1 AND branch_id = $2
-              AND used_at IS NOT NULL AND amount IS NOT NULL
-              AND to_char(used_at AT TIME ZONE 'UTC', 'YYYY-MM') = $3), 0)
-        )::text AS revenue`,
+        `${incomeEventsCte}
+         SELECT COALESCE(SUM(amount), 0)::text AS revenue
+           FROM income_events
+          WHERE to_char(effective_at AT TIME ZONE 'UTC', 'YYYY-MM') = $3`,
         [organizationId, branchId, prevMonth(month)]
       ),
     ]);

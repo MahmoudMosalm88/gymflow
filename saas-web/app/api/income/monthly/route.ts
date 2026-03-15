@@ -2,80 +2,44 @@ import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
+import { ensurePaymentsTable, incomeEventsCte } from "@/lib/income-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type MonthRow = { month: string; revenue: string; count: string };
-type GuestMonthRow = { month: string; revenue: string; count: string };
+type MonthRow = {
+  month: string;
+  revenue: string;
+  count: string;
+  subscription_revenue: string;
+  guest_revenue: string;
+};
 
 export async function GET(request: NextRequest) {
   try {
     const { organizationId, branchId } = await requireAuth(request);
-
-    // Subscription revenue by month
-    let subRows: MonthRow[] = [];
-    try {
-      subRows = await query<MonthRow>(
-        `SELECT
-           to_char(COALESCE(updated_at, created_at) AT TIME ZONE 'UTC', 'YYYY-MM') AS month,
-           COALESCE(SUM(price_paid), 0) AS revenue,
-           COUNT(*)::text AS count
-         FROM subscriptions
-         WHERE organization_id = $1 AND branch_id = $2 AND price_paid IS NOT NULL
-         GROUP BY month
-         ORDER BY month DESC`,
-        [organizationId, branchId]
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes("updated_at")) throw error;
-      subRows = await query<MonthRow>(
-        `SELECT
-           to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM') AS month,
-           COALESCE(SUM(price_paid), 0) AS revenue,
-           COUNT(*)::text AS count
-         FROM subscriptions
-         WHERE organization_id = $1 AND branch_id = $2 AND price_paid IS NOT NULL
-         GROUP BY month
-         ORDER BY month DESC`,
-        [organizationId, branchId]
-      );
-    }
-
-    // Guest pass revenue by month (using used_at as the date)
-    const guestRows = await query<GuestMonthRow>(
-      `SELECT
-         to_char(used_at AT TIME ZONE 'UTC', 'YYYY-MM') AS month,
-         COALESCE(SUM(amount), 0) AS revenue,
-         COUNT(*)::text AS count
-       FROM guest_passes
-       WHERE organization_id = $1 AND branch_id = $2
-         AND used_at IS NOT NULL AND amount IS NOT NULL
-       GROUP BY month`,
+    await ensurePaymentsTable();
+    const rows = await query<MonthRow>(
+      `${incomeEventsCte}
+       SELECT
+         to_char(effective_at AT TIME ZONE 'UTC', 'YYYY-MM') AS month,
+         COALESCE(SUM(amount), 0)::text AS revenue,
+         COUNT(*)::text AS count,
+         COALESCE(SUM(CASE WHEN payment_type IN ('subscription', 'renewal') THEN amount ELSE 0 END), 0)::text AS subscription_revenue,
+         COALESCE(SUM(CASE WHEN payment_type = 'guest_pass' THEN amount ELSE 0 END), 0)::text AS guest_revenue
+       FROM income_events
+       GROUP BY month
+       ORDER BY month DESC`,
       [organizationId, branchId]
     );
 
-    // Merge subscription and guest data by month
-    const guestMap = new Map(guestRows.map((r) => [r.month, r]));
-    const allMonths = new Set([...subRows.map((r) => r.month), ...guestRows.map((r) => r.month)]);
-
-    const subMap = new Map(subRows.map((r) => [r.month, r]));
-    const data = Array.from(allMonths)
-      .sort((a, b) => b.localeCompare(a))
-      .map((month) => {
-        const sub = subMap.get(month);
-        const guest = guestMap.get(month);
-        const subRev = Number(sub?.revenue ?? 0);
-        const guestRev = Number(guest?.revenue ?? 0);
-        return {
-          month,
-          revenue: subRev + guestRev,
-          subscriptionRevenue: subRev,
-          guestRevenue: guestRev,
-          count: Number(sub?.count ?? 0) + Number(guest?.count ?? 0),
-        };
-      });
+    const data = rows.map((row) => ({
+      month: row.month,
+      revenue: Number(row.revenue),
+      subscriptionRevenue: Number(row.subscription_revenue),
+      guestRevenue: Number(row.guest_revenue),
+      count: Number(row.count),
+    }));
 
     return ok(data);
   } catch (error) {

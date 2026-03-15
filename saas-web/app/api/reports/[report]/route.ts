@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
+import { ensurePaymentsTable, incomeEventsCte } from "@/lib/income-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,6 +67,7 @@ function readThresholdParam(url: URL, fallback = 3) {
 export async function GET(request: NextRequest, { params }: { params: { report: string } }) {
   try {
     const auth = await requireAuth(request);
+    await ensurePaymentsTable();
     const report = params.report;
     const url = new URL(request.url);
     const now = Math.floor(Date.now() / 1000);
@@ -99,10 +101,9 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           [auth.organizationId, auth.branchId, now]
         ),
         query<NumberRow>(
-          `SELECT COALESCE(SUM(price_paid), 0)::text AS total
-             FROM subscriptions
-            WHERE organization_id = $1
-              AND branch_id = $2`,
+          `${incomeEventsCte}
+           SELECT COALESCE(SUM(amount), 0)::text AS total
+             FROM income_events`,
           [auth.organizationId, auth.branchId]
         ),
         query<NumberRow>(
@@ -272,14 +273,24 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
       const rangeStart = now - days * 86400;
 
       const rows = await query(
-        `SELECT source, amount::float8 AS amount
+        `${incomeEventsCte}
+         SELECT source, amount::float8 AS amount
            FROM (
              SELECT 'Subscriptions'::text AS source,
-                    COALESCE(SUM(COALESCE(price_paid, 0)), 0)::numeric(12, 2) AS amount
-               FROM subscriptions
-              WHERE organization_id = $1
-                AND branch_id = $2
-                AND created_at >= to_timestamp($3)
+                    COALESCE(
+                      SUM(CASE WHEN payment_type IN ('subscription', 'renewal') THEN amount ELSE 0 END),
+                      0
+                    )::numeric(12, 2) AS amount
+               FROM income_events
+              WHERE effective_at >= to_timestamp($3)
+             UNION ALL
+             SELECT 'Guest Passes'::text AS source,
+                    COALESCE(
+                      SUM(CASE WHEN payment_type = 'guest_pass' THEN amount ELSE 0 END),
+                      0
+                    )::numeric(12, 2) AS amount
+               FROM income_events
+              WHERE effective_at >= to_timestamp($3)
              UNION ALL
              SELECT 'Other'::text AS source, 0::numeric(12, 2) AS amount
            ) grouped`,

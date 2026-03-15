@@ -2,19 +2,10 @@ import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
+import { ensurePaymentsTable, incomeEventsCte, type IncomeEventRow } from "@/lib/income-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type Row = {
-  id: number | string;
-  effective_at: unknown;
-  name: string;
-  price_paid: string | number;
-  plan_months: number;
-  sessions_per_month: number | null;
-  payment_type: string;
-};
 
 function toMillis(input: unknown): number {
   if (input instanceof Date) return input.getTime();
@@ -39,70 +30,32 @@ function toIso(input: unknown): string {
 export async function GET(request: NextRequest) {
   try {
     const { organizationId, branchId } = await requireAuth(request);
+    await ensurePaymentsTable();
 
     const url = new URL(request.url);
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 20)));
     const offset = Math.max(0, Number(url.searchParams.get("offset") || 0));
     const search = url.searchParams.get("search")?.trim() || "";
 
-    const subscriptionRows = await query<Row>(
-      `SELECT s.id,
-              s.created_at AS effective_at,
-              COALESCE(
-                (
-                  SELECT m.name
-                    FROM members m
-                   WHERE m.id = s.member_id
-                     AND m.organization_id = s.organization_id
-                     AND m.branch_id = s.branch_id
-                   LIMIT 1
-                ),
-                'Unknown client'
-              ) AS name,
-              s.price_paid,
-              s.plan_months,
-              NULL::int AS sessions_per_month,
-              'subscription' AS payment_type
-         FROM subscriptions s
-        WHERE s.organization_id = $1
-          AND s.branch_id = $2
-          AND s.price_paid IS NOT NULL`,
+    const searchNeedle = search.toLowerCase();
+    const eventRows = await query<IncomeEventRow>(
+      `${incomeEventsCte}
+       SELECT event_id,
+              effective_at,
+              member_name,
+              amount,
+              plan_months,
+              sessions_per_month,
+              payment_type
+         FROM income_events
+        ORDER BY effective_at DESC`,
       [organizationId, branchId]
     );
 
-    let guestRows: Row[] = [];
-    try {
-      guestRows = await query<Row>(
-        `SELECT g.id::text AS id,
-                g.used_at AS effective_at,
-                COALESCE(g.member_name, 'Guest') AS name,
-                g.amount AS price_paid,
-                0 AS plan_months,
-                NULL::int AS sessions_per_month,
-                'guest_pass' AS payment_type
-           FROM guest_passes g
-          WHERE g.organization_id = $1
-            AND g.branch_id = $2
-            AND g.used_at IS NOT NULL
-            AND g.amount IS NOT NULL`,
-        [organizationId, branchId]
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (
-        !message.includes("relation")
-        && !message.includes("does not exist")
-        && !message.includes("column")
-      ) {
-        throw error;
-      }
-    }
-
-    const searchNeedle = search.toLowerCase();
-    const merged = [...subscriptionRows, ...guestRows]
+    const merged = eventRows
       .filter((row) => {
         if (!searchNeedle) return true;
-        return String(row.name || "").toLowerCase().includes(searchNeedle);
+        return String(row.member_name || "").toLowerCase().includes(searchNeedle);
       })
       .sort((a, b) => toMillis(b.effective_at) - toMillis(a.effective_at));
 
@@ -111,11 +64,11 @@ export async function GET(request: NextRequest) {
     const trimmed = hasMore ? pageRows.slice(0, limit) : pageRows;
 
     const data = trimmed.map((r) => ({
-      id: r.id,
+      id: r.event_id,
       date: toIso(r.effective_at),
       type: r.payment_type,
-      name: r.name,
-      amount: Number(r.price_paid),
+      name: r.member_name,
+      amount: Number(r.amount),
       planMonths: r.plan_months,
       sessionsPerMonth: r.sessions_per_month,
     }));

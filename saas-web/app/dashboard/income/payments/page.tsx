@@ -205,7 +205,9 @@ export default function AllPaymentsPage() {
                         <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">
                           {p.type === 'guest_pass'
                             ? labels.guest_passes
-                            : <>
+                            : p.type === 'renewal'
+                              ? labels.renewal_payment
+                              : <>
                                 {p.planMonths} {labels.months_label}
                                 {p.sessionsPerMonth != null && `, ${p.sessionsPerMonth} ${labels.sessions_per_month_label}`}
                               </>

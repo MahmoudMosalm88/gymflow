@@ -300,6 +300,7 @@ export const t = {
     revenue_col: "Revenue",
     subscriptions_col: "Subscriptions",
     guest_passes_col: "Guest Passes",
+    renewal_payment: "Renewal",
     payments_count: "Payments",
     date_col: "Date",
     name_col: "Name",
@@ -733,6 +734,7 @@ export const t = {
     entry_denied: "دخول مرفوض",
     // Guest passes
     guest_passes: "تذاكر الزوار",
+    renewal_payment: "تجديد",
     add_guest_pass: "إضافة تذكرة زائر",
     guest_pass_list: "قائمة تذاكر الزوار",
     guest_code: "الرمز",

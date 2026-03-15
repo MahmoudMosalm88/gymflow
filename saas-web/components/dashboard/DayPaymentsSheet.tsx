@@ -79,7 +79,9 @@ export default function DayPaymentsSheet({ date, open, onOpenChange }: Props) {
                   <p className="text-xs text-[#8a8578]">
                     {p.type === 'guest_pass'
                       ? labels.guest_passes
-                      : <>
+                      : p.type === 'renewal'
+                        ? labels.renewal_payment
+                        : <>
                           {p.planMonths} {labels.months_label}
                           {p.sessionsPerMonth != null && `, ${p.sessionsPerMonth} ${labels.sessions_per_month_label}`}
                         </>
