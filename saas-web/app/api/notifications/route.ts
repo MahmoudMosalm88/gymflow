@@ -25,6 +25,10 @@ type CursorPayload = {
   notificationId: string;
 };
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function encodeCursor(payload: CursorPayload) {
   return Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
 }
@@ -35,6 +39,8 @@ function decodeCursor(raw: string | null): CursorPayload | null {
     const decoded = Buffer.from(raw, "base64url").toString("utf8");
     const parsed = JSON.parse(decoded) as CursorPayload;
     if (!parsed?.deliveredAt || !parsed?.notificationId) return null;
+    if (!isUuid(parsed.notificationId)) return null;
+    if (Number.isNaN(new Date(parsed.deliveredAt).getTime())) return null;
     return parsed;
   } catch {
     return null;
@@ -105,6 +111,13 @@ export async function GET(request: NextRequest) {
       hasMore,
     });
   } catch (error) {
+    const code =
+      typeof error === "object" && error && "code" in error
+        ? String((error as { code?: string }).code || "")
+        : "";
+    if (code === "42P01") {
+      return ok({ items: [], nextCursor: null, hasMore: false });
+    }
     return routeError(error);
   }
 }

@@ -23,6 +23,13 @@ export async function GET(request: NextRequest) {
     const output = Object.fromEntries(rows.map((row) => [row.key, row.value]));
     return ok(output);
   } catch (error) {
+    const code =
+      typeof error === "object" && error && "code" in error
+        ? String((error as { code?: string }).code || "")
+        : "";
+    if (code === "42P01") {
+      return ok({});
+    }
     return routeError(error);
   }
 }

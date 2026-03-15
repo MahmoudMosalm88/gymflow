@@ -22,6 +22,13 @@ export async function GET(request: NextRequest) {
 
     return ok({ unread: Number(rows[0]?.count || 0) });
   } catch (error) {
+    const code =
+      typeof error === "object" && error && "code" in error
+        ? String((error as { code?: string }).code || "")
+        : "";
+    if (code === "42P01") {
+      return ok({ unread: 0 });
+    }
     return routeError(error);
   }
 }

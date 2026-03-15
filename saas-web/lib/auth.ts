@@ -17,6 +17,10 @@ type OwnerAccessRow = {
   branch_id: string;
 };
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function getBearerToken(request: NextRequest): string | null {
   const value = request.headers.get("authorization");
   if (!value?.toLowerCase().startsWith("bearer ")) return null;
@@ -40,7 +44,8 @@ async function getOwnerAccessByFirebaseUid(firebaseUid: string, branchHeader?: s
 }
 
 export async function requireAuth(request: NextRequest): Promise<AuthContext> {
-  const branchHeader = request.headers.get("x-branch-id");
+  const rawBranchHeader = request.headers.get("x-branch-id");
+  const branchHeader = rawBranchHeader && isUuid(rawBranchHeader) ? rawBranchHeader : null;
 
   const token = getBearerToken(request);
   if (!token) throw new Error("Missing bearer token");

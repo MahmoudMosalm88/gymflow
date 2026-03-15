@@ -29,41 +29,85 @@ type SettingRow = {
   value: unknown;
 };
 
+function isMissingRelation(error: unknown, relation?: string) {
+  const code =
+    typeof error === "object" && error && "code" in error
+      ? String((error as { code?: string }).code || "")
+      : "";
+  if (code === "42P01") return true;
+
+  const message = error instanceof Error ? error.message : String(error || "");
+  if (!message.includes("does not exist")) return false;
+  return relation ? message.includes(relation) : true;
+}
+
+async function getActiveMembersWithoutQuota(organizationId: string, branchId: string, now: number) {
+  return query<MemberRow>(
+    `SELECT
+      m.id, m.name, m.phone, m.card_code, m.gender,
+      s.id AS sub_id, s.start_date AS sub_start_date, s.end_date AS sub_end_date,
+      s.sessions_per_month AS sub_sessions_per_month, s.is_active AS sub_is_active,
+      NULL::int AS quota_sessions_used, NULL::int AS quota_sessions_cap,
+      NULL::bigint AS quota_cycle_start, NULL::bigint AS quota_cycle_end,
+      (SELECT MAX(l.timestamp) FROM logs l
+       WHERE l.member_id = m.id AND l.organization_id = $1 AND l.branch_id = $2
+       AND l.status = 'success') AS last_success_timestamp
+    FROM members m
+    LEFT JOIN subscriptions s ON s.member_id = m.id
+      AND s.organization_id = $1 AND s.branch_id = $2
+      AND s.is_active = true AND s.start_date <= $3 AND s.end_date > $3
+    WHERE m.organization_id = $1 AND m.branch_id = $2 AND m.deleted_at IS NULL
+    ORDER BY m.name`,
+    [organizationId, branchId, now]
+  );
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
     const now = Math.floor(Date.now() / 1000);
 
     // Get all active members with their subscription, quota, and last check-in
-    const members = await query<MemberRow>(
-      `SELECT
-        m.id, m.name, m.phone, m.card_code, m.gender,
-        s.id AS sub_id, s.start_date AS sub_start_date, s.end_date AS sub_end_date,
-        s.sessions_per_month AS sub_sessions_per_month, s.is_active AS sub_is_active,
-        q.sessions_used AS quota_sessions_used, q.sessions_cap AS quota_sessions_cap,
-        q.cycle_start AS quota_cycle_start, q.cycle_end AS quota_cycle_end,
-        (SELECT MAX(l.timestamp) FROM logs l
-         WHERE l.member_id = m.id AND l.organization_id = $1 AND l.branch_id = $2
-         AND l.status = 'success') AS last_success_timestamp
-      FROM members m
-      LEFT JOIN subscriptions s ON s.member_id = m.id
-        AND s.organization_id = $1 AND s.branch_id = $2
-        AND s.is_active = true AND s.start_date <= $3 AND s.end_date > $3
-      LEFT JOIN quotas q ON q.subscription_id = s.id
-        AND q.organization_id = $1 AND q.branch_id = $2
-        AND q.cycle_start <= $3 AND q.cycle_end > $3
-      WHERE m.organization_id = $1 AND m.branch_id = $2 AND m.deleted_at IS NULL
-      ORDER BY m.name`,
-      [auth.organizationId, auth.branchId, now]
-    );
+    let members: MemberRow[];
+    try {
+      members = await query<MemberRow>(
+        `SELECT
+          m.id, m.name, m.phone, m.card_code, m.gender,
+          s.id AS sub_id, s.start_date AS sub_start_date, s.end_date AS sub_end_date,
+          s.sessions_per_month AS sub_sessions_per_month, s.is_active AS sub_is_active,
+          q.sessions_used AS quota_sessions_used, q.sessions_cap AS quota_sessions_cap,
+          q.cycle_start AS quota_cycle_start, q.cycle_end AS quota_cycle_end,
+          (SELECT MAX(l.timestamp) FROM logs l
+           WHERE l.member_id = m.id AND l.organization_id = $1 AND l.branch_id = $2
+           AND l.status = 'success') AS last_success_timestamp
+        FROM members m
+        LEFT JOIN subscriptions s ON s.member_id = m.id
+          AND s.organization_id = $1 AND s.branch_id = $2
+          AND s.is_active = true AND s.start_date <= $3 AND s.end_date > $3
+        LEFT JOIN quotas q ON q.subscription_id = s.id
+          AND q.organization_id = $1 AND q.branch_id = $2
+          AND q.cycle_start <= $3 AND q.cycle_end > $3
+        WHERE m.organization_id = $1 AND m.branch_id = $2 AND m.deleted_at IS NULL
+        ORDER BY m.name`,
+        [auth.organizationId, auth.branchId, now]
+      );
+    } catch (error) {
+      if (!isMissingRelation(error, "quotas")) throw error;
+      members = await getActiveMembersWithoutQuota(auth.organizationId, auth.branchId, now);
+    }
 
     // Get relevant settings
-    const settings = await query<SettingRow>(
-      `SELECT key, value FROM settings
-       WHERE organization_id = $1 AND branch_id = $2
-       AND key IN ('scan_cooldown_seconds', 'offline_checkin_enabled', 'offline_max_age_hours')`,
-      [auth.organizationId, auth.branchId]
-    );
+    let settings: SettingRow[] = [];
+    try {
+      settings = await query<SettingRow>(
+        `SELECT key, value FROM settings
+         WHERE organization_id = $1 AND branch_id = $2
+         AND key IN ('scan_cooldown_seconds', 'offline_checkin_enabled', 'offline_max_age_hours')`,
+        [auth.organizationId, auth.branchId]
+      );
+    } catch (error) {
+      if (!isMissingRelation(error, "settings")) throw error;
+    }
 
     // Transform to offline-friendly shape
     const bundle = members.map((m) => ({
