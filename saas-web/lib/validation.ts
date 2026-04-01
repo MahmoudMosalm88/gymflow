@@ -105,6 +105,29 @@ export const settingsPutSchema = z.object({
   values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]))
 });
 
+export const whatsappQueueRetrySchema = z.object({
+  ids: z.array(z.string().uuid()).max(500).optional()
+});
+
+export const whatsappBroadcastFiltersSchema = z.object({
+  search: z.string().trim().max(120).optional(),
+  status: z.enum(["all", "active", "expired", "no_sub"]).optional(),
+  gender: z.enum(["all", "male", "female"]).optional(),
+  planMonthsMin: z.number().int().min(1).max(60).nullable().optional(),
+  planMonthsMax: z.number().int().min(1).max(60).nullable().optional(),
+  daysLeftMin: z.number().int().min(-365).max(365).nullable().optional(),
+  daysLeftMax: z.number().int().min(-365).max(365).nullable().optional(),
+  createdFrom: z.string().trim().optional().nullable(),
+  createdTo: z.string().trim().optional().nullable(),
+  sessionsRemainingMax: z.number().int().min(0).max(10000).nullable().optional()
+});
+
+export const whatsappBroadcastSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  message: z.string().trim().min(1).max(4000),
+  filters: whatsappBroadcastFiltersSchema.default({})
+});
+
 const branchArchiveSchema = z.object({
   version: z.string().optional(),
   generated_at: z.string().optional(),

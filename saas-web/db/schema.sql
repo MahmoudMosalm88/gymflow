@@ -159,23 +159,57 @@ CREATE TABLE IF NOT EXISTS guest_passes (
   created_at timestamptz NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS whatsapp_campaigns (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  branch_id uuid NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+  created_by_owner_id uuid NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  message text NOT NULL,
+  filters jsonb NOT NULL DEFAULT '{}'::jsonb,
+  status text NOT NULL CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled')),
+  recipient_count integer NOT NULL DEFAULT 0,
+  sent_count integer NOT NULL DEFAULT 0,
+  failed_count integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  completed_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS idx_whatsapp_campaigns_org_branch_created
+  ON whatsapp_campaigns (organization_id, branch_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS message_queue (
   id uuid PRIMARY KEY,
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   branch_id uuid NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
   member_id uuid NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  campaign_id uuid REFERENCES whatsapp_campaigns(id) ON DELETE SET NULL,
   type text NOT NULL,
   payload jsonb NOT NULL,
   status text NOT NULL CHECK (status IN ('pending', 'processing', 'sent', 'failed')),
   attempts integer NOT NULL DEFAULT 0,
   scheduled_at timestamptz NOT NULL DEFAULT NOW(),
+  last_attempt_at timestamptz,
   sent_at timestamptz,
+  provider_message_id text,
   last_error text,
   created_at timestamptz NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE message_queue
+  ADD COLUMN IF NOT EXISTS campaign_id uuid REFERENCES whatsapp_campaigns(id) ON DELETE SET NULL;
+
+ALTER TABLE message_queue
+  ADD COLUMN IF NOT EXISTS last_attempt_at timestamptz;
+
+ALTER TABLE message_queue
+  ADD COLUMN IF NOT EXISTS provider_message_id text;
+
 CREATE INDEX IF NOT EXISTS idx_message_queue_ready
   ON message_queue (organization_id, branch_id, status, scheduled_at);
+
+CREATE INDEX IF NOT EXISTS idx_message_queue_campaign
+  ON message_queue (organization_id, branch_id, campaign_id, status, scheduled_at);
 
 CREATE TABLE IF NOT EXISTS notifications (
   id uuid PRIMARY KEY,

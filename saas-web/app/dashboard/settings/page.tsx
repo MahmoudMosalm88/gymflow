@@ -31,7 +31,92 @@ import {
 
 type Tab = 'general' | 'whatsapp' | 'backup' | 'import';
 
-type WhatsAppStatus = { connected: boolean; state?: string; phone?: string; qrCode?: string };
+type WhatsAppQueueCounts = {
+  pending: number;
+  processing: number;
+  sent: number;
+  failed: number;
+};
+
+type WhatsAppStatus = {
+  connected: boolean;
+  state?: string;
+  phone?: string;
+  qrCode?: string;
+  queue?: Partial<WhatsAppQueueCounts>;
+  workerHeartbeatAt?: string | null;
+  lastQueueRunAt?: string | null;
+  lastQueueSuccessAt?: string | null;
+  lastQueueError?: string | null;
+};
+
+type WhatsAppQueueItem = {
+  id: string;
+  type: 'welcome' | 'qr_code' | 'manual' | 'renewal' | 'broadcast';
+  status: 'pending' | 'processing' | 'sent' | 'failed';
+  attempts: number;
+  scheduled_at: string;
+  sent_at?: string | null;
+  last_error?: string | null;
+  member_name?: string | null;
+  member_phone?: string | null;
+  campaign_title?: string | null;
+  provider_message_id?: string | null;
+};
+
+type WhatsAppQueueResponse = {
+  items: WhatsAppQueueItem[];
+  counts?: Partial<WhatsAppQueueCounts>;
+  workerHeartbeatAt?: string | null;
+  lastQueueRunAt?: string | null;
+  lastQueueSuccessAt?: string | null;
+  lastQueueError?: string | null;
+  hasMore?: boolean;
+  nextCursor?: string | null;
+};
+
+type BroadcastFilters = {
+  search: string;
+  status: 'all' | 'active' | 'expired' | 'no_sub';
+  gender: 'all' | 'male' | 'female';
+  planMonthsMin: string;
+  planMonthsMax: string;
+  daysLeftMin: string;
+  daysLeftMax: string;
+  createdFrom: string;
+  createdTo: string;
+  sessionsMin: string;
+};
+
+type BroadcastPreview = {
+  recipientCount: number;
+  estimatedMinutes?: number | null;
+  filterSummary?: string[];
+  sampleRecipients?: Array<{
+    id: string;
+    name: string;
+    phone?: string | null;
+  }>;
+};
+
+type WhatsAppCampaign = {
+  id: string;
+  title: string;
+  message: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | string;
+  recipient_count: number;
+  sent_count: number;
+  failed_count: number;
+  created_at: string;
+  completed_at?: string | null;
+  filters?: Record<string, unknown> | null;
+};
+
+type WhatsAppCampaignsResponse = {
+  items: WhatsAppCampaign[];
+  hasMore?: boolean;
+  nextCursor?: string | null;
+};
 
 type BackupEntry = {
   id: string;
@@ -42,6 +127,65 @@ type BackupEntry = {
   created_at: number;
   artifact_id: string;
 };
+
+const DEFAULT_BROADCAST_FILTERS: BroadcastFilters = {
+  search: '',
+  status: 'all',
+  gender: 'all',
+  planMonthsMin: '',
+  planMonthsMax: '',
+  daysLeftMin: '',
+  daysLeftMax: '',
+  createdFrom: '',
+  createdTo: '',
+  sessionsMin: '',
+};
+
+function toOptionalInt(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+function pickQueueCounts(source?: Partial<WhatsAppQueueCounts> | null): WhatsAppQueueCounts {
+  return {
+    pending: Number(source?.pending || 0),
+    processing: Number(source?.processing || 0),
+    sent: Number(source?.sent || 0),
+    failed: Number(source?.failed || 0),
+  };
+}
+
+function normalizeBroadcastStatus(status: WhatsAppCampaign['status']): 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' {
+  if (status === 'running' || status === 'completed' || status === 'failed' || status === 'cancelled') return status;
+  return 'queued';
+}
+
+function statusBadgeClass(status: string) {
+  if (status === 'completed' || status === 'sent') return 'bg-success/10 text-success border-success/30';
+  if (status === 'running' || status === 'processing' || status === 'queued' || status === 'pending') return 'bg-warning/10 text-warning border-warning/30';
+  if (status === 'failed') return 'bg-destructive/10 text-destructive border-destructive/30';
+  return 'bg-muted/10 text-muted-foreground border-border';
+}
+
+function typeLabel(type: WhatsAppQueueItem['type'], lang: 'en' | 'ar') {
+  const en = {
+    welcome: 'Welcome',
+    qr_code: 'QR code',
+    manual: 'Manual',
+    renewal: 'Renewal',
+    broadcast: 'Broadcast',
+  } as const;
+  const ar = {
+    welcome: 'ترحيب',
+    qr_code: 'رمز QR',
+    manual: 'يدوي',
+    renewal: 'تجديد',
+    broadcast: 'بث جماعي',
+  } as const;
+  return lang === 'ar' ? ar[type] : en[type];
+}
 
 // ── Main page ──────────────────────────────────────────────────────────────
 
@@ -273,6 +417,35 @@ function WhatsAppTab() {
   const [welcomeTemplate, setWelcomeTemplate] = useState(defaultWelcomeTemplate);
   const [renewalTemplate, setRenewalTemplate] = useState(defaultRenewalTemplate);
   const [reminderDays, setReminderDays] = useState(DEFAULT_REMINDER_DAYS);
+  const [queueData, setQueueData] = useState<WhatsAppQueueResponse>({ items: [] });
+  const [queueLoading, setQueueLoading] = useState(true);
+  const [retrying, setRetrying] = useState(false);
+  const [broadcastFilters, setBroadcastFilters] = useState<BroadcastFilters>(DEFAULT_BROADCAST_FILTERS);
+  const [broadcastTitle, setBroadcastTitle] = useState(lang === 'ar' ? 'رسالة جماعية' : 'Broadcast');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastPreview, setBroadcastPreview] = useState<BroadcastPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [broadcastSubmitting, setBroadcastSubmitting] = useState(false);
+  const [broadcastFeedback, setBroadcastFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
+  const [campaigns, setCampaigns] = useState<WhatsAppCampaign[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(true);
+
+  const buildBroadcastPayload = useCallback(() => ({
+    title: broadcastTitle.trim() || (lang === 'ar' ? 'رسالة جماعية' : 'Broadcast'),
+    message: broadcastMessage.trim(),
+    filters: {
+      search: broadcastFilters.search.trim() || undefined,
+      status: broadcastFilters.status,
+      gender: broadcastFilters.gender,
+      planMonthsMin: toOptionalInt(broadcastFilters.planMonthsMin),
+      planMonthsMax: toOptionalInt(broadcastFilters.planMonthsMax),
+      daysLeftMin: toOptionalInt(broadcastFilters.daysLeftMin),
+      daysLeftMax: toOptionalInt(broadcastFilters.daysLeftMax),
+      createdFrom: broadcastFilters.createdFrom || null,
+      createdTo: broadcastFilters.createdTo || null,
+      sessionsRemainingMax: toOptionalInt(broadcastFilters.sessionsMin),
+    },
+  }), [broadcastFilters, broadcastMessage, broadcastTitle, lang]);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -328,15 +501,53 @@ function WhatsAppTab() {
     }
   }, [defaultRenewalTemplate, defaultWelcomeTemplate, systemLanguage]);
 
+  const fetchQueue = useCallback(async () => {
+    setQueueLoading(true);
+    try {
+      const res = await api.get<WhatsAppQueueResponse>('/api/whatsapp/queue?status=all&limit=12');
+      if (res.success && res.data) {
+        setQueueData(res.data);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setQueueLoading(false);
+    }
+  }, []);
+
+  const fetchCampaigns = useCallback(async () => {
+    setCampaignsLoading(true);
+    try {
+      const res = await api.get<WhatsAppCampaignsResponse>('/api/whatsapp/campaigns?limit=10');
+      if (res.success && res.data?.items) {
+        setCampaigns(res.data.items);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCampaignsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStatus();
     const id = setInterval(() => {
-      if (!status?.connected) fetchStatus();
-    }, 3000);
+      fetchStatus();
+    }, 5000);
     return () => clearInterval(id);
-  }, [fetchStatus, status?.connected]);
+  }, [fetchStatus]);
 
   useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
+  useEffect(() => { fetchQueue(); }, [fetchQueue]);
+  useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      void fetchQueue();
+      void fetchCampaigns();
+    }, 15000);
+    return () => clearInterval(id);
+  }, [fetchCampaigns, fetchQueue]);
 
   const handleConnect = async () => {
     setActing(true);
@@ -396,6 +607,77 @@ function WhatsAppTab() {
     }
   };
 
+  const handleRetryFailed = async (ids?: string[]) => {
+    setRetrying(true);
+    setBroadcastFeedback(null);
+    try {
+      const res = await api.post<{ retried: number }>('/api/whatsapp/queue/retry', { ids });
+      if (!res.success) throw new Error(res.message ?? 'Failed to retry WhatsApp queue items');
+      setBroadcastFeedback({
+        type: 'success',
+        text: lang === 'ar'
+          ? `تمت إعادة ${res.data?.retried ?? 0} رسالة إلى الطابور.`
+          : `Re-queued ${res.data?.retried ?? 0} WhatsApp messages.`,
+      });
+      await Promise.all([fetchQueue(), fetchStatus(), fetchCampaigns()]);
+    } catch (err) {
+      setBroadcastFeedback({
+        type: 'destructive',
+        text: err instanceof Error ? err.message : (lang === 'ar' ? 'فشل إعادة المحاولة.' : 'Retry failed.'),
+      });
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  const handlePreviewBroadcast = async () => {
+    setPreviewLoading(true);
+    setBroadcastFeedback(null);
+    try {
+      const res = await api.post<BroadcastPreview>('/api/whatsapp/broadcast/preview', buildBroadcastPayload());
+      if (!res.success || !res.data) throw new Error(res.message ?? 'Failed to preview broadcast');
+      setBroadcastPreview(res.data);
+    } catch (err) {
+      setBroadcastFeedback({
+        type: 'destructive',
+        text: err instanceof Error ? err.message : (lang === 'ar' ? 'فشل معاينة البث.' : 'Failed to preview broadcast.'),
+      });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleSendBroadcast = async () => {
+    if (!broadcastMessage.trim()) {
+      setBroadcastFeedback({
+        type: 'destructive',
+        text: lang === 'ar' ? 'أدخل نص الرسالة أولاً.' : 'Enter a message first.',
+      });
+      return;
+    }
+    setBroadcastSubmitting(true);
+    setBroadcastFeedback(null);
+    try {
+      const res = await api.post<{ recipientCount: number }>('/api/whatsapp/broadcast', buildBroadcastPayload());
+      if (!res.success) throw new Error(res.message ?? 'Failed to queue broadcast');
+      setBroadcastFeedback({
+        type: 'success',
+        text: lang === 'ar'
+          ? `تمت جدولة البث لـ ${res.data?.recipientCount ?? 0} عميل.`
+          : `Broadcast queued for ${res.data?.recipientCount ?? 0} members.`,
+      });
+      setBroadcastPreview(null);
+      await Promise.all([fetchQueue(), fetchCampaigns(), fetchStatus()]);
+    } catch (err) {
+      setBroadcastFeedback({
+        type: 'destructive',
+        text: err instanceof Error ? err.message : (lang === 'ar' ? 'فشل إرسال البث.' : 'Failed to queue broadcast.'),
+      });
+    } finally {
+      setBroadcastSubmitting(false);
+    }
+  };
+
   if (loading) return <LoadingSpinner />;
 
   const state = status?.state ?? (status?.connected ? 'connected' : 'disconnected');
@@ -403,7 +685,7 @@ function WhatsAppTab() {
   const connecting = state === 'connecting' && !connected;
   const showWaitingQr = connecting && !status?.qrCode;
   const statusText = connected ? labels.connected : connecting ? (labels.connecting ?? 'Connecting...') : labels.disconnected;
-  const statusVariant = connected ? 'success' : connecting ? 'secondary' : 'destructive';
+  const queueCounts = pickQueueCounts(status?.queue ?? queueData.counts);
 
   // ── Live preview helpers ──
   const sampleName = labels.sample_name;
@@ -640,6 +922,468 @@ function WhatsAppTab() {
                 </Alert>
               )}
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{lang === 'ar' ? 'صحة الطابور والإرسال' : 'Queue health and delivery'}</CardTitle>
+          <CardDescription>
+            {lang === 'ar'
+              ? 'راجع حالة العامل، عدد الرسائل، وأعد المحاولة للرسائل الفاشلة.'
+              : 'Review worker health, queue counts, and retry failed messages.'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {[
+              { label: lang === 'ar' ? 'قيد الانتظار' : 'Pending', value: queueCounts.pending, status: 'pending' },
+              { label: lang === 'ar' ? 'قيد المعالجة' : 'Processing', value: queueCounts.processing, status: 'processing' },
+              { label: lang === 'ar' ? 'تم الإرسال' : 'Sent', value: queueCounts.sent, status: 'sent' },
+              { label: lang === 'ar' ? 'فشلت' : 'Failed', value: queueCounts.failed, status: 'failed' },
+            ].map((metric) => (
+              <div key={metric.label} className="border border-border bg-card px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">{metric.label}</p>
+                  <Badge variant="outline" className={statusBadgeClass(metric.status)}>
+                    {metric.value}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="border border-border px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                {lang === 'ar' ? 'آخر نبضة من العامل' : 'Last worker heartbeat'}
+              </p>
+              <p className="mt-2 text-sm font-medium">
+                {status?.workerHeartbeatAt ? formatDateTime(status.workerHeartbeatAt, lang) : (lang === 'ar' ? 'لا يوجد' : 'No heartbeat yet')}
+              </p>
+            </div>
+            <div className="border border-border px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                {lang === 'ar' ? 'آخر تشغيل للطابور' : 'Last queue run'}
+              </p>
+              <p className="mt-2 text-sm font-medium">
+                {status?.lastQueueRunAt ? formatDateTime(status.lastQueueRunAt, lang) : (lang === 'ar' ? 'لا يوجد' : 'No runs yet')}
+              </p>
+            </div>
+            <div className="border border-border px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                {lang === 'ar' ? 'آخر نجاح' : 'Last success'}
+              </p>
+              <p className="mt-2 text-sm font-medium">
+                {status?.lastQueueSuccessAt ? formatDateTime(status.lastQueueSuccessAt, lang) : (lang === 'ar' ? 'لا يوجد' : 'No successful run yet')}
+              </p>
+            </div>
+            <div className="border border-border px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                {lang === 'ar' ? 'آخر خطأ' : 'Last error'}
+              </p>
+              <p className="mt-2 text-sm font-medium text-destructive">
+                {status?.lastQueueError || (lang === 'ar' ? 'لا يوجد' : 'No errors')}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => void fetchQueue()} disabled={queueLoading}>
+              {queueLoading ? labels.loading : (lang === 'ar' ? 'تحديث الطابور' : 'Refresh queue')}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => void handleRetryFailed()}
+              disabled={retrying || queueCounts.failed === 0}
+            >
+              {retrying
+                ? (lang === 'ar' ? 'جارٍ الإعادة...' : 'Retrying...')
+                : (lang === 'ar' ? 'إعادة كل الرسائل الفاشلة' : 'Retry all failed')}
+            </Button>
+          </div>
+
+          {broadcastFeedback && (
+            <Alert variant={broadcastFeedback.type}>
+              {broadcastFeedback.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+              <AlertTitle>{broadcastFeedback.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+              <AlertDescription>{broadcastFeedback.text}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold">{lang === 'ar' ? 'آخر الرسائل في الطابور' : 'Latest queue items'}</h3>
+                <p className="text-xs text-muted-foreground">
+                  {lang === 'ar'
+                    ? 'الفاشلة تظهر أولاً حتى يمكن معالجتها بسرعة.'
+                    : 'Failed items stay at the top so they can be fixed quickly.'}
+                </p>
+              </div>
+            </div>
+
+            {queueLoading ? (
+              <p className="text-sm text-muted-foreground">{labels.loading}</p>
+            ) : queueData.items.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {lang === 'ar' ? 'لا توجد رسائل في الطابور حالياً.' : 'There are no WhatsApp queue items right now.'}
+              </p>
+            ) : (
+              <div className="overflow-x-auto border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{lang === 'ar' ? 'النوع' : 'Type'}</TableHead>
+                      <TableHead>{lang === 'ar' ? 'العميل' : 'Member'}</TableHead>
+                      <TableHead>{lang === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                      <TableHead>{lang === 'ar' ? 'الموعد' : 'Scheduled'}</TableHead>
+                      <TableHead>{lang === 'ar' ? 'المحاولات' : 'Attempts'}</TableHead>
+                      <TableHead>{lang === 'ar' ? 'الخطأ' : 'Error'}</TableHead>
+                      <TableHead className="text-right">{lang === 'ar' ? 'إجراء' : 'Action'}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {queueData.items.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <Badge variant="outline" className={statusBadgeClass(item.status)}>
+                              {typeLabel(item.type, lang)}
+                            </Badge>
+                            {item.campaign_title && (
+                              <p className="text-xs text-muted-foreground">{item.campaign_title}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium">{item.member_name || (lang === 'ar' ? 'بدون اسم' : 'Unnamed member')}</p>
+                            <p className="text-xs text-muted-foreground">{item.member_phone || '—'}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={statusBadgeClass(item.status)}>
+                            {item.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDateTime(item.sent_at || item.scheduled_at, lang)}
+                        </TableCell>
+                        <TableCell>{item.attempts}</TableCell>
+                        <TableCell className="max-w-[280px] text-sm text-muted-foreground">
+                          {item.last_error || '—'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={retrying || item.status !== 'failed'}
+                            onClick={() => void handleRetryFailed([item.id])}
+                          >
+                            {lang === 'ar' ? 'إعادة' : 'Retry'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{lang === 'ar' ? 'بث جماعي' : 'Broadcast composer'}</CardTitle>
+          <CardDescription>
+            {lang === 'ar'
+              ? 'أنشئ رسالة جماعية مفلترة بدون تعطيل رسائل الترحيب أو التذكير.'
+              : 'Queue a filtered broadcast without blocking welcome or reminder messages.'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="broadcast-title">{lang === 'ar' ? 'عنوان داخلي' : 'Internal title'}</Label>
+                <Input
+                  id="broadcast-title"
+                  value={broadcastTitle}
+                  onChange={(e) => setBroadcastTitle(e.target.value)}
+                  placeholder={lang === 'ar' ? 'مثال: عرض نهاية الشهر' : 'Example: Month-end offer'}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="broadcast-message">{lang === 'ar' ? 'نص الرسالة' : 'Message text'}</Label>
+                <Textarea
+                  id="broadcast-message"
+                  value={broadcastMessage}
+                  onChange={(e) => setBroadcastMessage(e.target.value)}
+                  rows={6}
+                  placeholder={lang === 'ar' ? 'اكتب الرسالة التي ستصل للأعضاء.' : 'Write the message members will receive.'}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="broadcast-search">{lang === 'ar' ? 'بحث' : 'Search'}</Label>
+                  <Input
+                    id="broadcast-search"
+                    value={broadcastFilters.search}
+                    onChange={(e) => setBroadcastFilters((prev) => ({ ...prev, search: e.target.value }))}
+                    placeholder={lang === 'ar' ? 'اسم، هاتف، أو كود البطاقة' : 'Name, phone, or card code'}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{lang === 'ar' ? 'حالة الاشتراك' : 'Subscription status'}</Label>
+                  <Select
+                    value={broadcastFilters.status}
+                    onValueChange={(value) => setBroadcastFilters((prev) => ({ ...prev, status: value as BroadcastFilters['status'] }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{lang === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                      <SelectItem value="active">{lang === 'ar' ? 'نشط' : 'Active'}</SelectItem>
+                      <SelectItem value="expired">{lang === 'ar' ? 'منتهي' : 'Expired'}</SelectItem>
+                      <SelectItem value="no_sub">{lang === 'ar' ? 'بدون اشتراك' : 'No subscription'}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{lang === 'ar' ? 'النوع' : 'Gender'}</Label>
+                  <Select
+                    value={broadcastFilters.gender}
+                    onValueChange={(value) => setBroadcastFilters((prev) => ({ ...prev, gender: value as BroadcastFilters['gender'] }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{lang === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                      <SelectItem value="male">{lang === 'ar' ? 'ذكر' : 'Male'}</SelectItem>
+                      <SelectItem value="female">{lang === 'ar' ? 'أنثى' : 'Female'}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="broadcast-sessions">{lang === 'ar' ? 'حد الجلسات المتبقية' : 'Max sessions remaining'}</Label>
+                  <Input
+                    id="broadcast-sessions"
+                    inputMode="numeric"
+                    value={broadcastFilters.sessionsMin}
+                    onChange={(e) => setBroadcastFilters((prev) => ({ ...prev, sessionsMin: e.target.value }))}
+                    placeholder={lang === 'ar' ? 'مثال: 2' : 'Example: 2'}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="broadcast-plan-min">{lang === 'ar' ? 'أقل مدة خطة' : 'Min plan months'}</Label>
+                  <Input
+                    id="broadcast-plan-min"
+                    inputMode="numeric"
+                    value={broadcastFilters.planMonthsMin}
+                    onChange={(e) => setBroadcastFilters((prev) => ({ ...prev, planMonthsMin: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="broadcast-plan-max">{lang === 'ar' ? 'أقصى مدة خطة' : 'Max plan months'}</Label>
+                  <Input
+                    id="broadcast-plan-max"
+                    inputMode="numeric"
+                    value={broadcastFilters.planMonthsMax}
+                    onChange={(e) => setBroadcastFilters((prev) => ({ ...prev, planMonthsMax: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="broadcast-days-min">{lang === 'ar' ? 'أقل أيام متبقية' : 'Min days left'}</Label>
+                  <Input
+                    id="broadcast-days-min"
+                    inputMode="numeric"
+                    value={broadcastFilters.daysLeftMin}
+                    onChange={(e) => setBroadcastFilters((prev) => ({ ...prev, daysLeftMin: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="broadcast-days-max">{lang === 'ar' ? 'أقصى أيام متبقية' : 'Max days left'}</Label>
+                  <Input
+                    id="broadcast-days-max"
+                    inputMode="numeric"
+                    value={broadcastFilters.daysLeftMax}
+                    onChange={(e) => setBroadcastFilters((prev) => ({ ...prev, daysLeftMax: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="broadcast-created-from">{lang === 'ar' ? 'تاريخ الإنشاء من' : 'Created from'}</Label>
+                  <Input
+                    id="broadcast-created-from"
+                    type="date"
+                    value={broadcastFilters.createdFrom}
+                    onChange={(e) => setBroadcastFilters((prev) => ({ ...prev, createdFrom: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="broadcast-created-to">{lang === 'ar' ? 'تاريخ الإنشاء إلى' : 'Created to'}</Label>
+                  <Input
+                    id="broadcast-created-to"
+                    type="date"
+                    value={broadcastFilters.createdTo}
+                    onChange={(e) => setBroadcastFilters((prev) => ({ ...prev, createdTo: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void handlePreviewBroadcast()} disabled={previewLoading || broadcastSubmitting}>
+              {previewLoading
+                ? (lang === 'ar' ? 'جارٍ المعاينة...' : 'Previewing...')
+                : (lang === 'ar' ? 'معاينة الاستهداف' : 'Preview audience')}
+            </Button>
+            <Button onClick={() => void handleSendBroadcast()} disabled={broadcastSubmitting || !broadcastMessage.trim()}>
+              {broadcastSubmitting
+                ? (lang === 'ar' ? 'جارٍ الجدولة...' : 'Queueing...')
+                : (lang === 'ar' ? 'جدولة البث' : 'Queue broadcast')}
+            </Button>
+          </div>
+
+          {broadcastPreview && (
+            <div className="grid gap-4 lg:grid-cols-[1.1fr,0.9fr]">
+              <div className="border border-border p-4">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {lang === 'ar' ? 'نتيجة المعاينة' : 'Preview result'}
+                </p>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <div>
+                    <p className="text-2xl font-semibold">{broadcastPreview.recipientCount}</p>
+                    <p className="text-sm text-muted-foreground">{lang === 'ar' ? 'عميل مطابق' : 'matching members'}</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-semibold">{broadcastPreview.estimatedMinutes ?? 0}</p>
+                    <p className="text-sm text-muted-foreground">{lang === 'ar' ? 'دقيقة تقديرية للإرسال' : 'estimated minutes to drain'}</p>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-2">
+                  <p className="text-sm font-medium">{lang === 'ar' ? 'المرشحات' : 'Applied filters'}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(broadcastPreview.filterSummary && broadcastPreview.filterSummary.length > 0
+                      ? broadcastPreview.filterSummary
+                      : [lang === 'ar' ? 'بدون مرشحات إضافية' : 'No extra filters']
+                    ).map((item) => (
+                      <Badge key={item} variant="outline">{item}</Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="border border-border p-4">
+                <p className="text-sm font-medium">{lang === 'ar' ? 'عينة من المستلمين' : 'Recipient sample'}</p>
+                <div className="mt-3 space-y-2">
+                  {broadcastPreview.sampleRecipients && broadcastPreview.sampleRecipients.length > 0 ? (
+                    broadcastPreview.sampleRecipients.map((recipient) => (
+                      <div key={recipient.id} className="flex items-center justify-between gap-3 border border-border px-3 py-2">
+                        <div>
+                          <p className="font-medium">{recipient.name}</p>
+                          <p className="text-xs text-muted-foreground">{recipient.phone || '—'}</p>
+                        </div>
+                        <Badge variant="outline">{lang === 'ar' ? 'مطابق' : 'Included'}</Badge>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {lang === 'ar' ? 'لا يوجد أعضاء مطابقون الآن.' : 'No members matched the current filters.'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{lang === 'ar' ? 'سجل الحملات' : 'Campaign history'}</CardTitle>
+          <CardDescription>
+            {lang === 'ar'
+              ? 'حالة كل حملة، عدد الرسائل المرسلة، والفشل المتبقي.'
+              : 'See campaign status, sent volume, and failure counts.'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => void fetchCampaigns()} disabled={campaignsLoading}>
+              {campaignsLoading ? labels.loading : (lang === 'ar' ? 'تحديث السجل' : 'Refresh history')}
+            </Button>
+          </div>
+
+          {campaignsLoading ? (
+            <p className="text-sm text-muted-foreground">{labels.loading}</p>
+          ) : campaigns.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {lang === 'ar' ? 'لا توجد حملات حتى الآن.' : 'No broadcast campaigns yet.'}
+            </p>
+          ) : (
+            <div className="overflow-x-auto border border-border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{lang === 'ar' ? 'الحملة' : 'Campaign'}</TableHead>
+                    <TableHead>{lang === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                    <TableHead>{lang === 'ar' ? 'المستلمون' : 'Recipients'}</TableHead>
+                    <TableHead>{lang === 'ar' ? 'تم الإرسال' : 'Sent'}</TableHead>
+                    <TableHead>{lang === 'ar' ? 'فشل' : 'Failed'}</TableHead>
+                    <TableHead>{lang === 'ar' ? 'أُنشئت' : 'Created'}</TableHead>
+                    <TableHead>{lang === 'ar' ? 'اكتملت' : 'Completed'}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {campaigns.map((campaign) => {
+                    const normalizedStatus = normalizeBroadcastStatus(campaign.status);
+                    return (
+                      <TableRow key={campaign.id}>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium">{campaign.title}</p>
+                            <p className="max-w-[360px] truncate text-xs text-muted-foreground">{campaign.message}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={statusBadgeClass(normalizedStatus)}>
+                            {normalizedStatus}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{campaign.recipient_count}</TableCell>
+                        <TableCell>{campaign.sent_count}</TableCell>
+                        <TableCell>{campaign.failed_count}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDateTime(campaign.created_at, lang)}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {campaign.completed_at ? formatDateTime(campaign.completed_at, lang) : '—'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

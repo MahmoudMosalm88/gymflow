@@ -38,6 +38,7 @@ type TenantRuntime = {
   connecting: boolean;
   intentionalDisconnect: boolean;
   saveCreds: (() => Promise<void>) | null;
+  queueProcessing: boolean;
 };
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -165,6 +166,7 @@ function getRuntime(organizationId: string, branchId: string) {
       connecting: false,
       intentionalDisconnect: false,
       saveCreds: null,
+      queueProcessing: false,
     };
     mkdirSync(runtime.authPath, { recursive: true });
     runtimes.set(key, runtime);
@@ -181,8 +183,41 @@ async function writeStatus(
     `INSERT INTO settings (organization_id, branch_id, key, value)
      VALUES ($1, $2, 'whatsapp_status', $3::jsonb)
      ON CONFLICT (organization_id, branch_id, key)
-     DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+     DO UPDATE SET value = COALESCE(settings.value, '{}'::jsonb) || EXCLUDED.value, updated_at = NOW()`,
     [organizationId, branchId, JSON.stringify(value)]
+  );
+}
+
+async function refreshCampaignStatus(client: PoolClient, campaignId: string | null | undefined) {
+  if (!campaignId) return;
+
+  await client.query(
+    `WITH stats AS (
+        SELECT COUNT(*)::int AS recipient_count,
+               COUNT(*) FILTER (WHERE status = 'sent')::int AS sent_count,
+               COUNT(*) FILTER (WHERE status = 'failed')::int AS failed_count,
+               COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_count,
+               COUNT(*) FILTER (WHERE status = 'processing')::int AS processing_count
+          FROM message_queue
+         WHERE campaign_id = $1
+      )
+      UPDATE whatsapp_campaigns wc
+         SET recipient_count = stats.recipient_count,
+             sent_count = stats.sent_count,
+             failed_count = stats.failed_count,
+             status = CASE
+               WHEN stats.processing_count > 0 THEN 'running'
+               WHEN stats.pending_count > 0 THEN 'queued'
+               WHEN stats.recipient_count > 0 AND stats.failed_count = stats.recipient_count THEN 'failed'
+               ELSE 'completed'
+             END,
+             completed_at = CASE
+               WHEN stats.pending_count = 0 AND stats.processing_count = 0 THEN NOW()
+               ELSE NULL
+             END
+        FROM stats
+       WHERE wc.id = $1`,
+    [campaignId]
   );
 }
 
@@ -205,6 +240,23 @@ async function listTenantStatuses() {
       state: normalizeState(value.state),
     };
   });
+}
+
+async function listQueuedTenants() {
+  const res = await pool.query<{ organization_id: string; branch_id: string }>(
+    `SELECT DISTINCT organization_id, branch_id
+       FROM message_queue
+      WHERE scheduled_at <= NOW()
+        AND (
+          status = 'pending'
+          OR (status = 'failed' AND attempts < 3)
+        )`
+  );
+
+  return res.rows.map((row) => ({
+    organizationId: row.organization_id,
+    branchId: row.branch_id,
+  }));
 }
 
 async function readTenantSettings(organizationId: string, branchId: string) {
@@ -407,14 +459,22 @@ async function connectionManagerLoop() {
 }
 
 async function processTenantQueue(runtime: TenantRuntime) {
-  if (!runtime.sock || !runtime.isReady) return;
+  if (!dryRun && (!runtime.sock || !runtime.isReady)) return;
+  if (runtime.queueProcessing) return;
 
-  const client: PoolClient = await pool.connect();
+  runtime.queueProcessing = true;
+  const queueRunAt = new Date().toISOString();
+  await writeStatus(runtime.organizationId, runtime.branchId, {
+    lastWorkerHeartbeatAt: queueRunAt,
+    lastQueueRunAt: queueRunAt,
+  });
+  let client: PoolClient | null = null;
   try {
+    client = await pool.connect();
     await client.query("BEGIN");
 
     const result = await client.query(
-      `SELECT mq.id, mq.member_id, mq.type, mq.payload,
+      `SELECT mq.id, mq.member_id, mq.campaign_id, mq.type, mq.payload,
               m.phone AS member_phone,
               m.card_code AS member_card_code
          FROM message_queue mq
@@ -443,16 +503,18 @@ async function processTenantQueue(runtime: TenantRuntime) {
     for (const row of result.rows) {
       await client.query(
         `UPDATE message_queue
-            SET status = 'processing', attempts = attempts + 1
+            SET status = 'processing', attempts = attempts + 1, last_attempt_at = NOW()
           WHERE id = $1`,
         [row.id]
       );
+      await refreshCampaignStatus(client, row.campaign_id);
 
       if (dryRun) {
         await client.query(
-          `UPDATE message_queue SET status = 'sent', sent_at = NOW() WHERE id = $1`,
-          [row.id]
+          `UPDATE message_queue SET status = 'sent', sent_at = NOW(), provider_message_id = $2 WHERE id = $1`,
+          [row.id, `dry-run:${row.id}`]
         );
+        await refreshCampaignStatus(client, row.campaign_id);
         console.log(`[${runtime.key}] [DRY RUN] marked sent queue=${row.id} type=${row.type}`);
         continue;
       }
@@ -487,9 +549,10 @@ async function processTenantQueue(runtime: TenantRuntime) {
         await throttleSend();
 
         await client.query(
-          `UPDATE message_queue SET status = 'sent', sent_at = NOW() WHERE id = $1`,
-          [row.id]
+          `UPDATE message_queue SET status = 'sent', sent_at = NOW(), provider_message_id = $2 WHERE id = $1`,
+          [row.id, sentId ?? null]
         );
+        await refreshCampaignStatus(client, row.campaign_id);
         console.log(
           `[${runtime.key}] sent queue=${row.id} type=${row.type} jid=${jid} waMessageId=${sentId ?? "n/a"}`
         );
@@ -503,20 +566,42 @@ async function processTenantQueue(runtime: TenantRuntime) {
             WHERE id = $1`,
           [row.id, errText]
         );
+        await refreshCampaignStatus(client, row.campaign_id);
         console.error(`[${runtime.key}] send failed queue=${row.id} type=${row.type} error=${errText}`);
       }
     }
 
     await client.query("COMMIT");
+    await writeStatus(runtime.organizationId, runtime.branchId, {
+      lastWorkerHeartbeatAt: new Date().toISOString(),
+      lastQueueSuccessAt: new Date().toISOString(),
+      lastQueueError: null,
+    });
   } catch (error) {
-    await client.query("ROLLBACK");
+    if (client) {
+      await client.query("ROLLBACK").catch(() => {
+        // Ignore rollback failures after a connection/query error.
+      });
+    }
+    await writeStatus(runtime.organizationId, runtime.branchId, {
+      lastWorkerHeartbeatAt: new Date().toISOString(),
+      lastQueueError: error instanceof Error ? error.message : String(error),
+    });
     console.error(`[${runtime.key}] queue loop failed`, error);
   } finally {
-    client.release();
+    client?.release();
+    runtime.queueProcessing = false;
   }
 }
 
 async function processQueue() {
+  if (dryRun) {
+    const queuedTenants = await listQueuedTenants();
+    for (const tenant of queuedTenants) {
+      getRuntime(tenant.organizationId, tenant.branchId);
+    }
+  }
+
   for (const runtime of runtimes.values()) {
     await processTenantQueue(runtime);
   }
