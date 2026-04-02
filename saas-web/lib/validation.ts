@@ -92,9 +92,17 @@ export const subscriptionPatchSchema = z.object({
   sessions_per_month: z.number().int().positive().optional().nullable()
 });
 
+export const subscriptionRenewSchema = z.object({
+  member_id: z.string().uuid(),
+  previous_subscription_id: z.coerce.number().int().positive(),
+  plan_months: z.number().int().positive(),
+  price_paid: z.number().min(0).optional().nullable(),
+  sessions_per_month: z.number().int().positive().optional().nullable()
+});
+
 export const attendanceSchema = z.object({
   scannedValue: z.string().min(1),
-  method: z.enum(["scan", "manual"]).default("scan"),
+  method: z.enum(["scan", "manual", "camera"]).default("scan"),
   operationId: z.string().uuid().optional(),
   source: z.enum(["online", "offline_sync"]).default("online"),
   offlineTimestamp: z.number().int().positive().optional(),

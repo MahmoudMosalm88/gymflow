@@ -13,6 +13,7 @@ export type OfflineMember = {
   name: string;
   phone: string;
   card_code: string | null;
+  photo_path: string | null;
   gender: "male" | "female";
   subscription: {
     id: number;
@@ -39,7 +40,7 @@ export type QueuedCheckIn = {
   operationId: string;
   branchId: string;
   scannedValue: string;
-  method: "scan" | "manual";
+  method: "scan" | "manual" | "camera";
   offlineTimestamp: number;
   deviceId: string;
   memberId: string;

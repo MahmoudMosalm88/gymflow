@@ -11,6 +11,7 @@ type MemberRow = {
   name: string;
   phone: string;
   card_code: string | null;
+  photo_path: string | null;
   gender: "male" | "female";
   sub_id: number | null;
   sub_start_date: number | null;
@@ -44,7 +45,7 @@ function isMissingRelation(error: unknown, relation?: string) {
 async function getActiveMembersWithoutQuota(organizationId: string, branchId: string, now: number) {
   return query<MemberRow>(
     `SELECT
-      m.id, m.name, m.phone, m.card_code, m.gender,
+      m.id, m.name, m.phone, m.card_code, m.photo_path, m.gender,
       s.id AS sub_id, s.start_date AS sub_start_date, s.end_date AS sub_end_date,
       s.sessions_per_month AS sub_sessions_per_month, s.is_active AS sub_is_active,
       NULL::int AS quota_sessions_used, NULL::int AS quota_sessions_cap,
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
     try {
       members = await query<MemberRow>(
         `SELECT
-          m.id, m.name, m.phone, m.card_code, m.gender,
+          m.id, m.name, m.phone, m.card_code, m.photo_path, m.gender,
           s.id AS sub_id, s.start_date AS sub_start_date, s.end_date AS sub_end_date,
           s.sessions_per_month AS sub_sessions_per_month, s.is_active AS sub_is_active,
           q.sessions_used AS quota_sessions_used, q.sessions_cap AS quota_sessions_cap,
@@ -115,6 +116,7 @@ export async function GET(request: NextRequest) {
       name: m.name,
       phone: m.phone,
       card_code: m.card_code,
+      photo_path: m.photo_path,
       gender: m.gender,
       subscription: m.sub_id ? {
         id: m.sub_id,

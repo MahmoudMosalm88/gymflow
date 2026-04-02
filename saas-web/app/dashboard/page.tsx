@@ -2,13 +2,16 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { Camera } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatCurrencyCompact } from '@/lib/format';
-import { offlineCheckIn } from '@/lib/offline/check-in-engine';
 import { useScanContext } from '@/lib/scan-context';
+import { submitCheckIn } from '@/lib/check-in/client';
+import { playDeniedFeedback, playSuccessFeedback } from '@/lib/check-in/feedback';
 import StatCard from '@/components/dashboard/StatCard';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+import CameraScanner from '@/components/dashboard/CameraScanner';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -33,6 +36,7 @@ type ScanResult = {
   sessionsRemaining?: number;
   reason?: string;
   memberPhoto?: string;
+  offline?: boolean;
 };
 
 type ActivityEntry = {
@@ -67,6 +71,7 @@ export default function DashboardPage() {
   const [scannedValue, setScannedValue] = useState('');
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
@@ -129,17 +134,13 @@ export default function DashboardPage() {
     setScanning(true);
     setScanResult(null);
     try {
-      const res = await api.post<ScanResult>('/api/attendance/check', {
-        scannedValue: scannedValue.trim(),
-        method: 'scan',
-      });
-      const payload = res.data ?? { success: false, reason: labels.error };
-      const resolvedResult = {
-        ...payload,
-        reason: payload.success
-          ? payload.reason
-          : (payload.reason ? (reasonLabels[payload.reason] ?? payload.reason) : labels.error),
-      };
+      const resolvedResult = await submitCheckIn(
+        scannedValue.trim(),
+        'scan',
+        reasonLabels,
+        labels.error_scan_failed,
+        labels.offline_suffix
+      );
       setScanResult(resolvedResult);
       // Sync manual scan to global context
       setScan({
@@ -147,22 +148,10 @@ export default function DashboardPage() {
         memberName: resolvedResult.memberName,
         sessionsRemaining: resolvedResult.sessionsRemaining,
         reason: resolvedResult.reason,
+        memberPhoto: resolvedResult.memberPhoto,
+        offline: resolvedResult.offline,
         timestamp: Date.now(),
       });
-    } catch {
-      try {
-        const offlineResult = await offlineCheckIn(scannedValue.trim(), 'scan');
-        setScanResult({
-          success: offlineResult.allowed,
-          memberName: offlineResult.member?.name,
-          sessionsRemaining: offlineResult.sessionsRemaining,
-          reason: offlineResult.allowed
-            ? `${offlineResult.member?.name} (${labels.offline_suffix})`
-            : (reasonLabels[offlineResult.reason] ?? offlineResult.reason),
-        });
-      } catch {
-        setScanResult({ success: false, reason: labels.error_scan_failed });
-      }
     } finally {
       setScannedValue('');
       setScanning(false);
@@ -172,6 +161,43 @@ export default function DashboardPage() {
       refreshOverview();
     }
   };
+
+  const handleCameraScan = useCallback(async (value: string) => {
+    if (!value.trim() || scanning) return;
+
+    setScanning(true);
+    setScanResult(null);
+    try {
+      const resolvedResult = await submitCheckIn(
+        value,
+        'camera',
+        reasonLabels,
+        labels.error_scan_failed,
+        labels.offline_suffix
+      );
+
+      setScanResult(resolvedResult);
+      setScan({
+        success: resolvedResult.success,
+        memberName: resolvedResult.memberName,
+        sessionsRemaining: resolvedResult.sessionsRemaining,
+        reason: resolvedResult.reason,
+        memberPhoto: resolvedResult.memberPhoto,
+        offline: resolvedResult.offline,
+        timestamp: Date.now(),
+      });
+
+      if (resolvedResult.success) {
+        playSuccessFeedback();
+      } else {
+        playDeniedFeedback();
+      }
+    } finally {
+      setScanning(false);
+      refreshActivity();
+      refreshOverview();
+    }
+  }, [labels.error_scan_failed, labels.offline_suffix, reasonLabels, refreshActivity, refreshOverview, scanning, setScan]);
 
   // When a global scan happens (from any page), update hero zone + activity
   const lastScanTimestampRef = useRef(0);
@@ -183,11 +209,23 @@ export default function DashboardPage() {
       memberName: lastScan.memberName,
       sessionsRemaining: lastScan.sessionsRemaining,
       reason: lastScan.reason,
+      memberPhoto: lastScan.memberPhoto,
+      offline: lastScan.offline,
     });
     refreshActivity();
   }, [lastScan, refreshActivity]);
 
   useEffect(() => { inputRef.current?.focus(); }, [scanning]);
+
+  useEffect(() => {
+    if (!cameraOpen || !scanResult) return;
+
+    const timer = window.setTimeout(() => {
+      setScanResult(null);
+    }, 3000);
+
+    return () => window.clearTimeout(timer);
+  }, [cameraOpen, scanResult]);
 
   // Derive hero status from scan state
   const heroIdle = !scanning && !scanResult;
@@ -246,6 +284,20 @@ export default function DashboardPage() {
         {/* Input row */}
         <div className="px-6 pb-5 flex gap-2">
           <Label htmlFor="scannedValue" className="sr-only">{labels.scanPlaceholder}</Label>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => {
+              setCameraOpen(true);
+              setScanResult(null);
+            }}
+            disabled={scanning}
+            aria-label={labels.open_camera}
+            className="h-12 w-12 shrink-0"
+          >
+            <Camera />
+          </Button>
           <Input
             id="scannedValue"
             ref={inputRef}
@@ -263,6 +315,33 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      <CameraScanner
+        lang={lang}
+        active={cameraOpen}
+        processing={scanning}
+        result={cameraOpen ? scanResult : null}
+        onClose={() => {
+          setCameraOpen(false);
+          setScanResult(null);
+          setScanning(false);
+          inputRef.current?.focus();
+        }}
+        onDetect={handleCameraScan}
+        labels={{
+          closeCamera: labels.close_camera,
+          cameraTitle: labels.camera_title,
+          cameraHint: labels.camera_hint,
+          cameraLoading: labels.camera_loading,
+          cameraPermissionDenied: labels.camera_permission_denied,
+          cameraUnsupported: labels.camera_unsupported,
+          cameraFallback: labels.camera_fallback,
+          offlineBadge: labels.offline_badge,
+          entryDenied: labels.entry_denied,
+          welcomeName: labels.welcome_name,
+          sessionsRemaining: labels.sessions_remaining,
+        }}
+      />
 
       {/* ── 4 Stat Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

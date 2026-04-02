@@ -10,7 +10,7 @@ import { enqueue } from "./sync-queue";
 import { evaluateEligibility, type EligibilityResult } from "@/lib/check-in/rules";
 
 export type OfflineCheckInResult = EligibilityResult & {
-  member?: { id: string; name: string; gender: string };
+  member?: { id: string; name: string; gender: string; photoPath?: string | null };
   offline: true;
   operationId?: string;
 };
@@ -42,7 +42,7 @@ async function getCooldownSeconds(): Promise<number> {
 
 export async function offlineCheckIn(
   scannedValue: string,
-  method: "scan" | "manual" = "scan"
+  method: "scan" | "manual" | "camera" = "scan"
 ): Promise<OfflineCheckInResult> {
   const member = await findMember(scannedValue.trim());
 
@@ -59,7 +59,12 @@ export async function offlineCheckIn(
   if (!result.allowed) {
     return {
       ...result,
-      member: { id: member.id, name: member.name, gender: member.gender },
+      member: {
+        id: member.id,
+        name: member.name,
+        gender: member.gender,
+        photoPath: member.photo_path
+      },
       offline: true
     };
   }
@@ -94,7 +99,12 @@ export async function offlineCheckIn(
 
   return {
     ...result,
-    member: { id: member.id, name: member.name, gender: member.gender },
+    member: {
+      id: member.id,
+      name: member.name,
+      gender: member.gender,
+      photoPath: member.photo_path
+    },
     offline: true,
     operationId
   };

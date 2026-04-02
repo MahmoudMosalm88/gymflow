@@ -2,43 +2,10 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
-import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { useScanContext, type GlobalScanResult } from '@/lib/scan-context';
-
-// --- Sound helpers (Web Audio API, no files needed) ---
-
-let audioCtx: AudioContext | null = null;
-
-function getAudioCtx() {
-  if (!audioCtx) audioCtx = new AudioContext();
-  return audioCtx;
-}
-
-function playBeep(freq: number, durationMs: number) {
-  try {
-    const ctx = getAudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = freq;
-    gain.gain.value = 0.3;
-    osc.start();
-    osc.stop(ctx.currentTime + durationMs / 1000);
-  } catch {
-    // Audio not available — ignore silently
-  }
-}
-
-function playSuccess() {
-  playBeep(800, 150);
-}
-
-function playDenied() {
-  playBeep(300, 100);
-  setTimeout(() => playBeep(300, 100), 150);
-}
+import { submitCheckIn } from '@/lib/check-in/client';
+import { playDeniedFeedback, playSuccessFeedback } from '@/lib/check-in/feedback';
 
 // --- Barcode detection constants ---
 const MIN_CHARS = 4;
@@ -78,31 +45,27 @@ export default function GlobalScanner() {
     }
 
     try {
-      const res = await api.post<{
-        success: boolean;
-        member?: { name: string };
-        sessionsRemaining?: number;
-        reason?: string;
-      }>('/api/attendance/check', {
-        scannedValue: value,
-        method: 'scan',
-      });
-
-      const data = res.data ?? { success: false, reason: labels.error };
+      const data = await submitCheckIn(
+        value,
+        'scan',
+        reasonLabels,
+        labels.error_scan_failed,
+        labels.offline_suffix
+      );
       const result: GlobalScanResult = {
         success: data.success,
-        memberName: data.member?.name,
+        memberName: data.memberName,
         sessionsRemaining: data.sessionsRemaining,
-        reason: data.success
-          ? undefined
-          : (data.reason ? (reasonLabels[data.reason] ?? data.reason) : labels.error),
+        reason: data.success ? undefined : data.reason,
+        memberPhoto: data.memberPhoto,
+        offline: data.offline,
         timestamp: Date.now(),
       };
 
       setScan(result);
 
       if (result.success) {
-        playSuccess();
+        playSuccessFeedback();
         toast.custom(() => (
           <div className="bg-[#0d2b1a] border-2 border-[#4ade80]/30 px-4 py-3 shadow-[6px_6px_0_#000000] min-w-[280px]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
             <p className="text-sm font-bold text-[#4ade80]">
@@ -116,7 +79,7 @@ export default function GlobalScanner() {
           </div>
         ), { duration: 5000, position: lang === 'ar' ? 'top-left' : 'top-right' });
       } else {
-        playDenied();
+        playDeniedFeedback();
         toast.custom(() => (
           <div className="bg-[#2b0d0d] border-2 border-[#e63946]/30 px-4 py-3 shadow-[6px_6px_0_#000000] min-w-[280px]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
             <p className="text-sm font-bold text-[#e63946]">
@@ -126,9 +89,7 @@ export default function GlobalScanner() {
           </div>
         ), { duration: 5000, position: lang === 'ar' ? 'top-left' : 'top-right' });
       }
-    } catch {
-      // Network error — ignore (offline mode could be added later)
-    }
+    } catch {}
   }, [lang, labels, reasonLabels, setScan]);
 
   useEffect(() => {

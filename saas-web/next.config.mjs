@@ -10,6 +10,7 @@ const cspDirectives = [
   "img-src 'self' data: blob: https:",
   "font-src 'self' https://fonts.gstatic.com",
   "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebase.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://www.googleapis.com https://apis.google.com https://accounts.google.com https://recaptchaenterprise.googleapis.com https://www.google.com/recaptcha/ https://www.recaptcha.net/recaptcha/ https://www.google.com https://cloudflareinsights.com https://static.cloudflareinsights.com",
+  "media-src 'self' data: blob:",
   "frame-src 'self' https://*.firebaseapp.com https://*.web.app https://accounts.google.com https://*.google.com https://www.recaptcha.net https://recaptcha.google.com",
   "worker-src 'self' blob:"
 ].join("; ");
@@ -42,7 +43,7 @@ async function headers() {
         },
         {
           key: "Permissions-Policy",
-          value: "camera=(), microphone=(), geolocation=()"
+          value: "camera=(self), microphone=(), geolocation=()"
         }
       ]
     }

@@ -11,6 +11,7 @@ type Member = {
   id: string;
   name: string;
   gender: "male" | "female";
+  photo_path: string | null;
 };
 
 type Subscription = {
@@ -41,6 +42,7 @@ async function findMember(organizationId: string, branchId: string, scannedValue
   const scannedDigits = scannedValue.replace(/\D/g, "");
   return await query<Member>(
     `SELECT id, name, gender
+            , photo_path
        FROM members
       WHERE organization_id = $1
         AND branch_id = $2

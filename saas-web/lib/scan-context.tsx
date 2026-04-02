@@ -7,6 +7,8 @@ export type GlobalScanResult = {
   memberName?: string;
   sessionsRemaining?: number;
   reason?: string;
+  memberPhoto?: string;
+  offline?: boolean;
   timestamp: number; // Date.now() — used to detect new scans
 };
 
