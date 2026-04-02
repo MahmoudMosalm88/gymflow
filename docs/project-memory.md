@@ -1,7 +1,7 @@
 # GymFlow — Project Memory (Source of Truth)
 
 > Single living document. Combines git history, session logs, and all docs into one timeline.
-> Any new task should start here. Last updated: **February 19, 2026**.
+> Any new task should start here. Last updated: **April 2, 2026**.
 
 ---
 
@@ -24,14 +24,17 @@ GymFlow is a gym membership management system built for Arabic-speaking gym owne
 ## Infrastructure (SaaS)
 
 - **GCP Project**: `gymflow-saas-260215-251`
-- **Cloud Run**: `gymflow-web-app`, `europe-west1`, URL: `https://gymflow-web-app-102836518373.europe-west1.run.app`
+- **Cloud Run**: `gymflow-web-app`, `europe-west1`, URL: `https://gymflow-web-app-102836518373.europe-west1.run.app`, `minScale=0` after April 1 cost cut
 - **Custom domain**: `https://gymflowsystem.com`
-- **Cloud SQL**: `gymflow-pg` (PostgreSQL 15), `europe-west1-d`
+- **Cloud SQL**: `gymflow-pg` (PostgreSQL 15), `europe-west1-d`, tier `db-g1-small` after April 1 cost cut
 - **Artifact Registry**: `europe-west1-docker.pkg.dev/gymflow-saas-260215-251/gymflow/gymflow-web`
 - **Cloud Build trigger**: `gymflow-saas-main-autodeploy` — watches `saas-web/**` on `main` branch
 - **Storage buckets**: backups (30-day lifecycle), imports, photos
-- **Service Account**: `gymflow-firebase-admin@gymflow-saas-260215-251.iam.gserviceaccount.com`
-  - Roles: `roles/cloudsql.client` (added Feb 17), `roles/secretmanager.secretAccessor`, `roles/storage.objectAdmin`
+- **WhatsApp VM**: `gymflow-whatsapp-worker`, `europe-west1-b`, machine type `e2-micro` after April 1 cost cut
+- **Cloud Run runtime service account**: `gymflow-web-sa@gymflow-saas-260215-251.iam.gserviceaccount.com`
+  - Roles from Terraform: `roles/cloudsql.client`, `roles/storage.objectAdmin`, `roles/secretmanager.secretAccessor`
+- **Firebase Admin service account used for token verification**: `gymflow-firebase-admin@gymflow-saas-260215-251.iam.gserviceaccount.com`
+  - Used for Firebase Admin auth/session verification
 
 ### Local Dev (SaaS)
 ```bash
@@ -129,6 +132,9 @@ guest_passes
 | 9 | `sock.end()` needs an Error argument | `sock.end(new Error('cleanup'))` |
 | 10 | `sock.ev.removeAllListeners()` needs event name arg (Baileys types) | Just call `sock.end()` — skip the removeAllListeners call |
 | 11 | Settings.tsx had `openExternal('https://web.whatsapp.com')` in connect handler | Removed — was legacy whatsapp-web.js pattern, opens Safari with Baileys |
+| 12 | Running `next build` while a local `next dev` server is serving can invalidate dev chunks and make `_next/static/*` return 404/500 | Restart `next dev` after local builds before trusting browser tests |
+| 13 | Browser-direct member photo upload to Firebase Storage is fragile and failed with CORS in real usage | Upload member photos through server route, not browser-to-Firebase |
+| 14 | Local photo upload e2e against GCS needs Application Default Credentials | Production uses Cloud Run runtime service account; local requires `gcloud auth application-default login` or equivalent |
 
 ---
 
@@ -673,3 +679,280 @@ docs/future_reports.md          — Backlogged report ideas
 5. **Queue priority matters for UX**.
    - Welcome/QR messages should not wait behind renewal backlog.
    - Prioritization significantly improves perceived reliability.
+
+
+## Research References
+- Added repo-based autoresearch improvement map: `docs/autoresearch-gymflow-improvements.md` and log `docs/autoresearch-gymflow-improvements-research-log.md`.
+
+---
+
+### 2026-03-19 — Execution Roadmap + Autoresearch Consolidation
+
+**Goal**: turn the improvement research into an execution order that can be acted on instead of a loose findings list.
+
+**What was documented**:
+- Added `docs/autoresearch-gymflow-improvements.md` as the saturated improvement map.
+- Added `docs/autoresearch-gymflow-improvements-research-log.md` as the research loop ledger.
+- Added `docs/execution-roadmap-2026-03-19.md` to rank work in both dependency order and impact order.
+
+**Key outcome**:
+- WhatsApp automation was confirmed as the highest-impact execution area.
+- The first chosen slice was worker-side queue serialization per tenant to stop overlapping send loops.
+
+---
+
+### 2026-03-31 — SaaS WhatsApp Control Center + Broadcast System
+
+**Goal**: finish the missing owner-facing WhatsApp management surfaces for the SaaS app and harden queue operations.
+
+**What shipped in code**:
+- Expanded `Settings > WhatsApp` into a control center with:
+  - connection state
+  - QR/connect visibility
+  - queue health counters
+  - latest queue items
+  - retry controls for failed rows
+  - localized template editing
+  - broadcast composer with advanced filters
+  - audience preview with estimated send time
+  - campaign history
+- Added SaaS WhatsApp APIs:
+  - `saas-web/app/api/whatsapp/status/route.ts`
+  - `saas-web/app/api/whatsapp/queue/route.ts`
+  - `saas-web/app/api/whatsapp/queue/retry/route.ts`
+  - `saas-web/app/api/whatsapp/broadcast/preview/route.ts`
+  - `saas-web/app/api/whatsapp/broadcast/route.ts`
+  - `saas-web/app/api/whatsapp/campaigns/route.ts`
+- Added shared backend ops layer:
+  - `saas-web/lib/whatsapp-ops.ts`
+- Extended validation:
+  - `saas-web/lib/validation.ts`
+- Extended DB schema:
+  - `whatsapp_campaigns`
+  - `message_queue.campaign_id`
+  - `message_queue.last_attempt_at`
+  - `message_queue.provider_message_id`
+- Hardened worker:
+  - single in-flight queue processor per tenant
+  - queue run / success / error timestamps persisted in status
+  - campaign status updates based on queue progress
+  - retry metadata support
+
+**Bugs found and fixed during local e2e pass**:
+- Existing databases did not receive new queue columns because the first schema version only added them inside `CREATE TABLE IF NOT EXISTS`.
+- Fixed with additive `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` statements in `saas-web/db/schema.sql`.
+- Dry-run worker could not drain queued broadcasts unless a real WhatsApp runtime existed.
+- Fixed worker dry-run to create queued-tenant runtimes without requiring QR scan.
+
+**What was verified locally**:
+- `cd saas-web && npm run typecheck` ✅
+- `cd saas-web && npm run build` ✅
+- worker TS check ✅
+- Playwright local verification on WhatsApp Settings passed:
+  - login
+  - queue refresh
+  - campaign history refresh
+  - broadcast preview
+  - broadcast queueing
+  - connect / cancel-disconnect
+  - template save
+- Dry-run queue proof:
+  - queued broadcast moved `pending -> sent`
+  - campaign moved `queued -> completed`
+
+**Commit pushed**:
+- `aa796f9` — `feat(whatsapp): add queue health and broadcast controls`
+
+---
+
+### 2026-04-01 — Production Cost Reduction Pass
+
+**Goal**: cut recurring GCP spend hard while keeping the app online and WhatsApp automation still available for a small pilot.
+
+**Baseline before changes**:
+- GymFlow monthly run rate was tracking around `~$105 to $111/month`.
+- Main cost drivers:
+  - Cloud SQL
+  - Cloud Run warm instances
+  - WhatsApp VM
+
+**Billing facts gathered**:
+- March 23 to April 1 GymFlow spend:
+  - Cloud SQL: `$15.76`
+  - Cloud Run: `$8.17`
+  - Compute Engine: `$8.15`
+- WhatsApp VM 7-day measured usage:
+  - CPU avg `1.43%`, max `2.39%`
+  - current RAM fit on the smaller machine after restart
+- Cloud SQL 7-day measured usage before downsizing:
+  - CPU avg `10.1%`, max `11.4%`
+  - memory avg `45.0%`, max `59.8%`
+  - backend connections max `2`
+
+**Live infra changes applied**:
+- Cloud Run:
+  - `minScale: 1 -> 0`
+  - live revision became `gymflow-web-app-00099-q47`
+- Cloud SQL:
+  - `db-custom-1-3840 -> db-g1-small`
+  - verified back to `RUNNABLE`
+- WhatsApp VM:
+  - `e2-medium -> e2-micro`
+  - worker and `cloud-sql-proxy` verified back up
+
+**Operational tradeoffs accepted**:
+- app cold starts can be slower after idle
+- reports/income/admin-heavy pages can be slower due to smaller DB
+- WhatsApp automation kept online, but with much less VM headroom
+
+**Expected new monthly run rate**:
+- approximately `~$40 to $48/month`
+- expected reduction:
+  - `~$61 to $71/month`
+  - about `58% to 65%` lower than the previous shape
+
+**Important operational note**:
+- WhatsApp VM public IP changed after resize/restart:
+  - old: `104.155.38.75`
+  - new: `34.78.91.250`
+
+---
+
+## Lessons Learned
+
+6. **Billing export is the only trustworthy source for cost arguments**.
+   - Estimating from service lists is useful, but final calls should use exported cost rows and measured utilization.
+
+7. **For this pilot stage, Cloud SQL and Cloud Run were oversized**.
+   - Real traffic and connection counts were low enough to justify aggressive downsizing.
+
+8. **WhatsApp VM resizing is viable, but public IP can change on restart**.
+   - Any manual allowlists or scripts tied to the old IP must be updated if they existed.
+
+9. **Cost cuts have visible UX tradeoffs**.
+   - Reports and first-load paths are the first surfaces likely to feel slower after aggressive infra downsizing.
+
+---
+
+### 2026-04-02 — Desktop v1.0.9 Health Check + WhatsApp Connect Recovery
+
+**Goal**: make the desktop build safe to send to users by clearing the remaining WhatsApp onboarding/connect regressions.
+
+**What was fixed in the desktop app**:
+- Investigated the recurring WhatsApp onboarding failure where Chrome could not be found and connection attempts either closed or timed out.
+- Reworked the desktop runtime so WhatsApp connect no longer depends on the broken Chromium/Puppeteer path that was causing the onboarding crash shape.
+- Added stale-session cleanup around WhatsApp connect:
+  - detects stale session lock files
+  - kills stale background Chrome processes bound to the old session
+  - removes stale lock artifacts before retry
+- Repacked and relaunched the local `.app` repeatedly while validating the fixes.
+
+**What was verified**:
+- onboarding no longer throws the previous Chrome-not-found error during connect
+- stale session/lock conditions no longer leave the UI in a dead loading state
+- app was relaunched locally after each fix pass for user validation
+
+**Documentation note**:
+- the older standalone WhatsApp fix log file referenced earlier in project history is no longer present under `docs/`; this `project-memory.md` entry is the current source of truth for that April 2 desktop stabilization pass.
+
+---
+
+### 2026-04-02 — SaaS Dashboard Camera QR Scanning Shipped
+
+**Goal**: add camera-based QR scanning to the SaaS dashboard without breaking the existing scanner and offline flows.
+
+**What shipped**:
+- Added a camera scan button to the dashboard scanner bar.
+- Added a dedicated fullscreen camera scanner flow in:
+  - `saas-web/components/dashboard/CameraScanner.tsx`
+- Camera scans are logged as a separate attendance method: `camera`.
+- Extended online and offline check-in flows so camera scans work with:
+  - success/denial feedback
+  - member photo in scan results
+  - offline queue + later sync
+- Added Arabic and English UI copy for the new scanner path.
+
+**Important technical fixes during rollout**:
+- Camera was initially blocked by app headers; fixed by allowing camera in response headers/CSP.
+- Scanner WASM originally depended on a CDN path that conflicted with CSP; fixed by self-hosting the WASM asset under `saas-web/public/vendor/`.
+- Laptop camera fallback was corrected so the scanner does not hard-require a rear/mobile camera.
+
+**Files involved**:
+- `saas-web/app/dashboard/page.tsx`
+- `saas-web/components/dashboard/CameraScanner.tsx`
+- `saas-web/lib/check-in/client.ts`
+- `saas-web/lib/check-in/feedback.ts`
+- `saas-web/lib/scan-context.tsx`
+- `saas-web/lib/validation.ts`
+- `saas-web/app/api/attendance/check/route.ts`
+- `saas-web/app/api/members/offline-bundle/route.ts`
+- `saas-web/lib/i18n.ts`
+- `saas-web/next.config.mjs`
+- `saas-web/public/vendor/zxing_reader.wasm`
+
+**Verification**:
+- `cd saas-web && npm run build` ✅
+- local browser validation completed
+- camera scan flow confirmed working in the user’s local Chrome after header + WASM fixes
+
+**Commit pushed**:
+- `09f519d` — `feat(scanner): add camera qr scanning to dashboard`
+
+---
+
+### 2026-04-02 — SaaS Member Photo Upload Fix
+
+**Goal**: fix live member photo upload for real users after reports that upload spinner appears but the image never shows.
+
+**Original user-visible bug**:
+- user picks a photo
+- avatar shows uploading spinner
+- upload appears to finish, but the member profile picture does not update
+
+**What was reproduced**:
+- Browser-based upload to Firebase Storage failed with CORS in the real member flow.
+- Exact browser-side failure shape during local reproduction:
+  - file picker opens
+  - spinner appears
+  - upload request fails before a durable photo URL is available
+
+**Root causes**:
+1. Browser-direct Firebase Storage upload was the wrong architecture for this app and failed on CORS.
+2. The original preview flow was fragile even when upload succeeded:
+   - reused remote path
+   - no guaranteed cache bust
+   - remote image could fail before UI swap completed
+3. Production storage IAM is tied to the Cloud Run runtime service account, not the Firebase admin auth identity.
+
+**Fix implemented**:
+- Replaced browser-direct upload with a server-side member photo upload route:
+  - `saas-web/app/api/members/[id]/photo/route.ts`
+- Added same-origin image proxy route so the app can render private bucket photos safely:
+  - `saas-web/app/api/member-photos/route.ts`
+- Updated member avatar UI:
+  - instant local preview
+  - safe swap to saved remote image only after it is loadable
+  - cache-busted preview URL
+  - graceful fallback on image render failure
+- Added authenticated `FormData` upload support in:
+  - `saas-web/lib/api-client.ts`
+
+**Infra alignment learned during fix**:
+- Photos bucket naming from Terraform is `${project_id}-gymflow-photos`.
+- Cloud Run runtime service account owns storage object permissions.
+- Firebase admin identity is still used for auth verification, but should not be treated as the photo upload runtime identity.
+
+**Files involved**:
+- `saas-web/components/dashboard/MemberAvatar.tsx`
+- `saas-web/lib/api-client.ts`
+- `saas-web/app/api/members/[id]/photo/route.ts`
+- `saas-web/app/api/member-photos/route.ts`
+
+**Verification**:
+- original browser CORS-based failure was reproduced locally
+- code path was moved off the failing browser-to-Firebase path
+- `cd saas-web && npm run build` ✅
+- full local storage e2e is still limited by missing local ADC (`gcloud auth application-default`) on this machine, but production deployment path now matches the Cloud Run IAM model defined in Terraform
+
+**Operational note**:
+- after running local `next build`, restart `next dev` before browser testing; stale `.next` chunks caused false 404/500 errors during this fix session

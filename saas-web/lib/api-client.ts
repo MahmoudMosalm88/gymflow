@@ -218,6 +218,43 @@ export const api = {
   put: <T = unknown>(url: string, body: unknown) =>
     request<T>(url, { method: "PUT", body: JSON.stringify(body) }),
 
+  postFormData: async <T = unknown>(url: string, body: FormData) => {
+    let branchId = localStorage.getItem(BRANCH_ID_KEY);
+    let token = await resolveBearerToken(false);
+    let headers: Record<string, string> = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    if (branchId) headers["x-branch-id"] = branchId;
+
+    let res = await fetch(url, { method: "POST", body, headers });
+
+    if (res.status === 401) {
+      token = await resolveBearerToken(true);
+      headers = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+      if (branchId) headers["x-branch-id"] = branchId;
+      res = await fetch(url, { method: "POST", body, headers });
+    }
+
+    if (res.status === 401) {
+      const rehydrated = await rehydrateSessionFromFirebase();
+      if (rehydrated) {
+        branchId = localStorage.getItem(BRANCH_ID_KEY);
+        token = await resolveBearerToken(true);
+        headers = {};
+        if (token) headers.Authorization = `Bearer ${token}`;
+        if (branchId) headers["x-branch-id"] = branchId;
+        res = await fetch(url, { method: "POST", body, headers });
+      }
+    }
+
+    if (res.status === 401) {
+      clearSessionAndRedirect();
+      throw new Error("Unauthorized");
+    }
+
+    return res.json() as Promise<ApiResponse<T>>;
+  },
+
   delete: <T = unknown>(url: string, body?: unknown) =>
     request<T>(url, { method: "DELETE", body: body ? JSON.stringify(body) : undefined })
 };

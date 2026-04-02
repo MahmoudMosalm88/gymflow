@@ -1,8 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getFirebaseClientStorage, type FirebaseClientConfig } from '@/lib/firebase-client';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
@@ -17,6 +15,20 @@ type Props = {
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED = 'image/jpeg,image/png,image/webp';
 
+function buildPreviewUrl(url: string) {
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}v=${Date.now()}`;
+}
+
+function preloadImage(url: string) {
+  return new Promise<void>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error('Image preview failed to load'));
+    image.src = url;
+  });
+}
+
 function getInitials(name: string): string {
   return name
     .split(' ')
@@ -30,8 +42,23 @@ export default function MemberAvatar({ memberId, name, photoPath, onPhotoChange 
   const { lang } = useLang();
   const labels = t[lang];
   const fileRef = useRef<HTMLInputElement>(null);
+  const objectUrlRef = useRef<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | undefined>(photoPath);
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setPreview(photoPath);
+    setImageFailed(false);
+  }, [photoPath]);
+
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+      }
+    };
+  }, []);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -43,28 +70,35 @@ export default function MemberAvatar({ memberId, name, photoPath, onPhotoChange 
     }
 
     setUploading(true);
+    setImageFailed(false);
+
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+    }
+    objectUrlRef.current = URL.createObjectURL(file);
+    setPreview(objectUrlRef.current);
 
     try {
-      // Get Firebase config from server
-      const configRes = await fetch('/api/auth/firebase-config');
-      const configJson = await configRes.json();
-      const config = (configJson.data ?? configJson) as FirebaseClientConfig;
+      const body = new FormData();
+      body.append('photo', file);
 
-      const storage = getFirebaseClientStorage(config);
+      const uploadRes = await api.postFormData<{ photo_path?: string | null }>(
+        `/api/members/${memberId}/photo`,
+        body
+      );
+      const savedUrl = buildPreviewUrl(uploadRes.data?.photo_path || '');
+      await preloadImage(savedUrl);
 
-      // Upload to Firebase Storage
-      const ext = file.name.split('.').pop() || 'jpg';
-      const storageRef = ref(storage, `members/${memberId}/photo.${ext}`);
-      await uploadBytes(storageRef, file);
-      const downloadUrl = await getDownloadURL(storageRef);
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
 
-      // Save URL to member record
-      await api.patch(`/api/members/${memberId}`, { photo_path: downloadUrl });
-
-      setPreview(downloadUrl);
-      onPhotoChange(downloadUrl);
+      setPreview(savedUrl);
+      onPhotoChange(savedUrl);
     } catch (err) {
       console.error('Photo upload failed:', err);
+      setImageFailed(true);
       alert(lang === 'ar' ? 'فشل رفع الصورة' : 'Photo upload failed');
     } finally {
       setUploading(false);
@@ -83,8 +117,13 @@ export default function MemberAvatar({ memberId, name, photoPath, onPhotoChange 
       >
         {uploading ? (
           <LoadingSpinner />
-        ) : preview ? (
-          <img src={preview} alt={name} className="w-full h-full object-cover" />
+        ) : preview && !imageFailed ? (
+          <img
+            src={preview}
+            alt={name}
+            className="w-full h-full object-cover"
+            onError={() => setImageFailed(true)}
+          />
         ) : (
           <span className="text-2xl font-bold text-[#8a8578]">{getInitials(name)}</span>
         )}
