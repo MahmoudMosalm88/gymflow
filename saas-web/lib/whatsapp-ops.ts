@@ -212,7 +212,7 @@ export async function retryQueueItems(
 
 function normalizeFilters(filters: BroadcastFilters): Required<BroadcastFilters> {
   return {
-    search: (filters.search || "").trim(),
+    search: (filters.search || "").trim().replace(/\s+/g, " ").normalize("NFKC"),
     status: filters.status || "all",
     gender: filters.gender || "all",
     planMonthsMin: filters.planMonthsMin ?? null,
@@ -225,11 +225,26 @@ function normalizeFilters(filters: BroadcastFilters): Required<BroadcastFilters>
   };
 }
 
+function normalizeSearchToken(token: string) {
+  return token
+    .normalize("NFKC")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/[\u064B-\u065F\u0670]/g, "")
+    .toLowerCase();
+}
+
 function buildRecipientSql(filters: Required<BroadcastFilters>) {
   const params: unknown[] = [];
   const nowSec = Math.floor(Date.now() / 1000);
+  const searchTokens = filters.search
+    ? filters.search.split(/\s+/).map(normalizeSearchToken).filter(Boolean)
+    : [];
   params.push(nowSec);
-  params.push(filters.search ? `%${filters.search}%` : null);
+  params.push(searchTokens.length > 0 ? searchTokens.map((token) => `%${token}%`) : null);
   params.push(filters.status === "all" ? null : filters.status);
   params.push(filters.gender === "all" ? null : filters.gender);
   params.push(filters.planMonthsMin);
@@ -248,6 +263,23 @@ function buildRecipientSql(filters: Required<BroadcastFilters>) {
              m.card_code,
              m.gender,
              m.created_at::text,
+             LOWER(
+               REGEXP_REPLACE(
+                 TRANSLATE(COALESCE(m.name, ''), 'أإآىة', 'ااايه'),
+                 '[\u064B-\u065F\u0670]',
+                 '',
+                 'g'
+               )
+             ) AS normalized_name,
+             LOWER(
+               REGEXP_REPLACE(
+                 COALESCE(m.phone, ''),
+                 '[^0-9+]',
+                 '',
+                 'g'
+               )
+             ) AS normalized_phone,
+             LOWER(COALESCE(m.card_code, '')) AS normalized_card_code,
              s.id AS subscription_id,
              s.plan_months,
              s.end_date,
@@ -284,7 +316,16 @@ function buildRecipientSql(filters: Required<BroadcastFilters>) {
     )
     SELECT *
       FROM member_context
-     WHERE ($2::text IS NULL OR name ILIKE $2 OR phone ILIKE $2 OR COALESCE(card_code, '') ILIKE $2)
+     WHERE (
+       $2::text[] IS NULL
+       OR NOT EXISTS (
+         SELECT 1
+           FROM unnest($2::text[]) AS token
+          WHERE normalized_name NOT LIKE token
+            AND normalized_phone NOT LIKE token
+            AND normalized_card_code NOT LIKE token
+       )
+     )
        AND ($3::text IS NULL OR sub_status = $3)
        AND ($4::text IS NULL OR gender = $4)
        AND ($5::int IS NULL OR COALESCE(plan_months, 0) >= $5)
