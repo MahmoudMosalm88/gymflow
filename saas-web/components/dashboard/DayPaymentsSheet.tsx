@@ -47,14 +47,17 @@ export default function DayPaymentsSheet({ date, open, onOpenChange }: Props) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={side} className="bg-[#141414] border-[#2a2a2a] w-[360px] sm:w-[420px]">
+      <SheetContent
+        side={side}
+        className="flex h-full flex-col overflow-hidden bg-[#141414] border-[#2a2a2a] w-[360px] sm:w-[420px]"
+      >
         <SheetHeader>
           <SheetTitle className="text-[#e8e4df]">
             {labels.day_payments} {date ? formatDate(date, locale) : ''}
           </SheetTitle>
         </SheetHeader>
 
-        <div className="mt-4 flex flex-col gap-2">
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
           {loading ? (
             <div className="flex justify-center py-12">
               <LoadingSpinner />
@@ -62,35 +65,37 @@ export default function DayPaymentsSheet({ date, open, onOpenChange }: Props) {
           ) : payments.length === 0 ? (
             <p className="text-sm text-[#8a8578] text-center py-8">{labels.no_payments_this_day}</p>
           ) : (
-            payments.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-center justify-between px-3 py-3 bg-[#1e1e1e] border border-[#2a2a2a]"
-              >
-                <div>
-                  <p className="text-sm font-medium text-[#e8e4df]">
-                    {p.name}
-                    {p.type === 'guest_pass' && (
-                      <span className="ml-2 inline-block text-[10px] font-bold tracking-wide px-1.5 py-0.5 bg-[#262626] text-[#8a8578] border border-[#2a2a2a]">
-                        {labels.guest_tag}
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs text-[#8a8578]">
-                    {p.type === 'guest_pass'
-                      ? labels.guest_passes
-                      : p.type === 'renewal'
-                        ? labels.renewal_payment
-                        : <>
-                          {p.planMonths} {labels.months_label}
-                          {p.sessionsPerMonth != null && `, ${p.sessionsPerMonth} ${labels.sessions_per_month_label}`}
-                        </>
-                    }
-                  </p>
+            <div className="flex flex-col gap-2 pb-4">
+              {payments.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between px-3 py-3 bg-[#1e1e1e] border border-[#2a2a2a]"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-[#e8e4df]">
+                      {p.name}
+                      {p.type === 'guest_pass' && (
+                        <span className="ml-2 inline-block text-[10px] font-bold tracking-wide px-1.5 py-0.5 bg-[#262626] text-[#8a8578] border border-[#2a2a2a]">
+                          {labels.guest_tag}
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-[#8a8578]">
+                      {p.type === 'guest_pass'
+                        ? labels.guest_passes
+                        : p.type === 'renewal'
+                          ? labels.renewal_payment
+                          : <>
+                            {p.planMonths} {labels.months_label}
+                            {p.sessionsPerMonth != null && `, ${p.sessionsPerMonth} ${labels.sessions_per_month_label}`}
+                          </>
+                      }
+                    </p>
+                  </div>
+                  <span className="text-sm font-semibold text-[#e8e4df]">{formatCurrency(p.amount)}</span>
                 </div>
-                <span className="text-sm font-semibold text-[#e8e4df]">{formatCurrency(p.amount)}</span>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
       </SheetContent>
