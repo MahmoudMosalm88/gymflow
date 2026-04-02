@@ -92,7 +92,7 @@ type BroadcastPreview = {
   recipientCount: number;
   estimatedMinutes?: number | null;
   filterSummary?: string[];
-  sampleRecipients?: Array<{
+  recipients?: Array<{
     id: string;
     name: string;
     phone?: string | null;
@@ -429,6 +429,7 @@ function WhatsAppTab() {
   const [broadcastFeedback, setBroadcastFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
   const [campaigns, setCampaigns] = useState<WhatsAppCampaign[]>([]);
   const [campaignsLoading, setCampaignsLoading] = useState(true);
+  const canPreviewBroadcast = Boolean(broadcastMessage.trim()) && !previewLoading && !broadcastSubmitting;
 
   const buildBroadcastPayload = useCallback(() => ({
     title: broadcastTitle.trim() || (lang === 'ar' ? 'رسالة جماعية' : 'Broadcast'),
@@ -1251,7 +1252,7 @@ function WhatsAppTab() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => void handlePreviewBroadcast()} disabled={previewLoading || broadcastSubmitting}>
+            <Button variant="outline" onClick={() => void handlePreviewBroadcast()} disabled={!canPreviewBroadcast}>
               {previewLoading
                 ? (lang === 'ar' ? 'جارٍ المعاينة...' : 'Previewing...')
                 : (lang === 'ar' ? 'معاينة الاستهداف' : 'Preview audience')}
@@ -1293,10 +1294,15 @@ function WhatsAppTab() {
               </div>
 
               <div className="border border-border p-4">
-                <p className="text-sm font-medium">{lang === 'ar' ? 'عينة من المستلمين' : 'Recipient sample'}</p>
-                <div className="mt-3 space-y-2">
-                  {broadcastPreview.sampleRecipients && broadcastPreview.sampleRecipients.length > 0 ? (
-                    broadcastPreview.sampleRecipients.map((recipient) => (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium">{lang === 'ar' ? 'كل المستلمين المطابقين' : 'All matching recipients'}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {broadcastPreview.recipientCount} {lang === 'ar' ? 'إجمالي' : 'total'}
+                  </p>
+                </div>
+                <div className="mt-3 max-h-[420px] space-y-2 overflow-y-auto pr-1">
+                  {broadcastPreview.recipients && broadcastPreview.recipients.length > 0 ? (
+                    broadcastPreview.recipients.map((recipient) => (
                       <div key={recipient.id} className="flex items-center justify-between gap-3 border border-border px-3 py-2">
                         <div>
                           <p className="font-medium">{recipient.name}</p>

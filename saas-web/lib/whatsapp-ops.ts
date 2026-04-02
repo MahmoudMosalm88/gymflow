@@ -386,7 +386,7 @@ export async function previewBroadcast(
     recipientCount: recipients.length,
     estimatedMinutes,
     filterSummary,
-    sampleRecipients: recipients.slice(0, 5).map((row) => ({ id: row.id, name: row.name, phone: row.phone })),
+    recipients: recipients.map((row) => ({ id: row.id, name: row.name, phone: row.phone })),
   };
 }
 

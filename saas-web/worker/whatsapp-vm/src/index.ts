@@ -529,6 +529,10 @@ async function processTenantQueue(runtime: TenantRuntime) {
           (typeof payload?.message === "string" && payload.message) ||
           (typeof payload?.text === "string" && payload.text) ||
           JSON.stringify(row.payload);
+        const sock = runtime.sock;
+        if (!sock) {
+          throw new Error("WhatsApp socket is not connected");
+        }
 
         let sentId: string | undefined;
         if (row.type === "qr_code") {
@@ -537,13 +541,13 @@ async function processTenantQueue(runtime: TenantRuntime) {
             (typeof row.member_card_code === "string" && row.member_card_code.trim()) ||
             String(row.member_id);
           const qrImage = await QRCode.toBuffer(code, { width: 512, margin: 1 });
-          const sent = await runtime.sock.sendMessage(jid, {
+          const sent = await sock.sendMessage(jid, {
             image: qrImage,
             caption: message,
           });
           sentId = sent?.key?.id ?? undefined;
         } else {
-          const sent = await runtime.sock.sendMessage(jid, { text: message });
+          const sent = await sock.sendMessage(jid, { text: message });
           sentId = sent?.key?.id ?? undefined;
         }
         await throttleSend();
