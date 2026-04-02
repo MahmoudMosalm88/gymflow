@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { subscriptionPatchSchema, subscriptionSchema } from "@/lib/validation";
 import { calculateSubscriptionEndDateUnix } from "@/lib/subscription-dates";
+import { deactivateExpiredSubscriptions } from "@/lib/subscription-status";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,22 +14,78 @@ export async function GET(request: NextRequest) {
     const auth = await requireAuth(request);
     const url = new URL(request.url);
     const memberId = url.searchParams.get("member_id");
+    const includeHistory = url.searchParams.get("include_history") === "1" || Boolean(memberId);
+    const now = Math.floor(Date.now() / 1000);
+    await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, now);
 
-    const rows = await query(
-      `SELECT s.*
-         FROM subscriptions s
-         JOIN members m
-           ON m.id = s.member_id
-          AND m.organization_id = s.organization_id
-          AND m.branch_id = s.branch_id
-          AND m.deleted_at IS NULL
-        WHERE s.organization_id = $1
-          AND s.branch_id = $2
-          AND ($3::uuid IS NULL OR s.member_id = $3::uuid)
-        ORDER BY s.created_at DESC
-        LIMIT 500`,
-      [auth.organizationId, auth.branchId, memberId]
-    );
+    const rows = includeHistory
+      ? await query(
+          `SELECT s.*
+             FROM subscriptions s
+             JOIN members m
+               ON m.id = s.member_id
+              AND m.organization_id = s.organization_id
+              AND m.branch_id = s.branch_id
+              AND m.deleted_at IS NULL
+            WHERE s.organization_id = $1
+              AND s.branch_id = $2
+              AND ($3::uuid IS NULL OR s.member_id = $3::uuid)
+            ORDER BY
+              CASE
+                WHEN s.is_active = true AND s.start_date <= $4 AND s.end_date > $4 THEN 0
+                WHEN s.is_active = true AND s.start_date > $4 THEN 1
+                WHEN s.is_active = true THEN 2
+                ELSE 3
+              END,
+              s.start_date DESC,
+              s.end_date DESC,
+              s.created_at DESC
+            LIMIT 500`,
+          [auth.organizationId, auth.branchId, memberId, now]
+        )
+      : await query(
+          `WITH ranked AS (
+             SELECT s.*,
+                    ROW_NUMBER() OVER (
+                      PARTITION BY s.member_id
+                      ORDER BY
+                        CASE
+                          WHEN s.is_active = true AND s.start_date <= $3 AND s.end_date > $3 THEN 0
+                          WHEN s.is_active = true AND s.start_date > $3 THEN 1
+                          WHEN s.is_active = true THEN 2
+                          ELSE 3
+                        END,
+                        s.start_date DESC,
+                        s.end_date DESC,
+                        s.created_at DESC
+                    ) AS rn
+               FROM subscriptions s
+               JOIN members m
+                 ON m.id = s.member_id
+                AND m.organization_id = s.organization_id
+                AND m.branch_id = s.branch_id
+                AND m.deleted_at IS NULL
+              WHERE s.organization_id = $1
+                AND s.branch_id = $2
+           )
+           SELECT id,
+                  organization_id,
+                  branch_id,
+                  member_id,
+                  renewed_from_subscription_id,
+                  start_date,
+                  end_date,
+                  plan_months,
+                  price_paid,
+                  sessions_per_month,
+                  is_active,
+                  created_at
+             FROM ranked
+            WHERE rn = 1
+            ORDER BY created_at DESC
+            LIMIT 500`,
+          [auth.organizationId, auth.branchId, now]
+        );
 
     return ok(rows);
   } catch (error) {
@@ -93,6 +150,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
     const payload = subscriptionPatchSchema.parse(await request.json());
+    await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, Math.floor(Date.now() / 1000));
 
     const currentRows = await query<{
       id: number;

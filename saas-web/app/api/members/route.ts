@@ -4,6 +4,7 @@ import { query, withTransaction } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { memberSchema } from "@/lib/validation";
+import { deactivateExpiredSubscriptions } from "@/lib/subscription-status";
 import {
   getDefaultWelcomeTemplate,
   getTemplateKey,
@@ -22,29 +23,43 @@ export async function GET(request: NextRequest) {
     const auth = await requireAuth(request);
     const url = new URL(request.url);
     const q = (url.searchParams.get("q") || "").trim();
+    const now = Math.floor(Date.now() / 1000);
+    await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, now);
 
     if (!q) {
       const rows = await query(
         `SELECT m.*,
            CASE
              WHEN s.id IS NULL THEN 'no_sub'
-             WHEN s.end_date < EXTRACT(EPOCH FROM NOW())::bigint THEN 'expired'
-             ELSE 'active'
+             WHEN s.start_date <= $3 AND s.end_date > $3 AND s.is_active = true THEN 'active'
+             WHEN s.is_active = true AND s.start_date > $3 THEN 'active'
+             ELSE 'expired'
            END AS sub_status
            FROM members m
            LEFT JOIN LATERAL (
-             SELECT id, end_date FROM subscriptions
+             SELECT id, start_date, end_date, is_active
+               FROM subscriptions
               WHERE member_id = m.id
                 AND organization_id = m.organization_id
                 AND branch_id = m.branch_id
-              ORDER BY created_at DESC LIMIT 1
+              ORDER BY
+                CASE
+                  WHEN is_active = true AND start_date <= $3 AND end_date > $3 THEN 0
+                  WHEN is_active = true AND start_date > $3 THEN 1
+                  WHEN is_active = true THEN 2
+                  ELSE 3
+                END,
+                start_date DESC,
+                end_date DESC,
+                created_at DESC
+              LIMIT 1
            ) s ON true
           WHERE m.organization_id = $1
             AND m.branch_id = $2
             AND m.deleted_at IS NULL
           ORDER BY m.created_at DESC
           LIMIT 500`,
-        [auth.organizationId, auth.branchId]
+        [auth.organizationId, auth.branchId, now]
       );
       return ok(rows);
     }
@@ -53,24 +68,36 @@ export async function GET(request: NextRequest) {
       `SELECT m.*,
          CASE
            WHEN s.id IS NULL THEN 'no_sub'
-           WHEN s.end_date < EXTRACT(EPOCH FROM NOW())::bigint THEN 'expired'
-           ELSE 'active'
+           WHEN s.start_date <= $3 AND s.end_date > $3 AND s.is_active = true THEN 'active'
+           WHEN s.is_active = true AND s.start_date > $3 THEN 'active'
+           ELSE 'expired'
          END AS sub_status
          FROM members m
          LEFT JOIN LATERAL (
-           SELECT id, end_date FROM subscriptions
+           SELECT id, start_date, end_date, is_active
+             FROM subscriptions
             WHERE member_id = m.id
               AND organization_id = m.organization_id
               AND branch_id = m.branch_id
-            ORDER BY created_at DESC LIMIT 1
+            ORDER BY
+              CASE
+                WHEN is_active = true AND start_date <= $3 AND end_date > $3 THEN 0
+                WHEN is_active = true AND start_date > $3 THEN 1
+                WHEN is_active = true THEN 2
+                ELSE 3
+              END,
+              start_date DESC,
+              end_date DESC,
+              created_at DESC
+            LIMIT 1
          ) s ON true
         WHERE m.organization_id = $1
           AND m.branch_id = $2
           AND m.deleted_at IS NULL
-          AND (m.name ILIKE $3 OR m.phone ILIKE $3 OR COALESCE(m.card_code, '') ILIKE $3)
+          AND (m.name ILIKE $4 OR m.phone ILIKE $4 OR COALESCE(m.card_code, '') ILIKE $4)
         ORDER BY m.created_at DESC
         LIMIT 500`,
-      [auth.organizationId, auth.branchId, `%${q}%`]
+      [auth.organizationId, auth.branchId, now, `%${q}%`]
     );
 
     return ok(rows);
