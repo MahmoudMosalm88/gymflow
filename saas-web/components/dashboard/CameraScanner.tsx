@@ -76,7 +76,7 @@ export default function CameraScanner({
   useEffect(() => {
     prepareZXingModule({
       overrides: {
-        locateFile: (path, prefix) => {
+        locateFile: (path: string, prefix: string) => {
           if (path.endsWith('.wasm')) {
             return '/vendor/zxing_reader.wasm';
           }
