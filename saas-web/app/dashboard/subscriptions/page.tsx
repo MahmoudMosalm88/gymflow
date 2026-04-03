@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatDate, formatCurrency } from '@/lib/format';
-import LoadingSpinner from '@/components/dashboard/LoadingSpinner'; // Keeping existing LoadingSpinner for now
-import SubscriptionForm from '@/components/dashboard/SubscriptionForm';
+import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -40,11 +40,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+// The full subscription form is only needed when staff open the new-subscription dialog.
+const SubscriptionForm = dynamic(() => import('@/components/dashboard/SubscriptionForm'));
+
 // Types
 type Subscription = {
   id: number;
   member_id: string;
   member_name?: string; // Add member name for display
+  renewed_from_subscription_id?: number | null;
   start_date: number;
   end_date: number;
   plan_months: number;
@@ -53,6 +57,8 @@ type Subscription = {
   is_active: boolean;
   created_at: number;
 };
+
+type SubscriptionStatus = 'active' | 'pending' | 'expired' | 'inactive';
 
 type Member = { id: string; name: string };
 type EditDraft = {
@@ -85,6 +91,11 @@ const pageLabels = {
     saveChanges: 'Save Changes',
     open_menu: 'Open menu',
     subscription_actions: 'Subscription Actions',
+    currentCycles: 'Current Cycles',
+    showHistory: 'Show History',
+    hideHistory: 'Hide History',
+    upcoming: 'Upcoming',
+    historical_cycle: 'History',
   },
   ar: {
     newSubscription: 'اشتراك جديد',
@@ -106,8 +117,23 @@ const pageLabels = {
     saveChanges: 'حفظ التغييرات',
     open_menu: 'فتح القائمة',
     subscription_actions: 'إجراءات الاشتراك',
+    currentCycles: 'الدورات الحالية',
+    showHistory: 'عرض السجل',
+    hideHistory: 'إخفاء السجل',
+    upcoming: 'قادمة',
+    historical_cycle: 'سجل',
   },
 } as const;
+
+function deriveStatus(sub: Subscription): SubscriptionStatus {
+  const nowDate = new Date();
+  const todayStart = Date.UTC(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()) / 1000;
+  const todayEnd = todayStart + 86400;
+  if (!sub.is_active) return 'inactive';
+  if (sub.end_date < todayStart) return 'expired';
+  if (sub.start_date >= todayEnd) return 'pending';
+  return 'active';
+}
 
 export default function SubscriptionsPage() {
   const { lang } = useLang();
@@ -120,6 +146,8 @@ export default function SubscriptionsPage() {
   // State
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersLoaded, setMembersLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -131,13 +159,14 @@ export default function SubscriptionsPage() {
   // Search + filter
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [showHistory, setShowHistory] = useState(false);
 
   // Confirm dialog for activate/deactivate
   const [confirmTarget, setConfirmTarget] = useState<{ sub: Subscription; action: 'activate' | 'deactivate' } | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
 
   // Fetch subscriptions
-  const fetchSubs = async () => {
+  const fetchSubs = useCallback(async () => {
     setLoading(true);
     try {
       const url = memberIdFilter
@@ -146,12 +175,9 @@ export default function SubscriptionsPage() {
       const res = await api.get<Subscription[]>(url);
 
       if (res.success && res.data) {
-        // Fetch member names to display in the table
-        const membersRes = await api.get<Member[]>('/api/members');
-        const membersMap = new Map(membersRes.data?.map(m => [m.id, m.name]) || []);
-        const subsWithNames = res.data.map(sub => ({
+        const subsWithNames = res.data.map((sub) => ({
           ...sub,
-          member_name: membersMap.get(sub.member_id) || sub.member_id.slice(0, 8), // Fallback to ID
+          member_name: sub.member_name || sub.member_id.slice(0, 8),
         }));
         setSubs(subsWithNames);
       }
@@ -160,22 +186,34 @@ export default function SubscriptionsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [memberIdFilter]);
 
   // Fetch members for dropdown
-  const fetchMembers = async () => {
+  const fetchMembers = useCallback(async () => {
+    if (membersLoaded || membersLoading) return;
+    setMembersLoading(true);
     try {
-      const res = await api.get<Member[]>('/api/members?q='); // Fetch all members
-      if (res.success && res.data) setMembers(res.data);
+      const res = await api.get<Member[]>('/api/members?q=');
+      if (res.success && res.data) {
+        setMembers(res.data);
+        setMembersLoaded(true);
+      }
     } catch (error) {
       console.error("Failed to fetch members for dropdown:", error);
+    } finally {
+      setMembersLoading(false);
     }
-  };
+  }, [membersLoaded, membersLoading]);
 
   useEffect(() => {
-    fetchSubs();
-    fetchMembers();
-  }, [memberIdFilter]);
+    void fetchSubs();
+  }, [fetchSubs]);
+
+  useEffect(() => {
+    if (modalOpen) {
+      void fetchMembers();
+    }
+  }, [modalOpen, fetchMembers]);
 
   useEffect(() => {
     if (shouldOpenNewFromQuery) {
@@ -190,7 +228,7 @@ export default function SubscriptionsPage() {
       const res = await api.post('/api/subscriptions', data);
       if (res.success) {
         setModalOpen(false);
-        fetchSubs(); // refresh list
+        await fetchSubs();
       }
     } catch (error) {
       console.error("Failed to create subscription:", error);
@@ -208,7 +246,7 @@ export default function SubscriptionsPage() {
       const res = await api.patch('/api/subscriptions', { id: confirmTarget.sub.id, is_active: newActive });
       if (res.success) {
         setConfirmTarget(null);
-        fetchSubs();
+        await fetchSubs();
       }
     } catch (error) {
       console.error("Failed to update subscription:", error);
@@ -270,13 +308,21 @@ export default function SubscriptionsPage() {
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
 
   // Client-side search + filter
-  const filtered = subs.filter((sub) => {
+  const baseFiltered = subs.filter((sub) => {
+    const status = deriveStatus(sub);
     const matchesSearch = !search || (sub.member_name?.toLowerCase().includes(search.toLowerCase()));
     const matchesStatus = statusFilter === 'all'
-      || (statusFilter === 'active' && sub.is_active)
-      || (statusFilter === 'inactive' && !sub.is_active);
+      || (statusFilter === 'active' && (status === 'active' || status === 'pending'))
+      || (statusFilter === 'inactive' && (status === 'expired' || status === 'inactive'));
     return matchesSearch && matchesStatus;
   });
+
+  const filtered = showHistory
+    ? baseFiltered
+    : baseFiltered.filter((sub, index) => {
+        if (!memberIdFilter) return true;
+        return index === 0;
+      });
 
   // Table columns (responsive visibility using Tailwind)
   const columns = [
@@ -321,10 +367,22 @@ export default function SubscriptionsPage() {
             <SelectItem value="inactive">{labels.subscription_expired}</SelectItem>
           </SelectContent>
         </Select>
+        <Button variant="outline" onClick={() => setShowHistory((value) => !value)}>
+          {showHistory ? labels.hideHistory : labels.showHistory}
+        </Button>
       </div>
 
       {/* Subscriptions table */}
       <Card>
+        <div className="border-b px-4 py-3 text-sm text-muted-foreground">
+          {showHistory
+            ? (lang === 'ar'
+                ? 'يتم الآن عرض الدورات الحالية مع السجل السابق.'
+                : 'Showing current cycles with historical subscription cycles.')
+            : (lang === 'ar'
+                ? 'يتم التركيز افتراضياً على الدورة الحالية أو القادمة لكل عميل.'
+                : 'Default view focuses on the current or upcoming cycle for each client.')}
+        </div>
         <div className="border-2 border-border">
           <Table>
             <TableHeader>
@@ -346,15 +404,30 @@ export default function SubscriptionsPage() {
                     <TableCell className="hidden md:table-cell">{sub.plan_months}</TableCell>
                     <TableCell className="hidden lg:table-cell">{formatCurrency(sub.price_paid || 0)}</TableCell>
                     <TableCell>
-                      <Badge
-                        className={
-                          sub.is_active
+                      {(() => {
+                        const status = deriveStatus(sub);
+                        const badgeClass =
+                          status === 'active'
                             ? 'bg-success hover:bg-success/90'
-                            : 'bg-destructive hover:bg-destructive/90'
-                        }
+                            : status === 'pending'
+                              ? 'bg-info hover:bg-info/90'
+                              : 'bg-destructive hover:bg-destructive/90';
+                        const text =
+                          status === 'active'
+                            ? labels.subscription_active
+                            : status === 'pending'
+                              ? labels.upcoming
+                              : sub.renewed_from_subscription_id
+                                ? labels.historical_cycle
+                                : labels.subscription_expired;
+                        return (
+                      <Badge
+                        className={badgeClass}
                       >
-                        {sub.is_active ? labels.subscription_active : labels.subscription_expired}
+                        {text}
                       </Badge>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-end">
                       <DropdownMenu dir={lang === 'ar' ? 'rtl' : 'ltr'}>
@@ -415,13 +488,15 @@ export default function SubscriptionsPage() {
               {labels.new_subscription_description}
             </DialogDescription>
           </DialogHeader>
-          <SubscriptionForm
-            members={members}
-            preselectedMemberId={memberIdFilter}
-            onSubmit={handleCreate}
-            onCancel={() => setModalOpen(false)}
-            loading={submitting}
-          />
+          {modalOpen ? (
+            <SubscriptionForm
+              members={members}
+              preselectedMemberId={memberIdFilter}
+              onSubmit={handleCreate}
+              onCancel={() => setModalOpen(false)}
+              loading={submitting || membersLoading}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
 

@@ -20,7 +20,8 @@ export async function GET(request: NextRequest) {
 
     const rows = includeHistory
       ? await query(
-          `SELECT s.*
+          `SELECT s.*,
+                  m.name AS member_name
              FROM subscriptions s
              JOIN members m
                ON m.id = s.member_id
@@ -46,6 +47,7 @@ export async function GET(request: NextRequest) {
       : await query(
           `WITH ranked AS (
              SELECT s.*,
+                    m.name AS member_name,
                     ROW_NUMBER() OVER (
                       PARTITION BY s.member_id
                       ORDER BY
@@ -72,6 +74,7 @@ export async function GET(request: NextRequest) {
                   organization_id,
                   branch_id,
                   member_id,
+                  member_name,
                   renewed_from_subscription_id,
                   start_date,
                   end_date,

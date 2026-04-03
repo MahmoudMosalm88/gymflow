@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
@@ -27,12 +28,14 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import MemberAvatar from '@/components/dashboard/MemberAvatar';
-import MemberGuestInvitesCard from '@/components/dashboard/MemberGuestInvitesCard';
-import FreezeDialog from '@/components/dashboard/FreezeDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { addCalendarMonths, toUnixSeconds } from '@/lib/subscription-dates';
 import { UpdateIcon } from '@radix-ui/react-icons';
+
+const MemberAvatar = dynamic(() => import('@/components/dashboard/MemberAvatar'));
+const MemberGuestInvitesCard = dynamic(() => import('@/components/dashboard/MemberGuestInvitesCard'), {
+  loading: () => <LoadingSpinner />,
+});
+const FreezeDialog = dynamic(() => import('@/components/dashboard/FreezeDialog'));
 
 type Member = {
   id: string;
@@ -50,6 +53,7 @@ type Member = {
 type SubscriptionRaw = {
   id: number;
   plan_name?: string;
+  renewed_from_subscription_id?: number | null;
   start_date: number;
   end_date: number;
   price_paid: number | null;
@@ -121,33 +125,43 @@ export default function MemberDetailPage() {
   const [renewForm, setRenewForm] = useState({ plan_months: '1', sessions_per_month: '', price_paid: '' });
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState('');
+  const [showSubscriptionHistory, setShowSubscriptionHistory] = useState(false);
+
+  const loadMemberData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [memberRes, subsRes, attRes, payRes] = await Promise.all([
+        api.get<Member>(`/api/members/${id}`),
+        api.get<SubscriptionRaw[]>(`/api/subscriptions?member_id=${id}`),
+        api.get<AttendanceLog[]>(`/api/attendance/logs?member_id=${id}&limit=20`),
+        api.get<Payment[]>(`/api/payments?member_id=${id}`),
+      ]);
+
+      if (!memberRes.success || !memberRes.data) {
+        setMember(null);
+        setSubs([]);
+        setAttendance([]);
+        setPayments([]);
+        return;
+      }
+
+      setMember(memberRes.data);
+      setSubs((subsRes.data ?? []).map((subscription) => ({ ...subscription, status: deriveStatus(subscription) })));
+      setAttendance(attRes.data ?? []);
+      setPayments(payRes.data ?? []);
+    } catch {
+      setMember(null);
+      setSubs([]);
+      setAttendance([]);
+      setPayments([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const membersRes = await api.get<Member[]>('/api/members');
-        const found = (membersRes.data ?? []).find((m) => m.id === id);
-        if (found) {
-          setMember(found);
-          const [subsRes, attRes, payRes] = await Promise.all([
-            api.get<SubscriptionRaw[]>(`/api/subscriptions?member_id=${id}`),
-            api.get<AttendanceLog[]>(`/api/attendance/logs?member_id=${id}&limit=20`),
-            api.get<Payment[]>(`/api/payments?member_id=${id}`),
-          ]);
-          setSubs((subsRes.data ?? []).map((s) => ({ ...s, status: deriveStatus(s) })));
-          setAttendance(attRes.data ?? []);
-          setPayments(payRes.data ?? []);
-        } else {
-          setMember(null);
-        }
-      } catch {
-        setMember(null);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [id]);
+    void loadMemberData();
+  }, [loadMemberData]);
 
   if (loading) return <LoadingSpinner size="lg" />;
 
@@ -196,6 +210,11 @@ export default function MemberDetailPage() {
     }
   }
 
+  const primarySubs = subs.filter((sub) => sub.status === 'active' || sub.status === 'pending');
+  const fallbackExpiredSub = primarySubs.length === 0 ? subs.find((sub) => sub.status === 'expired') ?? null : null;
+  const visibleSubs = fallbackExpiredSub ? [fallbackExpiredSub] : primarySubs;
+  const historicalSubs = subs.filter((sub) => sub.status === 'expired' && sub.id !== fallbackExpiredSub?.id);
+
   function openRenewModal(sub: Subscription) {
     setRenewSub(sub);
     setRenewForm({
@@ -211,38 +230,20 @@ export default function MemberDetailPage() {
     setRenewing(true);
     setRenewError('');
     try {
-      const additionalMonths = parseInt(renewForm.plan_months, 10) || 1;
-      const existingMonths = typeof renewSub.plan_months === 'string' ? parseInt(renewSub.plan_months, 10) : (renewSub.plan_months || 0);
-      const newTotalMonths = existingMonths + additionalMonths;
-
-      // Add renewal amount to existing price so income tracking stays accurate
       const renewalAmount = renewForm.price_paid ? parseFloat(renewForm.price_paid) : 0;
-      const existingPrice = typeof renewSub.price_paid === 'string' ? parseFloat(renewSub.price_paid) : (renewSub.price_paid ?? 0);
-      const newTotalPrice = existingPrice + renewalAmount;
-
-      const res = await api.patch('/api/subscriptions', {
-        id: Number(renewSub.id),
-        plan_months: newTotalMonths,
-        price_paid: newTotalPrice,
+      const res = await api.post('/api/subscriptions/renew', {
+        member_id: member.id,
+        previous_subscription_id: Number(renewSub.id),
+        plan_months: parseInt(renewForm.plan_months, 10) || 1,
+        price_paid: renewalAmount,
         sessions_per_month: renewForm.sessions_per_month ? parseInt(renewForm.sessions_per_month, 10) : null,
-        is_active: true,
       });
 
       if (!res.success) throw new Error(res.message || labels.error);
 
-      // Record the payment
-      if (renewalAmount > 0) {
-        await api.post('/api/payments', {
-          member_id: member.id,
-          amount: renewalAmount,
-          type: 'renewal',
-          subscription_id: Number(renewSub.id),
-        });
-      }
-
       // Refresh subs list and payment history
       const [subsRes, payRes] = await Promise.all([
-        api.get<SubscriptionRaw[]>(`/api/subscriptions?member_id=${id}`),
+        api.get<SubscriptionRaw[]>(`/api/subscriptions?member_id=${id}&include_history=1`),
         api.get<Payment[]>(`/api/payments?member_id=${id}`),
       ]);
       setSubs((subsRes.data ?? []).map((s) => ({ ...s, status: deriveStatus(s) })));
@@ -346,17 +347,26 @@ export default function MemberDetailPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-lg font-semibold">{labels.subscriptions}</CardTitle>
-          <Button variant="ghost" size="sm" onClick={() => router.push(`/dashboard/subscriptions?member_id=${id}&new=1`)}>
-            <PlusIcon className="me-2 h-4 w-4" />
-            {labels.add_new}
-          </Button>
+          <div className="flex items-center gap-2">
+            {historicalSubs.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => setShowSubscriptionHistory((value) => !value)}>
+                {showSubscriptionHistory
+                  ? (lang === 'ar' ? 'إخفاء السجل' : 'Hide History')
+                  : (lang === 'ar' ? 'عرض السجل' : 'Show History')}
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => router.push(`/dashboard/subscriptions?member_id=${id}&new=1`)}>
+              <PlusIcon className="me-2 h-4 w-4" />
+              {labels.add_new}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          {subs.length === 0 ? (
+          {visibleSubs.length === 0 && historicalSubs.length === 0 ? (
             <p className="py-4 text-center text-muted-foreground">{labels.no_subscriptions_found}</p>
           ) : (
             <div className="space-y-3">
-              {subs.map((sub) => (
+              {visibleSubs.map((sub) => (
                 <Card key={sub.id} className="p-3">
                   <div className="flex items-center justify-between">
                     <div>
@@ -393,18 +403,52 @@ export default function MemberDetailPage() {
                   </div>
                 </Card>
               ))}
+              {showSubscriptionHistory && historicalSubs.length > 0 && (
+                <div className="space-y-3 border-t pt-4">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {lang === 'ar' ? 'السجل السابق' : 'Previous Cycles'}
+                  </p>
+                  {historicalSubs.map((sub) => (
+                    <Card key={sub.id} className="p-3 opacity-90">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {sub.plan_name || labels.subscription}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDate(sub.start_date, locale)} — {formatDate(sub.end_date, locale)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <p className="text-sm font-semibold text-foreground">{formatCurrency(sub.price_paid ?? 0)}</p>
+                          <Badge className="bg-destructive hover:bg-destructive/90">
+                            {labels.expired}
+                          </Badge>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
 
       {/* Freeze subscription dialog */}
-      <FreezeDialog
-        subscriptionId={freezeSubId || ''}
-        open={!!freezeSubId}
-        onOpenChange={(o) => { if (!o) setFreezeSubId(null); }}
-        onFrozen={() => { setFreezeSubId(null); window.location.reload(); }}
-      />
+      {freezeSubId ? (
+        <FreezeDialog
+          subscriptionId={freezeSubId}
+          open={!!freezeSubId}
+          onOpenChange={(open) => {
+            if (!open) setFreezeSubId(null);
+          }}
+          onFrozen={() => {
+            setFreezeSubId(null);
+            void loadMemberData();
+          }}
+        />
+      ) : null}
 
       {/* Renew subscription modal */}
       <Dialog open={!!renewSub} onOpenChange={(o) => { if (!o) setRenewSub(null); }}>
@@ -422,8 +466,8 @@ export default function MemberDetailPage() {
               return (
                 <div className="border-2 border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
                   {lang === 'ar'
-                    ? `⚠ هذا الاشتراك لا يزال نشطاً ومتبقي عليه ${daysLeft} يوم. التجديد سيمدد تاريخ الانتهاء.`
-                    : `⚠ This subscription is still active with ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining. Renewing will extend the end date.`}
+                    ? `⚠ هذا الاشتراك لا يزال نشطاً ومتبقي عليه ${daysLeft} يوم. سيُنشئ التجديد دورة جديدة تبدأ بعد انتهاء الحالية.`
+                    : `⚠ This subscription is still active with ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining. Renewing will create the next cycle after the current one ends.`}
                 </div>
               );
             })()}

@@ -4,17 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { useAuth, logout } from '@/lib/use-auth';
-import {
-  Auth,
-  PhoneAuthProvider,
-  RecaptchaVerifier,
-  linkWithCredential
-} from 'firebase/auth';
-import {
-  FirebaseClientConfig,
-  getFirebaseClientAuth,
-  isFirebaseClientConfig
-} from '@/lib/firebase-client';
+import type { Auth, RecaptchaVerifier } from 'firebase/auth';
+import type { FirebaseClientConfig } from '@/lib/firebase-client';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import Link from 'next/link';
 
@@ -32,6 +23,33 @@ type ProfileData = {
   organization_name: string | null;
   branch_name: string | null;
 };
+
+type FirebaseRuntime = {
+  PhoneAuthProvider: typeof import('firebase/auth').PhoneAuthProvider;
+  RecaptchaVerifier: typeof import('firebase/auth').RecaptchaVerifier;
+  linkWithCredential: typeof import('firebase/auth').linkWithCredential;
+  getFirebaseClientAuth: typeof import('@/lib/firebase-client').getFirebaseClientAuth;
+  isFirebaseClientConfig: typeof import('@/lib/firebase-client').isFirebaseClientConfig;
+};
+
+let firebaseRuntimePromise: Promise<FirebaseRuntime> | null = null;
+
+async function loadFirebaseRuntime(): Promise<FirebaseRuntime> {
+  if (!firebaseRuntimePromise) {
+    firebaseRuntimePromise = Promise.all([
+      import('firebase/auth'),
+      import('@/lib/firebase-client'),
+    ]).then(([authModule, clientModule]) => ({
+      PhoneAuthProvider: authModule.PhoneAuthProvider,
+      RecaptchaVerifier: authModule.RecaptchaVerifier,
+      linkWithCredential: authModule.linkWithCredential,
+      getFirebaseClientAuth: clientModule.getFirebaseClientAuth,
+      isFirebaseClientConfig: clientModule.isFirebaseClientConfig,
+    }));
+  }
+
+  return firebaseRuntimePromise;
+}
 
 export default function ProfilePage() {
   const { lang } = useLang();
@@ -175,6 +193,7 @@ export default function ProfilePage() {
   }
 
   async function getAuthClient() {
+    const runtime = await loadFirebaseRuntime();
     const response = await fetch('/api/auth/firebase-config', { cache: 'no-store' });
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
@@ -184,13 +203,14 @@ export default function ProfilePage() {
       payload && typeof payload === 'object' && payload.data && typeof payload.data === 'object'
         ? payload.data
         : payload;
-    if (!isFirebaseClientConfig(candidate)) {
+    if (!runtime.isFirebaseClientConfig(candidate)) {
       throw new Error('Firebase auth config is invalid.');
     }
-    return await getFirebaseClientAuth(candidate as FirebaseClientConfig);
+    const auth = await runtime.getFirebaseClientAuth(candidate as FirebaseClientConfig);
+    return { auth, runtime };
   }
 
-  function getRecaptcha(auth: Auth) {
+  async function getRecaptcha(auth: Auth) {
     if (recaptchaRef.current) return recaptchaRef.current;
     const host = recaptchaContainerRef.current;
     if (!host) {
@@ -200,7 +220,8 @@ export default function ProfilePage() {
     const target = document.createElement('div');
     host.appendChild(target);
     recaptchaTargetRef.current = target;
-    recaptchaRef.current = new RecaptchaVerifier(auth, target, { size: 'invisible' });
+    const runtime = await loadFirebaseRuntime();
+    recaptchaRef.current = new runtime.RecaptchaVerifier(auth, target, { size: 'invisible' });
     return recaptchaRef.current;
   }
 
@@ -240,7 +261,7 @@ export default function ProfilePage() {
 
     setOtpBusy(true);
     try {
-      const auth = await getAuthClient();
+      const { auth, runtime } = await getAuthClient();
       const currentUser = auth.currentUser;
       if (!currentUser) {
         throw new Error('You must be logged in to verify phone.');
@@ -252,9 +273,9 @@ export default function ProfilePage() {
 
       // Force a fresh verifier each send to avoid stale app-credential tokens.
       resetRecaptcha();
-      const verifier = getRecaptcha(auth);
+      const verifier = await getRecaptcha(auth);
       await verifier.render();
-      const provider = new PhoneAuthProvider(auth);
+      const provider = new runtime.PhoneAuthProvider(auth);
       const id = await provider.verifyPhoneNumber(phone, verifier);
       setVerificationId(id);
       setOtpStatus('sent');
@@ -315,13 +336,13 @@ export default function ProfilePage() {
 
     setOtpBusy(true);
     try {
-      const auth = await getAuthClient();
+      const { auth, runtime } = await getAuthClient();
       const currentUser = auth.currentUser;
       if (!currentUser) {
         throw new Error('You must be logged in to verify phone.');
       }
-      const credential = PhoneAuthProvider.credential(verificationId, otpCode.trim());
-      await linkWithCredential(currentUser, credential);
+      const credential = runtime.PhoneAuthProvider.credential(verificationId, otpCode.trim());
+      await runtime.linkWithCredential(currentUser, credential);
       const phone = (form.phone || '').trim();
       setVerifiedPhone(phone);
       setOtpStatus('verified');

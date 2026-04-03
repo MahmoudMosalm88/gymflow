@@ -1,10 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, PieChart, Pie, Cell
-} from 'recharts';
+import dynamic from 'next/dynamic';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatDate, formatDateTime, daysUntil, formatCurrencyCompact } from '@/lib/format';
@@ -17,6 +14,23 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+// Load chart code only when a chart tab is actually opened.
+const DailyStatsChart = dynamic(() => import('@/components/dashboard/reports/DailyStatsChart'), {
+  loading: () => (
+    <div className="flex h-[400px] items-center justify-center">
+      <LoadingSpinner size="lg" />
+    </div>
+  ),
+});
+
+const DenialReasonsChart = dynamic(() => import('@/components/dashboard/reports/DenialReasonsChart'), {
+  loading: () => (
+    <div className="flex h-[400px] items-center justify-center">
+      <LoadingSpinner size="lg" />
+    </div>
+  ),
+});
 
 // 7 drill-down tabs — Overview is always pinned above as a stats bar
 const TABS = [
@@ -187,23 +201,7 @@ export default function ReportsPage() {
 
           {/* Daily Stats — stacked bar chart */}
           {tab === 'daily-stats' && Array.isArray(data) && (
-            <Card>
-              <CardHeader><CardTitle>{labels.daily_checkins_stats}</CardTitle></CardHeader>
-              <CardContent className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={rs.gridStroke} />
-                    <XAxis dataKey="date" tick={rs.axis} />
-                    <YAxis tick={rs.axis} />
-                    <Tooltip contentStyle={rs.tooltipContent} labelStyle={rs.tooltipLabel} itemStyle={rs.tooltipItem} />
-                    <Legend wrapperStyle={{ color: rs.legendItem.color }} />
-                    <Bar dataKey="allowed" stackId="a" fill="hsl(var(--success))" name={labels.allowed} />
-                    <Bar dataKey="warning" stackId="a" fill="hsl(var(--warning))" name={labels.warning} />
-                    <Bar dataKey="denied" stackId="a" fill="hsl(var(--destructive))" name={labels.denied} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <DailyStatsChart data={data} labels={labels} styles={rs} />
           )}
 
           {/* Hourly Distribution — heat map */}
@@ -362,31 +360,7 @@ export default function ReportsPage() {
 
           {/* Denial Reasons — pie chart */}
           {tab === 'denial-reasons' && Array.isArray(data) && (
-            <Card>
-              <CardHeader><CardTitle>{labels.denial_reasons}</CardTitle></CardHeader>
-              <CardContent className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={data}
-                      dataKey="count"
-                      nameKey="reason_code"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={140}
-                      label={(props: any) => `${props.reason_code} (${((props.percent ?? 0) * 100).toFixed(0)}%)`}
-                      labelLine={{ stroke: rs.gridStroke }}
-                    >
-                      {data.map((_: any, i: number) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={rs.tooltipContent} labelStyle={rs.tooltipLabel} itemStyle={rs.tooltipItem} />
-                    <Legend wrapperStyle={{ color: rs.legendItem.color }} formatter={(v: string) => <span style={{ color: rs.legendItem.color }}>{v}</span>} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            <DenialReasonsChart data={data} labels={labels} styles={rs} colors={PIE_COLORS} />
           )}
 
           {/* Denied Entries — data table */}

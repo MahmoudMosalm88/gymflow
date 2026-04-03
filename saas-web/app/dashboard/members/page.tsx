@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatDate } from '@/lib/format';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
-import AddMemberModal from '@/components/dashboard/AddMemberModal';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,9 @@ import {
 } from '@/components/ui/dialog';
 import { DotsHorizontalIcon } from '@radix-ui/react-icons';
 
+// Keep the add-member form out of the list bundle until staff actually open it.
+const AddMemberModal = dynamic(() => import('@/components/dashboard/AddMemberModal'));
+
 type Member = {
   id: string;
   name: string;
@@ -56,6 +59,7 @@ export default function MembersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'expired' | 'no_sub'>('all');
+  const hasMountedSearch = useRef(false);
 
   // Add member modal state
   const [addOpen, setAddOpen] = useState(false);
@@ -85,6 +89,12 @@ export default function MembersPage() {
 
   // Re-fetch when search changes (with debounce)
   useEffect(() => {
+    // Skip the first run because the initial load already fetched the list.
+    if (!hasMountedSearch.current) {
+      hasMountedSearch.current = true;
+      return;
+    }
+
     const timer = setTimeout(() => fetchMembers(search), 300);
     return () => clearTimeout(timer);
   }, [search, fetchMembers]);
@@ -246,11 +256,13 @@ export default function MembersPage() {
       )}
 
       {/* Add member modal */}
-      <AddMemberModal
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onSuccess={() => fetchMembers(search || undefined)}
-      />
+      {addOpen ? (
+        <AddMemberModal
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          onSuccess={() => fetchMembers(search || undefined)}
+        />
+      ) : null}
 
       {/* Delete confirmation dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>

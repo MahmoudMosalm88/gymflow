@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api-client';
@@ -7,8 +8,9 @@ import { useLang, t } from '@/lib/i18n';
 import { formatCurrency, formatDate } from '@/lib/format';
 import StatCard from '@/components/dashboard/StatCard';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
-import MonthCalendarDialog from '@/components/dashboard/MonthCalendarDialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+
+const MonthCalendarDialog = dynamic(() => import('@/components/dashboard/MonthCalendarDialog'));
 
 type Summary = { totalRevenue: number; expectedMonthly: number };
 type MonthlyRow = {
@@ -262,11 +264,13 @@ export default function IncomePage() {
       </Card>
 
       {/* Month detail dialog */}
-      <MonthCalendarDialog
-        month={selectedMonth}
-        open={!!selectedMonth}
-        onOpenChange={(open) => { if (!open) setSelectedMonth(null); }}
-      />
+      {selectedMonth ? (
+        <MonthCalendarDialog
+          month={selectedMonth}
+          open={!!selectedMonth}
+          onOpenChange={(open) => { if (!open) setSelectedMonth(null); }}
+        />
+      ) : null}
     </div>
   );
 }
