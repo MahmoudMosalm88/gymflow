@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Auth, ConfirmationResult, RecaptchaVerifier } from "firebase/auth";
 import type { FirebaseClientConfig } from "@/lib/firebase-client";
+import { BRANCH_ID_KEY, SESSION_PROFILE_KEY, SESSION_TOKEN_KEY, type AppRole, type ActorType } from "@/lib/session";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -41,20 +42,28 @@ type SessionPayload = {
   branchId?: string;
   organizationId?: string;
   ownerId?: string;
+  actorId?: string;
+  actorType?: ActorType;
+  role?: AppRole;
 };
 
-type OwnerPayload = {
-  owner_id?: string;
-  organization_id?: string;
-  branch_id?: string;
+type UserPayload = {
+  id?: string;
+  actorType?: ActorType;
+  role?: AppRole;
   name?: string | null;
   email?: string | null;
   phone?: string | null;
+  organizationId?: string;
+  organizationName?: string | null;
+  branchId?: string;
+  branchName?: string | null;
 };
 
 type ApiDataPayload = {
   message?: string;
-  owner?: OwnerPayload;
+  owner?: UserPayload;
+  user?: UserPayload;
   session?: SessionPayload;
 };
 
@@ -64,9 +73,6 @@ type ApiPayload = {
   data?: ApiDataPayload;
 } & ApiDataPayload;
 
-const SESSION_TOKEN_KEY = "session_token";
-const BRANCH_ID_KEY = "branch_id";
-const OWNER_PROFILE_KEY = "owner_profile";
 const GOOGLE_PENDING_KEY = "google_auth_pending_v1";
 const PHONE_REGEX = /^\+[1-9]\d{7,14}$/;
 
@@ -281,7 +287,7 @@ async function postJson(path: string, body: Record<string, unknown>) {
 function persistSession(payload: unknown) {
   const data = unwrapData(payload);
   const session = data.session;
-  const owner = data.owner;
+  const profile = data.user || data.owner;
   if (!session || typeof session !== "object") return;
   try {
     if (typeof session.idToken === "string" && session.idToken.length > 20) {
@@ -290,8 +296,8 @@ function persistSession(payload: unknown) {
     if (typeof session.branchId === "string" && session.branchId) {
       localStorage.setItem(BRANCH_ID_KEY, session.branchId);
     }
-    if (owner && typeof owner === "object") {
-      localStorage.setItem(OWNER_PROFILE_KEY, JSON.stringify(owner));
+    if (profile && typeof profile === "object") {
+      localStorage.setItem(SESSION_PROFILE_KEY, JSON.stringify(profile));
     }
   } catch {
     // ignore storage errors
@@ -393,7 +399,8 @@ export default function LoginPage() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const paramMode = searchParams.get("mode");
-    if ((paramMode === "login" || paramMode === "register") && paramMode !== mode) {
+    // register mode is disabled — signups are invite-only
+    if (paramMode === "login" && paramMode !== mode) {
       setMode(paramMode);
       setFeedback(null);
       setOtpSent(false);

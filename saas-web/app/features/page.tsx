@@ -174,7 +174,7 @@ export default function FeaturesIndexPage() {
             Start free — no credit card required. Setup takes 10 minutes.
           </p>
           <a
-            href="/login?mode=register"
+            href="/login"
             style={{
               display: "inline-flex",
               background: "#e63946",

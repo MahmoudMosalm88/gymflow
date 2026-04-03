@@ -176,7 +176,7 @@ export default function FeaturePage({
 
           {/* Primary CTA */}
           <a
-            href="/login?mode=register"
+            href="/login"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -480,7 +480,7 @@ export default function FeaturePage({
           </p>
           <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
             <a
-              href="/login?mode=register"
+              href="/login"
               style={{
                 display: "inline-flex",
                 background: "#e63946",

@@ -34,7 +34,7 @@ export default function Navbar({ lang, t }: NavbarProps) {
             <Link href="/" className={`${styles.langBtn} ${lang === 'en' ? styles.langActive : ''}`} aria-current={lang === 'en' ? 'page' : undefined}>EN</Link>
             <Link href={otherLangHref} className={`${styles.langBtn} ${lang === 'ar' ? styles.langActive : ''}`} aria-current={lang === 'ar' ? 'page' : undefined}>AR</Link>
           </div>
-          <Link href="/login?mode=register" className={styles.navCta}>{t.navCta}</Link>
+          <Link href="/login" className={styles.navCta}>{t.navCta}</Link>
         </div>
       </div>
     </header>

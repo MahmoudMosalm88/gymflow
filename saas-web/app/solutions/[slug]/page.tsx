@@ -355,7 +355,7 @@ export default function SolutionPage({
             Start free — no credit card required. Setup in 10 minutes.
           </p>
           <a
-            href="/login?mode=register"
+            href="/login"
             style={{
               display: "inline-flex",
               background: "#e63946",
