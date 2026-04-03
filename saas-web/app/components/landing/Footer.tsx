@@ -1,7 +1,6 @@
-'use client';
-
 import Link from 'next/link';
 import styles from '../../landing.module.css';
+import GymFlowLogo from '@/components/GymFlowLogo';
 
 interface FooterProps {
   t: {
@@ -34,7 +33,7 @@ export default function Footer({ t }: FooterProps) {
         {/* Brand column */}
         <div className={styles.footerBrand}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span className={styles.logoMark}>GF</span>
+            <GymFlowLogo size={32} />
             <span className={styles.brand}>GymFlow</span>
           </div>
           <p className={styles.footerTagline}>{t.footerTagline}</p>

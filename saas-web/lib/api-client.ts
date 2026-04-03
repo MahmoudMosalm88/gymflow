@@ -3,12 +3,8 @@
  * It attempts to refresh Firebase ID tokens before forcing logout on 401.
  */
 
-import { Auth } from "firebase/auth";
-import {
-  FirebaseClientConfig,
-  getFirebaseClientAuth,
-  isFirebaseClientConfig
-} from "@/lib/firebase-client";
+import type { Auth } from "firebase/auth";
+import type { FirebaseClientConfig } from "@/lib/firebase-client";
 
 type ApiResponse<T = unknown> = {
   success: boolean;
@@ -22,6 +18,11 @@ const OWNER_PROFILE_KEY = "owner_profile";
 
 let firebaseAuthPromise: Promise<Auth | null> | null = null;
 let rehydratePromise: Promise<boolean> | null = null;
+
+async function loadFirebaseClientHelpers() {
+  // Keep Firebase auth code out of the default app bundle until a session refresh is needed.
+  return await import("@/lib/firebase-client");
+}
 
 function decodeJwtUid(token: string | null) {
   if (!token) return null;
@@ -53,6 +54,7 @@ async function getFirebaseAuthForSession() {
 
   firebaseAuthPromise = (async () => {
     try {
+      const { getFirebaseClientAuth, isFirebaseClientConfig } = await loadFirebaseClientHelpers();
       const response = await fetch("/api/auth/firebase-config", { cache: "no-store" });
       const payload = await response.json().catch(() => null);
       if (!response.ok) return null;

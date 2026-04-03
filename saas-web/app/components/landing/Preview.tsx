@@ -50,8 +50,8 @@ export default function Preview({ t }: PreviewProps) {
               alt={activeTab.label}
               width={1440}
               height={900}
+              sizes="(max-width: 768px) 100vw, 1200px"
               className={styles.previewImg}
-              priority
             />
           </div>
         </div>

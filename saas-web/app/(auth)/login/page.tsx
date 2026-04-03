@@ -2,22 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Auth,
-  ConfirmationResult,
-  GoogleAuthProvider,
-  RecaptchaVerifier,
-  getRedirectResult,
-  signInWithEmailAndPassword,
-  signInWithPhoneNumber,
-  signInWithRedirect,
-  signInWithPopup
-} from "firebase/auth";
-import {
-  FirebaseClientConfig,
-  getFirebaseClientAuth,
-  isFirebaseClientConfig
-} from "@/lib/firebase-client";
+import type { Auth, ConfirmationResult, RecaptchaVerifier } from "firebase/auth";
+import type { FirebaseClientConfig } from "@/lib/firebase-client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -83,6 +69,23 @@ const BRANCH_ID_KEY = "branch_id";
 const OWNER_PROFILE_KEY = "owner_profile";
 const GOOGLE_PENDING_KEY = "google_auth_pending_v1";
 const PHONE_REGEX = /^\+[1-9]\d{7,14}$/;
+
+let firebaseRuntimePromise:
+  | Promise<{
+      authModule: typeof import("firebase/auth");
+      clientModule: typeof import("@/lib/firebase-client");
+    }>
+  | null = null;
+
+async function loadFirebaseRuntime() {
+  if (!firebaseRuntimePromise) {
+    firebaseRuntimePromise = Promise.all([
+      import("firebase/auth"),
+      import("@/lib/firebase-client")
+    ]).then(([authModule, clientModule]) => ({ authModule, clientModule }));
+  }
+  return firebaseRuntimePromise;
+}
 
 const copy = {
   en: {
@@ -419,6 +422,8 @@ export default function LoginPage() {
 
   async function getAuthClient() {
     if (authRef.current) return authRef.current;
+    const { clientModule } = await loadFirebaseRuntime();
+    const { getFirebaseClientAuth, isFirebaseClientConfig } = clientModule;
     const response = await fetch("/api/auth/firebase-config", { cache: "no-store" });
     const payload = await response.json().catch(() => null);
     if (!response.ok) throw new Error(readMessage(payload, "Firebase auth is not configured."));
@@ -435,7 +440,8 @@ export default function LoginPage() {
   async function signInEmailOnClient(email: string, password: string) {
     try {
       const auth = await getAuthClient();
-      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const { authModule } = await loadFirebaseRuntime();
+      const credential = await authModule.signInWithEmailAndPassword(auth, email, password);
       return await credential.user.getIdToken(true);
     } catch (error) {
       const code =
@@ -452,8 +458,10 @@ export default function LoginPage() {
     }
   }
 
-  function getRecaptcha(auth: Auth) {
+  async function getRecaptcha(auth: Auth) {
     if (recaptchaRef.current) return recaptchaRef.current;
+    const { authModule } = await loadFirebaseRuntime();
+    const { RecaptchaVerifier } = authModule;
 
     const host = recaptchaContainerRef.current;
     if (!host) {
@@ -484,9 +492,10 @@ export default function LoginPage() {
   }
 
   async function requestPhoneOtp(auth: Auth, phone: string) {
-    const verifier = getRecaptcha(auth);
+    const verifier = await getRecaptcha(auth);
+    const { authModule } = await loadFirebaseRuntime();
     try {
-      return await signInWithPhoneNumber(auth, phone, verifier);
+      return await authModule.signInWithPhoneNumber(auth, phone, verifier);
     } catch (error) {
       const code =
         typeof error === "object" && error && "code" in error
@@ -595,7 +604,8 @@ export default function LoginPage() {
       setBusyKey("google");
       try {
         const auth = await getAuthClient();
-        const result = await getRedirectResult(auth);
+        const { authModule } = await loadFirebaseRuntime();
+        const result = await authModule.getRedirectResult(auth);
         if (!result?.user) {
           clearGooglePendingState();
           return;
@@ -673,11 +683,12 @@ export default function LoginPage() {
         setupSnapshot = setup;
       }
       const auth = await getAuthClient();
-      const provider = new GoogleAuthProvider();
+      const { authModule } = await loadFirebaseRuntime();
+      const provider = new authModule.GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
       provider.addScope("email");
       provider.addScope("profile");
-      const credential = await signInWithPopup(auth, provider);
+      const credential = await authModule.signInWithPopup(auth, provider);
       const idToken = await credential.user.getIdToken(true);
       await completeGoogleFlow(idToken, credential.user.email || undefined, mode, setupSnapshot);
     } catch (error) {
@@ -692,7 +703,8 @@ export default function LoginPage() {
       ) {
         try {
           const auth = await getAuthClient();
-          const provider = new GoogleAuthProvider();
+          const { authModule } = await loadFirebaseRuntime();
+          const provider = new authModule.GoogleAuthProvider();
           provider.setCustomParameters({ prompt: "select_account" });
           provider.addScope("email");
           provider.addScope("profile");
@@ -702,7 +714,7 @@ export default function LoginPage() {
             issuedAt: Date.now()
           });
           setFeedback({ kind: "success", text: t.googlePopupBlocked });
-          await signInWithRedirect(auth, provider);
+          await authModule.signInWithRedirect(auth, provider);
           return;
         } catch (redirectError) {
           setFeedback({

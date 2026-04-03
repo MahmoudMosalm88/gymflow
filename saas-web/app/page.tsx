@@ -1,6 +1,3 @@
-"use client";
-
-import { useMemo, useState } from "react";
 import styles from "./landing.module.css";
 import Navbar from "./components/landing/Navbar";
 import Hero from "./components/landing/Hero";
@@ -209,14 +206,14 @@ const copy = {
 } as const;
 
 export default function HomePage() {
-  const [lang, setLang] = useState<Lang>("en");
-  const isArabic = lang === "ar";
-  const t = useMemo(() => copy[lang], [lang]);
+  const lang: Lang = "en";
+  const isArabic = false;
+  const t = copy.en;
 
   return (
     <main className={styles.page} dir={isArabic ? "rtl" : "ltr"}>
       <StructuredData />
-      <Navbar lang={lang} setLang={setLang} t={t} />
+      <Navbar lang={lang} t={t} />
       <Hero t={t} />
       <Problem t={t} />
       <HowItWorks t={t} />

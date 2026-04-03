@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Camera } from 'lucide-react';
@@ -11,12 +12,13 @@ import { submitCheckIn } from '@/lib/check-in/client';
 import { playDeniedFeedback, playSuccessFeedback } from '@/lib/check-in/feedback';
 import StatCard from '@/components/dashboard/StatCard';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
-import CameraScanner from '@/components/dashboard/CameraScanner';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+
+const CameraScanner = dynamic(() => import('@/components/dashboard/CameraScanner'), { ssr: false });
 
 type Overview = {
   totalMembers: number;
@@ -316,32 +318,34 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <CameraScanner
-        lang={lang}
-        active={cameraOpen}
-        processing={scanning}
-        result={cameraOpen ? scanResult : null}
-        onClose={() => {
-          setCameraOpen(false);
-          setScanResult(null);
-          setScanning(false);
-          inputRef.current?.focus();
-        }}
-        onDetect={handleCameraScan}
-        labels={{
-          closeCamera: labels.close_camera,
-          cameraTitle: labels.camera_title,
-          cameraHint: labels.camera_hint,
-          cameraLoading: labels.camera_loading,
-          cameraPermissionDenied: labels.camera_permission_denied,
-          cameraUnsupported: labels.camera_unsupported,
-          cameraFallback: labels.camera_fallback,
-          offlineBadge: labels.offline_badge,
-          entryDenied: labels.entry_denied,
-          welcomeName: labels.welcome_name,
-          sessionsRemaining: labels.sessions_remaining,
-        }}
-      />
+      {cameraOpen ? (
+        <CameraScanner
+          lang={lang}
+          active={cameraOpen}
+          processing={scanning}
+          result={cameraOpen ? scanResult : null}
+          onClose={() => {
+            setCameraOpen(false);
+            setScanResult(null);
+            setScanning(false);
+            inputRef.current?.focus();
+          }}
+          onDetect={handleCameraScan}
+          labels={{
+            closeCamera: labels.close_camera,
+            cameraTitle: labels.camera_title,
+            cameraHint: labels.camera_hint,
+            cameraLoading: labels.camera_loading,
+            cameraPermissionDenied: labels.camera_permission_denied,
+            cameraUnsupported: labels.camera_unsupported,
+            cameraFallback: labels.camera_fallback,
+            offlineBadge: labels.offline_badge,
+            entryDenied: labels.entry_denied,
+            welcomeName: labels.welcome_name,
+            sessionsRemaining: labels.sessions_remaining,
+          }}
+        />
+      ) : null}
 
       {/* ── 4 Stat Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

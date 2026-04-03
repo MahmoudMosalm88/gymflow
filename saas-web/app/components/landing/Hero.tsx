@@ -71,6 +71,7 @@ export default function Hero({ t }: HeroProps) {
         muted
         loop
         playsInline
+        preload="metadata"
         className={styles.heroVideo}
       />
     </div>

@@ -1,6 +1,3 @@
-"use client";
-
-import { useMemo } from "react";
 import styles from "../landing.module.css";
 import Navbar from "../components/landing/Navbar";
 import Hero from "../components/landing/Hero";
@@ -84,12 +81,12 @@ const arCopy = {
 } as const;
 
 export default function ArabicHomePage() {
-  const t = useMemo(() => arCopy, []);
+  const t = arCopy;
 
   return (
     <main className={styles.page} dir="rtl">
       <StructuredData />
-      <Navbar lang="ar" setLang={() => {}} t={t} />
+      <Navbar lang="ar" t={t} />
       <Hero t={t} />
       <Problem t={t} />
       <HowItWorks t={t} />

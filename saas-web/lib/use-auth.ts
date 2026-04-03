@@ -2,11 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  FirebaseClientConfig,
-  getFirebaseClientAuth,
-  isFirebaseClientConfig
-} from "@/lib/firebase-client";
+import type { FirebaseClientConfig } from "@/lib/firebase-client";
 
 export type OwnerProfile = {
   id: string;
@@ -27,6 +23,11 @@ const SESSION_TOKEN_KEY = "session_token";
 const BRANCH_ID_KEY = "branch_id";
 const OWNER_PROFILE_KEY = "owner_profile";
 
+async function loadFirebaseClientHelpers() {
+  // Only load Firebase browser auth when we need to recover a missing local session.
+  return await import("@/lib/firebase-client");
+}
+
 function unwrapData(payload: unknown): Record<string, unknown> | null {
   if (!payload || typeof payload !== "object") return null;
   const record = payload as Record<string, unknown>;
@@ -46,6 +47,7 @@ function readProfileFromStorage() {
 
 async function recoverSessionFromFirebase(): Promise<boolean> {
   try {
+    const { getFirebaseClientAuth, isFirebaseClientConfig } = await loadFirebaseClientHelpers();
     const configResponse = await fetch("/api/auth/firebase-config", { cache: "no-store" });
     const configPayload = await configResponse.json().catch(() => null);
     if (!configResponse.ok) return false;

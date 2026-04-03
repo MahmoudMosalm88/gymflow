@@ -1,5 +1,3 @@
-'use client';
-
 import styles from '../../landing.module.css';
 
 interface ProblemProps {

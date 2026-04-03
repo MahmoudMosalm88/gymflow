@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Space_Grotesk, El_Messiri, IBM_Plex_Sans_Arabic, Bebas_Neue } from "next/font/google";
 
 import { ThemeProvider } from "@/components/theme-provider";
-import { LanguageProvider } from "@/components/language-provider"; // Assuming this path
 
 // Stat numbers — ultra-condensed brutalist display
 const bebasNeue = Bebas_Neue({
@@ -150,7 +149,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           enableSystem
           disableTransitionOnChange
         >
-          <LanguageProvider>{children}</LanguageProvider>
+          {children}
         </ThemeProvider>
       </body>
     </html>

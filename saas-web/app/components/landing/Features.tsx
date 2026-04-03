@@ -1,5 +1,3 @@
-'use client';
-
 import styles from '../../landing.module.css';
 
 interface FeaturesProps {
@@ -69,6 +67,8 @@ export default function Features({ t }: FeaturesProps) {
                 <img
                   src={screenshotPanels[i]?.src}
                   alt=""
+                  loading="lazy"
+                  decoding="async"
                   style={{
                     width: '100%',
                     height: '100%',

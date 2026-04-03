@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/use-auth';
 import { LangContext, Lang } from '@/lib/i18n';
@@ -7,12 +8,14 @@ import { api } from '@/lib/api-client';
 import Sidebar from '@/components/dashboard/Sidebar';
 import Header from '@/components/dashboard/Header';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
-import { fetchAndStoreBundle } from '@/lib/offline/offline-bundle';
-import { startSyncManager, stopSyncManager } from '@/lib/offline/sync-manager';
-import InstallPrompt from '@/components/dashboard/InstallPrompt';
-import GlobalScanner from '@/components/dashboard/GlobalScanner';
 import { ScanProvider } from '@/lib/scan-context';
-import { Toaster } from '@/components/ui/sonner';
+
+const InstallPrompt = dynamic(() => import('@/components/dashboard/InstallPrompt'), { ssr: false });
+const GlobalScanner = dynamic(() => import('@/components/dashboard/GlobalScanner'), { ssr: false });
+const Toaster = dynamic(
+  () => import('@/components/ui/sonner').then((mod) => mod.Toaster),
+  { ssr: false }
+);
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { loading } = useAuth();
@@ -54,9 +57,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Offline bundle refresh + sync manager
   useEffect(() => {
-    if (navigator.onLine) fetchAndStoreBundle();
-    startSyncManager();
-    return () => stopSyncManager();
+    let mounted = true;
+    let stopSync: (() => void) | null = null;
+
+    // Load offline runtime lazily so the first dashboard paint is not blocked by sync code.
+    void (async () => {
+      const [{ fetchAndStoreBundle }, { startSyncManager, stopSyncManager }] = await Promise.all([
+        import('@/lib/offline/offline-bundle'),
+        import('@/lib/offline/sync-manager')
+      ]);
+
+      if (!mounted) return;
+      if (navigator.onLine) fetchAndStoreBundle();
+      startSyncManager();
+      stopSync = stopSyncManager;
+    })();
+
+    return () => {
+      mounted = false;
+      stopSync?.();
+    };
   }, []);
 
   // Persist language changes
