@@ -10,6 +10,7 @@ const bebasNeue = Bebas_Neue({
   subsets: ["latin"],
   variable: "--font-stat",
   display: "swap",
+  preload: false,
 });
 
 // EN body — gold standard UI font
@@ -25,6 +26,7 @@ const spaceGrotesk = Space_Grotesk({
   weight: ["500", "600", "700"],
   variable: "--font-heading",
   display: "swap",
+  preload: false,
 });
 
 // AR heading — modern Arabic display
@@ -33,6 +35,7 @@ const elMessiri = El_Messiri({
   weight: ["600", "700"],
   variable: "--font-arabic-heading",
   display: "swap",
+  preload: false,
 });
 
 // AR body — UI-first Arabic, excellent dark legibility
@@ -41,6 +44,7 @@ const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
   weight: ["300", "400", "500", "600", "700"],
   variable: "--font-arabic",
   display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
