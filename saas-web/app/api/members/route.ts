@@ -154,6 +154,25 @@ export async function POST(request: NextRequest) {
 
       const member = inserted.rows[0];
 
+      if (payload.from_guest_pass_id) {
+        const guestPassRows = await client.query<{ id: string }>(
+          `UPDATE guest_passes
+              SET converted_member_id = $4,
+                  converted_at = COALESCE(converted_at, NOW()),
+                  used_at = COALESCE(used_at, NOW())
+            WHERE id = $1
+              AND organization_id = $2
+              AND branch_id = $3
+              AND voided_at IS NULL
+          RETURNING id`,
+          [payload.from_guest_pass_id, auth.organizationId, auth.branchId, member.id]
+        );
+
+        if (!guestPassRows.rows[0]) {
+          throw new Error("Guest pass not found");
+        }
+      }
+
       const settingsRows = await client.query<{ key: string; value: unknown }>(
         `SELECT key, value
            FROM settings
@@ -260,6 +279,9 @@ export async function POST(request: NextRequest) {
 
     return ok(member, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message === "Guest pass not found") {
+      return fail(error.message, 404);
+    }
     // Handle duplicate key errors specifically for user-friendly feedback
     if (error instanceof Error && (error.message.includes("duplicate") || error.message.includes("unique"))) {
       return fail("This member already exists. Please check the phone number or card code and try again.", 409);

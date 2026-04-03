@@ -70,7 +70,8 @@ export const memberSchema = z.object({
   photo_path: z.string().optional().nullable(),
   access_tier: z.string().default("full"),
   card_code: z.string().optional().nullable(),
-  address: z.string().optional().nullable()
+  address: z.string().optional().nullable(),
+  from_guest_pass_id: z.string().uuid().optional().nullable()
 });
 
 export const subscriptionSchema = z.object({

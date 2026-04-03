@@ -1,7 +1,7 @@
 # GymFlow — Project Memory (Source of Truth)
 
 > Single living document. Combines git history, session logs, and all docs into one timeline.
-> Any new task should start here. Last updated: **April 2, 2026**.
+> Any new task should start here. Last updated: **April 3, 2026**.
 
 ---
 
@@ -895,8 +895,21 @@ docs/future_reports.md          — Backlogged report ideas
 - local browser validation completed
 - camera scan flow confirmed working in the user’s local Chrome after header + WASM fixes
 
+**Deployment troubleshooting found immediately after release**:
+- Cloud Build runs for `09f519d` and `7f61cae` both failed before deploy.
+- Exact cause:
+  - `saas-web/components/dashboard/CameraScanner.tsx`
+  - `Type error: Parameter 'path' implicitly has an 'any' type.`
+- Fix:
+  - typed the `prepareZXingModule().overrides.locateFile` params explicitly:
+    - `(path: string, prefix: string)`
+- Result:
+  - `602d7a4` — `fix(scanner): type zxing locateFile params`
+  - this unblocked the Docker build path used by the Cloud Build trigger `gymflow-saas-main-autodeploy`
+
 **Commit pushed**:
 - `09f519d` — `feat(scanner): add camera qr scanning to dashboard`
+- `602d7a4` — `fix(scanner): type zxing locateFile params`
 
 ---
 
@@ -954,5 +967,134 @@ docs/future_reports.md          — Backlogged report ideas
 - `cd saas-web && npm run build` ✅
 - full local storage e2e is still limited by missing local ADC (`gcloud auth application-default`) on this machine, but production deployment path now matches the Cloud Run IAM model defined in Terraform
 
+**Commit pushed**:
+- `7f61cae` — `fix(members): move photo upload to server route`
+
 **Operational note**:
 - after running local `next build`, restart `next dev` before browser testing; stale `.next` chunks caused false 404/500 errors during this fix session
+
+---
+
+### 2026-04-02 — Income Day Payments Sheet Scroll Fix
+
+**Goal**: fix the income day-payments sheet so longer payment lists stay usable instead of overflowing the viewport.
+
+**What changed**:
+- made the day payments sheet body scroll cleanly when many rows are present
+- kept the header/actions visible while allowing the payments list itself to absorb the overflow
+
+**Why this mattered**:
+- busy days could generate enough payments to make the sheet awkward to use
+- users could not comfortably inspect all rows on smaller screens or shorter laptop viewports
+
+**Verification**:
+- change was shipped on `main`
+- the fix is UI-only and low risk
+
+**Commit pushed**:
+- `60dfece` — `fix(income): make day payments sheet scroll`
+
+---
+
+### 2026-04-03 — New Requested Shipping Backlog Added
+
+**New items added to shipping to-do list**:
+- guest invite tracking:
+  - track which member invited each guest pass
+  - show invite usage and remaining invite balance
+- new income report by plan type:
+  - revenue split by plan bucket / duration
+- full PT profiles:
+  - PT profiles
+  - PT session tracking
+  - WhatsApp nudges for PT sessions similar to subscription warnings
+
+**Planning note**:
+- PT profiles were explicitly kept as the last item in this group because they require a separate research/design pass before implementation.
+
+**Docs updated**:
+- `docs/business/execution-roadmap-2026-03-19.md`
+- `docs/features/future_reports.md`
+
+---
+
+### 2026-04-03 — Guest Invite Tracking MVP
+
+**Goal**: let gym owners track which member invited each guest, how many invites were used in the current cycle, and how many invites remain.
+
+**What shipped**:
+- guest passes can now be linked to an inviting member
+- each invite is tied to the inviter's active subscription cycle
+- branch-level setting `guest_invites_per_cycle` controls per-cycle allowance
+- member page now shows a guest invite summary card:
+  - allowance
+  - used
+  - remaining
+  - current cycle end date
+  - recent invited guests
+- guest pass rows now support:
+  - inviter display
+  - voiding mistaken passes
+  - conversion tracking when a guest becomes a member
+
+**Data model changes**:
+- `guest_passes.inviter_member_id`
+- `guest_passes.inviter_subscription_id`
+- `guest_passes.voided_at`
+- `guest_passes.converted_member_id`
+- `guest_passes.converted_at`
+
+**Branch setting added**:
+- `guest_invites_per_cycle`
+- defaulted in code to `1` when no branch value exists yet
+
+**Key implementation notes**:
+- invite balance is not stored on the member row
+- remaining balance is derived from the active cycle + non-voided guest passes
+- unused expired passes still count as used
+- only `voided` passes return balance
+- guest conversion now links the created member back to the source guest pass
+
+**Files involved**:
+- `saas-web/lib/guest-invites.ts`
+- `saas-web/app/api/members/[id]/guest-invites/route.ts`
+- `saas-web/app/api/guest-passes/route.ts`
+- `saas-web/app/api/members/route.ts`
+- `saas-web/lib/validation.ts`
+- `saas-web/app/dashboard/guest-passes/page.tsx`
+- `saas-web/components/dashboard/MemberGuestInvitesCard.tsx`
+- `saas-web/app/dashboard/members/[id]/page.tsx`
+- `saas-web/app/dashboard/members/new/page.tsx`
+- `saas-web/db/schema.sql`
+
+**Bugs found and fixed during local e2e verification**:
+1. Guest passes page crashed on load because `formatCurrency` was incorrectly called with locale strings (`ar-EG` / `en-US`) instead of a currency code.
+2. Guest-pass conversion to member could fail because guest phone numbers prefilled in local Egyptian format (`01...`) did not satisfy the member phone validator. The member create page now normalizes those prefills to `+20...`.
+
+**Verification completed locally**:
+- `cd saas-web && npm run db:migrate` ✅
+- `cd saas-web && npm run build` ✅
+- Playwright local flow on `http://127.0.0.1:3000`:
+  - save guest invite allowance
+  - search inviter by partial first name
+  - create two invited guest passes
+  - confirm balance drops as expected
+  - void one pass and confirm balance restores
+  - convert one guest pass into a member
+  - verify member page guest invite card reflects:
+    - allowance
+    - used
+    - remaining
+    - recent guest statuses
+- direct DB verification confirmed:
+  - inviter linkage persisted
+  - voided pass stayed unconverted
+  - converted pass stored `converted_member_id`
+
+**Later phase documented separately**:
+- `docs/features/guest-invite-tracking.md`
+- planned next layer:
+  - invite analytics
+  - guest-to-member conversion reporting
+  - per-plan invite entitlements
+  - richer guest-invite reporting

@@ -153,11 +153,37 @@ CREATE TABLE IF NOT EXISTS guest_passes (
   code text NOT NULL,
   member_name text NOT NULL,
   phone text,
+  inviter_member_id uuid REFERENCES members(id) ON DELETE SET NULL,
+  inviter_subscription_id bigint REFERENCES subscriptions(id) ON DELETE SET NULL,
   expires_at timestamptz NOT NULL,
   used_at timestamptz,
+  voided_at timestamptz,
   amount numeric(12,2),
+  converted_member_id uuid REFERENCES members(id) ON DELETE SET NULL,
+  converted_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE guest_passes
+  ADD COLUMN IF NOT EXISTS inviter_member_id uuid REFERENCES members(id) ON DELETE SET NULL;
+
+ALTER TABLE guest_passes
+  ADD COLUMN IF NOT EXISTS inviter_subscription_id bigint REFERENCES subscriptions(id) ON DELETE SET NULL;
+
+ALTER TABLE guest_passes
+  ADD COLUMN IF NOT EXISTS voided_at timestamptz;
+
+ALTER TABLE guest_passes
+  ADD COLUMN IF NOT EXISTS converted_member_id uuid REFERENCES members(id) ON DELETE SET NULL;
+
+ALTER TABLE guest_passes
+  ADD COLUMN IF NOT EXISTS converted_at timestamptz;
+
+CREATE INDEX IF NOT EXISTS idx_guest_passes_inviter_cycle
+  ON guest_passes (organization_id, branch_id, inviter_subscription_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_guest_passes_inviter_member
+  ON guest_passes (organization_id, branch_id, inviter_member_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS whatsapp_campaigns (
   id uuid PRIMARY KEY,

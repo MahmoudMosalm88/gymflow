@@ -17,8 +17,15 @@ export default function NewMemberPage() {
 
   // Pre-fill from query params (e.g. guest pass conversion)
   const prefillName = searchParams.get('name') || '';
-  const prefillPhone = searchParams.get('phone') || '';
+  const rawPrefillPhone = searchParams.get('phone') || '';
   const fromGuest = searchParams.get('from_guest') || '';
+  const prefillPhone = (() => {
+    const trimmed = rawPrefillPhone.trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('+')) return trimmed;
+    if (/^01\d{9}$/.test(trimmed)) return `+2${trimmed}`;
+    return trimmed;
+  })();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -28,7 +35,10 @@ export default function NewMemberPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await api.post('/api/members', data);
+      const res = await api.post('/api/members', {
+        ...data,
+        ...(fromGuest ? { from_guest_pass_id: fromGuest } : {}),
+      });
       if (!res.success) throw new Error(res.message);
       router.push('/dashboard/members');
     } catch (err: any) {

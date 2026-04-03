@@ -28,6 +28,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import MemberAvatar from '@/components/dashboard/MemberAvatar';
+import MemberGuestInvitesCard from '@/components/dashboard/MemberGuestInvitesCard';
 import FreezeDialog from '@/components/dashboard/FreezeDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { addCalendarMonths, toUnixSeconds } from '@/lib/subscription-dates';
@@ -338,6 +339,8 @@ export default function MemberDetailPage() {
           <InfoRow label={labels.updated_at} value={formatDate(member.updated_at, locale)} />
         </CardContent>
       </Card>
+
+      <MemberGuestInvitesCard memberId={member.id} />
 
       {/* Subscriptions section */}
       <Card>
