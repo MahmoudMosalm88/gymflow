@@ -5,16 +5,13 @@
 
 import type { Auth } from "firebase/auth";
 import type { FirebaseClientConfig } from "@/lib/firebase-client";
+import { BRANCH_ID_KEY, SESSION_PROFILE_KEY, SESSION_TOKEN_KEY } from "@/lib/session";
 
 type ApiResponse<T = unknown> = {
   success: boolean;
   data?: T;
   message?: string;
 };
-
-const SESSION_TOKEN_KEY = "session_token";
-const BRANCH_ID_KEY = "branch_id";
-const OWNER_PROFILE_KEY = "owner_profile";
 
 let firebaseAuthPromise: Promise<Auth | null> | null = null;
 let rehydratePromise: Promise<boolean> | null = null;
@@ -39,8 +36,19 @@ function decodeJwtUid(token: string | null) {
 function clearSessionAndRedirect() {
   localStorage.removeItem(SESSION_TOKEN_KEY);
   localStorage.removeItem(BRANCH_ID_KEY);
-  localStorage.removeItem(OWNER_PROFILE_KEY);
-  window.location.href = "/login";
+  localStorage.removeItem(SESSION_PROFILE_KEY);
+  void Promise.all([
+    import("@/lib/offline/db")
+      .then((mod) => mod.clearOfflineData())
+      .catch(() => undefined),
+    typeof caches === "undefined"
+      ? Promise.resolve()
+      : caches.keys()
+          .then((keys) => Promise.all(keys.filter((key) => key.startsWith("gymflow-shell-")).map((key) => caches.delete(key))))
+          .catch(() => undefined),
+  ]).finally(() => {
+    window.location.href = "/login";
+  });
 }
 
 function unwrapData(payload: unknown) {
@@ -107,7 +115,9 @@ function persistSessionFromLoginPayload(payload: unknown): boolean {
   const session = typeof data.session === "object" && data.session
     ? (data.session as Record<string, unknown>)
     : null;
-  const owner = typeof data.owner === "object" && data.owner
+  const profile = typeof data.user === "object" && data.user
+    ? (data.user as Record<string, unknown>)
+    : typeof data.owner === "object" && data.owner
     ? (data.owner as Record<string, unknown>)
     : null;
 
@@ -119,8 +129,8 @@ function persistSessionFromLoginPayload(payload: unknown): boolean {
   if (branchId) {
     localStorage.setItem(BRANCH_ID_KEY, branchId);
   }
-  if (owner) {
-    localStorage.setItem(OWNER_PROFILE_KEY, JSON.stringify(owner));
+  if (profile) {
+    localStorage.setItem(SESSION_PROFILE_KEY, JSON.stringify(profile));
   }
   return true;
 }

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
+import { saveSubscriptionFreeze } from '@/lib/offline/actions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -10,12 +10,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 
 type Props = {
   subscriptionId: string;
+  expectedEndDate?: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onFrozen: () => void;
 };
 
-export default function FreezeDialog({ subscriptionId, open, onOpenChange, onFrozen }: Props) {
+export default function FreezeDialog({ subscriptionId, expectedEndDate, open, onOpenChange, onFrozen }: Props) {
   const { lang } = useLang();
   const labels = t[lang];
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
@@ -43,18 +44,17 @@ export default function FreezeDialog({ subscriptionId, open, onOpenChange, onFro
     const startUnix = Math.floor(startDate.getTime() / 1000);
 
     try {
-      const res = await api.post(`/api/subscriptions/${subscriptionId}/freeze`, {
+      const res = await saveSubscriptionFreeze({
+        subscriptionId: Number(subscriptionId),
         startDate: startUnix,
         days,
+        expectedSubscriptionEndDate: expectedEndDate ?? 0,
       });
-      if (res.success) {
-        onFrozen();
-        onOpenChange(false);
-      } else {
-        setError(res.message || labels.error);
-      }
-    } catch {
-      setError(labels.error);
+      if (!res.success) throw new Error(labels.error);
+      onFrozen();
+      onOpenChange(false);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : labels.error);
     } finally {
       setSubmitting(false);
     }

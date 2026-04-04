@@ -6,6 +6,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatDate, formatCurrency } from '@/lib/format';
+import { getCachedMembers, getCachedSubscriptions } from '@/lib/offline/read-model';
+import { saveSubscriptionCreate } from '@/lib/offline/actions';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 
 import { Button } from '@/components/ui/button';
@@ -56,6 +58,7 @@ type Subscription = {
   sessions_per_month: number;
   is_active: boolean;
   created_at: number;
+  sync_status?: string;
 };
 
 type SubscriptionStatus = 'active' | 'pending' | 'expired' | 'inactive';
@@ -149,6 +152,7 @@ export default function SubscriptionsPage() {
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersLoaded, setMembersLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [online, setOnline] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -168,6 +172,7 @@ export default function SubscriptionsPage() {
   // Fetch subscriptions
   const fetchSubs = useCallback(async () => {
     setLoading(true);
+    let loadedFromServer = false;
     try {
       const url = memberIdFilter
         ? `/api/subscriptions?member_id=${memberIdFilter}`
@@ -180,10 +185,24 @@ export default function SubscriptionsPage() {
           member_name: sub.member_name || sub.member_id.slice(0, 8),
         }));
         setSubs(subsWithNames);
+        loadedFromServer = true;
       }
     } catch (error) {
       console.error("Failed to fetch subscriptions:", error);
     } finally {
+      if (!loadedFromServer) {
+        try {
+          const cached = await getCachedSubscriptions(memberIdFilter || undefined);
+          setSubs(cached.map((sub) => ({
+            ...sub,
+            member_name: sub.member_name || sub.member_id.slice(0, 8),
+            price_paid: sub.price_paid ?? 0,
+            created_at: sub.created_at,
+          } as Subscription)));
+        } catch {
+          // Ignore cache load errors.
+        }
+      }
       setLoading(false);
     }
   }, [memberIdFilter]);
@@ -192,21 +211,41 @@ export default function SubscriptionsPage() {
   const fetchMembers = useCallback(async () => {
     if (membersLoaded || membersLoading) return;
     setMembersLoading(true);
+    let loadedFromServer = false;
     try {
       const res = await api.get<Member[]>('/api/members?q=');
       if (res.success && res.data) {
         setMembers(res.data);
         setMembersLoaded(true);
+        loadedFromServer = true;
       }
     } catch (error) {
       console.error("Failed to fetch members for dropdown:", error);
     } finally {
+      if (!loadedFromServer) {
+        try {
+          const cachedMembers = await getCachedMembers('');
+          setMembers(cachedMembers.map((member) => ({ id: member.id, name: member.name })));
+          setMembersLoaded(true);
+        } catch {
+          // Ignore cache load errors.
+        }
+      }
       setMembersLoading(false);
     }
   }, [membersLoaded, membersLoading]);
 
   useEffect(() => {
+    setOnline(navigator.onLine);
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
     void fetchSubs();
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
   }, [fetchSubs]);
 
   useEffect(() => {
@@ -225,7 +264,16 @@ export default function SubscriptionsPage() {
   async function handleCreate(data: any) {
     setSubmitting(true);
     try {
-      const res = await api.post('/api/subscriptions', data);
+      const current = subs.find((item) => item.member_id === data.member_id && (deriveStatus(item) === 'active' || deriveStatus(item) === 'pending'));
+      const res = await saveSubscriptionCreate({
+        memberId: data.member_id,
+        memberName: members.find((member) => member.id === data.member_id)?.name || null,
+        startDate: data.start_date,
+        planMonths: data.plan_months,
+        pricePaid: data.price_paid ?? null,
+        sessionsPerMonth: data.sessions_per_month ?? null,
+        expectedActiveSubscriptionId: current?.id ?? null,
+      });
       if (res.success) {
         setModalOpen(false);
         await fetchSubs();
@@ -442,13 +490,14 @@ export default function SubscriptionsPage() {
                           <DropdownMenuItem onClick={() => router.push(`/dashboard/members/${sub.member_id}`)}>
                             {labels.view}
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openEditDialog(sub)}>
+                          <DropdownMenuItem disabled={!online} onClick={() => openEditDialog(sub)}>
                             {labels.edit}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {sub.is_active ? (
                             <DropdownMenuItem
                               className="text-destructive"
+                              disabled={!online}
                               onClick={() => setConfirmTarget({ sub, action: 'deactivate' })}
                             >
                               {labels.deactivate}
@@ -456,6 +505,7 @@ export default function SubscriptionsPage() {
                           ) : (
                             <DropdownMenuItem
                               className="text-success"
+                              disabled={!online}
                               onClick={() => setConfirmTarget({ sub, action: 'activate' })}
                             >
                               {labels.activate}

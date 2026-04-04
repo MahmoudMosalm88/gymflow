@@ -3,25 +3,19 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FirebaseClientConfig } from "@/lib/firebase-client";
-
-export type OwnerProfile = {
-  id: string;
-  name: string;
-  email?: string;
-  organizationName?: string;
-  branchName?: string;
-};
+import {
+  BRANCH_ID_KEY,
+  SESSION_PROFILE_KEY,
+  SESSION_TOKEN_KEY,
+  type SessionProfile,
+} from "@/lib/session";
 
 type AuthState = {
   loading: boolean;
   token: string | null;
   branchId: string | null;
-  profile: OwnerProfile | null;
+  profile: SessionProfile | null;
 };
-
-const SESSION_TOKEN_KEY = "session_token";
-const BRANCH_ID_KEY = "branch_id";
-const OWNER_PROFILE_KEY = "owner_profile";
 
 async function loadFirebaseClientHelpers() {
   // Only load Firebase browser auth when we need to recover a missing local session.
@@ -36,12 +30,32 @@ function unwrapData(payload: unknown): Record<string, unknown> | null {
 }
 
 function readProfileFromStorage() {
-  const profileJson = localStorage.getItem(OWNER_PROFILE_KEY);
+  const profileJson = localStorage.getItem(SESSION_PROFILE_KEY);
   if (!profileJson) return null;
   try {
-    return JSON.parse(profileJson) as OwnerProfile;
+    return JSON.parse(profileJson) as SessionProfile;
   } catch {
     return null;
+  }
+}
+
+async function clearOfflineState() {
+  try {
+    const [{ clearOfflineData }] = await Promise.all([
+      import("@/lib/offline/db"),
+    ]);
+    await clearOfflineData();
+  } catch {
+    // Ignore IndexedDB cleanup failures.
+  }
+
+  if (typeof caches !== "undefined") {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => key.startsWith("gymflow-shell-")).map((key) => caches.delete(key)));
+    } catch {
+      // Ignore cache cleanup failures.
+    }
   }
 }
 
@@ -78,7 +92,9 @@ async function recoverSessionFromFirebase(): Promise<boolean> {
     const session = data?.session && typeof data.session === "object"
       ? (data.session as Record<string, unknown>)
       : null;
-    const owner = data?.owner && typeof data.owner === "object"
+    const profile = data?.user && typeof data.user === "object"
+      ? (data.user as Record<string, unknown>)
+      : data?.owner && typeof data.owner === "object"
       ? (data.owner as Record<string, unknown>)
       : null;
 
@@ -88,8 +104,8 @@ async function recoverSessionFromFirebase(): Promise<boolean> {
     if (typeof session?.branchId === "string" && session.branchId) {
       localStorage.setItem(BRANCH_ID_KEY, session.branchId);
     }
-    if (owner) {
-      localStorage.setItem(OWNER_PROFILE_KEY, JSON.stringify(owner));
+    if (profile) {
+      localStorage.setItem(SESSION_PROFILE_KEY, JSON.stringify(profile));
     }
     return true;
   } catch {
@@ -119,6 +135,13 @@ export function useAuth(): AuthState {
       let profile = readProfileFromStorage();
 
       if (!token) {
+        if (!navigator.onLine && profile && branchId) {
+          if (!cancelled) {
+            setState({ loading: false, token: null, branchId, profile });
+          }
+          return;
+        }
+
         const recovered = await recoverSessionFromFirebase();
         if (!recovered) {
           if (!cancelled) {
@@ -149,6 +172,8 @@ export function useAuth(): AuthState {
 export function logout() {
   localStorage.removeItem(SESSION_TOKEN_KEY);
   localStorage.removeItem(BRANCH_ID_KEY);
-  localStorage.removeItem(OWNER_PROFILE_KEY);
-  window.location.href = "/login";
+  localStorage.removeItem(SESSION_PROFILE_KEY);
+  void clearOfflineState().finally(() => {
+    window.location.href = "/login";
+  });
 }

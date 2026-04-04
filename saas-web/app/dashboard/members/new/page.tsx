@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import MemberForm from '@/components/dashboard/MemberForm';
+import { saveMemberWithSubscription } from '@/lib/offline/actions';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
@@ -35,11 +35,11 @@ export default function NewMemberPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await api.post('/api/members', {
+      const res = await saveMemberWithSubscription({
         ...data,
         ...(fromGuest ? { from_guest_pass_id: fromGuest } : {}),
       });
-      if (!res.success) throw new Error(res.message);
+      if (!res.success) throw new Error(labels.error);
       router.push('/dashboard/members');
     } catch (err: any) {
       setError(err?.message || labels.error);

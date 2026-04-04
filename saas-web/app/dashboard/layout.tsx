@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/use-auth';
 import { LangContext, Lang } from '@/lib/i18n';
 import { api } from '@/lib/api-client';
@@ -9,6 +10,7 @@ import Sidebar from '@/components/dashboard/Sidebar';
 import Header from '@/components/dashboard/Header';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { ScanProvider } from '@/lib/scan-context';
+import { canAccessPath, getDefaultPathForRole } from '@/lib/permissions';
 
 const InstallPrompt = dynamic(() => import('@/components/dashboard/InstallPrompt'), { ssr: false });
 const GlobalScanner = dynamic(() => import('@/components/dashboard/GlobalScanner'), { ssr: false });
@@ -17,12 +19,59 @@ const Toaster = dynamic(
   { ssr: false }
 );
 
+const OFFLINE_SHELL_CACHE = 'gymflow-shell-v3';
+const CORE_OFFLINE_ROUTES = [
+  '/dashboard',
+  '/dashboard/members',
+  '/dashboard/members/new',
+  '/dashboard/subscriptions',
+  '/dashboard/income',
+  '/dashboard/income/payments',
+  '/dashboard/profile',
+  '/dashboard/settings',
+];
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { loading } = useAuth();
+  const { loading, profile } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
 
   // Language state, persisted to localStorage
   const [lang, setLangState] = useState<Lang>('en');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (loading || !profile || !navigator.onLine || typeof caches === 'undefined') return;
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const cache = await caches.open(OFFLINE_SHELL_CACHE);
+        const routes = CORE_OFFLINE_ROUTES.filter((route) => canAccessPath(profile.role, route));
+        await Promise.all(routes.map(async (route) => {
+          try {
+            const response = await fetch(route, {
+              cache: 'no-store',
+              credentials: 'same-origin',
+              headers: { accept: 'text/html' },
+            });
+            if (!cancelled && response.ok) {
+              await cache.put(route, response.clone());
+            }
+          } catch {
+            // Ignore route warm failures. Offline cache will still use what is already stored.
+          }
+        }));
+      } catch {
+        // Ignore cache warm failures.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, profile]);
 
   // Load saved language on mount
   useEffect(() => {
@@ -89,6 +138,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   // Bump root font size + switch body font for Arabic
+  useEffect(() => {
+    if (loading || !profile) return;
+    if (canAccessPath(profile.role, pathname)) return;
+    router.replace(getDefaultPathForRole(profile.role));
+  }, [loading, pathname, profile, router]);
+
   useEffect(() => {
     document.documentElement.style.fontSize = '16px';
     document.body.style.fontFamily = lang === 'ar' ? 'var(--font-arabic)' : 'var(--font-sans)';

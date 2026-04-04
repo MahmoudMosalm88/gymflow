@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
+import { useAuth } from '@/lib/use-auth';
+import { getCachedMemberDetail } from '@/lib/offline/read-model';
+import { saveMemberUpdate } from '@/lib/offline/actions';
 import MemberForm from '@/components/dashboard/MemberForm';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner'; // Keeping existing LoadingSpinner for now
 
@@ -19,12 +22,14 @@ type Member = {
   access_tier: 'full' | 'limited';
   card_code?: string;
   address?: string;
+  updated_at?: number;
 };
 
 export default function EditMemberPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { lang } = useLang();
+  const { profile, loading: authLoading } = useAuth();
   const labels = t[lang];
 
   const [member, setMember] = useState<Member | null>(null);
@@ -34,13 +39,39 @@ export default function EditMemberPage() {
 
   // Fetch all members, find the one we're editing
   useEffect(() => {
-    api.get<Member[]>('/api/members')
-      .then((res) => {
-        const found = (res.data ?? []).find((m) => m.id === id);
-        if (found) setMember(found);
-      })
-      .catch(() => {})
-      .finally(() => setPageLoading(false));
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await api.get<Member>(`/api/members/${id}`);
+        if (!cancelled && res.success && res.data) {
+          setMember(res.data);
+          return;
+        }
+      } catch {
+        // Fall through to offline cache.
+      }
+
+      const cached = await getCachedMemberDetail(id);
+      if (!cancelled) {
+        setMember(cached?.member ? {
+          id: cached.member.id,
+          name: cached.member.name,
+          phone: cached.member.phone,
+          gender: cached.member.gender,
+          access_tier: cached.member.access_tier as 'full' | 'limited',
+          card_code: cached.member.card_code ?? undefined,
+          address: cached.member.address ?? undefined,
+          updated_at: cached.member.updated_at,
+        } : null);
+      }
+    })().finally(() => {
+      if (!cancelled) setPageLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   /** Send updated data to the API, then navigate back to the detail page */
@@ -48,8 +79,8 @@ export default function EditMemberPage() {
     setSaving(true);
     setError('');
     try {
-      const res = await api.patch('/api/members', { id, ...data });
-      if (!res.success) throw new Error(res.message);
+      const res = await saveMemberUpdate({ memberId: id, patch: data, baseUpdatedAt: member?.updated_at ?? null });
+      if (!res.success) throw new Error(labels.error);
       router.push(`/dashboard/members/${id}`);
     } catch (err: any) {
       setError(err?.message || labels.error);
@@ -58,7 +89,14 @@ export default function EditMemberPage() {
     }
   };
 
-  if (pageLoading) return <LoadingSpinner size="lg" />;
+  useEffect(() => {
+    if (authLoading) return;
+    if (profile?.role === 'trainer') {
+      router.replace(`/dashboard/members/${id}`);
+    }
+  }, [authLoading, id, profile, router]);
+
+  if (pageLoading || authLoading) return <LoadingSpinner size="lg" />;
 
   if (!member) {
     return (

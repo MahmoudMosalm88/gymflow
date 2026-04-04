@@ -7,6 +7,7 @@ import { getOfflineDb, type OfflineMember } from "./db";
 import { getDeviceId } from "./device-id";
 import { getServerTimeOffset } from "./offline-bundle";
 import { enqueue } from "./sync-queue";
+import { putAttendanceLog } from "./cache";
 import { evaluateEligibility, type EligibilityResult } from "@/lib/check-in/rules";
 
 export type OfflineCheckInResult = EligibilityResult & {
@@ -47,6 +48,18 @@ export async function offlineCheckIn(
   const member = await findMember(scannedValue.trim());
 
   if (!member) {
+    await putAttendanceLog({
+      id: `offline-failure:${crypto.randomUUID()}`,
+      member_id: null,
+      member_name: null,
+      scanned_value: scannedValue.trim(),
+      method,
+      timestamp: Math.floor(Date.now() / 1000),
+      status: "failure",
+      reason_code: "unknown_member",
+      sync_status: "pending",
+      source: "offline",
+    });
     return { allowed: false, reason: "unknown_member", offline: true };
   }
 
@@ -57,6 +70,18 @@ export async function offlineCheckIn(
   const result = evaluateEligibility(member, now, cooldown);
 
   if (!result.allowed) {
+    await putAttendanceLog({
+      id: `offline-failure:${crypto.randomUUID()}`,
+      member_id: member.id,
+      member_name: member.name,
+      scanned_value: scannedValue.trim(),
+      method,
+      timestamp: now,
+      status: "failure",
+      reason_code: result.reason,
+      sync_status: "pending",
+      source: "offline",
+    });
     return {
       ...result,
       member: {
@@ -96,6 +121,20 @@ export async function offlineCheckIn(
     member.last_success_timestamp = now;
     await db.put("members", member);
   }
+
+  await putAttendanceLog({
+    id: operationId,
+    member_id: member.id,
+    member_name: member.name,
+    scanned_value: scannedValue.trim(),
+    method,
+    timestamp: now,
+    status: "success",
+    reason_code: "success",
+    sync_status: "pending",
+    operation_id: operationId,
+    source: "offline",
+  });
 
   return {
     ...result,

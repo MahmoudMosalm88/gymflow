@@ -9,14 +9,44 @@ import { deactivateExpiredSubscriptions } from "@/lib/subscription-status";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function toUnixSeconds(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.floor(parsed) : null;
+}
+
+function toNullableBoolean(value: unknown) {
+  if (typeof value === "boolean") return value;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
-    const payload = subscriptionRenewSchema.parse(await request.json());
+    const body = await request.json();
+    const payload = subscriptionRenewSchema.parse(body);
+    const expectedPreviousEndDate = toUnixSeconds((body as { expected_previous_end_date?: unknown })?.expected_previous_end_date);
+    const expectedPreviousIsActive = toNullableBoolean((body as { expected_previous_is_active?: unknown })?.expected_previous_is_active);
     const now = Math.floor(Date.now() / 1000);
     await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, now);
 
     const output = await withTransaction(async (client) => {
+      const memberRows = await client.query<{ id: string }>(
+        `SELECT id
+           FROM members
+          WHERE id = $1
+            AND organization_id = $2
+            AND branch_id = $3
+            AND deleted_at IS NULL
+          FOR UPDATE`,
+        [payload.member_id, auth.organizationId, auth.branchId]
+      );
+      if (!memberRows.rows[0]) {
+        throw Object.assign(new Error("Member not found"), { statusCode: 404 });
+      }
+
       const previousRows = await client.query<{
         id: number;
         member_id: string;
@@ -37,15 +67,25 @@ export async function POST(request: NextRequest) {
 
       const previous = previousRows.rows[0];
       if (!previous) {
-        throw new Error("Subscription not found");
+        throw Object.assign(new Error("Subscription not found"), { statusCode: 404 });
       }
 
       if (previous.member_id !== payload.member_id) {
-        throw new Error("Subscription does not belong to this member");
+        throw Object.assign(new Error("Subscription does not belong to this member"), { statusCode: 400 });
       }
 
       if (!previous.is_active && previous.end_date > now) {
-        throw new Error("Only enabled subscription cycles can be renewed");
+        throw Object.assign(new Error("Only enabled subscription cycles can be renewed"), { statusCode: 400 });
+      }
+
+      if (
+        (expectedPreviousEndDate !== null && previous.end_date !== expectedPreviousEndDate) ||
+        (expectedPreviousIsActive !== null && previous.is_active !== expectedPreviousIsActive)
+      ) {
+        throw Object.assign(new Error("This subscription changed on another device. Review and try again."), {
+          statusCode: 409,
+          code: "offline_conflict",
+        });
       }
 
       const nextStartDate = previous.end_date > now ? previous.end_date : now;
@@ -85,15 +125,10 @@ export async function POST(request: NextRequest) {
 
     return ok(output, { status: 201 });
   } catch (error) {
-    if (error instanceof Error && error.message === "Subscription not found") {
-      return fail(error.message, 404);
-    }
-    if (
-      error instanceof Error &&
-      (error.message === "Subscription does not belong to this member" ||
-        error.message === "Only enabled subscription cycles can be renewed")
-    ) {
-      return fail(error.message, 400);
+    if (typeof error === "object" && error && "statusCode" in error) {
+      return fail(error instanceof Error ? error.message : "Request failed", Number((error as { statusCode: number }).statusCode), {
+        code: typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : undefined,
+      });
     }
     return routeError(error);
   }

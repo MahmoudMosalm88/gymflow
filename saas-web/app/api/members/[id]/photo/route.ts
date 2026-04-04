@@ -20,6 +20,12 @@ function getPhotoBucketName() {
   return `${env.FIREBASE_PROJECT_ID}-gymflow-photos`;
 }
 
+function toUnixSeconds(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.floor(parsed) : null;
+}
+
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const auth = await requireAuth(request);
@@ -30,6 +36,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     const formData = await request.formData();
     const candidate = formData.get("photo");
+    const baseUpdatedAt = toUnixSeconds(formData.get("base_updated_at"));
     if (!(candidate instanceof File)) {
       return fail("Missing photo file", 400);
     }
@@ -42,8 +49,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return fail("Image must be under 5MB", 400);
     }
 
-    const rows = await query<{ id: string }>(
-      `SELECT id
+    const rows = await query<{ id: string; updated_at_unix: number }>(
+      `SELECT id,
+              EXTRACT(EPOCH FROM updated_at)::bigint AS updated_at_unix
          FROM members
         WHERE id = $1
           AND organization_id = $2
@@ -55,6 +63,11 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     if (!rows[0]) {
       return fail("Member not found", 404);
+    }
+    if (baseUpdatedAt !== null && Number(rows[0].updated_at_unix) !== baseUpdatedAt) {
+      return fail("This member was changed on another device. Review and try again.", 409, {
+        code: "offline_conflict",
+      });
     }
 
     const bucketName = getPhotoBucketName();

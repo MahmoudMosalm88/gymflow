@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { getCachedIncomePayments, getCachedIncomeSummary, getCachedMonthlyIncome, getCachedRecentPayments } from '@/lib/offline/read-model';
 import StatCard from '@/components/dashboard/StatCard';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -70,55 +71,67 @@ export default function IncomePage() {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const [s, m, p] = await Promise.allSettled([
-        api.get<Summary>('/api/income/summary'),
-        api.get<MonthlyRow[]>('/api/income/monthly'),
-        api.get<PaymentsResponse>('/api/income/payments?limit=10&offset=0'),
-      ]);
+      try {
+        const [s, m, p] = await Promise.allSettled([
+          api.get<Summary>('/api/income/summary'),
+          api.get<MonthlyRow[]>('/api/income/monthly'),
+          api.get<PaymentsResponse>('/api/income/payments?limit=10&offset=0'),
+        ]);
 
-      const recentFallback = await api.get<Payment[]>('/api/income/recent?limit=10').catch(() => null);
+        const recentFallback = await api.get<Payment[]>('/api/income/recent?limit=10').catch(() => null);
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      if (s.status === 'fulfilled' && s.value.data) {
-        setSummary(s.value.data);
-      }
-      if (m.status === 'fulfilled' && m.value.data) {
-        setMonthly(m.value.data);
-      }
-      const paymentsData = p.status === 'fulfilled' ? p.value.data : undefined;
-      const paymentsRows = Array.isArray((paymentsData as unknown as { data?: unknown })?.data)
-        ? ((paymentsData as unknown as { data: Payment[] }).data)
-        : Array.isArray(paymentsData)
-          ? (paymentsData as unknown as Payment[])
+        if (s.status === 'fulfilled' && s.value.data) {
+          setSummary(s.value.data);
+        }
+        if (m.status === 'fulfilled' && m.value.data) {
+          setMonthly(m.value.data);
+        }
+        const paymentsData = p.status === 'fulfilled' ? p.value.data : undefined;
+        const paymentsRows = Array.isArray((paymentsData as unknown as { data?: unknown })?.data)
+          ? ((paymentsData as unknown as { data: Payment[] }).data)
+          : Array.isArray(paymentsData)
+            ? (paymentsData as unknown as Payment[])
+            : [];
+
+        const fallbackRows = recentFallback?.data && Array.isArray(recentFallback.data)
+          ? recentFallback.data
           : [];
 
-      const fallbackRows = recentFallback?.data && Array.isArray(recentFallback.data)
-        ? recentFallback.data
-        : [];
+        let mergedRecent = paymentsRows.length > 0 ? paymentsRows : fallbackRows;
 
-      let mergedRecent = paymentsRows.length > 0 ? paymentsRows : fallbackRows;
-
-      // Last-resort retry without x-branch-id header to recover from stale local branch context.
-      if (mergedRecent.length === 0) {
-        const noBranchPayments = await fetchWithoutBranch<PaymentsResponse>('/api/income/payments?limit=10&offset=0');
-        if (noBranchPayments?.data && Array.isArray(noBranchPayments.data) && noBranchPayments.data.length > 0) {
-          mergedRecent = noBranchPayments.data;
-        } else {
-          const noBranchRecent = await fetchWithoutBranch<Payment[]>('/api/income/recent?limit=10');
-          if (Array.isArray(noBranchRecent) && noBranchRecent.length > 0) {
-            mergedRecent = noBranchRecent;
+        if (mergedRecent.length === 0) {
+          const noBranchPayments = await fetchWithoutBranch<PaymentsResponse>('/api/income/payments?limit=10&offset=0');
+          if (noBranchPayments?.data && Array.isArray(noBranchPayments.data) && noBranchPayments.data.length > 0) {
+            mergedRecent = noBranchPayments.data;
+          } else {
+            const noBranchRecent = await fetchWithoutBranch<Payment[]>('/api/income/recent?limit=10');
+            if (Array.isArray(noBranchRecent) && noBranchRecent.length > 0) {
+              mergedRecent = noBranchRecent;
+            }
           }
         }
-      }
 
-      if (mergedRecent.length > 0) {
-        setRecent(mergedRecent);
+        if (mergedRecent.length > 0) {
+          setRecent(mergedRecent);
+          setRecentError(false);
+        } else {
+          const paymentsFailed = p.status !== 'fulfilled' || !p.value.success;
+          const fallbackFailed = !recentFallback || !recentFallback.success;
+          setRecentError(paymentsFailed && fallbackFailed);
+        }
+      } catch {
+        if (!mounted) return;
+        const [summaryData, monthlyData, recentData] = await Promise.all([
+          getCachedIncomeSummary(),
+          getCachedMonthlyIncome(),
+          getCachedRecentPayments(10),
+        ]);
+        setSummary(summaryData);
+        setMonthly(monthlyData as MonthlyRow[]);
+        setRecent(recentData as Payment[]);
         setRecentError(false);
-      } else {
-        const paymentsFailed = p.status !== 'fulfilled' || !p.value.success;
-        const fallbackFailed = !recentFallback || !recentFallback.success;
-        setRecentError(paymentsFailed && fallbackFailed);
       }
 
       setLoading(false);

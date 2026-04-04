@@ -5,7 +5,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
+import { useAuth } from '@/lib/use-auth';
 import { formatDate, formatDateTime, formatCurrency } from '@/lib/format';
+import { getCachedMemberDetail } from '@/lib/offline/read-model';
+import { saveSubscriptionRenew } from '@/lib/offline/actions';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 
 import { Button } from '@/components/ui/button';
@@ -48,6 +51,24 @@ type Member = {
   address?: string;
   created_at: number;
   updated_at: number;
+  trainer_staff_user_id?: string | null;
+  trainer_name?: string | null;
+  trainer_phone?: string | null;
+  trainer_email?: string | null;
+  trainer_assigned_at?: string | null;
+};
+
+type TrainerOption = {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  accepted_at: string | null;
+  is_active: boolean;
+  gender: 'male' | 'female' | null;
+  languages: string[];
+  specialties: string[];
+  beginner_friendly: boolean;
 };
 
 type SubscriptionRaw = {
@@ -64,6 +85,7 @@ type SubscriptionRaw = {
 
 type Subscription = SubscriptionRaw & {
   status: 'active' | 'expired' | 'pending';
+  sync_status?: string;
 };
 
 function deriveStatus(sub: SubscriptionRaw): 'active' | 'expired' | 'pending' {
@@ -79,13 +101,14 @@ function deriveStatus(sub: SubscriptionRaw): 'active' | 'expired' | 'pending' {
 }
 
 type AttendanceLog = {
-  id: number;
+  id: number | string;
   timestamp: number;
   method: string;
+  sync_status?: string;
 };
 
 type Payment = {
-  id: number;
+  id: number | string;
   amount: string;
   type: string;
   note: string | null;
@@ -94,6 +117,7 @@ type Payment = {
   guest_pass_id: string | null;
   plan_months: number | null;
   sessions_per_month: number | null;
+  sync_status?: string;
 };
 
 function getMethodLabels(labels: Record<string, string>): Record<string, string> {
@@ -110,13 +134,19 @@ export default function MemberDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { lang } = useLang();
+  const { profile, loading: authLoading } = useAuth();
   const labels = t[lang];
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
+  const isTrainer = profile?.role === 'trainer';
+  const canManageTrainer = profile?.role !== 'trainer';
 
   const [member, setMember] = useState<Member | null>(null);
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [attendance, setAttendance] = useState<AttendanceLog[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [trainers, setTrainers] = useState<TrainerOption[]>([]);
+  const [assigningTrainer, setAssigningTrainer] = useState(false);
+  const [trainerMessage, setTrainerMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [waFeedback, setWaFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
   const [sendingWaType, setSendingWaType] = useState<'welcome' | 'qr_code' | null>(null);
@@ -128,42 +158,60 @@ export default function MemberDetailPage() {
   const [showSubscriptionHistory, setShowSubscriptionHistory] = useState(false);
 
   const loadMemberData = useCallback(async () => {
+    if (authLoading) return;
     setLoading(true);
     try {
-      const [memberRes, subsRes, attRes, payRes] = await Promise.all([
-        api.get<Member>(`/api/members/${id}`),
-        api.get<SubscriptionRaw[]>(`/api/subscriptions?member_id=${id}`),
-        api.get<AttendanceLog[]>(`/api/attendance/logs?member_id=${id}&limit=20`),
-        api.get<Payment[]>(`/api/payments?member_id=${id}`),
-      ]);
+      if (navigator.onLine) {
+        const [memberRes, subsRes, attRes, payRes, trainersRes] = await Promise.all([
+          api.get<Member>(`/api/members/${id}`),
+          isTrainer ? Promise.resolve({ success: true, data: [] as SubscriptionRaw[] }) : api.get<SubscriptionRaw[]>(`/api/subscriptions?member_id=${id}`),
+          api.get<AttendanceLog[]>(`/api/attendance/logs?member_id=${id}&limit=20`),
+          isTrainer ? Promise.resolve({ success: true, data: [] as Payment[] }) : api.get<Payment[]>(`/api/payments?member_id=${id}`),
+          canManageTrainer ? api.get<TrainerOption[]>('/api/trainers') : Promise.resolve({ success: true, data: [] as TrainerOption[] }),
+        ]);
 
-      if (!memberRes.success || !memberRes.data) {
+        if (memberRes.success && memberRes.data) {
+          setMember(memberRes.data);
+          setSubs((subsRes.data ?? []).map((subscription) => ({ ...subscription, status: deriveStatus(subscription) })));
+          setAttendance(attRes.data ?? []);
+          setPayments(payRes.data ?? []);
+          setTrainers(trainersRes.data ?? []);
+          return;
+        }
+      }
+
+      const cached = await getCachedMemberDetail(id);
+      if (!cached) {
         setMember(null);
         setSubs([]);
         setAttendance([]);
         setPayments([]);
+        setTrainers([]);
         return;
       }
 
-      setMember(memberRes.data);
-      setSubs((subsRes.data ?? []).map((subscription) => ({ ...subscription, status: deriveStatus(subscription) })));
-      setAttendance(attRes.data ?? []);
-      setPayments(payRes.data ?? []);
+      setMember(cached.member as Member);
+      setSubs((cached.subscriptions ?? []).map((subscription) => ({ ...subscription, status: deriveStatus(subscription) } as Subscription)));
+      setAttendance((cached.attendance ?? []) as AttendanceLog[]);
+      setPayments((cached.payments ?? []) as Payment[]);
+      setTrainers([]);
     } catch {
-      setMember(null);
-      setSubs([]);
-      setAttendance([]);
-      setPayments([]);
+      const cached = await getCachedMemberDetail(id);
+      setMember((cached?.member as Member) ?? null);
+      setSubs(((cached?.subscriptions ?? []) as Subscription[]).map((subscription) => ({ ...subscription, status: deriveStatus(subscription) })));
+      setAttendance((cached?.attendance ?? []) as AttendanceLog[]);
+      setPayments((cached?.payments ?? []) as Payment[]);
+      setTrainers([]);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [authLoading, canManageTrainer, id, isTrainer]);
 
   useEffect(() => {
     void loadMemberData();
   }, [loadMemberData]);
 
-  if (loading) return <LoadingSpinner size="lg" />;
+  if (loading || authLoading) return <LoadingSpinner size="lg" />;
 
   if (!member) {
     return (
@@ -210,6 +258,29 @@ export default function MemberDetailPage() {
     }
   }
 
+  async function assignTrainer(trainerStaffUserId: string | null) {
+    if (!member || assigningTrainer || !canManageTrainer) return;
+    setAssigningTrainer(true);
+    setTrainerMessage('');
+    try {
+      const res = await api.patch(`/api/members/${member.id}/trainer`, {
+        trainer_staff_user_id: trainerStaffUserId,
+      });
+      if (!res.success) {
+        setTrainerMessage(res.message || (lang === 'ar' ? 'تعذر تحديث المدرب.' : 'Could not update trainer assignment.'));
+        return;
+      }
+      await loadMemberData();
+      setTrainerMessage(
+        trainerStaffUserId
+          ? (lang === 'ar' ? 'تم تحديث إسناد المدرب.' : 'Trainer assignment updated.')
+          : (lang === 'ar' ? 'تم إزالة المدرب من هذا العميل.' : 'Trainer removed from this client.')
+      );
+    } finally {
+      setAssigningTrainer(false);
+    }
+  }
+
   const primarySubs = subs.filter((sub) => sub.status === 'active' || sub.status === 'pending');
   const fallbackExpiredSub = primarySubs.length === 0 ? subs.find((sub) => sub.status === 'expired') ?? null : null;
   const visibleSubs = fallbackExpiredSub ? [fallbackExpiredSub] : primarySubs;
@@ -231,23 +302,20 @@ export default function MemberDetailPage() {
     setRenewError('');
     try {
       const renewalAmount = renewForm.price_paid ? parseFloat(renewForm.price_paid) : 0;
-      const res = await api.post('/api/subscriptions/renew', {
-        member_id: member.id,
-        previous_subscription_id: Number(renewSub.id),
-        plan_months: parseInt(renewForm.plan_months, 10) || 1,
-        price_paid: renewalAmount,
-        sessions_per_month: renewForm.sessions_per_month ? parseInt(renewForm.sessions_per_month, 10) : null,
+      const res = await saveSubscriptionRenew({
+        memberId: member.id,
+        memberName: member.name,
+        previousSubscriptionId: Number(renewSub.id),
+        expectedPreviousEndDate: renewSub.end_date,
+        expectedPreviousIsActive: renewSub.is_active,
+        planMonths: parseInt(renewForm.plan_months, 10) || 1,
+        pricePaid: renewalAmount,
+        sessionsPerMonth: renewForm.sessions_per_month ? parseInt(renewForm.sessions_per_month, 10) : null,
       });
 
-      if (!res.success) throw new Error(res.message || labels.error);
+      if (!res.success) throw new Error(labels.error);
 
-      // Refresh subs list and payment history
-      const [subsRes, payRes] = await Promise.all([
-        api.get<SubscriptionRaw[]>(`/api/subscriptions?member_id=${id}&include_history=1`),
-        api.get<Payment[]>(`/api/payments?member_id=${id}`),
-      ]);
-      setSubs((subsRes.data ?? []).map((s) => ({ ...s, status: deriveStatus(s) })));
-      setPayments(payRes.data ?? []);
+      await loadMemberData();
       setRenewSub(null);
     } catch (err: any) {
       setRenewError(err?.message || labels.error);
@@ -275,40 +343,42 @@ export default function MemberDetailPage() {
           </Button>
           <h1 className="text-3xl font-bold">{member.name}</h1>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => router.push(`/dashboard/members/${id}/edit`)} variant="outline">
-            <Pencil1Icon className="me-2 h-4 w-4" />
-            {labels.edit}
-          </Button>
-          <Button onClick={() => router.push(`/dashboard/subscriptions?member_id=${id}&new=1`)}>
-            <PlusIcon className="me-2 h-4 w-4" />
-            {labels.add_subscription}
-          </Button>
-          <DropdownMenu dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">{labels.open_menu}</span>
-                <DotsHorizontalIcon className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align={lang === 'ar' ? 'start' : 'end'}>
-              <DropdownMenuLabel>{labels.member_actions}</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => sendWhatsApp('qr_code')} disabled={sendingWaType !== null}>
-                {lang === 'ar' ? 'إرسال رمز الدخول' : 'Send Check-in Code'}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => sendWhatsApp('welcome')} disabled={sendingWaType !== null}>
-                {lang === 'ar' ? 'إرسال رسالة ترحيب' : 'Send Welcome Message'}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => router.push('/dashboard/members')}
-              >
-                {labels.delete_member}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        {!isTrainer ? (
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => router.push(`/dashboard/members/${id}/edit`)} variant="outline">
+              <Pencil1Icon className="me-2 h-4 w-4" />
+              {labels.edit}
+            </Button>
+            <Button onClick={() => router.push(`/dashboard/subscriptions?member_id=${id}&new=1`)}>
+              <PlusIcon className="me-2 h-4 w-4" />
+              {labels.add_subscription}
+            </Button>
+            <DropdownMenu dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">{labels.open_menu}</span>
+                  <DotsHorizontalIcon className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align={lang === 'ar' ? 'start' : 'end'}>
+                <DropdownMenuLabel>{labels.member_actions}</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => sendWhatsApp('qr_code')} disabled={sendingWaType !== null}>
+                  {lang === 'ar' ? 'إرسال رمز الدخول' : 'Send Check-in Code'}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => sendWhatsApp('welcome')} disabled={sendingWaType !== null}>
+                  {lang === 'ar' ? 'إرسال رسالة ترحيب' : 'Send Welcome Message'}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => router.push('/dashboard/members')}
+                >
+                  {labels.delete_member}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ) : null}
       </div>
       {waFeedback && (
         <Alert variant={waFeedback.type}>
@@ -328,6 +398,7 @@ export default function MemberDetailPage() {
               memberId={member.id}
               name={member.name}
               photoPath={member.photo_path}
+              updatedAt={member.updated_at}
               onPhotoChange={(url) => setMember({ ...member, photo_path: url })}
             />
           </div>
@@ -341,9 +412,62 @@ export default function MemberDetailPage() {
         </CardContent>
       </Card>
 
-      <MemberGuestInvitesCard memberId={member.id} />
+      <Card>
+        <CardHeader>
+          <CardTitle>{lang === 'ar' ? 'المدرب المسؤول' : 'Assigned Trainer'}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {member.trainer_name ? (
+            <div className="rounded-md border border-border p-4">
+              <div className="flex flex-col gap-1">
+                <p className="font-medium text-foreground">{member.trainer_name}</p>
+                <p className="text-sm text-muted-foreground" dir="ltr">{member.trainer_phone || ''}</p>
+                {member.trainer_email ? <p className="text-sm text-muted-foreground">{member.trainer_email}</p> : null}
+                {member.trainer_assigned_at ? (
+                  <p className="text-xs text-muted-foreground">
+                    {lang === 'ar' ? 'تاريخ الإسناد:' : 'Assigned:'} {formatDate(Date.parse(member.trainer_assigned_at) / 1000, locale)}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {lang === 'ar' ? 'لا يوجد مدرب مسند لهذا العميل حالياً.' : 'No trainer is assigned to this client yet.'}
+            </p>
+          )}
+
+          {canManageTrainer ? (
+            <div className="space-y-2">
+              <Label htmlFor="trainer-assignment">{lang === 'ar' ? 'تغيير المدرب' : 'Assign trainer'}</Label>
+              <select
+                id="trainer-assignment"
+                className="flex h-10 w-full border border-input bg-background px-3 py-2 text-sm"
+                value={member.trainer_staff_user_id || ''}
+                onChange={(event) => {
+                  const value = event.target.value || null;
+                  void assignTrainer(value);
+                }}
+                disabled={assigningTrainer}
+              >
+                <option value="">{lang === 'ar' ? 'بدون مدرب' : 'No trainer'}</option>
+                {trainers
+                  .filter((trainer) => trainer.is_active)
+                  .map((trainer) => (
+                    <option key={trainer.id} value={trainer.id}>
+                      {trainer.name}
+                    </option>
+                  ))}
+              </select>
+              {trainerMessage ? <p className="text-sm text-muted-foreground">{trainerMessage}</p> : null}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {!isTrainer ? <MemberGuestInvitesCard memberId={member.id} /> : null}
 
       {/* Subscriptions section */}
+      {!isTrainer ? (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-lg font-semibold">{labels.subscriptions}</CardTitle>
@@ -390,6 +514,11 @@ export default function MemberDetailPage() {
                       >
                         {sub.status === 'active' ? labels.active : sub.status === 'expired' ? labels.expired : labels.pending}
                       </Badge>
+                      {sub.sync_status && sub.sync_status !== 'synced' ? (
+                        <Badge variant="outline" className="border-warning/30 text-warning">
+                          {lang === 'ar' ? 'بانتظار المزامنة' : 'Pending sync'}
+                        </Badge>
+                      ) : null}
                       {sub.status === 'active' && (
                         <Button size="sm" className="bg-[#3b82f6] hover:bg-[#2563eb] text-white" onClick={() => setFreezeSubId(String(sub.id))}>
                           {labels.freeze_subscription}
@@ -424,6 +553,11 @@ export default function MemberDetailPage() {
                           <Badge className="bg-destructive hover:bg-destructive/90">
                             {labels.expired}
                           </Badge>
+                          {sub.sync_status && sub.sync_status !== 'synced' ? (
+                            <Badge variant="outline" className="border-warning/30 text-warning">
+                              {lang === 'ar' ? 'بانتظار المزامنة' : 'Pending sync'}
+                            </Badge>
+                          ) : null}
                         </div>
                       </div>
                     </Card>
@@ -434,11 +568,13 @@ export default function MemberDetailPage() {
           )}
         </CardContent>
       </Card>
+      ) : null}
 
       {/* Freeze subscription dialog */}
-      {freezeSubId ? (
+      {!isTrainer && freezeSubId ? (
         <FreezeDialog
           subscriptionId={freezeSubId}
+          expectedEndDate={subs.find((item) => String(item.id) === freezeSubId)?.end_date}
           open={!!freezeSubId}
           onOpenChange={(open) => {
             if (!open) setFreezeSubId(null);
@@ -451,6 +587,7 @@ export default function MemberDetailPage() {
       ) : null}
 
       {/* Renew subscription modal */}
+      {!isTrainer ? (
       <Dialog open={!!renewSub} onOpenChange={(o) => { if (!o) setRenewSub(null); }}>
         <DialogContent className="max-w-md" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
           <DialogHeader>
@@ -527,8 +664,10 @@ export default function MemberDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+      ) : null}
 
       {/* Payment History section */}
+      {!isTrainer ? (
       <Card>
         <CardHeader>
           <CardTitle className="text-lg font-semibold">
@@ -564,7 +703,14 @@ export default function MemberDetailPage() {
                         {pay.note && ` · ${pay.note}`}
                       </p>
                     </div>
-                    <p className="text-sm font-semibold text-success">{formatCurrency(parseFloat(pay.amount))}</p>
+                    <div className="flex items-center gap-2">
+                      {pay.sync_status && pay.sync_status !== 'synced' ? (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 border border-warning/30 text-warning bg-warning/10">
+                          {lang === 'ar' ? 'بانتظار المزامنة' : 'Pending sync'}
+                        </span>
+                      ) : null}
+                      <p className="text-sm font-semibold text-success">{formatCurrency(parseFloat(pay.amount))}</p>
+                    </div>
                   </div>
                 );
               })}
@@ -572,6 +718,7 @@ export default function MemberDetailPage() {
           )}
         </CardContent>
       </Card>
+      ) : null}
 
       {/* Attendance section */}
       <Card>
@@ -585,7 +732,14 @@ export default function MemberDetailPage() {
             <div className="divide-y divide-border">
               {attendance.map((rec) => (
                 <div key={rec.id} className="flex items-center justify-between py-3">
-                  <span className="text-sm">{formatDateTime(rec.timestamp, locale)}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">{formatDateTime(rec.timestamp, locale)}</span>
+                    {rec.sync_status && rec.sync_status !== 'synced' ? (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 border border-warning/30 text-warning bg-warning/10">
+                        {lang === 'ar' ? 'بانتظار المزامنة' : 'Pending sync'}
+                      </span>
+                    ) : null}
+                  </div>
                   <span className="text-xs text-muted-foreground">{getMethodLabels(labels)[rec.method] ?? rec.method.replace(/_/g, ' ')}</span>
                 </div>
               ))}

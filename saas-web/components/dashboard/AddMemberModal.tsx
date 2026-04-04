@@ -4,9 +4,9 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { toUnixSeconds } from '@/lib/subscription-dates';
+import { saveMemberWithSubscription } from '@/lib/offline/actions';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -106,47 +106,31 @@ export default function AddMemberModal({ open, onClose, onSuccess }: Props) {
     setError('');
 
     try {
-      // 1. Create the member
-      const memberRes = await api.post<{ id: string }>('/api/members', {
+      let startDate: Date;
+      if (data.is_existing && data.start_date_str) {
+        startDate = parseDateInput(data.start_date_str);
+      } else {
+        startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+      }
+
+      const startTs = toUnixSeconds(startDate);
+
+      const result = await saveMemberWithSubscription({
         name: data.name,
         phone: data.phone,
         gender: data.gender,
         access_tier: data.access_tier,
         card_code: data.card_code || null,
         address: data.address || null,
-      });
-
-      if (!memberRes.success || !memberRes.data?.id) {
-        throw new Error(memberRes.message || labels.error);
-      }
-
-      const memberId = memberRes.data.id;
-
-      // 2. Compute start & end dates
-      const planMonths = parseInt(data.plan_months, 10);
-
-      let startDate: Date;
-      if (data.is_existing && data.start_date_str) {
-        startDate = parseDateInput(data.start_date_str);
-      } else {
-        startDate = new Date();
-        // Normalize to start of day
-        startDate.setHours(0, 0, 0, 0);
-      }
-
-      const startTs = toUnixSeconds(startDate);
-
-      // 3. Create the subscription
-      const subRes = await api.post('/api/subscriptions', {
-        member_id: memberId,
         start_date: startTs,
-        plan_months: planMonths,
+        plan_months: parseInt(data.plan_months, 10),
         sessions_per_month: data.sessions_per_month ?? null,
         price_paid: data.price_paid ?? null,
       });
 
-      if (!subRes.success) {
-        throw new Error(subRes.message || labels.error);
+      if (!result.success) {
+        throw new Error(labels.error);
       }
 
       handleClose();

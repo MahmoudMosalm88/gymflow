@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
+import { saveMemberPhoto } from '@/lib/offline/actions';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 
 type Props = {
@@ -10,6 +10,7 @@ type Props = {
   name: string;
   photoPath?: string;
   onPhotoChange: (url: string) => void;
+  updatedAt?: number;
 };
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -38,7 +39,7 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
-export default function MemberAvatar({ memberId, name, photoPath, onPhotoChange }: Props) {
+export default function MemberAvatar({ memberId, name, photoPath, onPhotoChange, updatedAt }: Props) {
   const { lang } = useLang();
   const labels = t[lang];
   const fileRef = useRef<HTMLInputElement>(null);
@@ -79,14 +80,13 @@ export default function MemberAvatar({ memberId, name, photoPath, onPhotoChange 
     setPreview(objectUrlRef.current);
 
     try {
-      const body = new FormData();
-      body.append('photo', file);
-
-      const uploadRes = await api.postFormData<{ photo_path?: string | null }>(
-        `/api/members/${memberId}/photo`,
-        body
-      );
-      const savedUrl = buildPreviewUrl(uploadRes.data?.photo_path || '');
+      const uploadRes = await saveMemberPhoto({
+        memberId,
+        file,
+        previewUrl: objectUrlRef.current,
+        baseUpdatedAt: updatedAt ?? null,
+      });
+      const savedUrl = buildPreviewUrl(uploadRes.photoPath || '');
       await preloadImage(savedUrl);
 
       if (objectUrlRef.current) {

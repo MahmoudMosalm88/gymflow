@@ -5,7 +5,9 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
+import { useAuth } from '@/lib/use-auth';
 import { formatDate } from '@/lib/format';
+import { getCachedMembers } from '@/lib/offline/read-model';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 
 import { Button } from '@/components/ui/button';
@@ -45,15 +47,19 @@ type Member = {
   name: string;
   phone: string;
   gender: 'male' | 'female';
-  card_code?: string;
+  card_code?: string | null;
   created_at: number;
   sub_status: 'active' | 'expired' | 'no_sub';
+  trainer_name?: string | null;
+  sync_status?: string;
 };
 
 export default function MembersPage() {
   const router = useRouter();
   const { lang } = useLang();
+  const { profile } = useAuth();
   const labels = t[lang];
+  const isTrainer = profile?.role === 'trainer';
 
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,9 +80,21 @@ export default function MembersPage() {
     try {
       const url = q ? `/api/members?q=${encodeURIComponent(q)}` : '/api/members';
       const res = await api.get<Member[]>(url);
-      setMembers(res.data ?? []);
+      if (res.data) {
+        setMembers(res.data);
+      } else {
+        try {
+      setMembers((await getCachedMembers(q || '')) as Member[]);
+        } catch {
+          // silently fail — table will show "no data"
+        }
+      }
     } catch {
-      // silently fail — table will show "no data"
+      try {
+        setMembers(await getCachedMembers(q || ''));
+      } catch {
+        // silently fail — table will show "no data"
+      }
     } finally {
       setLoading(false);
     }
@@ -86,6 +104,43 @@ export default function MembersPage() {
   useEffect(() => {
     fetchMembers();
   }, [fetchMembers]);
+
+  useEffect(() => {
+    if (!navigator.onLine || members.length === 0 || typeof caches === 'undefined') return;
+
+    const visibleMembers = members.slice(0, 25);
+    const routes = visibleMembers.flatMap((member) =>
+      isTrainer
+        ? [`/dashboard/members/${member.id}`]
+        : [`/dashboard/members/${member.id}`, `/dashboard/members/${member.id}/edit`]
+    );
+
+    routes.forEach((route) => {
+      router.prefetch(route);
+    });
+
+    void (async () => {
+      try {
+        const cache = await caches.open('gymflow-shell-v3');
+        await Promise.all(routes.map(async (route) => {
+          try {
+            const response = await fetch(route, {
+              cache: 'no-store',
+              credentials: 'same-origin',
+              headers: { accept: 'text/html' },
+            });
+            if (response.ok) {
+              await cache.put(route, response.clone());
+            }
+          } catch {
+            // Ignore individual route warm failures.
+          }
+        }));
+      } catch {
+        // Ignore cache warm failures.
+      }
+    })();
+  }, [isTrainer, members, router]);
 
   // Re-fetch when search changes (with debounce)
   useEffect(() => {
@@ -124,6 +179,7 @@ export default function MembersPage() {
     { key: 'name',       label: labels.name,     className: 'w-[150px]' },
     { key: 'sub_status', label: labels.status,   className: '' },
     { key: 'phone',      label: labels.phone,    className: 'hidden sm:table-cell' },
+    { key: 'trainer_name', label: lang === 'ar' ? 'المدرب' : 'Trainer', className: 'hidden md:table-cell' },
     { key: 'gender',     label: labels.gender,   className: 'hidden md:table-cell' },
     { key: 'card_code',  label: labels.card_code, className: 'hidden lg:table-cell' },
     { key: 'created_at', label: labels.date,     className: 'hidden lg:table-cell' },
@@ -134,10 +190,12 @@ export default function MembersPage() {
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
       {/* Header row: title + add button */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold">{labels.members}</h1>
-        <Button onClick={() => setAddOpen(true)} className="text-base">
-          + {labels.add_member}
-        </Button>
+        <h1 className="text-3xl font-bold">{isTrainer ? (lang === 'ar' ? 'عملائي' : 'My Clients') : labels.members}</h1>
+        {!isTrainer ? (
+          <Button onClick={() => setAddOpen(true)} className="text-base">
+            + {labels.add_member}
+          </Button>
+        ) : null}
       </div>
 
       {/* Search + filter */}
@@ -200,8 +258,14 @@ export default function MembersPage() {
                           ? labels.expired
                           : labels.no_sub}
                       </span>
+                      {member.sync_status && member.sync_status !== 'synced' ? (
+                        <span className="ms-2 inline-block text-[10px] font-semibold px-1.5 py-0.5 border border-warning/30 text-warning bg-warning/10">
+                          {lang === 'ar' ? 'بانتظار المزامنة' : 'Pending sync'}
+                        </span>
+                      ) : null}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell" dir="ltr">{member.phone}</TableCell>
+                    <TableCell className="hidden md:table-cell">{member.trainer_name || '—'}</TableCell>
                     <TableCell className="hidden md:table-cell">
                       {member.gender === 'male' ? labels.male : labels.female}
                     </TableCell>
@@ -210,36 +274,38 @@ export default function MembersPage() {
                       {formatDate(member.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')}
                     </TableCell>
                     <TableCell className="text-end">
-                      <DropdownMenu dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">{labels.open_menu}</span>
-                            <DotsHorizontalIcon className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align={lang === 'ar' ? 'start' : 'end'}>
-                          <DropdownMenuLabel>{labels.actions}</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/dashboard/members/${member.id}`);
-                          }}>
-                            {labels.view}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/dashboard/members/${member.id}/edit`);
-                          }}>
-                            {labels.edit}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive" onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleteTarget(member);
-                          }}>
-                            {labels.delete}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {!isTrainer ? (
+                        <DropdownMenu dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">{labels.open_menu}</span>
+                              <DotsHorizontalIcon className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align={lang === 'ar' ? 'start' : 'end'}>
+                            <DropdownMenuLabel>{labels.actions}</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/dashboard/members/${member.id}`);
+                            }}>
+                              {labels.view}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/dashboard/members/${member.id}/edit`);
+                            }}>
+                              {labels.edit}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive" onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTarget(member);
+                            }}>
+                              {labels.delete}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 ))
@@ -256,7 +322,7 @@ export default function MembersPage() {
       )}
 
       {/* Add member modal */}
-      {addOpen ? (
+      {!isTrainer && addOpen ? (
         <AddMemberModal
           open={addOpen}
           onClose={() => setAddOpen(false)}

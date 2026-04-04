@@ -9,6 +9,12 @@ import { deactivateExpiredSubscriptions } from "@/lib/subscription-status";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function toNullablePositiveInt(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
@@ -99,7 +105,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
-    const payload = subscriptionSchema.parse(await request.json());
+    const body = await request.json();
+    const payload = subscriptionSchema.parse(body);
+    const expectedActiveSubscriptionId = toNullablePositiveInt((body as { expected_active_subscription_id?: unknown })?.expected_active_subscription_id);
     const hasLegacyEndDate =
       typeof payload.end_date === "number" &&
       Number.isFinite(payload.end_date) &&
@@ -109,6 +117,48 @@ export async function POST(request: NextRequest) {
       : calculateSubscriptionEndDateUnix(payload.start_date, payload.plan_months);
 
     const output = await withTransaction(async (client) => {
+      const memberRows = await client.query<{ id: string }>(
+        `SELECT id
+           FROM members
+          WHERE id = $1
+            AND organization_id = $2
+            AND branch_id = $3
+            AND deleted_at IS NULL
+          FOR UPDATE`,
+        [payload.member_id, auth.organizationId, auth.branchId]
+      );
+      if (!memberRows.rows[0]) {
+        throw Object.assign(new Error("Member not found"), { statusCode: 404 });
+      }
+
+      const currentRows = await client.query<{ id: number }>(
+        `SELECT id
+           FROM subscriptions
+          WHERE organization_id = $1
+            AND branch_id = $2
+            AND member_id = $3
+          ORDER BY
+            CASE
+              WHEN is_active = true AND start_date <= $4 AND end_date > $4 THEN 0
+              WHEN is_active = true AND start_date > $4 THEN 1
+              WHEN is_active = true THEN 2
+              ELSE 3
+            END,
+            start_date DESC,
+            end_date DESC,
+            created_at DESC
+          LIMIT 1`,
+        [auth.organizationId, auth.branchId, payload.member_id, Math.floor(Date.now() / 1000)]
+      );
+
+      const currentId = currentRows.rows[0]?.id ?? null;
+      if (currentId !== expectedActiveSubscriptionId) {
+        throw Object.assign(new Error("This member's subscription changed on another device. Review and try again."), {
+          statusCode: 409,
+          code: "offline_conflict",
+        });
+      }
+
       await client.query(
         `UPDATE subscriptions
             SET is_active = false
@@ -145,6 +195,11 @@ export async function POST(request: NextRequest) {
 
     return ok(output, { status: 201 });
   } catch (error) {
+    if (typeof error === "object" && error && "statusCode" in error) {
+      return fail(error instanceof Error ? error.message : "Request failed", Number((error as { statusCode: number }).statusCode), {
+        code: typeof error === "object" && error && "code" in error ? (error as { code?: string }).code : undefined,
+      });
+    }
     return routeError(error);
   }
 }

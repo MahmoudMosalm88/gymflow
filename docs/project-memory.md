@@ -1018,6 +1018,45 @@ docs/future_reports.md          — Backlogged report ideas
 
 ---
 
+### 2026-04-03 — PT / Staff Feature Autoresearch Pass
+
+**Goal**: pressure-test and improve the PT/staff feature spec with current competitor and UX research before any implementation starts.
+
+**What changed after research**:
+- the old PT/staff doc was re-scoped from one large feature into phased layers
+- the spec now locks these UX decisions:
+  - permission setup is preset-first, not blank-slate
+  - trainer home is schedule-first (`Today`)
+  - PT packages are client-owned entitlements, not trainer-owned balances
+  - package sale and session execution are separate flows
+  - MENA trainer matching needs language, specialty, location, and availability in addition to gender
+  - trainer reassignment and no-show policy need first-class design before build
+
+**Research loop status**:
+- rounds: `2`
+- agents: `8`
+- gaps filled: `12 / 12`
+- unfillable gaps: `0`
+
+**Artifacts saved**:
+- `docs/features/staff-and-pt-profiles.md`
+- `docs/features/staff-and-pt-profiles-research-log.md`
+- `memory/staff-pt-feature-round1.md`
+- `memory/staff-pt-feature-round2.md`
+- `memory/staff-pt-feature-knowledge.md`
+
+**Most important conclusion**:
+- the feature is worth building, but only in phases
+- staff auth + trainer assignment + PT package/session truth must land before scheduling, payroll, WhatsApp nudges, or public trainer pages
+
+**Activation flow locked after follow-up clarification**:
+- staff and trainer invites should be sent automatically over WhatsApp
+- owner enters phone number at invite time
+- invite opens in browser for activation/login first
+- PWA install prompt should appear only after successful login, not before
+
+---
+
 ### 2026-04-03 — Guest Invite Tracking MVP
 
 **Goal**: let gym owners track which member invited each guest, how many invites were used in the current cycle, and how many invites remain.
@@ -1098,3 +1137,97 @@ docs/future_reports.md          — Backlogged report ideas
   - guest-to-member conversion reporting
   - per-plan invite entitlements
   - richer guest-invite reporting
+
+### 2026-04-04 — Full Offline Core Ops v1
+
+**Goal**: expand GymFlow from offline check-in only to offline-capable core branch operations for `owner`, `manager`, and `staff`, while keeping `trainer` out of offline write flows.
+
+**What shipped**:
+- IndexedDB now stores offline caches for:
+  - members
+  - subscriptions
+  - freezes
+  - payments
+  - attendance logs
+  - typed offline operations
+- offline write queue added for:
+  - member create
+  - member update
+  - subscription create
+  - subscription renew
+  - subscription freeze
+- member photo uploads can now queue offline and sync later
+- dashboard, members, subscriptions, income, and member profile screens now fall back to cached offline data
+- pending offline records show up inline in normal UI with pending sync badges
+- sync status UI now reflects:
+  - offline/online state
+  - pending operation count
+  - failed review count
+  - stale-cache warnings
+- app can reopen offline on a device that already has cached branch state and a stored profile
+- logout now clears both IndexedDB offline data and service-worker shell caches
+
+**Conflict policy implemented**:
+- member updates can send `base_updated_at`
+- member photo uploads can also carry `base_updated_at`
+- subscription create can send `expected_active_subscription_id`
+- subscription renew can send:
+  - `expected_previous_end_date`
+  - `expected_previous_is_active`
+- subscription freeze can send `expected_subscription_end_date`
+- server routes now reject mismatches with `409` and `offline_conflict` details instead of silently overwriting newer data
+
+**Offline shell work**:
+- service worker upgraded from a generic offline fallback into a cached dashboard-shell strategy
+- cached same-origin HTML navigations are now reused for `/dashboard` routes when offline
+- `/_next/static/*` assets are now cached for offline app-shell startup
+- dashboard layout warms core offline routes while online
+- members list warms visible member detail and edit routes while online
+
+**Files involved**:
+- `saas-web/lib/offline/db.ts`
+- `saas-web/lib/offline/cache.ts`
+- `saas-web/lib/offline/operations.ts`
+- `saas-web/lib/offline/read-model.ts`
+- `saas-web/lib/offline/actions.ts`
+- `saas-web/lib/offline/check-in-engine.ts`
+- `saas-web/lib/offline/offline-bundle.ts`
+- `saas-web/lib/offline/sync-manager.ts`
+- `saas-web/lib/use-auth.ts`
+- `saas-web/lib/api-client.ts`
+- `saas-web/app/api/members/offline-bundle/route.ts`
+- `saas-web/app/api/members/[id]/route.ts`
+- `saas-web/app/api/members/[id]/photo/route.ts`
+- `saas-web/app/api/subscriptions/route.ts`
+- `saas-web/app/api/subscriptions/renew/route.ts`
+- `saas-web/app/api/subscriptions/[id]/freeze/route.ts`
+- `saas-web/app/dashboard/layout.tsx`
+- `saas-web/app/dashboard/page.tsx`
+- `saas-web/app/dashboard/members/page.tsx`
+- `saas-web/app/dashboard/members/new/page.tsx`
+- `saas-web/app/dashboard/members/[id]/page.tsx`
+- `saas-web/app/dashboard/members/[id]/edit/page.tsx`
+- `saas-web/app/dashboard/subscriptions/page.tsx`
+- `saas-web/app/dashboard/income/page.tsx`
+- `saas-web/app/dashboard/income/payments/page.tsx`
+- `saas-web/components/dashboard/AddMemberModal.tsx`
+- `saas-web/components/dashboard/FreezeDialog.tsx`
+- `saas-web/components/dashboard/MemberAvatar.tsx`
+- `saas-web/components/dashboard/SyncStatus.tsx`
+- `saas-web/public/sw.js`
+
+**Verification completed locally**:
+- `cd saas-web && npm run typecheck` ✅
+- `cd saas-web && rm -rf .next && npm run build` ✅
+- Playwright offline smoke using cached shell + seeded IndexedDB confirmed offline open for:
+  - `/dashboard`
+  - `/dashboard/members`
+  - `/dashboard/subscriptions`
+  - `/dashboard/members/00010`
+- smoke result confirmed cached UI rendered member and subscription data offline, including pending-sync badges
+
+**Important local build note**:
+- after one build pass, Next hit the known stale `.next` issue:
+  - `PageNotFoundError: Cannot find module for page: /_document`
+- clearing `.next` and rebuilding fixed it
+- for local verification after major Next changes, treat `rm -rf .next && npm run build` as the reliable path

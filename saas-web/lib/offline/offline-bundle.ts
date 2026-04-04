@@ -1,13 +1,13 @@
-/**
- * Fetches the offline bundle from the server and stores it in IndexedDB.
- * Called on dashboard load when online.
- */
-
 import { api } from "@/lib/api-client";
-import { getOfflineDb, type OfflineMember, type OfflineSettings } from "./db";
+import { getOfflineDb, type OfflineAttendanceLog, type OfflineFreeze, type OfflineMember, type OfflinePayment, type OfflineSettings, type OfflineSubscription } from "./db";
+import { replayPendingOfflineState } from "./operations";
 
 type BundleResponse = {
   members: OfflineMember[];
+  subscriptions: OfflineSubscription[];
+  freezes: OfflineFreeze[];
+  payments: OfflinePayment[];
+  attendanceLogs: OfflineAttendanceLog[];
   settings: OfflineSettings[];
   serverNow: number;
 };
@@ -17,35 +17,57 @@ export async function fetchAndStoreBundle(): Promise<boolean> {
     const res = await api.get<BundleResponse>("/api/members/offline-bundle");
     if (!res.data) return false;
 
-    const { members, settings, serverNow } = res.data;
+    const { members, subscriptions, freezes, payments, attendanceLogs, settings, serverNow } = res.data;
     const db = await getOfflineDb();
+    const tx = db.transaction(
+      [
+        "members",
+        "subscriptions",
+        "subscription_freezes",
+        "payments",
+        "attendance_logs",
+        "settings",
+        "sync_meta"
+      ],
+      "readwrite"
+    );
 
-    // Store members
-    const memberTx = db.transaction("members", "readwrite");
-    await memberTx.store.clear();
-    for (const m of members) {
-      await memberTx.store.put(m);
+    await Promise.all([
+      tx.objectStore("members").clear(),
+      tx.objectStore("subscriptions").clear(),
+      tx.objectStore("subscription_freezes").clear(),
+      tx.objectStore("payments").clear(),
+      tx.objectStore("attendance_logs").clear(),
+      tx.objectStore("settings").clear()
+    ]);
+
+    for (const member of members) {
+      await tx.objectStore("members").put(member);
     }
-    await memberTx.done;
-
-    // Store settings
-    const settingsTx = db.transaction("settings", "readwrite");
-    await settingsTx.store.clear();
-    for (const s of settings) {
-      await settingsTx.store.put(s);
+    for (const subscription of subscriptions) {
+      await tx.objectStore("subscriptions").put(subscription);
     }
-    await settingsTx.done;
+    for (const freeze of freezes) {
+      await tx.objectStore("subscription_freezes").put(freeze);
+    }
+    for (const payment of payments) {
+      await tx.objectStore("payments").put(payment);
+    }
+    for (const log of attendanceLogs) {
+      await tx.objectStore("attendance_logs").put(log);
+    }
+    for (const setting of settings) {
+      await tx.objectStore("settings").put(setting);
+    }
 
-    // Store sync metadata (server time offset)
     const clientNow = Math.floor(Date.now() / 1000);
-    const metaTx = db.transaction("sync_meta", "readwrite");
-    await metaTx.store.put({ key: "server_time_offset", value: serverNow - clientNow });
-    await metaTx.store.put({ key: "last_bundle_sync", value: clientNow });
-    await metaTx.done;
+    await tx.objectStore("sync_meta").put({ key: "server_time_offset", value: serverNow - clientNow });
+    await tx.objectStore("sync_meta").put({ key: "last_bundle_sync", value: clientNow });
+    await tx.done;
 
+    await replayPendingOfflineState();
     return true;
   } catch {
-    // Silently fail — offline bundle is best-effort
     return false;
   }
 }

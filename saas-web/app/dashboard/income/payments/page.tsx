@@ -6,6 +6,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { getCachedIncomePayments } from '@/lib/offline/read-model';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,6 +39,7 @@ export default function AllPaymentsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [search, setSearch] = useState('');
+  const [online, setOnline] = useState(true);
   const [editRow, setEditRow] = useState<Payment | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editDate, setEditDate] = useState('');
@@ -58,13 +60,26 @@ export default function AllPaymentsPage() {
           setHasMore(res.data.hasMore);
         }
       })
-      .catch(() => {})
+      .catch(async () => {
+        const cached = await getCachedIncomePayments(searchTerm, offset, LIMIT);
+        setPayments((prev) => append ? [...prev, ...cached.data] : cached.data);
+        setHasMore(cached.hasMore);
+      })
       .finally(() => setter(false));
   }, []);
 
   // Initial load
   useEffect(() => {
+    setOnline(navigator.onLine);
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
     fetchPayments('', 0, false);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
   }, [fetchPayments]);
 
   // Debounced search
@@ -218,6 +233,7 @@ export default function AllPaymentsPage() {
                             <button
                               type="button"
                               onClick={() => openEdit(p)}
+                              disabled={!online}
                               className="inline-flex h-8 w-8 items-center justify-center border border-border bg-card text-foreground hover:bg-secondary"
                               aria-label={lang === 'ar' ? 'تعديل الدفعة' : 'Edit payment'}
                             >
@@ -226,6 +242,7 @@ export default function AllPaymentsPage() {
                             <button
                               type="button"
                               onClick={() => handleDelete(p)}
+                              disabled={!online}
                               className="inline-flex h-8 w-8 items-center justify-center border border-border bg-card text-destructive hover:bg-secondary"
                               aria-label={lang === 'ar' ? 'حذف الدفعة' : 'Delete payment'}
                             >

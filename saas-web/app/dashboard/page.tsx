@@ -7,6 +7,7 @@ import { Camera } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatCurrencyCompact } from '@/lib/format';
+import { getCachedDashboardOverview, getCachedRecentActivity } from '@/lib/offline/read-model';
 import { useScanContext } from '@/lib/scan-context';
 import { submitCheckIn } from '@/lib/check-in/client';
 import { playDeniedFeedback, playSuccessFeedback } from '@/lib/check-in/feedback';
@@ -86,7 +87,16 @@ export default function DashboardPage() {
   const refreshOverview = useCallback(async () => {
     try {
       const res = await api.get<Overview>('/api/reports/overview');
-      if (res.data) setOverview(res.data);
+      if (res.data) {
+        setOverview(res.data);
+        return;
+      }
+    } catch {
+      // Fall through to offline cache.
+    }
+
+    try {
+      setOverview(await getCachedDashboardOverview());
     } catch {
       // Keep prior values on transient failures.
     } finally {
@@ -102,7 +112,13 @@ export default function DashboardPage() {
   const refreshActivity = useCallback(async () => {
     try {
       const res = await api.get<ActivityEntry[]>('/api/attendance/today');
-      if (res.data) setActivityLog(res.data);
+      if (res.data) {
+        setActivityLog(res.data);
+        return;
+      }
+    } catch {}
+    try {
+      setActivityLog((await getCachedRecentActivity(20)) as ActivityEntry[]);
     } catch {}
     setActivityLoading(false);
   }, []);
