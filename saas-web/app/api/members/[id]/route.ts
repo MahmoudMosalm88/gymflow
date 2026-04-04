@@ -3,7 +3,6 @@ import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { memberSchema } from "@/lib/validation";
-import { trainerHasMemberAccess } from "@/lib/trainers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,15 +50,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           AND m.deleted_at IS NULL`,
       [params.id, auth.organizationId, auth.branchId]
     );
-    if (auth.role === "trainer") {
-      const allowed = await trainerHasMemberAccess({
-        organizationId: auth.organizationId,
-        branchId: auth.branchId,
-        trainerStaffUserId: auth.staffUserId!,
-        memberId: params.id,
-      });
-      if (!allowed) return fail("Member not found", 404);
-    }
     if (!rows[0]) return fail("Member not found", 404);
     return ok(rows[0]);
   } catch (error) {
@@ -70,7 +60,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const auth = await requireAuth(request);
-    if (auth.role === "trainer") return fail("Forbidden", 403);
     const body = await request.json();
     const payload = memberSchema.partial().parse(body);
     const baseUpdatedAt = toUnixSeconds((body as { base_updated_at?: unknown })?.base_updated_at);
@@ -148,7 +137,6 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const auth = await requireAuth(request);
-    if (auth.role === "trainer") return fail("Forbidden", 403);
     const rows = await query(
       `UPDATE members
           SET deleted_at = NOW(),
