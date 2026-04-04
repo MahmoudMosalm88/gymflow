@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS logs (
   branch_id uuid NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
   member_id uuid REFERENCES members(id) ON DELETE SET NULL,
   scanned_value text NOT NULL,
-  method text NOT NULL DEFAULT 'scan' CHECK (method IN ('scan', 'manual')),
+  method text NOT NULL DEFAULT 'scan' CHECK (method IN ('scan', 'manual', 'camera')),
   timestamp bigint NOT NULL,
   status text NOT NULL CHECK (status IN ('success', 'failure')),
   reason_code text NOT NULL,
@@ -129,6 +129,13 @@ CREATE TABLE IF NOT EXISTS logs (
   offline_recorded_at bigint,
   created_at timestamptz NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE IF EXISTS logs
+  DROP CONSTRAINT IF EXISTS logs_method_check;
+
+ALTER TABLE IF EXISTS logs
+  ADD CONSTRAINT logs_method_check
+  CHECK (method IN ('scan', 'manual', 'camera'));
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_logs_operation_id_unique
   ON logs (organization_id, branch_id, operation_id)
