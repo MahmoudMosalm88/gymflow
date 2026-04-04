@@ -1,5 +1,6 @@
 node_modules
 .next
+.next*
 .git
 *.md
 .env*
@@ -8,7 +9,15 @@ infra/
 worker/
 scripts/
 dist/
+out/
+.tmp/
+.playwright-mcp/
+.ccb/
+.next_after_build_*/
+.next_devreset_*/
+.next_stale_*/
 .backups/
 .wwebjs_auth/
 .wwebjs_cache/
+test-results/
 *.tsbuildinfo
