@@ -640,12 +640,13 @@ async function scheduleRenewalRemindersForTenant(organizationId: string, branchI
   const maxWindowSec = nowSec + maxOffset * 24 * 60 * 60;
 
   const result = await pool.query(
-    `SELECT s.id AS subscription_id, s.member_id, s.end_date, m.name, m.phone
+    `SELECT s.id AS subscription_id, s.member_id, s.start_date, s.end_date, m.name, m.phone
        FROM subscriptions s
        JOIN members m ON m.id = s.member_id
       WHERE s.is_active = true
         AND s.organization_id = $1
         AND s.branch_id = $2
+        AND s.start_date <= $3
         AND s.end_date > $3
         AND s.end_date <= $4`,
     [organizationId, branchId, nowSec, maxWindowSec]
@@ -667,8 +668,16 @@ async function scheduleRenewalRemindersForTenant(organizationId: string, branchI
           AND status IN ('pending', 'sent', 'processing')
           AND payload->>'subscription_id' = $4
           AND payload->>'reminder_days' = $5
+          AND COALESCE(payload->>'cycle_end_date', '') = $6
         LIMIT 1`,
-      [organizationId, branchId, row.member_id, String(row.subscription_id), String(daysLeft)]
+      [
+        organizationId,
+        branchId,
+        row.member_id,
+        String(row.subscription_id),
+        String(daysLeft),
+        String(row.end_date),
+      ]
     );
 
     if (exists.rows.length > 0) continue;
@@ -701,6 +710,7 @@ async function scheduleRenewalRemindersForTenant(organizationId: string, branchI
           template: renewalTemplate,
           subscription_id: row.subscription_id,
           reminder_days: daysLeft,
+          cycle_end_date: String(row.end_date),
           expiryDate,
           phone: row.phone,
           name: row.name,

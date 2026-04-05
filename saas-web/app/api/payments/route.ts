@@ -62,7 +62,10 @@ export async function GET(request: NextRequest) {
       (
         SELECT -s.id AS id,
                s.price_paid AS amount,
-               'subscription' AS type,
+               CASE
+                 WHEN s.renewed_from_subscription_id IS NULL THEN 'subscription'
+                 ELSE 'renewal'
+               END AS type,
                NULL AS note,
                s.created_at,
                s.id AS subscription_id,

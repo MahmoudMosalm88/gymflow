@@ -14,7 +14,10 @@ WITH renewal_totals AS (
 subscription_events AS (
   SELECT
     CONCAT('subscription:', s.id::text) AS event_id,
-    'subscription'::text AS payment_type,
+    CASE
+      WHEN s.renewed_from_subscription_id IS NULL THEN 'subscription'::text
+      ELSE 'renewal'::text
+    END AS payment_type,
     s.created_at AS effective_at,
     GREATEST(
       COALESCE(s.price_paid, 0)::numeric(12, 2)

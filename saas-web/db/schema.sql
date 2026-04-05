@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   branch_id uuid NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
   member_id uuid NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  renewed_from_subscription_id bigint REFERENCES subscriptions(id) ON DELETE SET NULL,
   start_date bigint NOT NULL,
   end_date bigint NOT NULL,
   plan_months integer NOT NULL,
@@ -83,9 +84,13 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   created_at timestamptz NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_one_active_subscription_branch
-  ON subscriptions (organization_id, branch_id, member_id)
-  WHERE is_active = true;
+ALTER TABLE subscriptions
+  ADD COLUMN IF NOT EXISTS renewed_from_subscription_id bigint REFERENCES subscriptions(id) ON DELETE SET NULL;
+
+DROP INDEX IF EXISTS idx_one_active_subscription_branch;
+
+CREATE INDEX IF NOT EXISTS idx_subscriptions_member_cycle_lookup
+  ON subscriptions (organization_id, branch_id, member_id, is_active, start_date DESC, end_date DESC, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS subscription_freezes (
   id bigserial PRIMARY KEY,

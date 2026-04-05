@@ -23,8 +23,11 @@ export async function GET(request: NextRequest) {
         `SELECT COALESCE(SUM(price_paid / NULLIF(plan_months, 0)), 0) AS total
          FROM subscriptions
          WHERE organization_id = $1 AND branch_id = $2
-           AND is_active = true AND price_paid IS NOT NULL`,
-        [organizationId, branchId]
+           AND is_active = true
+           AND start_date <= $3
+           AND end_date > $3
+           AND price_paid IS NOT NULL`,
+        [organizationId, branchId, Math.floor(Date.now() / 1000)]
       ),
     ]);
 

@@ -84,20 +84,37 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           [auth.organizationId, auth.branchId]
         ),
         query<NumberRow>(
-          `SELECT COUNT(*)::text AS count
-             FROM subscriptions
-            WHERE organization_id = $1
-              AND branch_id = $2
-              AND is_active = true`,
-          [auth.organizationId, auth.branchId]
-        ),
-        query<NumberRow>(
-          `SELECT COUNT(*)::text AS count
+          `SELECT COUNT(DISTINCT member_id)::text AS count
              FROM subscriptions
             WHERE organization_id = $1
               AND branch_id = $2
               AND is_active = true
-              AND end_date < $3`,
+              AND start_date <= $3
+              AND end_date > $3`,
+          [auth.organizationId, auth.branchId, now]
+        ),
+        query<NumberRow>(
+          `WITH latest_cycle AS (
+             SELECT DISTINCT ON (member_id)
+                    member_id, end_date, is_active
+               FROM subscriptions
+              WHERE organization_id = $1
+                AND branch_id = $2
+              ORDER BY member_id, start_date DESC, end_date DESC, created_at DESC
+           )
+           SELECT COUNT(*)::text AS count
+             FROM latest_cycle
+            WHERE end_date < $3
+              AND NOT EXISTS (
+                SELECT 1
+                  FROM subscriptions s
+                 WHERE s.organization_id = $1
+                   AND s.branch_id = $2
+                   AND s.member_id = latest_cycle.member_id
+                   AND s.is_active = true
+                   AND s.start_date <= $3
+                   AND s.end_date > $3
+              )`,
           [auth.organizationId, auth.branchId, now]
         ),
         query<NumberRow>(
@@ -305,20 +322,37 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
 
       // Back-compat approximation: expired active subscriptions are treated as renewals due.
       const rows = await query(
-        `SELECT m.name,
+        `WITH latest_cycle AS (
+           SELECT DISTINCT ON (s.member_id)
+                  s.member_id,
+                  s.price_paid,
+                  s.end_date
+             FROM subscriptions s
+            WHERE s.organization_id = $1
+              AND s.branch_id = $2
+            ORDER BY s.member_id, s.start_date DESC, s.end_date DESC, s.created_at DESC
+         )
+         SELECT m.name,
                 m.phone,
-                COALESCE(s.price_paid, 0)::float8 AS amount_due,
-                s.end_date AS due_date
-           FROM subscriptions s
+                COALESCE(lc.price_paid, 0)::float8 AS amount_due,
+                lc.end_date AS due_date
+           FROM latest_cycle lc
            JOIN members m
-             ON m.id = s.member_id
-            AND m.organization_id = s.organization_id
-            AND m.branch_id = s.branch_id
-          WHERE s.organization_id = $1
-            AND s.branch_id = $2
-            AND s.is_active = true
-            AND s.end_date < $3
-          ORDER BY s.end_date DESC
+             ON m.id = lc.member_id
+            AND m.organization_id = $1
+            AND m.branch_id = $2
+          WHERE lc.end_date < $3
+            AND NOT EXISTS (
+              SELECT 1
+                FROM subscriptions s
+               WHERE s.organization_id = $1
+                 AND s.branch_id = $2
+                 AND s.member_id = lc.member_id
+                 AND s.is_active = true
+                 AND s.start_date <= $3
+                 AND s.end_date > $3
+            )
+          ORDER BY lc.end_date DESC
           LIMIT $4`,
         [auth.organizationId, auth.branchId, now, limit]
       );
@@ -409,6 +443,7 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           WHERE s.organization_id = $1
             AND s.branch_id = $2
             AND s.is_active = true
+            AND s.start_date <= $3
             AND s.end_date > $3
             AND s.end_date <= $4
           ORDER BY s.end_date ASC`,
@@ -422,21 +457,40 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
       const limit = readLimitParam(url, 100, 500);
 
       const rows = await query<EndedSubscriptionRow>(
-        `SELECT s.id,
-                s.member_id,
-                s.end_date,
-                s.is_active,
+        `WITH latest_cycle AS (
+           SELECT DISTINCT ON (s.member_id)
+                  s.id,
+                  s.member_id,
+                  s.end_date,
+                  s.is_active
+             FROM subscriptions s
+            WHERE s.organization_id = $1
+              AND s.branch_id = $2
+            ORDER BY s.member_id, s.start_date DESC, s.end_date DESC, s.created_at DESC
+         )
+         SELECT lc.id,
+                lc.member_id,
+                lc.end_date,
+                lc.is_active,
                 m.name,
                 m.phone
-           FROM subscriptions s
+           FROM latest_cycle lc
            JOIN members m
-             ON m.id = s.member_id
-            AND m.organization_id = s.organization_id
-            AND m.branch_id = s.branch_id
-          WHERE s.organization_id = $1
-            AND s.branch_id = $2
-            AND (s.end_date <= $3 OR s.is_active = false)
-          ORDER BY s.end_date DESC
+             ON m.id = lc.member_id
+            AND m.organization_id = $1
+            AND m.branch_id = $2
+          WHERE (lc.end_date <= $3 OR lc.is_active = false)
+            AND NOT EXISTS (
+              SELECT 1
+                FROM subscriptions s
+               WHERE s.organization_id = $1
+                 AND s.branch_id = $2
+                 AND s.member_id = lc.member_id
+                 AND s.is_active = true
+                 AND s.start_date <= $3
+                 AND s.end_date > $3
+            )
+          ORDER BY lc.end_date DESC
           LIMIT $4`,
         [auth.organizationId, auth.branchId, now, limit]
       );
