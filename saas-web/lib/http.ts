@@ -39,6 +39,9 @@ export function routeError(error: unknown) {
   if (msg.includes("Missing bearer token")) {
     return fail("You are not logged in. Please log in first.", 401);
   }
+  if (msg === "Forbidden" || code === "FORBIDDEN") {
+    return fail("You do not have permission to access this resource.", 403);
+  }
   if (
     msg.includes("Firebase ID token has incorrect") ||
     msg.includes("incorrect \"aud\"") ||

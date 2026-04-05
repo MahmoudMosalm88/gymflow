@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useLang, t } from "@/lib/i18n";
+import GymFlowLogo from "@/components/GymFlowLogo";
 
 const DISMISS_KEY = "gymflow_install_dismissed";
+const FORCE_PROMPT_KEY = "gymflow_prompt_install";
 
 /**
  * PWA install prompt.
@@ -20,8 +22,13 @@ export default function InstallPrompt() {
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
+    const forcePrompt = sessionStorage.getItem(FORCE_PROMPT_KEY) === "1";
+    if (forcePrompt) {
+      sessionStorage.removeItem(FORCE_PROMPT_KEY);
+    }
+
     // Check if already dismissed
-    if (localStorage.getItem(DISMISS_KEY)) return;
+    if (!forcePrompt && localStorage.getItem(DISMISS_KEY)) return;
 
     // Check if already installed (standalone mode)
     const standalone = window.matchMedia("(display-mode: standalone)").matches
@@ -68,7 +75,7 @@ export default function InstallPrompt() {
       style={{ boxShadow: "4px 4px 0 #000" }}
     >
       <div className="flex items-center gap-3 min-w-0">
-        <span className="bg-[#e63946] text-white font-extrabold text-xs px-2 py-1 shrink-0">GF</span>
+        <GymFlowLogo size={28} className="shrink-0" />
         <p className="text-sm text-foreground truncate">
           {isIos
             ? labels.install_ios_instructions

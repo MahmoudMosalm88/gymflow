@@ -499,7 +499,11 @@ export default function LoginPage() {
   }
 
   async function requestPhoneOtp(auth: Auth, phone: string) {
+    // Recreate and render a fresh verifier for every send.
+    // This matches the stable profile verification flow and avoids stale app credentials.
+    resetRecaptcha();
     const verifier = await getRecaptcha(auth);
+    await verifier.render();
     const { authModule } = await loadFirebaseRuntime();
     try {
       return await authModule.signInWithPhoneNumber(auth, phone, verifier);
@@ -509,7 +513,11 @@ export default function LoginPage() {
           ? String((error as { code?: string }).code || "")
           : "";
 
-      if (code === "auth/invalid-app-credential" || code === "auth/missing-app-credential") {
+      if (
+        code === "auth/invalid-app-credential" ||
+        code === "auth/missing-app-credential" ||
+        code === "auth/captcha-check-failed"
+      ) {
         // Reset stale verifier state; user should click "Send code" once again.
         resetRecaptcha();
       }

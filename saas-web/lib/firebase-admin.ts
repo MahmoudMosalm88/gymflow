@@ -151,4 +151,3 @@ export function getFirebaseAdminDiagnostics(): FirebaseAdminDiagnostics {
     error: initializationError
   };
 }
-
