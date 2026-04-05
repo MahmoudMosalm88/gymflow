@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Camera } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
-import { formatCurrencyCompact } from '@/lib/format';
+import { formatCurrency, formatCurrencyCompact } from '@/lib/format';
 import { getCachedDashboardOverview, getCachedRecentActivity } from '@/lib/offline/read-model';
 import { useScanContext } from '@/lib/scan-context';
 import { submitCheckIn } from '@/lib/check-in/client';
@@ -26,6 +26,9 @@ type Overview = {
   activeSubscriptions: number;
   todayCheckIns: number;
   totalRevenue: number;
+  currentMonthRevenue?: number;
+  previousMonthRevenue?: number;
+  arpm?: number;
   todayStats?: {
     allowed: number;
     warning: number;
@@ -89,16 +92,19 @@ export default function DashboardPage() {
       const res = await api.get<Overview>('/api/reports/overview');
       if (res.data) {
         setOverview(res.data);
-        return;
+      } else {
+        try {
+          setOverview(await getCachedDashboardOverview());
+        } catch {
+          // Keep prior values on transient failures.
+        }
       }
     } catch {
-      // Fall through to offline cache.
-    }
-
-    try {
-      setOverview(await getCachedDashboardOverview());
-    } catch {
-      // Keep prior values on transient failures.
+      try {
+        setOverview(await getCachedDashboardOverview());
+      } catch {
+        // Keep prior values on transient failures.
+      }
     } finally {
       setLoadingOverview(false);
     }
@@ -114,13 +120,15 @@ export default function DashboardPage() {
       const res = await api.get<ActivityEntry[]>('/api/attendance/today');
       if (res.data) {
         setActivityLog(res.data);
-        return;
+      } else {
+        try {
+          setActivityLog((await getCachedRecentActivity(20)) as ActivityEntry[]);
+        } catch {}
       }
     } catch {}
-    try {
-      setActivityLog((await getCachedRecentActivity(20)) as ActivityEntry[]);
-    } catch {}
-    setActivityLoading(false);
+    finally {
+      setActivityLoading(false);
+    }
   }, []);
 
   useEffect(() => { refreshActivity(); }, [refreshActivity]);
@@ -363,10 +371,10 @@ export default function DashboardPage() {
         />
       ) : null}
 
-      {/* ── 4 Stat Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ── 5 Stat Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {loadingOverview ? (
-          Array.from({ length: 4 }).map((_, i) => (
+          Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="border-2 border-border bg-card h-[100px] animate-pulse" />
           ))
         ) : (
@@ -375,6 +383,13 @@ export default function DashboardPage() {
             <StatCard label={labels.active_subscriptions} value={overview?.activeSubscriptions ?? 0} color="text-success" />
             <StatCard label={labels.todays_check_ins} value={overview?.todayCheckIns ?? 0} color="text-info" />
             <StatCard label={labels.total_revenue} value={formatCurrencyCompact(overview?.totalRevenue ?? 0)} color="text-primary" valueSize="text-2xl" />
+            <StatCard
+              label="ARPM"
+              value={formatCurrency(overview?.arpm ?? 0)}
+              color="text-warning"
+              valueSize="text-2xl"
+              subtitle={lang === 'ar' ? 'إيراد هذا الشهر لكل عضو نشط' : 'Current month revenue per active member'}
+            />
           </>
         )}
       </div>
