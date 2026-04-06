@@ -1,7 +1,7 @@
 # GymFlow — Project Memory (Source of Truth)
 
 > Single living document. Combines git history, session logs, and all docs into one timeline.
-> Any new task should start here. Last updated: **April 3, 2026**.
+> Any new task should start here. Last updated: **April 6, 2026**.
 
 ---
 
@@ -1231,3 +1231,262 @@ docs/future_reports.md          — Backlogged report ideas
   - `PageNotFoundError: Cannot find module for page: /_document`
 - clearing `.next` and rebuilding fixed it
 - for local verification after major Next changes, treat `rm -rf .next && npm run build` as the reliable path
+
+## Reports Revamp Implementation
+
+Date: April 5, 2026
+
+The reports revamp roadmap is now implemented for all owner-facing report items that are buildable on the current product scope.
+
+**What shipped**:
+- existing Phase 1 and Phase 2 report work was completed and verified in-browser on real branch data:
+  - `Revenue At Risk`
+  - `Revenue Saved by WhatsApp`
+  - `Revenue by Plan Type`
+  - `Retention / Churn`
+  - `At-Risk Members`
+  - `Cohort Retention`
+  - `WhatsApp Message Performance`
+- remaining roadmap report tabs were added:
+  - `Payment Recovery`
+  - `Ghost Members`
+  - `Attendance Decline`
+  - `Expected Revenue`
+  - `Renewal vs New Revenue`
+  - `Cash vs Digital`
+  - `Referral Funnel`
+  - `Weekly Digest`
+  - `Post-Expiry Recovery Performance`
+  - `Early Onboarding Performance`
+
+**Dashboard KPI changes added**:
+- main dashboard now shows:
+  - `Revenue At Risk`
+  - `WhatsApp Saved`
+  - `At-Risk Members`
+  - `Net Member Growth`
+- `ARPM` remained in place
+
+**How the newly added reports work**:
+- `Payment Recovery`
+  - uses overdue renewal recovery, not true failed card-payment events
+  - current model:
+    - expired latest subscription
+    - no active replacement subscription
+    - amount due from latest `price_paid`
+    - reminder status from `message_queue`
+    - recovered value from later renewal
+- `Ghost Members`
+  - active members with no successful check-in inside the selected inactivity window
+- `Attendance Decline`
+  - active members whose current-window attendance is materially lower than the previous same-length window
+- `Expected Revenue`
+  - forecast built from:
+    - current monthly run rate
+    - renewal exposure in the next 30 days
+    - secured renewals already created
+    - recent retention rate used as the forecast multiplier
+- `Renewal vs New Revenue`
+  - built from `incomeEventsCte`
+  - new revenue = `payment_type = 'subscription'`
+  - renewal revenue = `payment_type = 'renewal'`
+- `Referral Funnel`
+  - built from guest invite tracking
+  - includes:
+    - invites sent
+    - invites used
+    - converted members
+    - referral revenue inferred from the converted member's first subscription after conversion
+- `Weekly Digest`
+  - report summary and delivery queue logic now exist
+  - full outbound scheduling still depends on operational rollout choices
+- `Cash vs Digital`
+  - now uses real saved `payment_method` data
+  - revenue is split across:
+    - `cash`
+    - `digital`
+    - `unknown` for older rows that predate the new field
+- `Post-Expiry Recovery Performance`
+  - reads post-expiry Day 0 / 3 / 7 / 14 message sequence activity from `message_queue`
+  - attributes renewals inside the locked 14-day attribution window
+- `Early Onboarding Performance`
+  - measures first-visit and early-engagement outcomes for new members
+  - ties onboarding sequence sends to the first 14 days of member behavior
+
+**What completed the last reports gap**:
+- GymFlow now stores `payment_method` on all three revenue sources:
+  - `subscriptions`
+  - `payments`
+  - `guest_passes`
+- UI capture was added to:
+  - new member + initial subscription
+  - new subscription
+  - renewal
+  - guest pass sale
+  - income payment editing for correcting older rows
+
+**Files changed for the revamp**:
+- `saas-web/app/api/reports/[report]/route.ts`
+- `saas-web/lib/income-events.ts`
+- `saas-web/app/api/subscriptions/route.ts`
+- `saas-web/app/api/subscriptions/renew/route.ts`
+- `saas-web/app/api/guest-passes/route.ts`
+- `saas-web/app/api/payments/route.ts`
+- `saas-web/app/api/income/payments/route.ts`
+- `saas-web/app/api/income/payments/[id]/route.ts`
+- `saas-web/components/dashboard/SubscriptionForm.tsx`
+- `saas-web/components/dashboard/AddMemberModal.tsx`
+- `saas-web/app/dashboard/subscriptions/page.tsx`
+- `saas-web/app/dashboard/members/[id]/page.tsx`
+- `saas-web/app/dashboard/guest-passes/page.tsx`
+- `saas-web/app/dashboard/income/payments/page.tsx`
+- `saas-web/app/dashboard/reports/page.tsx`
+- `saas-web/app/dashboard/page.tsx`
+- `saas-web/lib/i18n.ts`
+- `saas-web/lib/offline/*`
+- `saas-web/db/schema.sql`
+- local-only QA auth support used during verification:
+  - `saas-web/lib/auth.ts`
+  - `saas-web/app/api/auth/login/route.ts`
+  - `saas-web/app/(auth)/login/page.tsx`
+
+**Verification completed locally**:
+- clean build path:
+  - `cd saas-web && rm -rf .next && npm run build && npm run typecheck` ✅
+- Playwright/browser verification on local production build with real branch data (`Downtown Cairo`) confirmed:
+  - all new report tabs render
+  - all new report endpoints return `200`
+  - dashboard KPI cards render
+  - `cash-vs-digital` moved from placeholder behavior to real stored-method aggregation
+- verified new report endpoints:
+  - `/api/reports/failed-payments`
+  - `/api/reports/ghost-members`
+  - `/api/reports/attendance-decline`
+  - `/api/reports/expected-revenue`
+  - `/api/reports/renewal-vs-new`
+  - `/api/reports/cash-vs-digital`
+  - `/api/reports/referral-funnel`
+  - `/api/reports/weekly-digest`
+  - `/api/reports/post-expiry-performance`
+  - `/api/reports/onboarding-performance`
+- end-to-end cash-vs-digital verification confirmed:
+  - authenticated QA login on localhost
+  - digital payment creation path
+  - report bucket update after creation
+  - payment method field visible in revenue entry/edit screens
+
+**Key implementation note**:
+- the reports revamp is now much closer to an owner operating cockpit than the earlier basic chart page
+- PT/staff scorecards remain deferred because their upstream feature set is still paused
+
+### 2026-04-06 — Chrome Extension Approval + Sign-In Recovery
+
+- The latest Chrome extension version was approved in the Chrome Web Store.
+- Current owner report:
+  - sign-in is now working correctly again in the approved extension build
+- This closes the immediate extension-auth concern for the last submitted version.
+- Follow-up implication:
+  - future extension auth issues should now be treated as new regressions, not unresolved carry-over from the previously pending store review state
+
+### 2026-04-06 — Subscription Hotfix Cloud Build Failure Lesson
+
+**Context**: A P0 subscription hotfix was pushed for Sarhan Gym after renew/create flows were blocked by false offline-conflict errors across web + phone sessions.
+
+**What failed**:
+- Cloud Build `d5faf22c-60f8-4223-88c2-69b7daf02cbf`
+- commit under build: `6397443`
+- exact Docker/Next build error:
+  - `./app/api/subscriptions/renew/route.ts:132:19`
+  - `Type error: Property 'payment_method' does not exist on type ...`
+
+**Root cause**:
+- `saas-web/app/api/subscriptions/renew/route.ts` was updated to write `payload.payment_method`
+- but the committed `subscriptionRenewSchema` in `saas-web/lib/validation.ts` did not include `payment_method`
+- that schema fix already existed locally in the dirty workspace, but it was not staged into the hotfix commit
+- local verification missed this because the workspace state was richer than the pushed snapshot
+
+**Why this matters**:
+- this is the same failure class as earlier clean-snapshot deploy misses:
+  - local workspace passes
+  - Cloud Build fails on the exact committed repo state
+- the lesson is not just “run build locally”
+- the real lesson is:
+  - verify the **staged snapshot**, not the dirty workspace, when shipping hotfixes inside an already-modified repo
+
+**Fix applied**:
+- follow-up commit: `a1b859e` — `fix(validation): allow renewal payment method`
+- added `payment_method` to:
+  - `subscriptionSchema`
+  - `subscriptionPatchSchema`
+  - `subscriptionRenewSchema`
+- only the needed validation hunk was staged
+- unrelated PT/staff validation additions in the same file were deliberately left out
+
+**Verification after fix**:
+- `cd saas-web && npm run typecheck` ✅
+- GitHub workflow `24033818739` ✅
+
+**Process rule going forward**:
+- when a hotfix touches files that already have unrelated local edits:
+  1. inspect `git diff --cached`
+  2. make sure any new field used in API code also exists in the committed schema/types
+  3. prefer staging exact hunks, not whole files, when the file contains unrelated work
+  4. treat Cloud Build as validation of the pushed snapshot, not of the current machine state
+
+## 2026-04-06 (WhatsApp P0) — Unintended onboarding encouragement messages sent to Sarhan Gym
+
+**User report**:
+- Sarhan Gym said active members received an unexpected WhatsApp “encouraging” message that was neither the normal renewal reminder nor the welcome message.
+
+**What actually happened**:
+- Branch:
+  - organization `513d429c-34ce-4dfa-8022-8be2f474cc5b`
+  - branch `614cff5a-78cd-4a95-8f18-3191f61922cf`
+- The live WhatsApp worker sent the new lifecycle automation sequence:
+  - `payload.sequence_kind = "onboarding_first_visit"`
+- Production queue proof:
+  - `39` sent rows in the last `48h` for `onboarding_first_visit`
+  - `2` sent rows for `post_expiry`
+- Example copy that matched the user report:
+  - `بداية ممتازة يا {name}. حافظ على الحماس وحدد تمرينك القادم هذا الأسبوع.`
+
+**Root cause**:
+- New lifecycle sequences were live in the WhatsApp worker:
+  - onboarding first-visit / day-7 / day-14
+  - post-expiry day-0 / day-3 / day-7 / day-14
+  - weekly digest
+- They were controlled only by the existing global WhatsApp automation switch:
+  - `whatsapp_automation_enabled`
+- That made them effectively enabled for branches that had normal reminder automation on, even though these sequences were not explicitly rolled out as an owner-facing opt-in.
+- The onboarding scheduler also backfilled recent members created in the last `14 days`, so the first live run could send a burst instead of only affecting future members.
+
+**Important production finding**:
+- The SaaS web Cloud Run deploy does **not** control the WhatsApp worker runtime.
+- The active worker was running on:
+  - VM `gymflow-whatsapp-worker-spot`
+  - zone `europe-west1-b`
+  - service `gymflow-whatsapp-worker.service`
+  - runtime file `/opt/gymflow-whatsapp-worker/dist/index.js`
+
+**Immediate live mitigation applied**:
+- Patched the worker runtime on the VM directly.
+- Added explicit lifecycle flags with default `false`:
+  - `whatsapp_post_expiry_enabled`
+  - `whatsapp_onboarding_enabled`
+  - `whatsapp_weekly_digest_enabled`
+- Kept existing welcome/reminder automation behavior unchanged.
+- Restarted:
+  - `gymflow-whatsapp-worker.service`
+
+**Post-fix verification**:
+- Worker restarted cleanly on the VM.
+- Production queue check after restart:
+  - no new `onboarding_*`
+  - no new `post_expiry`
+  - no new `weekly_digest`
+  created in the next `5 minutes`.
+
+**Process lesson**:
+- Any new WhatsApp lifecycle automation must ship behind its own explicit setting, default `off`.
+- `whatsapp_automation_enabled` is too broad for new behavioral sequences.
+- Web deploy verification is not enough for WhatsApp incidents; the VM worker runtime must be checked separately.
