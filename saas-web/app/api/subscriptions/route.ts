@@ -15,6 +15,16 @@ function toNullablePositiveInt(value: unknown) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+async function ensureSubscriptionPaymentMethodColumn() {
+  await query(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS payment_method TEXT`);
+  await query(`ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_payment_method_check`);
+  await query(`
+    ALTER TABLE subscriptions
+      ADD CONSTRAINT subscriptions_payment_method_check
+      CHECK (payment_method IN ('cash', 'digital') OR payment_method IS NULL)
+  `);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
@@ -105,9 +115,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
+    await ensureSubscriptionPaymentMethodColumn();
     const body = await request.json();
     const payload = subscriptionSchema.parse(body);
     const expectedActiveSubscriptionId = toNullablePositiveInt((body as { expected_active_subscription_id?: unknown })?.expected_active_subscription_id);
+    await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, Math.floor(Date.now() / 1000));
     const hasLegacyEndDate =
       typeof payload.end_date === "number" &&
       Number.isFinite(payload.end_date) &&
@@ -137,11 +149,11 @@ export async function POST(request: NextRequest) {
           WHERE organization_id = $1
             AND branch_id = $2
             AND member_id = $3
+            AND is_active = true
           ORDER BY
             CASE
-              WHEN is_active = true AND start_date <= $4 AND end_date > $4 THEN 0
-              WHEN is_active = true AND start_date > $4 THEN 1
-              WHEN is_active = true THEN 2
+              WHEN start_date <= $4 AND end_date > $4 THEN 0
+              WHEN start_date > $4 THEN 1
               ELSE 3
             END,
             start_date DESC,
@@ -172,10 +184,10 @@ export async function POST(request: NextRequest) {
       const inserted = await client.query(
         `INSERT INTO subscriptions (
             organization_id, branch_id, member_id, start_date, end_date,
-            plan_months, price_paid, sessions_per_month, is_active
+            plan_months, price_paid, payment_method, sessions_per_month, is_active
          ) VALUES (
             $1, $2, $3, $4, $5,
-            $6, $7, $8, true
+            $6, $7, $8, $9, true
          )
          RETURNING *`,
         [
@@ -186,6 +198,7 @@ export async function POST(request: NextRequest) {
           endDate,
           payload.plan_months,
           payload.price_paid || null,
+          payload.payment_method ?? null,
           payload.sessions_per_month || null
         ]
       );
@@ -207,6 +220,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
+    await ensureSubscriptionPaymentMethodColumn();
     const payload = subscriptionPatchSchema.parse(await request.json());
     await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, Math.floor(Date.now() / 1000));
 
@@ -216,10 +230,11 @@ export async function PATCH(request: NextRequest) {
       end_date: number;
       plan_months: number;
       price_paid: number | null;
+      payment_method: "cash" | "digital" | null;
       sessions_per_month: number | null;
       is_active: boolean;
     }>(
-      `SELECT id, start_date, end_date, plan_months, price_paid, sessions_per_month, is_active
+      `SELECT id, start_date, end_date, plan_months, price_paid, payment_method, sessions_per_month, is_active
          FROM subscriptions
         WHERE id = $1
           AND organization_id = $2
@@ -242,10 +257,11 @@ export async function PATCH(request: NextRequest) {
       `UPDATE subscriptions
           SET is_active = COALESCE($4, is_active),
               price_paid = COALESCE($5, price_paid),
-              start_date = $6,
-              end_date = $7,
-              plan_months = $8,
-              sessions_per_month = COALESCE($9, sessions_per_month)
+              payment_method = COALESCE($6, payment_method),
+              start_date = $7,
+              end_date = $8,
+              plan_months = $9,
+              sessions_per_month = COALESCE($10, sessions_per_month)
         WHERE id = $1
           AND organization_id = $2
           AND branch_id = $3
@@ -256,6 +272,7 @@ export async function PATCH(request: NextRequest) {
         auth.branchId,
         payload.is_active,
         payload.price_paid,
+        payload.payment_method,
         nextStart,
         nextEnd,
         nextPlanMonths,

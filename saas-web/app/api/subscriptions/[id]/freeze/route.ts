@@ -59,7 +59,8 @@ export async function POST(
       if (!current) {
         throw Object.assign(new Error("Active subscription not found."), { statusCode: 404 });
       }
-      if (expectedSubscriptionEndDate !== null && current.end_date !== expectedSubscriptionEndDate) {
+      const currentEndDate = Number(current.end_date);
+      if (expectedSubscriptionEndDate !== null && currentEndDate !== expectedSubscriptionEndDate) {
         throw Object.assign(new Error("This subscription changed on another device. Review and try again."), {
           statusCode: 409,
           code: "offline_conflict",

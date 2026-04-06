@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { withTransaction } from "@/lib/db";
+import { query, withTransaction } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { subscriptionRenewSchema } from "@/lib/validation";
@@ -22,9 +22,20 @@ function toNullableBoolean(value: unknown) {
   return null;
 }
 
+async function ensureSubscriptionPaymentMethodColumn() {
+  await query(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS payment_method TEXT`);
+  await query(`ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_payment_method_check`);
+  await query(`
+    ALTER TABLE subscriptions
+      ADD CONSTRAINT subscriptions_payment_method_check
+      CHECK (payment_method IN ('cash', 'digital') OR payment_method IS NULL)
+  `);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
+    await ensureSubscriptionPaymentMethodColumn();
     const body = await request.json();
     const payload = subscriptionRenewSchema.parse(body);
     const expectedPreviousEndDate = toUnixSeconds((body as { expected_previous_end_date?: unknown })?.expected_previous_end_date);
@@ -69,17 +80,18 @@ export async function POST(request: NextRequest) {
       if (!previous) {
         throw Object.assign(new Error("Subscription not found"), { statusCode: 404 });
       }
+      const previousEndDate = Number(previous.end_date);
 
       if (previous.member_id !== payload.member_id) {
         throw Object.assign(new Error("Subscription does not belong to this member"), { statusCode: 400 });
       }
 
-      if (!previous.is_active && previous.end_date > now) {
+      if (!previous.is_active && previousEndDate > now) {
         throw Object.assign(new Error("Only enabled subscription cycles can be renewed"), { statusCode: 400 });
       }
 
       if (
-        (expectedPreviousEndDate !== null && previous.end_date !== expectedPreviousEndDate) ||
+        (expectedPreviousEndDate !== null && previousEndDate !== expectedPreviousEndDate) ||
         (expectedPreviousIsActive !== null && previous.is_active !== expectedPreviousIsActive)
       ) {
         throw Object.assign(new Error("This subscription changed on another device. Review and try again."), {
@@ -88,7 +100,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const nextStartDate = previous.end_date > now ? previous.end_date : now;
+      const nextStartDate = previousEndDate > now ? previousEndDate : now;
       const nextEndDate = calculateSubscriptionEndDateUnix(nextStartDate, payload.plan_months);
 
       const inserted = await client.query(
@@ -101,10 +113,11 @@ export async function POST(request: NextRequest) {
             end_date,
             plan_months,
             price_paid,
+            payment_method,
             sessions_per_month,
             is_active
          ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, true
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true
          )
          RETURNING *`,
         [
@@ -116,6 +129,7 @@ export async function POST(request: NextRequest) {
           nextEndDate,
           payload.plan_months,
           payload.price_paid ?? null,
+          payload.payment_method ?? null,
           payload.sessions_per_month ?? previous.sessions_per_month ?? null
         ]
       );

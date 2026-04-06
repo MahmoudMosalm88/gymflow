@@ -25,10 +25,28 @@ async function refreshOfflineBundleSafe() {
   await fetchAndStoreBundle().catch(() => false);
 }
 
+type SubscriptionSnapshot = {
+  id: number;
+  member_id: string;
+  start_date: number;
+  end_date: number;
+  is_active: boolean;
+  sessions_per_month: number | null;
+};
+
+async function fetchLatestMemberSubscriptions(memberId: string) {
+  const response = await api.get<SubscriptionSnapshot[]>(`/api/subscriptions?member_id=${encodeURIComponent(memberId)}`);
+  if (!response.success || !Array.isArray(response.data)) {
+    throw new Error(response.message || "Failed to load the latest subscription state.");
+  }
+  return response.data;
+}
+
 export async function saveMemberWithSubscription(input: MemberInput & {
   start_date?: number | null;
   plan_months?: number | null;
   price_paid?: number | null;
+  payment_method?: "cash" | "digital" | null;
   sessions_per_month?: number | null;
   from_guest_pass_id?: string | null;
 }) {
@@ -53,6 +71,7 @@ export async function saveMemberWithSubscription(input: MemberInput & {
           start_date: input.start_date,
           plan_months: input.plan_months,
           price_paid: input.price_paid ?? null,
+          payment_method: input.payment_method ?? null,
           sessions_per_month: input.sessions_per_month ?? null,
         });
         if (!subRes.success) throw new Error(subRes.message || "Failed to create subscription.");
@@ -141,18 +160,28 @@ export async function saveSubscriptionCreate(input: {
   startDate: number;
   planMonths: number;
   pricePaid: number | null;
+  paymentMethod: "cash" | "digital" | null;
   sessionsPerMonth: number | null;
   expectedActiveSubscriptionId: number | null;
 }) {
   if (navigator.onLine) {
     try {
+      const latest = await fetchLatestMemberSubscriptions(input.memberId);
+      const now = Math.floor(Date.now() / 1000);
+      const current =
+        latest.find((item) => item.is_active && item.start_date <= now && item.end_date > now) ||
+        latest.find((item) => item.is_active && item.start_date > now) ||
+        latest.find((item) => item.is_active) ||
+        null;
+
       const response = await api.post("/api/subscriptions", {
         member_id: input.memberId,
         start_date: input.startDate,
         plan_months: input.planMonths,
         price_paid: input.pricePaid,
+        payment_method: input.paymentMethod,
         sessions_per_month: input.sessionsPerMonth,
-        expected_active_subscription_id: input.expectedActiveSubscriptionId,
+        expected_active_subscription_id: current?.id ?? null,
       });
       if (!response.success) throw new Error(response.message || "Failed to create subscription.");
       await refreshOfflineBundleSafe();
@@ -174,18 +203,26 @@ export async function saveSubscriptionRenew(input: {
   expectedPreviousIsActive: boolean;
   planMonths: number;
   pricePaid: number | null;
+  paymentMethod: "cash" | "digital" | null;
   sessionsPerMonth: number | null;
 }) {
   if (navigator.onLine) {
     try {
+      const latest = await fetchLatestMemberSubscriptions(input.memberId);
+      const previous = latest.find((item) => item.id === input.previousSubscriptionId) || null;
+      if (!previous) {
+        throw new Error("The original subscription no longer exists.");
+      }
+
       const response = await api.post("/api/subscriptions/renew", {
         member_id: input.memberId,
         previous_subscription_id: input.previousSubscriptionId,
         plan_months: input.planMonths,
         price_paid: input.pricePaid,
-        sessions_per_month: input.sessionsPerMonth,
-        expected_previous_end_date: input.expectedPreviousEndDate,
-        expected_previous_is_active: input.expectedPreviousIsActive,
+        payment_method: input.paymentMethod,
+        sessions_per_month: input.sessionsPerMonth ?? previous.sessions_per_month ?? null,
+        expected_previous_end_date: previous.end_date,
+        expected_previous_is_active: previous.is_active,
       });
       if (!response.success) throw new Error(response.message || "Failed to renew subscription.");
       await refreshOfflineBundleSafe();
@@ -207,10 +244,18 @@ export async function saveSubscriptionFreeze(input: {
 }) {
   if (navigator.onLine) {
     try {
+      const latest = await api.get<SubscriptionSnapshot[]>("/api/subscriptions?include_history=1");
+      const current = latest.success && Array.isArray(latest.data)
+        ? latest.data.find((item) => item.id === input.subscriptionId) || null
+        : null;
+      if (!current) {
+        throw new Error("The latest subscription state could not be found.");
+      }
+
       const response = await api.post(`/api/subscriptions/${input.subscriptionId}/freeze`, {
         startDate: input.startDate,
         days: input.days,
-        expected_subscription_end_date: input.expectedSubscriptionEndDate,
+        expected_subscription_end_date: current.end_date,
       });
       if (!response.success) throw new Error(response.message || "Failed to freeze subscription.");
       await refreshOfflineBundleSafe();
