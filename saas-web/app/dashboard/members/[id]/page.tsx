@@ -38,6 +38,9 @@ const MemberAvatar = dynamic(() => import('@/components/dashboard/MemberAvatar')
 const MemberGuestInvitesCard = dynamic(() => import('@/components/dashboard/MemberGuestInvitesCard'), {
   loading: () => <LoadingSpinner />,
 });
+const MemberPtWorkspace = dynamic(() => import('@/components/dashboard/MemberPtWorkspace'), {
+  loading: () => <LoadingSpinner />,
+});
 const FreezeDialog = dynamic(() => import('@/components/dashboard/FreezeDialog'));
 
 type Member = {
@@ -112,6 +115,7 @@ type Payment = {
   id: number | string;
   amount: string;
   type: string;
+  payment_method?: 'cash' | 'digital' | null;
   note: string | null;
   created_at: string;
   subscription_id: number | null;
@@ -149,6 +153,10 @@ export default function MemberDetailPage() {
   const [assigningTrainer, setAssigningTrainer] = useState(false);
   const [trainerMessage, setTrainerMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [subscriptionsLoading, setSubscriptionsLoading] = useState(true);
+  const [attendanceLoading, setAttendanceLoading] = useState(true);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
+  const [trainersLoading, setTrainersLoading] = useState(true);
   const [waFeedback, setWaFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
   const [sendingWaType, setSendingWaType] = useState<'welcome' | 'qr_code' | null>(null);
   const [freezeSubId, setFreezeSubId] = useState<string | null>(null);
@@ -160,23 +168,53 @@ export default function MemberDetailPage() {
 
   const loadMemberData = useCallback(async () => {
     if (authLoading) return;
+
     setLoading(true);
+    setSubscriptionsLoading(true);
+    setAttendanceLoading(true);
+    setPaymentsLoading(true);
+    setTrainersLoading(canManageTrainer);
+
+    let loadedOnlineCore = false;
+
     try {
       if (navigator.onLine) {
-        const [memberRes, subsRes, attRes, payRes, trainersRes] = await Promise.all([
-          api.get<Member>(`/api/members/${id}`),
-          isTrainer ? Promise.resolve({ success: true, data: [] as SubscriptionRaw[] }) : api.get<SubscriptionRaw[]>(`/api/subscriptions?member_id=${id}`),
-          api.get<AttendanceLog[]>(`/api/attendance/logs?member_id=${id}&limit=20`),
-          isTrainer ? Promise.resolve({ success: true, data: [] as Payment[] }) : api.get<Payment[]>(`/api/payments?member_id=${id}`),
-          canManageTrainer ? api.get<TrainerOption[]>('/api/trainers') : Promise.resolve({ success: true, data: [] as TrainerOption[] }),
-        ]);
+        const memberRes = await api.get<Member>(`/api/members/${id}`);
 
         if (memberRes.success && memberRes.data) {
           setMember(memberRes.data);
-          setSubs((subsRes.data ?? []).map((subscription) => ({ ...subscription, status: deriveStatus(subscription) })));
-          setAttendance(attRes.data ?? []);
-          setPayments(payRes.data ?? []);
-          setTrainers(trainersRes.data ?? []);
+          setLoading(false);
+          loadedOnlineCore = true;
+
+          void (async () => {
+            const [subsRes, attRes, payRes, trainersRes] = await Promise.allSettled([
+              isTrainer ? Promise.resolve({ success: true, data: [] as SubscriptionRaw[] }) : api.get<SubscriptionRaw[]>(`/api/subscriptions?member_id=${id}`),
+              api.get<AttendanceLog[]>(`/api/attendance/logs?member_id=${id}&limit=20`),
+              isTrainer ? Promise.resolve({ success: true, data: [] as Payment[] }) : api.get<Payment[]>(`/api/payments?member_id=${id}&limit=50`),
+              canManageTrainer ? api.get<TrainerOption[]>('/api/trainers') : Promise.resolve({ success: true, data: [] as TrainerOption[] }),
+            ]);
+
+            if (subsRes.status === 'fulfilled' && subsRes.value.success) {
+              setSubs((subsRes.value.data ?? []).map((subscription) => ({ ...subscription, status: deriveStatus(subscription) })));
+            }
+            setSubscriptionsLoading(false);
+
+            if (attRes.status === 'fulfilled' && attRes.value.success) {
+              setAttendance(attRes.value.data ?? []);
+            }
+            setAttendanceLoading(false);
+
+            if (payRes.status === 'fulfilled' && payRes.value.success) {
+              setPayments(payRes.value.data ?? []);
+            }
+            setPaymentsLoading(false);
+
+            if (trainersRes.status === 'fulfilled' && trainersRes.value.success) {
+              setTrainers(trainersRes.value.data ?? []);
+            }
+            setTrainersLoading(false);
+          })();
+
           return;
         }
       }
@@ -205,6 +243,14 @@ export default function MemberDetailPage() {
       setTrainers([]);
     } finally {
       setLoading(false);
+      if (!loadedOnlineCore) {
+        setSubscriptionsLoading(false);
+        setAttendanceLoading(false);
+        setPaymentsLoading(false);
+        setTrainersLoading(false);
+      } else if (!canManageTrainer) {
+        setTrainersLoading(false);
+      }
     }
   }, [authLoading, canManageTrainer, id, isTrainer]);
 
@@ -461,11 +507,23 @@ export default function MemberDetailPage() {
                     </option>
                   ))}
               </select>
+              {trainersLoading ? <p className="text-sm text-muted-foreground">{labels.loading}</p> : null}
               {trainerMessage ? <p className="text-sm text-muted-foreground">{trainerMessage}</p> : null}
             </div>
           ) : null}
         </CardContent>
       </Card>
+
+      <MemberPtWorkspace
+        memberId={member.id}
+        canSellPackage={!isTrainer}
+        canBookSession={Boolean(profile?.role === 'trainer' || !isTrainer)}
+        trainers={trainers.map((trainer) => ({
+          id: trainer.id,
+          name: trainer.name,
+          phone: trainer.phone,
+        }))}
+      />
 
       {!isTrainer ? <MemberGuestInvitesCard memberId={member.id} /> : null}
 
@@ -489,7 +547,9 @@ export default function MemberDetailPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {visibleSubs.length === 0 && historicalSubs.length === 0 ? (
+          {subscriptionsLoading ? (
+            <p className="py-4 text-center text-muted-foreground">{labels.loading}</p>
+          ) : visibleSubs.length === 0 && historicalSubs.length === 0 ? (
             <p className="py-4 text-center text-muted-foreground">{labels.no_subscriptions_found}</p>
           ) : (
             <div className="space-y-3">
@@ -651,6 +711,17 @@ export default function MemberDetailPage() {
                 onChange={(e) => setRenewForm((f) => ({ ...f, price_paid: e.target.value }))}
               />
             </div>
+            <div className="space-y-2">
+              <Label>{labels.payment_method}</Label>
+              <select
+                className="flex h-10 w-full border border-input bg-background px-3 py-2 text-sm"
+                value={renewForm.payment_method}
+                onChange={(e) => setRenewForm((f) => ({ ...f, payment_method: e.target.value as 'cash' | 'digital' }))}
+              >
+                <option value="cash">{labels.payment_method_cash}</option>
+                <option value="digital">{labels.payment_method_digital}</option>
+              </select>
+            </div>
 
             {renewError && (
               <p className="text-sm text-[#e63946] border border-[#5c2a2a] bg-[#2b0d0d] px-3 py-2">{renewError}</p>
@@ -678,7 +749,9 @@ export default function MemberDetailPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {payments.length === 0 ? (
+          {paymentsLoading ? (
+            <p className="py-4 text-center text-muted-foreground">{labels.loading}</p>
+          ) : payments.length === 0 ? (
             <p className="py-4 text-center text-muted-foreground">
               {lang === 'ar' ? 'لا توجد مدفوعات مسجلة.' : 'No payments recorded.'}
             </p>
@@ -695,6 +768,11 @@ export default function MemberDetailPage() {
                 const planInfo = pay.plan_months
                   ? `${pay.plan_months} ${lang === 'ar' ? 'شهر' : 'mo'}`
                   : '';
+                const paymentMethodLabel = pay.payment_method === 'cash'
+                  ? labels.payment_method_cash
+                  : pay.payment_method === 'digital'
+                    ? labels.payment_method_digital
+                    : labels.payment_method_unknown;
 
                 return (
                   <div key={pay.id} className="flex items-center justify-between py-3">
@@ -703,6 +781,7 @@ export default function MemberDetailPage() {
                       <p className="text-xs text-muted-foreground">
                         {new Date(pay.created_at).toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' })}
                         {planInfo && ` · ${planInfo}`}
+                        {` · ${paymentMethodLabel}`}
                         {pay.note && ` · ${pay.note}`}
                       </p>
                     </div>
@@ -729,7 +808,9 @@ export default function MemberDetailPage() {
           <CardTitle className="text-lg font-semibold">{labels.attendance_history}</CardTitle>
         </CardHeader>
         <CardContent>
-          {attendance.length === 0 ? (
+          {attendanceLoading ? (
+            <p className="py-4 text-center text-muted-foreground">{labels.loading}</p>
+          ) : attendance.length === 0 ? (
             <p className="py-4 text-center text-muted-foreground">{labels.no_attendance_records}</p>
           ) : (
             <div className="divide-y divide-border">
