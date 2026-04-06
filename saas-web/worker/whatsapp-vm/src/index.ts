@@ -53,6 +53,7 @@ const port = Number(process.env.PORT || 8080);
 const workerBatchLimit = Math.max(1, Number(process.env.WORKER_BATCH_LIMIT || 5));
 const minSendIntervalMs = Math.max(0, Number(process.env.WHATSAPP_MIN_SEND_INTERVAL_MS || 12000));
 const sendJitterMs = Math.max(0, Number(process.env.WHATSAPP_SEND_JITTER_MS || 4000));
+const lifecycleAutomationsEnabled = process.env.WHATSAPP_LIFECYCLE_AUTOMATIONS_ENABLED === "true";
 
 if (!databaseUrl) throw new Error("DATABASE_URL is required");
 mkdirSync(authBasePath, { recursive: true });
@@ -335,6 +336,7 @@ async function readTenantSettings(organizationId: string, branchId: string) {
 }
 
 function isLifecycleFlagEnabled(settings: Record<string, unknown>, key: string) {
+  if (!lifecycleAutomationsEnabled) return false;
   return parseBooleanSetting(settings[key], false);
 }
 
