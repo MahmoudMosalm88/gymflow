@@ -112,6 +112,30 @@ export const attendanceSchema = z.object({
 
 export const settingsPutSchema = z.object({
   values: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]))
+}).superRefine((payload, ctx) => {
+  const reminderValue = payload.values.whatsapp_reminder_days;
+  if (reminderValue === undefined) return;
+  if (typeof reminderValue !== "string") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["values", "whatsapp_reminder_days"],
+      message: "WhatsApp reminder days must be a comma-separated string"
+    });
+    return;
+  }
+
+  const parsed = reminderValue
+    .split(",")
+    .map((chunk) => Number(chunk.trim()))
+    .filter((n) => Number.isInteger(n) && n > 0 && n <= 60);
+
+  if (parsed.length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["values", "whatsapp_reminder_days"],
+      message: "Select at least one WhatsApp reminder day"
+    });
+  }
 });
 
 export const whatsappQueueRetrySchema = z.object({

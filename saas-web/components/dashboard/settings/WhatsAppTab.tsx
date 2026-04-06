@@ -368,7 +368,7 @@ export default function WhatsAppTab() {
       const values: Record<string, string | boolean> = {
         [getTemplateKey('welcome', systemLanguage)]: resolvedWelcome,
         [getTemplateKey('renewal', systemLanguage)]: resolvedRenewal,
-        whatsapp_reminder_days: reminderDays.trim() || DEFAULT_REMINDER_DAYS,
+        whatsapp_reminder_days: reminderDays.trim(),
         whatsapp_automation_enabled: true,
         system_language: systemLanguage
       };
@@ -491,7 +491,21 @@ export default function WhatsAppTab() {
 
   function toggleDay(day: number) {
     const next = new Set(selectedDays);
-    if (next.has(day)) next.delete(day); else next.add(day);
+    if (next.has(day)) {
+      if (next.size === 1) {
+        setTemplateFeedback({
+          type: 'destructive',
+          text: lang === 'ar'
+            ? 'يجب اختيار يوم تذكير واحد على الأقل.'
+            : 'You must keep at least one reminder day selected.',
+        });
+        return;
+      }
+      next.delete(day);
+    } else {
+      next.add(day);
+    }
+    setTemplateFeedback(null);
     setReminderDays(Array.from(next).sort((a, b) => b - a).join(','));
   }
 
