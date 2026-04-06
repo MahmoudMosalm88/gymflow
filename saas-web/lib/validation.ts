@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const e164Regex = /^\+[1-9]\d{7,14}$/;
+export const paymentMethodSchema = z.enum(["cash", "digital"]);
 
 const e164PhoneSchema = z
   .string()
@@ -80,13 +81,15 @@ export const subscriptionSchema = z.object({
   end_date: z.number().int().positive().optional(),
   plan_months: z.number().int().positive(),
   price_paid: z.number().optional().nullable(),
-  sessions_per_month: z.number().int().positive().optional().nullable()
+  sessions_per_month: z.number().int().positive().optional().nullable(),
+  payment_method: paymentMethodSchema.optional().nullable()
 });
 
 export const subscriptionPatchSchema = z.object({
   id: z.coerce.number().int().positive(),
   is_active: z.boolean().optional(),
   price_paid: z.number().optional().nullable(),
+  payment_method: paymentMethodSchema.optional().nullable(),
   start_date: z.number().int().positive().optional(),
   end_date: z.number().int().positive().optional(),
   plan_months: z.number().int().positive().optional(),
@@ -98,7 +101,8 @@ export const subscriptionRenewSchema = z.object({
   previous_subscription_id: z.coerce.number().int().positive(),
   plan_months: z.number().int().positive(),
   price_paid: z.number().min(0).optional().nullable(),
-  sessions_per_month: z.number().int().positive().optional().nullable()
+  sessions_per_month: z.number().int().positive().optional().nullable(),
+  payment_method: paymentMethodSchema.optional().nullable()
 });
 
 export const attendanceSchema = z.object({
