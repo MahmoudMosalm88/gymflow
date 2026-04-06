@@ -31,6 +31,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar'; // shadcn/ui calendar component
 import { cn } from '@/lib/utils'; // cn helper
 import { addCalendarMonths, toUnixSeconds } from '@/lib/subscription-dates';
+import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-method-ui';
 
 type Member = { id: string; name: string };
 
@@ -39,6 +40,7 @@ type SubscriptionFormData = {
   start_date: Date; // Using Date object for react-hook-form
   plan_months: number;
   price_paid?: number;
+  payment_method: 'cash';
   sessions_per_month?: number;
 };
 
@@ -95,6 +97,7 @@ const subscriptionFormSchema = z.object({
   price_paid: z.coerce.number().optional().refine((val) => val === undefined || val === null || val >= 0, {
     message: "Price paid must be a positive number.",
   }),
+  payment_method: z.literal('cash').default('cash'),
   sessions_per_month: z.coerce.number().optional().refine((val) => val === undefined || val === null || val >= 0, {
     message: "Sessions per month must be a positive number.",
   }),
@@ -106,12 +109,13 @@ export default function SubscriptionForm({ members, preselectedMemberId, onSubmi
   const labels = { ...t[lang], ...formLabels[lang] };
 
   const form = useForm<SubscriptionFormData>({
-    resolver: zodResolver(subscriptionFormSchema),
+    resolver: zodResolver(subscriptionFormSchema) as any,
     defaultValues: {
       member_id: preselectedMemberId || '',
       start_date: new Date(),
       plan_months: 1,
       price_paid: undefined,
+      payment_method: DEFAULT_PAYMENT_METHOD,
       sessions_per_month: undefined,
     },
   });

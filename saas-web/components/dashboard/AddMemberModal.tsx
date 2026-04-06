@@ -7,6 +7,7 @@ import * as z from 'zod';
 import { useLang, t } from '@/lib/i18n';
 import { toUnixSeconds } from '@/lib/subscription-dates';
 import { saveMemberWithSubscription } from '@/lib/offline/actions';
+import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-method-ui';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,6 +57,7 @@ const schema = z.object({
     (v) => (v === '' || v === undefined || v === null ? undefined : Number(v)),
     z.number().optional()
   ),
+  payment_method: z.literal('cash').default('cash'),
   // Existing member toggle
   is_existing: z.boolean().default(false),
   start_date_str: z.string().optional(),
@@ -88,6 +90,7 @@ export default function AddMemberModal({ open, onClose, onSuccess }: Props) {
       plan_months: '1',
       sessions_per_month: undefined,
       price_paid: undefined,
+      payment_method: DEFAULT_PAYMENT_METHOD,
       is_existing: false,
       start_date_str: '',
     },
@@ -127,6 +130,7 @@ export default function AddMemberModal({ open, onClose, onSuccess }: Props) {
         plan_months: parseInt(data.plan_months, 10),
         sessions_per_month: data.sessions_per_month ?? null,
         price_paid: data.price_paid ?? null,
+        payment_method: data.payment_method,
       });
 
       if (!result.success) {

@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/use-auth';
 import { formatDate, formatDateTime, formatCurrency } from '@/lib/format';
 import { getCachedMemberDetail } from '@/lib/offline/read-model';
 import { saveSubscriptionRenew } from '@/lib/offline/actions';
+import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-method-ui';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 
 import { Button } from '@/components/ui/button';
@@ -158,7 +159,7 @@ export default function MemberDetailPage() {
   const [sendingWaType, setSendingWaType] = useState<'welcome' | 'qr_code' | null>(null);
   const [freezeSubId, setFreezeSubId] = useState<string | null>(null);
   const [renewSub, setRenewSub] = useState<Subscription | null>(null);
-  const [renewForm, setRenewForm] = useState({ plan_months: '1', sessions_per_month: '', price_paid: '', payment_method: 'cash' as 'cash' | 'digital' });
+  const [renewForm, setRenewForm] = useState({ plan_months: '1', sessions_per_month: '', price_paid: '' });
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState('');
   const [showSubscriptionHistory, setShowSubscriptionHistory] = useState(false);
@@ -336,7 +337,6 @@ export default function MemberDetailPage() {
         plan_months: String(sub.plan_months || 1),
         sessions_per_month: sub.sessions_per_month != null ? String(sub.sessions_per_month) : '',
         price_paid: '',
-        payment_method: sub.payment_method ?? 'cash',
       });
     setRenewError('');
   }
@@ -355,7 +355,7 @@ export default function MemberDetailPage() {
         expectedPreviousIsActive: renewSub.is_active,
         planMonths: parseInt(renewForm.plan_months, 10) || 1,
         pricePaid: renewalAmount,
-        paymentMethod: renewForm.payment_method,
+        paymentMethod: DEFAULT_PAYMENT_METHOD,
         sessionsPerMonth: renewForm.sessions_per_month ? parseInt(renewForm.sessions_per_month, 10) : null,
       });
 
@@ -698,18 +698,6 @@ export default function MemberDetailPage() {
                 onChange={(e) => setRenewForm((f) => ({ ...f, price_paid: e.target.value }))}
               />
             </div>
-            <div className="space-y-2">
-              <Label>{labels.payment_method}</Label>
-              <select
-                className="flex h-10 w-full border border-input bg-background px-3 py-2 text-sm"
-                value={renewForm.payment_method}
-                onChange={(e) => setRenewForm((f) => ({ ...f, payment_method: e.target.value as 'cash' | 'digital' }))}
-              >
-                <option value="cash">{labels.payment_method_cash}</option>
-                <option value="digital">{labels.payment_method_digital}</option>
-              </select>
-            </div>
-
             {renewError && (
               <p className="text-sm text-[#e63946] border border-[#5c2a2a] bg-[#2b0d0d] px-3 py-2">{renewError}</p>
             )}
@@ -755,12 +743,6 @@ export default function MemberDetailPage() {
                 const planInfo = pay.plan_months
                   ? `${pay.plan_months} ${lang === 'ar' ? 'شهر' : 'mo'}`
                   : '';
-                const paymentMethodLabel = pay.payment_method === 'cash'
-                  ? labels.payment_method_cash
-                  : pay.payment_method === 'digital'
-                    ? labels.payment_method_digital
-                    : labels.payment_method_unknown;
-
                 return (
                   <div key={pay.id} className="flex items-center justify-between py-3">
                     <div>

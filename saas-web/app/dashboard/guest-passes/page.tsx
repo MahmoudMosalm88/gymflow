@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-method-ui';
 
 type GuestPass = {
   id: string;
@@ -19,6 +20,7 @@ type GuestPass = {
   member_name: string;
   phone: string | null;
   amount: string | null;
+  payment_method: 'cash' | 'digital' | null;
   inviter_member_id: string | null;
   inviter_subscription_id: number | null;
   inviter_name: string | null;
@@ -231,6 +233,7 @@ export default function GuestPassesPage() {
         member_name: name.trim(),
         phone: phone.trim() || undefined,
         amount: parsedAmount,
+        payment_method: parsedAmount != null ? DEFAULT_PAYMENT_METHOD : undefined,
         inviter_member_id: selectedInviterId || undefined,
       });
       if (res.success) {
