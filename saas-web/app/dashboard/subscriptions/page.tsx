@@ -101,6 +101,9 @@ const pageLabels = {
     hideHistory: 'Hide History',
     upcoming: 'Upcoming',
     historical_cycle: 'History',
+    payment_method: 'Payment Method',
+    payment_method_cash: 'Cash',
+    payment_method_digital: 'Digital',
   },
   ar: {
     newSubscription: 'اشتراك جديد',
@@ -127,6 +130,9 @@ const pageLabels = {
     hideHistory: 'إخفاء السجل',
     upcoming: 'قادمة',
     historical_cycle: 'سجل',
+    payment_method: 'طريقة الدفع',
+    payment_method_cash: 'نقدي',
+    payment_method_digital: 'رقمي',
   },
 } as const;
 
