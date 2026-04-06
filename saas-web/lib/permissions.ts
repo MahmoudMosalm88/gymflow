@@ -3,6 +3,7 @@ import type { AppRole } from "@/lib/session";
 export type NavKey =
   | "dashboard"
   | "members"
+  | "guest_passes"
   | "subscriptions"
   | "reports"
   | "income"
@@ -11,15 +12,16 @@ export type NavKey =
   | "profile";
 
 const roleNav: Record<AppRole, NavKey[]> = {
-  owner: ["dashboard", "members", "subscriptions", "reports", "income", "notifications", "settings", "profile"],
-  manager: ["dashboard", "members", "subscriptions", "notifications", "profile"],
-  staff: ["dashboard", "members", "subscriptions", "notifications", "profile"],
+  owner: ["dashboard", "members", "guest_passes", "subscriptions", "reports", "income", "notifications", "settings", "profile"],
+  manager: ["dashboard", "members", "guest_passes", "subscriptions", "notifications", "profile"],
+  staff: ["dashboard", "members", "guest_passes", "subscriptions", "notifications", "profile"],
   trainer: ["members", "profile"],
 };
 
 const navPaths: Record<NavKey, string> = {
   dashboard: "/dashboard",
   members: "/dashboard/members",
+  guest_passes: "/dashboard/guest-passes",
   subscriptions: "/dashboard/subscriptions",
   reports: "/dashboard/reports",
   income: "/dashboard/income",

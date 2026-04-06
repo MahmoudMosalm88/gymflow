@@ -72,9 +72,12 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
     const url = new URL(request.url);
     const now = Math.floor(Date.now() / 1000);
     const startOfDay = now - (now % 86400);
+    const nowDate = new Date();
+    const startOfMonth = Math.floor(Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), 1) / 1000);
+    const startOfPreviousMonth = Math.floor(Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth() - 1, 1) / 1000);
 
     if (report === "overview") {
-      const [members, activeSubs, expiredSubs, revenue, today] = await Promise.all([
+      const [members, activeSubs, expiredSubs, revenue, currentMonthRevenue, previousMonthRevenue, today, revenueAtRisk, revenueSaved, atRiskMembers, newMembersThisMonth, churnedThisMonth] = await Promise.all([
         query<NumberRow>(
           `SELECT COUNT(*)::text AS count
              FROM members
@@ -124,6 +127,21 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           [auth.organizationId, auth.branchId]
         ),
         query<NumberRow>(
+          `${incomeEventsCte}
+           SELECT COALESCE(SUM(amount), 0)::text AS total
+             FROM income_events
+            WHERE effective_at >= to_timestamp($3)`,
+          [auth.organizationId, auth.branchId, startOfMonth]
+        ),
+        query<NumberRow>(
+          `${incomeEventsCte}
+           SELECT COALESCE(SUM(amount), 0)::text AS total
+             FROM income_events
+            WHERE effective_at >= to_timestamp($3)
+              AND effective_at < to_timestamp($4)`,
+          [auth.organizationId, auth.branchId, startOfPreviousMonth, startOfMonth]
+        ),
+        query<NumberRow>(
           `SELECT
               COUNT(*) FILTER (WHERE status = 'success')::text AS allowed,
               COUNT(*) FILTER (
@@ -140,6 +158,109 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
               AND timestamp >= $3
               AND timestamp < $4`,
           [auth.organizationId, auth.branchId, startOfDay, startOfDay + 86400]
+        ),
+        query<NumberRow>(
+          `SELECT COALESCE(SUM(price_paid), 0)::text AS total
+             FROM subscriptions
+            WHERE organization_id = $1
+              AND branch_id = $2
+              AND is_active = true
+              AND start_date <= $3
+              AND end_date > $3
+              AND end_date <= $4`,
+          [auth.organizationId, auth.branchId, now, now + 14 * 86400]
+        ),
+        query<NumberRow>(
+          `WITH sent_messages AS (
+             SELECT mq.member_id,
+                    COALESCE(mq.sent_at, mq.scheduled_at) AS sent_at,
+                    NULLIF(mq.payload->>'subscription_id', '')::int AS source_subscription_id
+               FROM message_queue mq
+              WHERE mq.organization_id = $1
+                AND mq.branch_id = $2
+                AND mq.type = 'renewal'
+                AND mq.status = 'sent'
+                AND COALESCE(mq.sent_at, mq.scheduled_at) >= to_timestamp($3)
+           ),
+           attributed AS (
+             SELECT COALESCE(renewal.price_paid, 0)::numeric(12, 2) AS revenue_saved
+               FROM sent_messages sm
+               LEFT JOIN LATERAL (
+                 SELECT s.price_paid
+                   FROM subscriptions s
+                  WHERE s.organization_id = $1
+                    AND s.branch_id = $2
+                    AND s.member_id = sm.member_id
+                    AND s.renewed_from_subscription_id IS NOT NULL
+                    AND (sm.source_subscription_id IS NULL OR s.renewed_from_subscription_id = sm.source_subscription_id)
+                    AND s.created_at >= sm.sent_at
+                    AND s.created_at < sm.sent_at + interval '14 day'
+                  ORDER BY s.created_at ASC
+                  LIMIT 1
+               ) renewal ON true
+           )
+           SELECT COALESCE(SUM(revenue_saved), 0)::text AS total
+             FROM attributed`,
+          [auth.organizationId, auth.branchId, now - 30 * 86400]
+        ),
+        query<NumberRow>(
+          `WITH active_members AS (
+             SELECT DISTINCT member_id
+               FROM subscriptions
+              WHERE organization_id = $1
+                AND branch_id = $2
+                AND is_active = true
+                AND start_date <= $3
+                AND end_date > $3
+           ),
+           activity AS (
+             SELECT member_id,
+                    MAX(timestamp) FILTER (WHERE status = 'success') AS last_visit
+               FROM logs
+              WHERE organization_id = $1
+                AND branch_id = $2
+                AND member_id IS NOT NULL
+              GROUP BY member_id
+           )
+           SELECT COUNT(*)::text AS count
+             FROM active_members am
+             LEFT JOIN activity a ON a.member_id = am.member_id
+            WHERE a.last_visit IS NULL OR a.last_visit < $4`,
+          [auth.organizationId, auth.branchId, now, now - 14 * 86400]
+        ),
+        query<NumberRow>(
+          `SELECT COUNT(*)::text AS count
+             FROM members
+            WHERE organization_id = $1
+              AND branch_id = $2
+              AND deleted_at IS NULL
+              AND EXTRACT(EPOCH FROM created_at)::bigint >= $3`,
+          [auth.organizationId, auth.branchId, startOfMonth]
+        ),
+        query<NumberRow>(
+          `WITH active_start AS (
+             SELECT DISTINCT member_id
+               FROM subscriptions
+              WHERE organization_id = $1
+                AND branch_id = $2
+                AND is_active = true
+                AND start_date <= $3
+                AND end_date > $3
+           ),
+           active_end AS (
+             SELECT DISTINCT member_id
+               FROM subscriptions
+              WHERE organization_id = $1
+                AND branch_id = $2
+                AND is_active = true
+                AND start_date <= $4
+                AND end_date > $4
+           )
+           SELECT COUNT(*)::text AS count
+             FROM active_start s
+             LEFT JOIN active_end e ON e.member_id = s.member_id
+            WHERE e.member_id IS NULL`,
+          [auth.organizationId, auth.branchId, startOfMonth, now]
         )
       ]);
 
@@ -149,6 +270,16 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
         activeSubscriptions: toNumber(activeSubs[0]?.count),
         expiredSubscriptions: toNumber(expiredSubs[0]?.count),
         totalRevenue: toNumber(revenue[0]?.total),
+        currentMonthRevenue: toNumber(currentMonthRevenue[0]?.total),
+        previousMonthRevenue: toNumber(previousMonthRevenue[0]?.total),
+        arpm:
+          toNumber(activeSubs[0]?.count) > 0
+            ? toNumber(currentMonthRevenue[0]?.total) / toNumber(activeSubs[0]?.count)
+            : 0,
+        revenueAtRisk: toNumber(revenueAtRisk[0]?.total),
+        revenueSaved: toNumber(revenueSaved[0]?.total),
+        atRiskMembers: toNumber(atRiskMembers[0]?.count),
+        netMemberGrowth: toNumber(newMembersThisMonth[0]?.count) - toNumber(churnedThisMonth[0]?.count),
         todayCheckIns: toNumber(today[0]?.allowed),
         todayStats: {
           allowed: toNumber(today[0]?.allowed),
