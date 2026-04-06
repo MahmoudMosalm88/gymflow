@@ -38,9 +38,6 @@ const MemberAvatar = dynamic(() => import('@/components/dashboard/MemberAvatar')
 const MemberGuestInvitesCard = dynamic(() => import('@/components/dashboard/MemberGuestInvitesCard'), {
   loading: () => <LoadingSpinner />,
 });
-const MemberPtWorkspace = dynamic(() => import('@/components/dashboard/MemberPtWorkspace'), {
-  loading: () => <LoadingSpinner />,
-});
 const FreezeDialog = dynamic(() => import('@/components/dashboard/FreezeDialog'));
 
 type Member = {
@@ -514,16 +511,6 @@ export default function MemberDetailPage() {
         </CardContent>
       </Card>
 
-      <MemberPtWorkspace
-        memberId={member.id}
-        canSellPackage={!isTrainer}
-        canBookSession={Boolean(profile?.role === 'trainer' || !isTrainer)}
-        trainers={trainers.map((trainer) => ({
-          id: trainer.id,
-          name: trainer.name,
-          phone: trainer.phone,
-        }))}
-      />
 
       {!isTrainer ? <MemberGuestInvitesCard memberId={member.id} /> : null}
 
