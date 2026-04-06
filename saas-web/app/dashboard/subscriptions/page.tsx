@@ -55,6 +55,7 @@ type Subscription = {
   end_date: number;
   plan_months: number;
   price_paid: number;
+  payment_method?: 'cash' | 'digital' | null;
   sessions_per_month: number;
   is_active: boolean;
   created_at: number;
@@ -69,6 +70,7 @@ type EditDraft = {
   start_date: string;
   plan_months: string;
   price_paid: string;
+  payment_method: 'cash' | 'digital';
   sessions_per_month: string;
 };
 
@@ -271,6 +273,7 @@ export default function SubscriptionsPage() {
         startDate: data.start_date,
         planMonths: data.plan_months,
         pricePaid: data.price_paid ?? null,
+        paymentMethod: data.payment_method ?? 'cash',
         sessionsPerMonth: data.sessions_per_month ?? null,
         expectedActiveSubscriptionId: current?.id ?? null,
       });
@@ -311,6 +314,7 @@ export default function SubscriptionsPage() {
       start_date: isoDate(sub.start_date),
       plan_months: String(sub.plan_months ?? 1),
       price_paid: String(sub.price_paid ?? 0),
+      payment_method: sub.payment_method ?? 'cash',
       sessions_per_month: String(sub.sessions_per_month ?? ''),
     });
     setEditOpen(true);
@@ -337,6 +341,7 @@ export default function SubscriptionsPage() {
         start_date: startDateUnix,
         plan_months: planMonths,
         price_paid: pricePaid,
+        payment_method: editDraft.payment_method,
         sessions_per_month: sessionsPerMonth,
       });
       if (res.success) {
@@ -599,6 +604,21 @@ export default function SubscriptionsPage() {
                   value={editDraft.price_paid}
                   onChange={(e) => setEditDraft((prev) => prev ? { ...prev, price_paid: e.target.value } : prev)}
                 />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="edit-payment-method">{labels.payment_method}</Label>
+                <Select
+                  value={editDraft.payment_method}
+                  onValueChange={(value: 'cash' | 'digital') => setEditDraft((prev) => prev ? { ...prev, payment_method: value } : prev)}
+                >
+                  <SelectTrigger id="edit-payment-method">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">{labels.payment_method_cash}</SelectItem>
+                    <SelectItem value="digital">{labels.payment_method_digital}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="edit-sessions">{labels.sessionsPerMonth || 'Sessions / month'}</Label>
