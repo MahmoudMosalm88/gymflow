@@ -44,6 +44,7 @@ export type OfflineSubscription = {
   end_date: number;
   plan_months: number;
   price_paid: number | null;
+  payment_method: "cash" | "digital" | null;
   sessions_per_month: number | null;
   is_active: boolean;
   created_at: number;
@@ -71,6 +72,7 @@ export type OfflinePayment = {
   type: "subscription" | "renewal" | "guest_pass" | "other";
   subscription_id: number | null;
   guest_pass_id: string | null;
+  payment_method: "cash" | "digital" | null;
   note: string | null;
   created_at: string;
   sync_status?: SyncStatus;
@@ -133,6 +135,7 @@ export type SubscriptionCreatePayload = {
   startDate: number;
   planMonths: number;
   pricePaid: number | null;
+  paymentMethod: "cash" | "digital" | null;
   sessionsPerMonth: number | null;
   expectedActiveSubscriptionId: number | null;
 };
@@ -146,6 +149,7 @@ export type SubscriptionRenewPayload = {
   expectedPreviousIsActive: boolean;
   planMonths: number;
   pricePaid: number | null;
+  paymentMethod: "cash" | "digital" | null;
   sessionsPerMonth: number | null;
 };
 
