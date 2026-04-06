@@ -23,6 +23,34 @@ import {
   getTemplateKey,
 } from '@/lib/whatsapp-automation';
 
+const DEFAULT_POST_EXPIRY_TEMPLATES = {
+  en: {
+    day0: "Hi {name}, your membership expired on {expiryDate}. Reply or renew today to reactivate access.",
+    day3: "Hi {name}, this is a reminder that your membership expired on {expiryDate}. We can reactivate it anytime.",
+    day7: "Hi {name}, we miss seeing you at the gym. Your membership expired on {expiryDate}. Reply here if you want us to help you renew.",
+    day14: "Final reminder, {name}: your membership is still inactive since {expiryDate}. Renew now if you want to keep your progress going.",
+  },
+  ar: {
+    day0: "مرحباً {name}، انتهى اشتراكك بتاريخ {expiryDate}. يمكنك التجديد اليوم لإعادة التفعيل فوراً.",
+    day3: "مرحباً {name}، تذكير بأن اشتراكك انتهى بتاريخ {expiryDate}. يمكننا إعادة التفعيل في أي وقت.",
+    day7: "مرحباً {name}، نفتقد حضورك في الصالة. انتهى اشتراكك بتاريخ {expiryDate}. راسلنا إذا أردت المساعدة في التجديد.",
+    day14: "آخر تذكير يا {name}: ما زالت عضويتك غير مفعلة منذ {expiryDate}. جدّد الآن إذا أردت الاستمرار.",
+  },
+} as const;
+
+const DEFAULT_ONBOARDING_TEMPLATES = {
+  en: {
+    firstVisit: "Great first visit, {name}. Keep the momentum going and book your next workout this week.",
+    noReturnDay7: "Hi {name}, we noticed you have not been back yet. Your best results come from the first few visits. Want us to help you plan your next session?",
+    lowEngagementDay14: "Hi {name}, your first two weeks matter most. We can help you build a routine that fits your schedule. Reply if you want support.",
+  },
+  ar: {
+    firstVisit: "بداية ممتازة يا {name}. حافظ على الحماس وحدد تمرينك القادم هذا الأسبوع.",
+    noReturnDay7: "مرحباً {name}، لاحظنا أنك لم تعد بعد. أفضل النتائج تأتي من أول الزيارات. هل تريد مساعدتنا في ترتيب حصتك القادمة؟",
+    lowEngagementDay14: "مرحباً {name}، أول أسبوعين هم الأهم. نستطيع مساعدتك في بناء روتين مناسب لوقتك. راسلنا إذا أردت دعماً.",
+  },
+} as const;
+
 
 type Tab = 'general' | 'whatsapp' | 'backup' | 'import';
 
@@ -188,6 +216,8 @@ export default function WhatsAppTab() {
   const systemLanguage = lang === 'ar' ? 'ar' : 'en';
   const defaultWelcomeTemplate = getDefaultWelcomeTemplate(systemLanguage);
   const defaultRenewalTemplate = getDefaultRenewalTemplate(systemLanguage);
+  const defaultPostExpiryTemplates = DEFAULT_POST_EXPIRY_TEMPLATES[systemLanguage];
+  const defaultOnboardingTemplates = DEFAULT_ONBOARDING_TEMPLATES[systemLanguage];
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
@@ -195,8 +225,18 @@ export default function WhatsAppTab() {
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [templatesSaving, setTemplatesSaving] = useState(false);
   const [templateFeedback, setTemplateFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
-  const [welcomeTemplate, setWelcomeTemplate] = useState(defaultWelcomeTemplate);
-  const [renewalTemplate, setRenewalTemplate] = useState(defaultRenewalTemplate);
+  const [welcomeTemplate, setWelcomeTemplate] = useState<string>(defaultWelcomeTemplate);
+  const [renewalTemplate, setRenewalTemplate] = useState<string>(defaultRenewalTemplate);
+  const [postExpiryDay0Template, setPostExpiryDay0Template] = useState<string>(defaultPostExpiryTemplates.day0);
+  const [postExpiryDay3Template, setPostExpiryDay3Template] = useState<string>(defaultPostExpiryTemplates.day3);
+  const [postExpiryDay7Template, setPostExpiryDay7Template] = useState<string>(defaultPostExpiryTemplates.day7);
+  const [postExpiryDay14Template, setPostExpiryDay14Template] = useState<string>(defaultPostExpiryTemplates.day14);
+  const [onboardingFirstVisitTemplate, setOnboardingFirstVisitTemplate] = useState<string>(defaultOnboardingTemplates.firstVisit);
+  const [onboardingNoReturnDay7Template, setOnboardingNoReturnDay7Template] = useState<string>(defaultOnboardingTemplates.noReturnDay7);
+  const [onboardingLowEngagementDay14Template, setOnboardingLowEngagementDay14Template] = useState<string>(defaultOnboardingTemplates.lowEngagementDay14);
+  const [postExpiryEnabled, setPostExpiryEnabled] = useState(false);
+  const [onboardingEnabled, setOnboardingEnabled] = useState(false);
+  const [weeklyDigestEnabled, setWeeklyDigestEnabled] = useState(false);
   const [reminderDays, setReminderDays] = useState(DEFAULT_REMINDER_DAYS);
   const [queueData, setQueueData] = useState<WhatsAppQueueResponse>({ items: [] });
   const [queueLoading, setQueueLoading] = useState(true);
@@ -256,6 +296,13 @@ export default function WhatsAppTab() {
           res.data[getTemplateKey('renewal', systemLanguage)] ??
           (systemLanguage === 'en' ? res.data.whatsapp_template_renewal : undefined);
         const maybeDays = res.data.whatsapp_reminder_days;
+        const maybePostExpiryDay0 = res.data[`whatsapp_template_post_expiry_day0_${systemLanguage}`];
+        const maybePostExpiryDay3 = res.data[`whatsapp_template_post_expiry_day3_${systemLanguage}`];
+        const maybePostExpiryDay7 = res.data[`whatsapp_template_post_expiry_day7_${systemLanguage}`];
+        const maybePostExpiryDay14 = res.data[`whatsapp_template_post_expiry_day14_${systemLanguage}`];
+        const maybeOnboardingFirstVisit = res.data[`whatsapp_template_onboarding_first_visit_${systemLanguage}`];
+        const maybeOnboardingNoReturnDay7 = res.data[`whatsapp_template_onboarding_no_return_day7_${systemLanguage}`];
+        const maybeOnboardingLowEngagementDay14 = res.data[`whatsapp_template_onboarding_low_engagement_day14_${systemLanguage}`];
 
         if (typeof maybeWelcome === 'string' && maybeWelcome.trim()) {
           setWelcomeTemplate(maybeWelcome);
@@ -272,6 +319,16 @@ export default function WhatsAppTab() {
         } else {
           setReminderDays(DEFAULT_REMINDER_DAYS);
         }
+        setPostExpiryDay0Template(typeof maybePostExpiryDay0 === 'string' && maybePostExpiryDay0.trim() ? maybePostExpiryDay0 : defaultPostExpiryTemplates.day0);
+        setPostExpiryDay3Template(typeof maybePostExpiryDay3 === 'string' && maybePostExpiryDay3.trim() ? maybePostExpiryDay3 : defaultPostExpiryTemplates.day3);
+        setPostExpiryDay7Template(typeof maybePostExpiryDay7 === 'string' && maybePostExpiryDay7.trim() ? maybePostExpiryDay7 : defaultPostExpiryTemplates.day7);
+        setPostExpiryDay14Template(typeof maybePostExpiryDay14 === 'string' && maybePostExpiryDay14.trim() ? maybePostExpiryDay14 : defaultPostExpiryTemplates.day14);
+        setOnboardingFirstVisitTemplate(typeof maybeOnboardingFirstVisit === 'string' && maybeOnboardingFirstVisit.trim() ? maybeOnboardingFirstVisit : defaultOnboardingTemplates.firstVisit);
+        setOnboardingNoReturnDay7Template(typeof maybeOnboardingNoReturnDay7 === 'string' && maybeOnboardingNoReturnDay7.trim() ? maybeOnboardingNoReturnDay7 : defaultOnboardingTemplates.noReturnDay7);
+        setOnboardingLowEngagementDay14Template(typeof maybeOnboardingLowEngagementDay14 === 'string' && maybeOnboardingLowEngagementDay14.trim() ? maybeOnboardingLowEngagementDay14 : defaultOnboardingTemplates.lowEngagementDay14);
+        setPostExpiryEnabled(Boolean(res.data.whatsapp_post_expiry_enabled));
+        setOnboardingEnabled(Boolean(res.data.whatsapp_onboarding_enabled));
+        setWeeklyDigestEnabled(Boolean(res.data.whatsapp_weekly_digest_enabled));
       }
     } catch (err) {
       setTemplateFeedback({
@@ -281,7 +338,7 @@ export default function WhatsAppTab() {
     } finally {
       setTemplatesLoading(false);
     }
-  }, [defaultRenewalTemplate, defaultWelcomeTemplate, systemLanguage]);
+  }, [defaultOnboardingTemplates, defaultPostExpiryTemplates, defaultRenewalTemplate, defaultWelcomeTemplate, systemLanguage]);
 
   const fetchQueue = useCallback(async () => {
     setQueueLoading(true);
@@ -365,11 +422,28 @@ export default function WhatsAppTab() {
     try {
       const resolvedWelcome = welcomeTemplate.trim() || defaultWelcomeTemplate;
       const resolvedRenewal = renewalTemplate.trim() || defaultRenewalTemplate;
+      const resolvedPostExpiryDay0 = postExpiryDay0Template.trim() || defaultPostExpiryTemplates.day0;
+      const resolvedPostExpiryDay3 = postExpiryDay3Template.trim() || defaultPostExpiryTemplates.day3;
+      const resolvedPostExpiryDay7 = postExpiryDay7Template.trim() || defaultPostExpiryTemplates.day7;
+      const resolvedPostExpiryDay14 = postExpiryDay14Template.trim() || defaultPostExpiryTemplates.day14;
+      const resolvedOnboardingFirstVisit = onboardingFirstVisitTemplate.trim() || defaultOnboardingTemplates.firstVisit;
+      const resolvedOnboardingNoReturnDay7 = onboardingNoReturnDay7Template.trim() || defaultOnboardingTemplates.noReturnDay7;
+      const resolvedOnboardingLowEngagementDay14 = onboardingLowEngagementDay14Template.trim() || defaultOnboardingTemplates.lowEngagementDay14;
       const values: Record<string, string | boolean> = {
         [getTemplateKey('welcome', systemLanguage)]: resolvedWelcome,
         [getTemplateKey('renewal', systemLanguage)]: resolvedRenewal,
+        [`whatsapp_template_post_expiry_day0_${systemLanguage}`]: resolvedPostExpiryDay0,
+        [`whatsapp_template_post_expiry_day3_${systemLanguage}`]: resolvedPostExpiryDay3,
+        [`whatsapp_template_post_expiry_day7_${systemLanguage}`]: resolvedPostExpiryDay7,
+        [`whatsapp_template_post_expiry_day14_${systemLanguage}`]: resolvedPostExpiryDay14,
+        [`whatsapp_template_onboarding_first_visit_${systemLanguage}`]: resolvedOnboardingFirstVisit,
+        [`whatsapp_template_onboarding_no_return_day7_${systemLanguage}`]: resolvedOnboardingNoReturnDay7,
+        [`whatsapp_template_onboarding_low_engagement_day14_${systemLanguage}`]: resolvedOnboardingLowEngagementDay14,
         whatsapp_reminder_days: reminderDays.trim(),
         whatsapp_automation_enabled: true,
+        whatsapp_post_expiry_enabled: false,
+        whatsapp_onboarding_enabled: false,
+        whatsapp_weekly_digest_enabled: false,
         system_language: systemLanguage
       };
       if (systemLanguage === 'en') {
@@ -473,11 +547,19 @@ export default function WhatsAppTab() {
   const sampleName = labels.sample_name;
   const sampleExpiry = new Date(Date.now() + 30 * 86400000).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
-  function previewText(template: string, type: 'welcome' | 'renewal') {
+  function previewText(template: string, type: 'welcome' | 'renewal' | 'post_expiry' | 'onboarding') {
     let text = template || (type === 'welcome' ? defaultWelcomeTemplate : defaultRenewalTemplate);
+    if (type === 'post_expiry') {
+      text = template || defaultPostExpiryTemplates.day0;
+    }
+    if (type === 'onboarding') {
+      text = template || defaultOnboardingTemplates.firstVisit;
+    }
     text = text.replace(/\{name\}/g, sampleName);
-    if (type === 'renewal') {
+    if (type === 'renewal' || type === 'post_expiry') {
       text = text.replace(/\{expiryDate\}/g, sampleExpiry);
+    }
+    if (type === 'renewal') {
       text = text.replace(/\{daysLeft\}/g, '7');
     }
     return text;
@@ -704,6 +786,125 @@ export default function WhatsAppTab() {
               </div>
 
               {/* Save */}
+              <Separator />
+
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-semibold">
+                      {lang === 'ar' ? 'أتمتة الاسترجاع والتهيئة' : 'Lifecycle automations'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {lang === 'ar'
+                        ? 'يمكنك تجهيز القوالب الآن، لكن هذه الرسائل غير مفعلة في الإنتاج حالياً. الحي المسموح فقط هو الترحيب وتذكيرات التجديد الحالية.'
+                        : 'You can prepare these templates now, but these automations are not live in production. Only welcome and the current renewal reminders are allowed live right now.'}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="border-warning/40 bg-warning/10 text-warning">
+                    {lang === 'ar' ? 'مقفولة حالياً' : 'Hard blocked for now'}
+                  </Badge>
+                </div>
+
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>{lang === 'ar' ? 'قفل أمان على مستوى العامل' : 'Worker-level safety lock'}</AlertTitle>
+                  <AlertDescription>
+                    {lang === 'ar'
+                      ? 'حتى لو تم حفظ الإعدادات هنا، لن يتم إرسال رسائل ما بعد الانتهاء أو التهيئة أو الملخص الأسبوعي حتى يتم تفعيل المفتاح البيئي بشكل صريح.'
+                      : 'Even if settings are saved here, post-expiry, onboarding, and weekly digest messages will not send until the environment kill switch is explicitly enabled.'}
+                  </AlertDescription>
+                </Alert>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  {[
+                    { titleEn: 'Post-expiry recovery', titleAr: 'استرجاع ما بعد الانتهاء', enabled: postExpiryEnabled },
+                    { titleEn: 'New member onboarding', titleAr: 'تهيئة العضو الجديد', enabled: onboardingEnabled },
+                    { titleEn: 'Weekly digest', titleAr: 'الملخص الأسبوعي', enabled: weeklyDigestEnabled },
+                  ].map((item) => (
+                    <div key={item.titleEn} className="border border-border px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium">{lang === 'ar' ? item.titleAr : item.titleEn}</p>
+                        <Badge variant="outline" className={item.enabled ? 'border-warning/40 bg-warning/10 text-warning' : 'border-border text-muted-foreground'}>
+                          {item.enabled
+                            ? (lang === 'ar' ? 'مفعّل في الإعدادات لكنه محجوب' : 'Saved on, still blocked')
+                            : (lang === 'ar' ? 'متوقف' : 'Off')}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-semibold">{lang === 'ar' ? 'قوالب ما بعد انتهاء الاشتراك' : 'Post-expiry templates'}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {lang === 'ar' ? 'التسلسل المقصود: يوم 0، يوم 3، يوم 7، يوم 14.' : 'Intended sequence: Day 0, Day 3, Day 7, Day 14.'}
+                    </p>
+                  </div>
+                  {[
+                    { key: 'day0', labelEn: 'Day 0', labelAr: 'يوم 0', value: postExpiryDay0Template, setValue: setPostExpiryDay0Template },
+                    { key: 'day3', labelEn: 'Day 3', labelAr: 'يوم 3', value: postExpiryDay3Template, setValue: setPostExpiryDay3Template },
+                    { key: 'day7', labelEn: 'Day 7', labelAr: 'يوم 7', value: postExpiryDay7Template, setValue: setPostExpiryDay7Template },
+                    { key: 'day14', labelEn: 'Day 14', labelAr: 'يوم 14', value: postExpiryDay14Template, setValue: setPostExpiryDay14Template },
+                  ].map((item) => (
+                    <div key={item.key} className="space-y-2">
+                      <Label htmlFor={`post-expiry-${item.key}`}>{lang === 'ar' ? item.labelAr : item.labelEn}</Label>
+                      <Textarea
+                        id={`post-expiry-${item.key}`}
+                        value={item.value}
+                        onChange={(e) => item.setValue(e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground">Placeholders: {'{name}'}, {'{expiryDate}'}</p>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-semibold">{lang === 'ar' ? 'قوالب تهيئة الأعضاء الجدد' : 'New member onboarding templates'}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {lang === 'ar' ? 'الخطوات المقصودة: أول زيارة، عدم عودة بعد 7 أيام، تفاعل منخفض بعد 14 يوماً.' : 'Intended stages: first visit, no return after 7 days, low engagement after 14 days.'}
+                    </p>
+                  </div>
+                  {[
+                    { key: 'first-visit', labelEn: 'First visit recognition', labelAr: 'رسالة أول زيارة', value: onboardingFirstVisitTemplate, setValue: setOnboardingFirstVisitTemplate },
+                    { key: 'no-return-day7', labelEn: 'No return after 7 days', labelAr: 'عدم عودة بعد 7 أيام', value: onboardingNoReturnDay7Template, setValue: setOnboardingNoReturnDay7Template },
+                    { key: 'low-engagement-day14', labelEn: 'Low engagement after 14 days', labelAr: 'تفاعل منخفض بعد 14 يوماً', value: onboardingLowEngagementDay14Template, setValue: setOnboardingLowEngagementDay14Template },
+                  ].map((item) => (
+                    <div key={item.key} className="space-y-2">
+                      <Label htmlFor={`onboarding-${item.key}`}>{lang === 'ar' ? item.labelAr : item.labelEn}</Label>
+                      <Textarea
+                        id={`onboarding-${item.key}`}
+                        value={item.value}
+                        onChange={(e) => item.setValue(e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground">Placeholders: {'{name}'}</p>
+                </div>
+
+                <div className="max-w-xs">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">{labels.preview_label}</p>
+                  <div className="space-y-2 border border-border p-3">
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground">{lang === 'ar' ? 'مثال ما بعد الانتهاء' : 'Post-expiry example'}</p>
+                      <p className="mt-1 whitespace-pre-wrap text-sm">{previewText(postExpiryDay0Template, 'post_expiry')}</p>
+                    </div>
+                    <Separator />
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground">{lang === 'ar' ? 'مثال التهيئة' : 'Onboarding example'}</p>
+                      <p className="mt-1 whitespace-pre-wrap text-sm">{previewText(onboardingFirstVisitTemplate, 'onboarding')}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex flex-wrap gap-2">
                 <Button onClick={handleTemplateSave} disabled={templatesSaving}>
                   {templatesSaving ? labels.saving : labels.save}

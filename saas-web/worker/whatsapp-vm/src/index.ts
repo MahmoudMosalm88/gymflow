@@ -152,6 +152,22 @@ function getTemplateKey(type: "renewal" | "welcome", lang: SystemLanguage) {
   return `whatsapp_template_${type}_${lang}`;
 }
 
+function getPostExpiryTemplateKey(step: 0 | 3 | 7 | 14, lang: SystemLanguage) {
+  return `whatsapp_template_post_expiry_day${step}_${lang}`;
+}
+
+function getOnboardingTemplateKey(
+  stage: "first_visit" | "no_return_day7" | "low_engagement_day14",
+  lang: SystemLanguage
+) {
+  return `whatsapp_template_onboarding_${stage}_${lang}`;
+}
+
+function getSavedTemplate(settings: Record<string, unknown>, key: string, fallback: string) {
+  const raw = settings[key];
+  return typeof raw === "string" && raw.trim() ? raw : fallback;
+}
+
 function parseBooleanSetting(value: unknown, fallback = true) {
   if (typeof value === "boolean") return value;
   if (typeof value === "string") {
@@ -325,6 +341,20 @@ async function readTenantSettings(organizationId: string, branchId: string) {
         "whatsapp_post_expiry_enabled",
         "whatsapp_onboarding_enabled",
         "whatsapp_weekly_digest_enabled",
+        "whatsapp_template_post_expiry_day0_en",
+        "whatsapp_template_post_expiry_day3_en",
+        "whatsapp_template_post_expiry_day7_en",
+        "whatsapp_template_post_expiry_day14_en",
+        "whatsapp_template_post_expiry_day0_ar",
+        "whatsapp_template_post_expiry_day3_ar",
+        "whatsapp_template_post_expiry_day7_ar",
+        "whatsapp_template_post_expiry_day14_ar",
+        "whatsapp_template_onboarding_first_visit_en",
+        "whatsapp_template_onboarding_no_return_day7_en",
+        "whatsapp_template_onboarding_low_engagement_day14_en",
+        "whatsapp_template_onboarding_first_visit_ar",
+        "whatsapp_template_onboarding_no_return_day7_ar",
+        "whatsapp_template_onboarding_low_engagement_day14_ar",
         "pt_reminder_hours_before",
         "pt_expiry_warning_days",
         "pt_low_balance_threshold_sessions",
@@ -895,7 +925,11 @@ async function schedulePostExpirySequencesForTenant(organizationId: string, bran
     );
     if (exists.rows.length > 0) continue;
 
-    const template = defaultPostExpiryTemplates[systemLanguage][daysSinceExpiry as 0 | 3 | 7 | 14];
+    const template = getSavedTemplate(
+      settings,
+      getPostExpiryTemplateKey(daysSinceExpiry as 0 | 3 | 7 | 14, systemLanguage),
+      defaultPostExpiryTemplates[systemLanguage][daysSinceExpiry as 0 | 3 | 7 | 14]
+    );
     const expiryDate = formatLocalizedDate(Number(row.end_date), systemLanguage);
     const message = renderTemplate(template, {
       name: row.name || "Member",
@@ -1004,7 +1038,11 @@ async function scheduleOnboardingSequencesForTenant(organizationId: string, bran
         [organizationId, branchId, row.member_id]
       );
       if (exists.rows.length === 0) {
-        const template = defaultOnboardingTemplates[systemLanguage].first_visit;
+        const template = getSavedTemplate(
+          settings,
+          getOnboardingTemplateKey("first_visit", systemLanguage),
+          defaultOnboardingTemplates[systemLanguage].first_visit
+        );
         const message = renderTemplate(template, { name: row.name || "Member" });
         await pool.query(
           `INSERT INTO message_queue (
@@ -1042,7 +1080,11 @@ async function scheduleOnboardingSequencesForTenant(organizationId: string, bran
         [organizationId, branchId, row.member_id]
       );
       if (exists.rows.length === 0) {
-        const template = defaultOnboardingTemplates[systemLanguage].no_return_day7;
+        const template = getSavedTemplate(
+          settings,
+          getOnboardingTemplateKey("no_return_day7", systemLanguage),
+          defaultOnboardingTemplates[systemLanguage].no_return_day7
+        );
         const message = renderTemplate(template, { name: row.name || "Member" });
         await pool.query(
           `INSERT INTO message_queue (
@@ -1080,7 +1122,11 @@ async function scheduleOnboardingSequencesForTenant(organizationId: string, bran
         [organizationId, branchId, row.member_id]
       );
       if (exists.rows.length === 0) {
-        const template = defaultOnboardingTemplates[systemLanguage].low_engagement_day14;
+        const template = getSavedTemplate(
+          settings,
+          getOnboardingTemplateKey("low_engagement_day14", systemLanguage),
+          defaultOnboardingTemplates[systemLanguage].low_engagement_day14
+        );
         const message = renderTemplate(template, { name: row.name || "Member" });
         await pool.query(
           `INSERT INTO message_queue (
