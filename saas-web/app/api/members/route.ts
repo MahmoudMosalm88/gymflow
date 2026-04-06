@@ -24,7 +24,6 @@ export async function GET(request: NextRequest) {
     const auth = await requireAuth(request);
     const url = new URL(request.url);
     const q = (url.searchParams.get("q") || "").trim();
-    const now = Math.floor(Date.now() / 1000);
     const accessNow = getCurrentSubscriptionAccessReferenceUnix();
     await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, accessNow);
 
@@ -76,7 +75,7 @@ export async function GET(request: NextRequest) {
             AND ($4::uuid IS NULL OR ta.trainer_staff_user_id = $4::uuid)
           ORDER BY m.created_at DESC
           LIMIT 500`,
-        [auth.organizationId, auth.branchId, accessNow, auth.role === "trainer" ? auth.staffUserId : null]
+        [auth.organizationId, auth.branchId, accessNow, null]
       );
       return ok(rows);
     }
@@ -129,7 +128,7 @@ export async function GET(request: NextRequest) {
           AND (m.name ILIKE $5 OR m.phone ILIKE $5 OR COALESCE(m.card_code, '') ILIKE $5)
         ORDER BY m.created_at DESC
         LIMIT 500`,
-      [auth.organizationId, auth.branchId, accessNow, auth.role === "trainer" ? auth.staffUserId : null, `%${q}%`]
+      [auth.organizationId, auth.branchId, accessNow, null, `%${q}%`]
     );
 
     return ok(rows);
