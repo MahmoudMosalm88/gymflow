@@ -78,6 +78,7 @@ type SubscriptionRaw = {
   start_date: number;
   end_date: number;
   price_paid: number | null;
+  payment_method?: 'cash' | 'digital' | null;
   is_active: boolean;
   plan_months: number;
   sessions_per_month: number | null;
@@ -152,7 +153,7 @@ export default function MemberDetailPage() {
   const [sendingWaType, setSendingWaType] = useState<'welcome' | 'qr_code' | null>(null);
   const [freezeSubId, setFreezeSubId] = useState<string | null>(null);
   const [renewSub, setRenewSub] = useState<Subscription | null>(null);
-  const [renewForm, setRenewForm] = useState({ plan_months: '1', sessions_per_month: '', price_paid: '' });
+  const [renewForm, setRenewForm] = useState({ plan_months: '1', sessions_per_month: '', price_paid: '', payment_method: 'cash' as 'cash' | 'digital' });
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState('');
   const [showSubscriptionHistory, setShowSubscriptionHistory] = useState(false);
@@ -288,11 +289,12 @@ export default function MemberDetailPage() {
 
   function openRenewModal(sub: Subscription) {
     setRenewSub(sub);
-    setRenewForm({
-      plan_months: String(sub.plan_months || 1),
-      sessions_per_month: sub.sessions_per_month != null ? String(sub.sessions_per_month) : '',
-      price_paid: '',
-    });
+      setRenewForm({
+        plan_months: String(sub.plan_months || 1),
+        sessions_per_month: sub.sessions_per_month != null ? String(sub.sessions_per_month) : '',
+        price_paid: '',
+        payment_method: sub.payment_method ?? 'cash',
+      });
     setRenewError('');
   }
 
@@ -310,6 +312,7 @@ export default function MemberDetailPage() {
         expectedPreviousIsActive: renewSub.is_active,
         planMonths: parseInt(renewForm.plan_months, 10) || 1,
         pricePaid: renewalAmount,
+        paymentMethod: renewForm.payment_method,
         sessionsPerMonth: renewForm.sessions_per_month ? parseInt(renewForm.sessions_per_month, 10) : null,
       });
 
