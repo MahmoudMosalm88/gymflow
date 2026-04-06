@@ -31,6 +31,14 @@ function toUtcAnchorFromUnixSeconds(unixSeconds: number): Date {
   );
 }
 
+export function toSubscriptionAccessReferenceUnix(unixSeconds: number): number {
+  return Math.floor(toUtcAnchorFromUnixSeconds(unixSeconds).getTime() / 1000);
+}
+
+export function getCurrentSubscriptionAccessReferenceUnix(): number {
+  return toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000));
+}
+
 export function addCalendarMonths(sourceDate: Date, months: number): Date {
   const normalizedMonths = Math.max(0, Math.floor(Number(months) || 0));
   const base = toUtcAnchorFromLocalDate(sourceDate);

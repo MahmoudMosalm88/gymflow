@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
 import { ensurePaymentsTable } from "@/lib/income-events";
+import { getCurrentSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,6 +40,7 @@ type SubscriptionRow = {
   end_date: number;
   plan_months: number;
   price_paid: string | number | null;
+  payment_method: "cash" | "digital" | null;
   sessions_per_month: number | null;
   is_active: boolean;
   created_at: string | Date;
@@ -60,6 +62,7 @@ type PaymentRow = {
   type: "subscription" | "renewal" | "guest_pass" | "other";
   subscription_id: number | null;
   guest_pass_id: string | null;
+  payment_method: "cash" | "digital" | null;
   note: string | null;
   created_at: string | Date;
 };
@@ -245,7 +248,7 @@ async function getMembers(auth: { organizationId: string; branchId: string }, no
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
-    const now = Math.floor(Date.now() / 1000);
+    const now = getCurrentSubscriptionAccessReferenceUnix();
     await ensurePaymentsTable();
 
     const [members, subscriptions, freezes, payments, attendanceLogs, settings] = await Promise.all([
@@ -259,6 +262,7 @@ export async function GET(request: NextRequest) {
                 s.end_date,
                 s.plan_months,
                 s.price_paid,
+                s.payment_method,
                 s.sessions_per_month,
                 s.is_active,
                 s.created_at
@@ -285,7 +289,7 @@ export async function GET(request: NextRequest) {
         return [] as FreezeRow[];
       }),
       query<PaymentRow>(
-        `SELECT id, member_id, amount, type, subscription_id, guest_pass_id, note, created_at
+        `SELECT id, member_id, amount, type, subscription_id, guest_pass_id, payment_method, note, created_at
            FROM payments
           WHERE organization_id = $1
             AND branch_id = $2
@@ -331,6 +335,7 @@ export async function GET(request: NextRequest) {
       subscriptions: subscriptions.map((subscription) => ({
         ...subscription,
         price_paid: subscription.price_paid == null ? null : toNumber(subscription.price_paid),
+        payment_method: subscription.payment_method ?? null,
         created_at: toUnixSeconds(subscription.created_at)
       })),
       freezes: freezes.map((freeze) => ({
@@ -340,6 +345,7 @@ export async function GET(request: NextRequest) {
       payments: payments.map((payment) => ({
         ...payment,
         amount: toNumber(payment.amount),
+        payment_method: payment.payment_method ?? null,
         created_at: new Date(payment.created_at).toISOString()
       })),
       attendanceLogs: attendanceLogs.map((row) => ({

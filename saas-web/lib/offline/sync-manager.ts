@@ -1,4 +1,5 @@
 import { api } from "@/lib/api-client";
+import { toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 import { getAttendanceLog, putAttendanceLog } from "./cache";
 import { fetchAndStoreBundle } from "./offline-bundle";
 import { getFailedOperations, getPendingOperations, markOperationFailed, markOperationPending, markOperationSynced, markOperationSyncing } from "./operations";
@@ -180,7 +181,8 @@ async function syncOperation(operation: Awaited<ReturnType<typeof getPendingOper
 
       case "subscription_create": {
         const existing = await fetchSubscriptionsForMember(operation.payload.memberId);
-        const active = existing.find((item) => item.is_active && item.start_date <= operation.offlineTimestamp && item.end_date > operation.offlineTimestamp) || null;
+        const accessReference = toSubscriptionAccessReferenceUnix(operation.offlineTimestamp);
+        const active = existing.find((item) => item.is_active && item.start_date <= accessReference && item.end_date > accessReference) || null;
         const activeId = active?.id ?? null;
         if (activeId !== operation.payload.expectedActiveSubscriptionId) {
           throw conflict("This member's subscription changed before sync. Review the pending subscription.");
@@ -191,6 +193,7 @@ async function syncOperation(operation: Awaited<ReturnType<typeof getPendingOper
           start_date: operation.payload.startDate,
           plan_months: operation.payload.planMonths,
           price_paid: operation.payload.pricePaid,
+          payment_method: operation.payload.paymentMethod,
           sessions_per_month: operation.payload.sessionsPerMonth,
           expected_active_subscription_id: operation.payload.expectedActiveSubscriptionId,
         });
@@ -217,6 +220,7 @@ async function syncOperation(operation: Awaited<ReturnType<typeof getPendingOper
           previous_subscription_id: operation.payload.previousSubscriptionId,
           plan_months: operation.payload.planMonths,
           price_paid: operation.payload.pricePaid,
+          payment_method: operation.payload.paymentMethod,
           sessions_per_month: operation.payload.sessionsPerMonth,
           expected_previous_end_date: operation.payload.expectedPreviousEndDate,
           expected_previous_is_active: operation.payload.expectedPreviousIsActive,

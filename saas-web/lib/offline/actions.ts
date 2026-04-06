@@ -1,4 +1,5 @@
 import { api } from "@/lib/api-client";
+import { toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 import { fetchAndStoreBundle } from "./offline-bundle";
 import { queueMemberCreate, queueMemberUpdate, queueSubscriptionCreate, queueSubscriptionFreeze, queueSubscriptionRenew } from "./operations";
 
@@ -167,7 +168,7 @@ export async function saveSubscriptionCreate(input: {
   if (navigator.onLine) {
     try {
       const latest = await fetchLatestMemberSubscriptions(input.memberId);
-      const now = Math.floor(Date.now() / 1000);
+      const now = toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000));
       const current =
         latest.find((item) => item.is_active && item.start_date <= now && item.end_date > now) ||
         latest.find((item) => item.is_active && item.start_date > now) ||

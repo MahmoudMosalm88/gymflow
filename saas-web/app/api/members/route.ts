@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { memberSchema } from "@/lib/validation";
 import { deactivateExpiredSubscriptions } from "@/lib/subscription-status";
+import { getCurrentSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 import {
   getDefaultWelcomeTemplate,
   getTemplateKey,
@@ -24,11 +25,14 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const q = (url.searchParams.get("q") || "").trim();
     const now = Math.floor(Date.now() / 1000);
-    await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, now);
+    const accessNow = getCurrentSubscriptionAccessReferenceUnix();
+    await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, accessNow);
 
     if (!q) {
       const rows = await query(
         `SELECT m.*,
+           ta.trainer_staff_user_id,
+           ta.trainer_name,
            CASE
              WHEN s.id IS NULL THEN 'no_sub'
              WHEN s.start_date <= $3 AND s.end_date > $3 AND s.is_active = true THEN 'active'
@@ -54,18 +58,33 @@ export async function GET(request: NextRequest) {
                 created_at DESC
               LIMIT 1
            ) s ON true
+           LEFT JOIN LATERAL (
+             SELECT mta.trainer_staff_user_id,
+                    su.name AS trainer_name
+               FROM member_trainer_assignments mta
+               JOIN staff_users su ON su.id = mta.trainer_staff_user_id
+              WHERE mta.member_id = m.id
+                AND mta.organization_id = m.organization_id
+                AND mta.branch_id = m.branch_id
+                AND mta.is_active = true
+              ORDER BY mta.assigned_at DESC
+              LIMIT 1
+           ) ta ON true
           WHERE m.organization_id = $1
             AND m.branch_id = $2
             AND m.deleted_at IS NULL
+            AND ($4::uuid IS NULL OR ta.trainer_staff_user_id = $4::uuid)
           ORDER BY m.created_at DESC
           LIMIT 500`,
-        [auth.organizationId, auth.branchId, now]
+        [auth.organizationId, auth.branchId, accessNow, auth.role === "trainer" ? auth.staffUserId : null]
       );
       return ok(rows);
     }
 
     const rows = await query(
       `SELECT m.*,
+         ta.trainer_staff_user_id,
+         ta.trainer_name,
          CASE
            WHEN s.id IS NULL THEN 'no_sub'
            WHEN s.start_date <= $3 AND s.end_date > $3 AND s.is_active = true THEN 'active'
@@ -91,13 +110,26 @@ export async function GET(request: NextRequest) {
               created_at DESC
             LIMIT 1
          ) s ON true
+         LEFT JOIN LATERAL (
+           SELECT mta.trainer_staff_user_id,
+                  su.name AS trainer_name
+             FROM member_trainer_assignments mta
+             JOIN staff_users su ON su.id = mta.trainer_staff_user_id
+            WHERE mta.member_id = m.id
+              AND mta.organization_id = m.organization_id
+              AND mta.branch_id = m.branch_id
+              AND mta.is_active = true
+            ORDER BY mta.assigned_at DESC
+            LIMIT 1
+         ) ta ON true
         WHERE m.organization_id = $1
           AND m.branch_id = $2
           AND m.deleted_at IS NULL
-          AND (m.name ILIKE $4 OR m.phone ILIKE $4 OR COALESCE(m.card_code, '') ILIKE $4)
+          AND ($4::uuid IS NULL OR ta.trainer_staff_user_id = $4::uuid)
+          AND (m.name ILIKE $5 OR m.phone ILIKE $5 OR COALESCE(m.card_code, '') ILIKE $5)
         ORDER BY m.created_at DESC
         LIMIT 500`,
-      [auth.organizationId, auth.branchId, now, `%${q}%`]
+      [auth.organizationId, auth.branchId, accessNow, auth.role === "trainer" ? auth.staffUserId : null, `%${q}%`]
     );
 
     return ok(rows);
@@ -221,6 +253,7 @@ export async function POST(request: NextRequest) {
             JSON.stringify({
               message,
               template,
+              sequence_kind: "onboarding_welcome",
               placeholders: { name: member.name || "Member" },
               generated_at: new Date().toISOString()
             })

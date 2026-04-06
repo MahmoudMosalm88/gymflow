@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
 import { ensurePaymentsTable, incomeEventsCte } from "@/lib/income-events";
+import { getCurrentSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
     const { organizationId, branchId } = await requireAuth(request);
+    const accessNow = getCurrentSubscriptionAccessReferenceUnix();
     await ensurePaymentsTable();
 
     const [[totalRevenue], [expectedRows]] = await Promise.all([
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest) {
            AND start_date <= $3
            AND end_date > $3
            AND price_paid IS NOT NULL`,
-        [organizationId, branchId, Math.floor(Date.now() / 1000)]
+        [organizationId, branchId, accessNow]
       ),
     ]);
 

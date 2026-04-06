@@ -16,7 +16,7 @@ export async function deactivateExpiredSubscriptions(
       WHERE organization_id = $1
         AND branch_id = $2
         AND is_active = true
-        AND end_date < $3`,
+        AND end_date <= $3`,
     [organizationId, branchId, now]
   );
 }

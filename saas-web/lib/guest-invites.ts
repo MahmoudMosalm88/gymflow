@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 
 const DEFAULT_GUEST_INVITES_PER_CYCLE = 1;
 
@@ -96,6 +97,7 @@ export async function findActiveInviteCycle(
   memberId: string,
   now = Math.floor(Date.now() / 1000)
 ): Promise<SubscriptionCycleRow | null> {
+  const accessReference = toSubscriptionAccessReferenceUnix(now);
   const result = await executor.query<SubscriptionCycleRow>(
     `SELECT id, start_date, end_date, plan_months, sessions_per_month
        FROM subscriptions
@@ -107,7 +109,7 @@ export async function findActiveInviteCycle(
         AND end_date > $4
       ORDER BY start_date DESC, end_date DESC, created_at DESC
       LIMIT 1`,
-    [organizationId, branchId, memberId, now]
+    [organizationId, branchId, memberId, accessReference]
   );
   return result.rows[0] ?? null;
 }

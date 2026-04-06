@@ -3,6 +3,7 @@ import { query, withTransaction } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { getMonthlyCycleWindow } from "@/lib/billing-cycle";
 import { ok, fail, routeError } from "@/lib/http";
+import { toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 import { attendanceSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -166,6 +167,7 @@ export async function POST(request: NextRequest) {
 
     // Use offline timestamp for eligibility checks if provided, otherwise server time
     const checkTime = (source === "offline_sync" && offlineRecordedAt) ? offlineRecordedAt : now;
+    const accessCheckTime = toSubscriptionAccessReferenceUnix(checkTime);
 
     const settingRows = await query<{ value: unknown }>(
       `SELECT value
@@ -252,7 +254,7 @@ export async function POST(request: NextRequest) {
           AND start_date <= $4
           AND end_date > $4
         LIMIT 1`,
-      [auth.organizationId, auth.branchId, member.id, checkTime]
+      [auth.organizationId, auth.branchId, member.id, accessCheckTime]
     );
 
     if (!subscriptionRows[0]) {
@@ -272,7 +274,7 @@ export async function POST(request: NextRequest) {
        WHERE subscription_id = $1 AND organization_id = $2 AND branch_id = $3
          AND start_date <= $4 AND end_date > $4
        LIMIT 1`,
-      [subscription.id, auth.organizationId, auth.branchId, checkTime]
+      [subscription.id, auth.organizationId, auth.branchId, accessCheckTime]
     );
 
     if (frozenRows[0]) {

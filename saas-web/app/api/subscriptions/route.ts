@@ -3,7 +3,7 @@ import { query, withTransaction } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { subscriptionPatchSchema, subscriptionSchema } from "@/lib/validation";
-import { calculateSubscriptionEndDateUnix } from "@/lib/subscription-dates";
+import { calculateSubscriptionEndDateUnix, getCurrentSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 import { deactivateExpiredSubscriptions } from "@/lib/subscription-status";
 
 export const runtime = "nodejs";
@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
     const memberId = url.searchParams.get("member_id");
     const includeHistory = url.searchParams.get("include_history") === "1" || Boolean(memberId);
     const now = Math.floor(Date.now() / 1000);
-    await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, now);
+    const accessNow = getCurrentSubscriptionAccessReferenceUnix();
+    await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, accessNow);
 
     const rows = includeHistory
       ? await query(
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
               s.end_date DESC,
               s.created_at DESC
             LIMIT 500`,
-          [auth.organizationId, auth.branchId, memberId, now]
+          [auth.organizationId, auth.branchId, memberId, accessNow]
         )
       : await query(
           `WITH ranked AS (
@@ -103,7 +104,7 @@ export async function GET(request: NextRequest) {
             WHERE rn = 1
             ORDER BY created_at DESC
             LIMIT 500`,
-          [auth.organizationId, auth.branchId, now]
+          [auth.organizationId, auth.branchId, accessNow]
         );
 
     return ok(rows);
@@ -119,7 +120,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const payload = subscriptionSchema.parse(body);
     const expectedActiveSubscriptionId = toNullablePositiveInt((body as { expected_active_subscription_id?: unknown })?.expected_active_subscription_id);
-    await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, Math.floor(Date.now() / 1000));
+    const accessNow = getCurrentSubscriptionAccessReferenceUnix();
+    await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, accessNow);
     const hasLegacyEndDate =
       typeof payload.end_date === "number" &&
       Number.isFinite(payload.end_date) &&
@@ -160,7 +162,7 @@ export async function POST(request: NextRequest) {
             end_date DESC,
             created_at DESC
           LIMIT 1`,
-        [auth.organizationId, auth.branchId, payload.member_id, Math.floor(Date.now() / 1000)]
+        [auth.organizationId, auth.branchId, payload.member_id, accessNow]
       );
 
       const currentId = currentRows.rows[0]?.id ?? null;
@@ -222,7 +224,8 @@ export async function PATCH(request: NextRequest) {
     const auth = await requireAuth(request);
     await ensureSubscriptionPaymentMethodColumn();
     const payload = subscriptionPatchSchema.parse(await request.json());
-    await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, Math.floor(Date.now() / 1000));
+    const accessNow = getCurrentSubscriptionAccessReferenceUnix();
+    await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, accessNow);
 
     const currentRows = await query<{
       id: number;

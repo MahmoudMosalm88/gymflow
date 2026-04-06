@@ -12,6 +12,7 @@ import { mkdirSync, rmSync } from "fs";
 import { randomUUID } from "crypto";
 import pino from "pino";
 import QRCode from "qrcode";
+import { toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 
 type StatusState = "disconnected" | "connecting" | "connected";
 
@@ -711,7 +712,7 @@ async function scheduleRenewalRemindersForTenant(organizationId: string, branchI
   const reminderDays = parseReminderDays(settings.whatsapp_reminder_days);
   if (reminderDays.length === 0) return;
 
-  const nowSec = Math.floor(Date.now() / 1000);
+  const nowSec = toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000));
   const maxOffset = Math.max(...reminderDays);
   const maxWindowSec = nowSec + maxOffset * 24 * 60 * 60;
 
@@ -864,10 +865,15 @@ async function schedulePostExpirySequencesForTenant(organizationId: string, bran
              AND s.start_date <= $3
              AND s.end_date > $3
         )`,
-    [organizationId, branchId, Math.floor(Date.now() / 1000), Math.floor(Date.now() / 1000) - 14 * 86400]
+    [
+      organizationId,
+      branchId,
+      toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000)),
+      toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000) - 14 * 86400),
+    ]
   );
 
-  const nowSec = Math.floor(Date.now() / 1000);
+  const nowSec = toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000));
   for (const row of rows.rows) {
     const daysSinceExpiry = Math.floor((nowSec - Number(row.end_date)) / 86400);
     if (!postExpirySteps.includes(daysSinceExpiry as (typeof postExpirySteps)[number])) continue;
@@ -1144,7 +1150,12 @@ async function scheduleWeeklyDigestForTenant(organizationId: string, branchId: s
           AND start_date <= $3
           AND end_date > $3
           AND end_date <= $4`,
-      [organizationId, branchId, Math.floor(Date.now() / 1000), Math.floor(Date.now() / 1000) + 14 * 86400]
+      [
+        organizationId,
+        branchId,
+        toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000)),
+        toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000) + 14 * 86400),
+      ]
     ),
     pool.query<{ active_start: number; retained_members: number }>(
       `WITH active_start AS (
@@ -1168,7 +1179,12 @@ async function scheduleWeeklyDigestForTenant(organizationId: string, branchId: s
        SELECT
          (SELECT COUNT(*)::int FROM active_start) AS active_start,
          (SELECT COUNT(*)::int FROM active_start s JOIN active_end e ON e.member_id = s.member_id) AS retained_members`,
-      [organizationId, branchId, Math.floor(Date.now() / 1000) - 30 * 86400, Math.floor(Date.now() / 1000)]
+      [
+        organizationId,
+        branchId,
+        toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000) - 30 * 86400),
+        toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000)),
+      ]
     ),
     pool.query<{ revenue_saved: string | number; renewals_won: number }>(
       `WITH sent_messages AS (
@@ -1228,7 +1244,12 @@ async function scheduleWeeklyDigestForTenant(organizationId: string, branchId: s
          FROM active_members am
          LEFT JOIN activity a ON a.member_id = am.member_id
         WHERE a.last_visit IS NULL OR a.last_visit < $4`,
-      [organizationId, branchId, Math.floor(Date.now() / 1000), Math.floor(Date.now() / 1000) - 14 * 86400]
+      [
+        organizationId,
+        branchId,
+        toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000)),
+        toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000) - 14 * 86400),
+      ]
     ),
   ]);
 

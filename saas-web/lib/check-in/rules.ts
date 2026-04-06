@@ -4,6 +4,7 @@
  */
 
 import { getMonthlyCycleWindow } from "@/lib/billing-cycle";
+import { toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 
 export type MemberSnapshot = {
   id: string;
@@ -60,7 +61,8 @@ export function isSubscriptionActive(
   now: number
 ): boolean {
   if (!sub) return false;
-  return sub.is_active && sub.start_date <= now && sub.end_date > now;
+  const accessReference = toSubscriptionAccessReferenceUnix(now);
+  return sub.is_active && sub.start_date <= accessReference && sub.end_date > accessReference;
 }
 
 export function isQuotaExceeded(sessionsUsed: number, sessionsCap: number): boolean {

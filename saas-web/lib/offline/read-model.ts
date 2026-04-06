@@ -15,6 +15,7 @@ import type {
   OfflinePayment,
   OfflineSubscription,
 } from "./db";
+import { getCurrentSubscriptionAccessReferenceUnix, toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 
 export type OfflineMemberListItem = Pick<OfflineMember, "id" | "name" | "phone" | "gender" | "card_code" | "created_at" | "sync_status" | "last_error"> & {
   sub_status: "active" | "expired" | "no_sub";
@@ -46,6 +47,7 @@ export type OfflinePaymentView = {
   id: string | number;
   date: string;
   type: string;
+  paymentMethod: "cash" | "digital" | "unknown";
   name: string;
   amount: number;
   planMonths: number;
@@ -61,6 +63,7 @@ export type OfflineMemberPaymentRow = {
   created_at: string;
   subscription_id: number | null;
   guest_pass_id: string | null;
+  payment_method: "cash" | "digital" | null;
   plan_months: number | null;
   sessions_per_month: number | null;
   sync_status?: string;
@@ -76,11 +79,10 @@ function startOfTodayUnix() {
 }
 
 export function deriveSubscriptionStatus(sub: Pick<OfflineSubscription, "is_active" | "start_date" | "end_date">): "active" | "pending" | "expired" | "inactive" {
-  const todayStart = startOfTodayUnix();
-  const todayEnd = todayStart + 86400;
+  const accessReference = getCurrentSubscriptionAccessReferenceUnix();
   if (!sub.is_active) return "inactive";
-  if (sub.end_date < todayStart) return "expired";
-  if (sub.start_date >= todayEnd) return "pending";
+  if (sub.end_date <= accessReference) return "expired";
+  if (sub.start_date > accessReference) return "pending";
   return "active";
 }
 
@@ -90,10 +92,11 @@ function getDisplayStatus(sub: OfflineSubscription) {
 }
 
 function rankSubscriptions(now: number) {
+  const accessReference = toSubscriptionAccessReferenceUnix(now);
   return (a: OfflineSubscription, b: OfflineSubscription) => {
     const rank = (subscription: OfflineSubscription) => {
-      if (subscription.is_active && subscription.start_date <= now && subscription.end_date > now) return 0;
-      if (subscription.is_active && subscription.start_date > now) return 1;
+      if (subscription.is_active && subscription.start_date <= accessReference && subscription.end_date > accessReference) return 0;
+      if (subscription.is_active && subscription.start_date > accessReference) return 1;
       if (subscription.is_active) return 2;
       return 3;
     };
@@ -136,6 +139,7 @@ function buildIncomeEvents(subscriptions: OfflineSubscription[], payments: Offli
       id: `subscription:${subscription.id}`,
       date: toIsoString(subscription.created_at),
       type: subscription.renewed_from_subscription_id ? "renewal" : "subscription",
+      paymentMethod: subscription.payment_method ?? "unknown",
       name: member?.name || subscription.member_name || "Unknown client",
       amount,
       planMonths: subscription.plan_months,
@@ -154,6 +158,7 @@ function buildIncomeEvents(subscriptions: OfflineSubscription[], payments: Offli
       id: `${payment.type}:${payment.id}`,
       date: payment.created_at,
       type: payment.type,
+      paymentMethod: payment.payment_method ?? "unknown",
       name: member?.name || "Unknown client",
       amount: Number(payment.amount || 0),
       planMonths: linkedSubscription?.plan_months || 0,
@@ -262,6 +267,7 @@ export async function getCachedMemberPayments(memberId: string): Promise<Offline
       created_at: toIsoString(item.created_at),
       subscription_id: item.id,
       guest_pass_id: null,
+      payment_method: item.payment_method ?? null,
       plan_months: item.plan_months,
       sessions_per_month: item.sessions_per_month,
       sync_status: item.sync_status,
@@ -277,6 +283,7 @@ export async function getCachedMemberPayments(memberId: string): Promise<Offline
       created_at: item.created_at,
       subscription_id: item.subscription_id,
       guest_pass_id: item.guest_pass_id,
+      payment_method: item.payment_method ?? null,
       plan_months: subscriptions.find((sub) => sub.id === item.subscription_id)?.plan_months ?? null,
       sessions_per_month: subscriptions.find((sub) => sub.id === item.subscription_id)?.sessions_per_month ?? null,
       sync_status: item.sync_status,
@@ -331,7 +338,7 @@ export async function getCachedIncomeSummary() {
   const [members, subscriptions, payments] = await Promise.all([getAllMembers(), getAllSubscriptions(), getAllPayments()]);
   const events = buildIncomeEvents(subscriptions, payments, members);
   const totalRevenue = events.reduce((sum, item) => sum + item.amount, 0);
-  const current = nowUnix();
+  const current = toSubscriptionAccessReferenceUnix(nowUnix());
   const expectedMonthly = subscriptions
     .filter((item) => item.is_active && item.start_date <= current && item.end_date > current && item.price_paid != null)
     .reduce((sum, item) => sum + Number(item.price_paid || 0) / Math.max(1, item.plan_months || 1), 0);

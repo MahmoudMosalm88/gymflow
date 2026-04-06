@@ -3,7 +3,7 @@ import { query, withTransaction } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { subscriptionRenewSchema } from "@/lib/validation";
-import { calculateSubscriptionEndDateUnix } from "@/lib/subscription-dates";
+import { calculateSubscriptionEndDateUnix, getCurrentSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 import { deactivateExpiredSubscriptions } from "@/lib/subscription-status";
 
 export const runtime = "nodejs";
@@ -41,7 +41,8 @@ export async function POST(request: NextRequest) {
     const expectedPreviousEndDate = toUnixSeconds((body as { expected_previous_end_date?: unknown })?.expected_previous_end_date);
     const expectedPreviousIsActive = toNullableBoolean((body as { expected_previous_is_active?: unknown })?.expected_previous_is_active);
     const now = Math.floor(Date.now() / 1000);
-    await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, now);
+    const accessNow = getCurrentSubscriptionAccessReferenceUnix();
+    await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, accessNow);
 
     const output = await withTransaction(async (client) => {
       const memberRows = await client.query<{ id: string }>(
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
         throw Object.assign(new Error("Subscription does not belong to this member"), { statusCode: 400 });
       }
 
-      if (!previous.is_active && previousEndDate > now) {
+      if (!previous.is_active && previousEndDate > accessNow) {
         throw Object.assign(new Error("Only enabled subscription cycles can be renewed"), { statusCode: 400 });
       }
 
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      const nextStartDate = previousEndDate > now ? previousEndDate : now;
+      const nextStartDate = previousEndDate > accessNow ? previousEndDate : accessNow;
       const nextEndDate = calculateSubscriptionEndDateUnix(nextStartDate, payload.plan_months);
 
       const inserted = await client.query(

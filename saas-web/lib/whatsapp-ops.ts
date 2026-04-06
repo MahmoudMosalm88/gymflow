@@ -1,9 +1,18 @@
 import { PoolClient } from "pg";
 import { randomUUID } from "crypto";
 import { query, withTransaction } from "@/lib/db";
+import { toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 
 export type QueueStatus = "pending" | "processing" | "sent" | "failed";
-export type QueueType = "welcome" | "qr_code" | "manual" | "renewal" | "broadcast";
+export type QueueType =
+  | "welcome"
+  | "qr_code"
+  | "manual"
+  | "renewal"
+  | "broadcast"
+  | "pt_session_reminder"
+  | "pt_low_balance"
+  | "pt_package_expiry";
 export type CampaignStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 
 export type QueueCounts = {
@@ -158,12 +167,12 @@ export async function getQueueItems(
             mq.scheduled_at::text,
             mq.sent_at::text,
             mq.last_error,
-            m.name AS member_name,
-            m.phone AS member_phone,
+            COALESCE(m.name, mq.target_name) AS member_name,
+            COALESCE(m.phone, mq.target_phone) AS member_phone,
             wc.title AS campaign_title,
             mq.provider_message_id
        FROM message_queue mq
-       JOIN members m ON m.id = mq.member_id
+       LEFT JOIN members m ON m.id = mq.member_id
        LEFT JOIN whatsapp_campaigns wc ON wc.id = mq.campaign_id
       WHERE ${where}
       ORDER BY
@@ -239,7 +248,7 @@ function normalizeSearchToken(token: string) {
 
 function buildRecipientSql(filters: Required<BroadcastFilters>) {
   const params: unknown[] = [];
-  const nowSec = Math.floor(Date.now() / 1000);
+  const nowSec = toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000));
   const searchTokens = filters.search
     ? filters.search.split(/\s+/).map(normalizeSearchToken).filter(Boolean)
     : [];
@@ -281,13 +290,15 @@ function buildRecipientSql(filters: Required<BroadcastFilters>) {
              ) AS normalized_phone,
              LOWER(COALESCE(m.card_code, '')) AS normalized_card_code,
              s.id AS subscription_id,
+             s.start_date,
              s.plan_months,
              s.end_date,
              s.sessions_per_month,
              q.sessions_used,
              CASE
                WHEN s.id IS NULL THEN 'no_sub'
-               WHEN s.is_active = true AND s.end_date > $1 THEN 'active'
+               WHEN s.is_active = true AND s.start_date <= $1 AND s.end_date > $1 THEN 'active'
+               WHEN s.is_active = true AND s.start_date > $1 THEN 'active'
                ELSE 'expired'
              END AS sub_status,
              CASE
@@ -300,12 +311,21 @@ function buildRecipientSql(filters: Required<BroadcastFilters>) {
              END AS sessions_remaining
         FROM members m
         LEFT JOIN LATERAL (
-          SELECT s.id, s.plan_months, s.end_date, s.sessions_per_month, s.is_active
+          SELECT s.id, s.start_date, s.plan_months, s.end_date, s.sessions_per_month, s.is_active
             FROM subscriptions s
            WHERE s.member_id = m.id
              AND s.organization_id = $12
              AND s.branch_id = $13
-           ORDER BY s.is_active DESC, s.end_date DESC, s.created_at DESC
+           ORDER BY
+             CASE
+               WHEN s.is_active = true AND s.start_date <= $1 AND s.end_date > $1 THEN 0
+               WHEN s.is_active = true AND s.start_date > $1 THEN 1
+               WHEN s.is_active = true THEN 2
+               ELSE 3
+             END,
+             s.start_date DESC,
+             s.end_date DESC,
+             s.created_at DESC
            LIMIT 1
         ) s ON TRUE
         LEFT JOIN quotas q ON q.subscription_id = s.id

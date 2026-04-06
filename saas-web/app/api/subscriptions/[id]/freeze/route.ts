@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { query, withTransaction } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { ok, fail, routeError } from "@/lib/http";
+import { getCurrentSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
+import { deactivateExpiredSubscriptions } from "@/lib/subscription-status";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +24,7 @@ export async function POST(
 ) {
   try {
     const { organizationId, branchId } = await requireAuth(request);
+    await deactivateExpiredSubscriptions(organizationId, branchId, getCurrentSubscriptionAccessReferenceUnix());
     const { id } = await params;
     const subscriptionId = Number(id);
     if (!subscriptionId) return fail("Invalid subscription ID.", 400);

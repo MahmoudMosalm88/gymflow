@@ -29,6 +29,7 @@ import {
   type SubscriptionRenewPayload,
 } from "./db";
 import { getDeviceId } from "./device-id";
+import { toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 
 function readSessionProfile(): SessionProfile | null {
   if (typeof window === "undefined") return null;
@@ -114,6 +115,7 @@ async function applySubscriptionCreateLike(
       : operation.payload.startDate,
     plan_months: payload.planMonths,
     price_paid: payload.pricePaid,
+    payment_method: payload.paymentMethod,
     sessions_per_month: payload.sessionsPerMonth,
     is_active: true,
     created_at: operation.offlineTimestamp,
@@ -124,7 +126,8 @@ async function applySubscriptionCreateLike(
 
   if (operation.kind === "subscription_renew") {
     const existing = await getSubscription(operation.payload.previousSubscriptionId);
-    const startDate = existing && existing.end_date > operation.offlineTimestamp
+    const accessReference = toSubscriptionAccessReferenceUnix(operation.offlineTimestamp);
+    const startDate = existing && existing.end_date > accessReference
       ? existing.end_date
       : operation.offlineTimestamp;
     subscription.start_date = startDate;
@@ -211,6 +214,7 @@ export async function queueMemberCreate(input: {
   start_date?: number | null;
   plan_months?: number | null;
   price_paid?: number | null;
+  payment_method?: "cash" | "digital" | null;
   sessions_per_month?: number | null;
 }) {
   const profile = readSessionProfile();
@@ -250,6 +254,7 @@ export async function queueMemberCreate(input: {
         startDate: input.start_date,
         planMonths: input.plan_months,
         pricePaid: input.price_paid ?? null,
+        paymentMethod: input.payment_method ?? null,
         sessionsPerMonth: input.sessions_per_month ?? null,
         expectedActiveSubscriptionId: null,
       },
@@ -286,6 +291,7 @@ export async function queueSubscriptionCreate(input: {
   startDate: number;
   planMonths: number;
   pricePaid: number | null;
+  paymentMethod: "cash" | "digital" | null;
   sessionsPerMonth: number | null;
   expectedActiveSubscriptionId: number | null;
 }) {
@@ -300,6 +306,7 @@ export async function queueSubscriptionCreate(input: {
       startDate: input.startDate,
       planMonths: input.planMonths,
       pricePaid: input.pricePaid,
+      paymentMethod: input.paymentMethod,
       sessionsPerMonth: input.sessionsPerMonth,
       expectedActiveSubscriptionId: input.expectedActiveSubscriptionId,
     },
@@ -316,6 +323,7 @@ export async function queueSubscriptionRenew(input: {
   expectedPreviousIsActive: boolean;
   planMonths: number;
   pricePaid: number | null;
+  paymentMethod: "cash" | "digital" | null;
   sessionsPerMonth: number | null;
 }) {
   const tempId = await nextLocalNumber("local_subscription_counter");
@@ -331,6 +339,7 @@ export async function queueSubscriptionRenew(input: {
       expectedPreviousIsActive: input.expectedPreviousIsActive,
       planMonths: input.planMonths,
       pricePaid: input.pricePaid,
+      paymentMethod: input.paymentMethod,
       sessionsPerMonth: input.sessionsPerMonth,
     },
   };
