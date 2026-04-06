@@ -750,7 +750,6 @@ export default function MemberDetailPage() {
                       <p className="text-xs text-muted-foreground">
                         {new Date(pay.created_at).toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' })}
                         {planInfo && ` · ${planInfo}`}
-                        {` · ${paymentMethodLabel}`}
                         {pay.note && ` · ${pay.note}`}
                       </p>
                     </div>
