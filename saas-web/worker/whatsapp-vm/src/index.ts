@@ -590,7 +590,7 @@ async function processTenantQueue(runtime: TenantRuntime) {
           END,
           mq.scheduled_at ASC
         LIMIT $3
-        FOR UPDATE SKIP LOCKED`,
+        FOR UPDATE OF mq SKIP LOCKED`,
       [runtime.organizationId, runtime.branchId, workerBatchLimit]
     );
 
