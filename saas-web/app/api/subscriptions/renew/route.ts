@@ -101,6 +101,25 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      const existingRenewalRows = await client.query<{ id: number }>(
+        `SELECT id
+           FROM subscriptions
+          WHERE organization_id = $1
+            AND branch_id = $2
+            AND member_id = $3
+            AND renewed_from_subscription_id = $4
+          ORDER BY created_at DESC
+          LIMIT 1`,
+        [auth.organizationId, auth.branchId, payload.member_id, payload.previous_subscription_id]
+      );
+
+      if (existingRenewalRows.rows[0]) {
+        throw Object.assign(new Error("This subscription was already renewed. Refresh and review the latest cycle."), {
+          statusCode: 409,
+          code: "already_renewed",
+        });
+      }
+
       const nextStartDate = previousEndDate > accessNow ? previousEndDate : accessNow;
       const nextEndDate = calculateSubscriptionEndDateUnix(nextStartDate, payload.plan_months);
 

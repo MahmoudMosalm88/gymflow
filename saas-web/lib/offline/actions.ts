@@ -222,8 +222,6 @@ export async function saveSubscriptionRenew(input: {
         price_paid: input.pricePaid,
         payment_method: input.paymentMethod,
         sessions_per_month: input.sessionsPerMonth ?? previous.sessions_per_month ?? null,
-        expected_previous_end_date: previous.end_date,
-        expected_previous_is_active: previous.is_active,
       });
       if (!response.success) throw new Error(response.message || "Failed to renew subscription.");
       await refreshOfflineBundleSafe();
