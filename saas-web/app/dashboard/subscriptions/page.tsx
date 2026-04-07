@@ -163,6 +163,7 @@ export default function SubscriptionsPage() {
   const [online, setOnline] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [createError, setCreateError] = useState('');
   const [editOpen, setEditOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editSaving, setEditSaving] = useState(false);
@@ -271,6 +272,7 @@ export default function SubscriptionsPage() {
   // Create subscription
   async function handleCreate(data: any) {
     setSubmitting(true);
+    setCreateError('');
     try {
       const current = subs.find((item) => item.member_id === data.member_id && (deriveStatus(item) === 'active' || deriveStatus(item) === 'pending'));
       const res = await saveSubscriptionCreate({
@@ -289,6 +291,7 @@ export default function SubscriptionsPage() {
       }
     } catch (error) {
       console.error("Failed to create subscription:", error);
+      setCreateError(error instanceof Error ? error.message : labels.error);
     } finally {
       setSubmitting(false);
     }
@@ -539,7 +542,10 @@ export default function SubscriptionsPage() {
 
 
       {/* New subscription dialog */}
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+      <Dialog open={modalOpen} onOpenChange={(open) => {
+        setModalOpen(open);
+        if (!open) setCreateError('');
+      }}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>{labels.newSubscription}</DialogTitle>
@@ -547,12 +553,18 @@ export default function SubscriptionsPage() {
               {labels.new_subscription_description}
             </DialogDescription>
           </DialogHeader>
+          {createError ? (
+            <p className="text-sm text-destructive">{createError}</p>
+          ) : null}
           {modalOpen ? (
             <SubscriptionForm
               members={members}
               preselectedMemberId={memberIdFilter}
               onSubmit={handleCreate}
-              onCancel={() => setModalOpen(false)}
+              onCancel={() => {
+                setCreateError('');
+                setModalOpen(false);
+              }}
               loading={submitting || membersLoading}
             />
           ) : null}

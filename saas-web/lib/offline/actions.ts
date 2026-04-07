@@ -1,5 +1,4 @@
 import { api } from "@/lib/api-client";
-import { toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 import { fetchAndStoreBundle } from "./offline-bundle";
 import { queueMemberCreate, queueMemberUpdate, queueSubscriptionCreate, queueSubscriptionFreeze, queueSubscriptionRenew } from "./operations";
 
@@ -26,23 +25,6 @@ async function refreshOfflineBundleSafe() {
   await fetchAndStoreBundle().catch(() => false);
 }
 
-type SubscriptionSnapshot = {
-  id: number;
-  member_id: string;
-  start_date: number;
-  end_date: number;
-  is_active: boolean;
-  sessions_per_month: number | null;
-};
-
-async function fetchLatestMemberSubscriptions(memberId: string) {
-  const response = await api.get<SubscriptionSnapshot[]>(`/api/subscriptions?member_id=${encodeURIComponent(memberId)}`);
-  if (!response.success || !Array.isArray(response.data)) {
-    throw new Error(response.message || "Failed to load the latest subscription state.");
-  }
-  return response.data;
-}
-
 export async function saveMemberWithSubscription(input: MemberInput & {
   start_date?: number | null;
   plan_months?: number | null;
@@ -51,31 +33,31 @@ export async function saveMemberWithSubscription(input: MemberInput & {
   sessions_per_month?: number | null;
   from_guest_pass_id?: string | null;
 }) {
+  const memberId = crypto.randomUUID();
+
   if (navigator.onLine) {
     try {
       const memberRes = await api.post<{ id: string }>("/api/members", {
+        id: memberId,
         name: input.name,
         phone: input.phone,
         gender: input.gender,
         access_tier: input.access_tier,
         card_code: input.card_code || null,
         address: input.address || null,
+        initial_subscription: input.plan_months && input.start_date
+          ? {
+              start_date: input.start_date,
+              plan_months: input.plan_months,
+              price_paid: input.price_paid ?? null,
+              payment_method: input.payment_method ?? null,
+              sessions_per_month: input.sessions_per_month ?? null,
+            }
+          : null,
         ...(input.from_guest_pass_id ? { from_guest_pass_id: input.from_guest_pass_id } : {}),
       });
       if (!memberRes.success || !memberRes.data?.id) {
         throw new Error(memberRes.message || "Failed to create member.");
-      }
-
-      if (input.plan_months && input.start_date) {
-        const subRes = await api.post("/api/subscriptions", {
-          member_id: memberRes.data.id,
-          start_date: input.start_date,
-          plan_months: input.plan_months,
-          price_paid: input.price_paid ?? null,
-          payment_method: input.payment_method ?? null,
-          sessions_per_month: input.sessions_per_month ?? null,
-        });
-        if (!subRes.success) throw new Error(subRes.message || "Failed to create subscription.");
       }
 
       await refreshOfflineBundleSafe();
@@ -85,7 +67,7 @@ export async function saveMemberWithSubscription(input: MemberInput & {
     }
   }
 
-  const queued = await queueMemberCreate(input);
+  const queued = await queueMemberCreate({ ...input, memberId });
   return { success: true, offline: true, memberId: queued.memberId };
 }
 
@@ -167,14 +149,6 @@ export async function saveSubscriptionCreate(input: {
 }) {
   if (navigator.onLine) {
     try {
-      const latest = await fetchLatestMemberSubscriptions(input.memberId);
-      const now = toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000));
-      const current =
-        latest.find((item) => item.is_active && item.start_date <= now && item.end_date > now) ||
-        latest.find((item) => item.is_active && item.start_date > now) ||
-        latest.find((item) => item.is_active) ||
-        null;
-
       const response = await api.post("/api/subscriptions", {
         member_id: input.memberId,
         start_date: input.startDate,
@@ -182,7 +156,7 @@ export async function saveSubscriptionCreate(input: {
         price_paid: input.pricePaid,
         payment_method: input.paymentMethod,
         sessions_per_month: input.sessionsPerMonth,
-        expected_active_subscription_id: current?.id ?? null,
+        expected_active_subscription_id: input.expectedActiveSubscriptionId,
       });
       if (!response.success) throw new Error(response.message || "Failed to create subscription.");
       await refreshOfflineBundleSafe();
@@ -239,18 +213,10 @@ export async function saveSubscriptionFreeze(input: {
 }) {
   if (navigator.onLine) {
     try {
-      const latest = await api.get<SubscriptionSnapshot[]>("/api/subscriptions?include_history=1");
-      const current = latest.success && Array.isArray(latest.data)
-        ? latest.data.find((item) => item.id === input.subscriptionId) || null
-        : null;
-      if (!current) {
-        throw new Error("The latest subscription state could not be found.");
-      }
-
       const response = await api.post(`/api/subscriptions/${input.subscriptionId}/freeze`, {
         startDate: input.startDate,
         days: input.days,
-        expected_subscription_end_date: current.end_date,
+        expected_subscription_end_date: input.expectedSubscriptionEndDate,
       });
       if (!response.success) throw new Error(response.message || "Failed to freeze subscription.");
       await refreshOfflineBundleSafe();

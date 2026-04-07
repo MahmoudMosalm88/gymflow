@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
 import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
 import { query, withTransaction } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { memberSchema } from "@/lib/validation";
 import { deactivateExpiredSubscriptions } from "@/lib/subscription-status";
-import { getCurrentSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
+import { calculateSubscriptionEndDateUnix, getCurrentSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 import {
   getDefaultWelcomeTemplate,
   getTemplateKey,
@@ -18,6 +19,14 @@ import { createNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const initialSubscriptionSchema = z.object({
+  start_date: z.number().int().positive(),
+  plan_months: z.number().int().positive(),
+  price_paid: z.number().min(0).nullable().optional(),
+  payment_method: z.enum(["cash", "digital"]).nullable().optional(),
+  sessions_per_month: z.number().int().positive().nullable().optional(),
+}).nullable().optional();
 
 export async function GET(request: NextRequest) {
   try {
@@ -140,7 +149,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
-    const payload = memberSchema.parse(await request.json());
+    const body = await request.json();
+    const payload = memberSchema.parse(body);
+    const initialSubscription = initialSubscriptionSchema.parse((body as { initial_subscription?: unknown }).initial_subscription);
     const now = new Date();
     const id = payload.id || uuidv4();
     const requestedCardCode = (payload.card_code || "").trim();
@@ -184,6 +195,30 @@ export async function POST(request: NextRequest) {
       );
 
       const member = inserted.rows[0];
+
+      if (initialSubscription) {
+        const endDate = calculateSubscriptionEndDateUnix(initialSubscription.start_date, initialSubscription.plan_months);
+        await client.query(
+          `INSERT INTO subscriptions (
+              organization_id, branch_id, member_id, start_date, end_date,
+              plan_months, price_paid, payment_method, sessions_per_month, is_active
+           ) VALUES (
+              $1, $2, $3, $4, $5,
+              $6, $7, $8, $9, true
+           )`,
+          [
+            auth.organizationId,
+            auth.branchId,
+            member.id,
+            initialSubscription.start_date,
+            endDate,
+            initialSubscription.plan_months,
+            initialSubscription.price_paid ?? null,
+            initialSubscription.payment_method ?? null,
+            initialSubscription.sessions_per_month ?? null,
+          ]
+        );
+      }
 
       if (payload.from_guest_pass_id) {
         const guestPassRows = await client.query<{ id: string }>(

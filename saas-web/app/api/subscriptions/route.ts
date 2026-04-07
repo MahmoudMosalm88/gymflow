@@ -166,7 +166,25 @@ export async function POST(request: NextRequest) {
       );
 
       const currentId = currentRows.rows[0]?.id ?? null;
-      if (currentId !== expectedActiveSubscriptionId) {
+      let allowExpiredExpectedSubscription = false;
+      if (currentId !== expectedActiveSubscriptionId && currentId === null && expectedActiveSubscriptionId !== null) {
+        const expectedRows = await client.query<{ id: number; end_date: number; is_active: boolean }>(
+          `SELECT id, end_date, is_active
+             FROM subscriptions
+            WHERE id = $1
+              AND organization_id = $2
+              AND branch_id = $3
+              AND member_id = $4
+            LIMIT 1`,
+          [expectedActiveSubscriptionId, auth.organizationId, auth.branchId, payload.member_id]
+        );
+        const expectedCurrent = expectedRows.rows[0];
+        if (expectedCurrent && (!expectedCurrent.is_active || Number(expectedCurrent.end_date) <= accessNow)) {
+          allowExpiredExpectedSubscription = true;
+        }
+      }
+
+      if (currentId !== expectedActiveSubscriptionId && !allowExpiredExpectedSubscription) {
         throw Object.assign(new Error("This member's subscription changed on another device. Review and try again."), {
           statusCode: 409,
           code: "offline_conflict",

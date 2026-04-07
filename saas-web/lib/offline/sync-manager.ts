@@ -1,26 +1,20 @@
 import { api } from "@/lib/api-client";
-import { toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 import { getAttendanceLog, putAttendanceLog } from "./cache";
 import { fetchAndStoreBundle } from "./offline-bundle";
 import { getFailedOperations, getPendingOperations, markOperationFailed, markOperationPending, markOperationSynced, markOperationSyncing } from "./operations";
 import { getPendingItems, markFailed, markSyncing, markSynced } from "./sync-queue";
 
 const SYNC_INTERVAL_MS = 30_000;
-const LOCK_CHANNEL = "gymflow-sync-lock";
+const LEASE_KEY = "gymflow-sync-leader-lease";
+const LEASE_TTL_MS = 45_000;
+const LEASE_HEARTBEAT_MS = 15_000;
 
 let syncTimer: ReturnType<typeof setInterval> | null = null;
 let isSyncing = false;
 let isLeader = false;
-let channel: BroadcastChannel | null = null;
 let onlineHandler: (() => void) | null = null;
-
-type SubscriptionSnapshot = {
-  id: number;
-  member_id: string;
-  start_date: number;
-  end_date: number;
-  is_active: boolean;
-};
+let leaseTimer: ReturnType<typeof setInterval> | null = null;
+const leaseId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `lease-${Date.now()}`;
 
 function isNetworkError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error || "");
@@ -93,19 +87,42 @@ async function syncCheckInItem(item: {
   }
 }
 
-async function fetchSubscriptionsForMember(memberId: string) {
-  const res = await api.get<SubscriptionSnapshot[]>(`/api/subscriptions?member_id=${encodeURIComponent(memberId)}&include_history=1`);
-  return res.data ?? [];
+type LeaseRecord = {
+  owner: string;
+  expiresAt: number;
+};
+
+function readLease(): LeaseRecord | null {
+  try {
+    const raw = localStorage.getItem(LEASE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as LeaseRecord;
+  } catch {
+    return null;
+  }
 }
 
-function conflict(message: string) {
-  const error = new Error(message);
-  (error as Error & { conflict?: true }).conflict = true;
-  return error;
+function writeLease(record: LeaseRecord) {
+  localStorage.setItem(LEASE_KEY, JSON.stringify(record));
 }
 
-function isConflict(error: unknown) {
-  return Boolean(typeof error === "object" && error && "conflict" in error);
+function refreshLeadership() {
+  const now = Date.now();
+  const current = readLease();
+  if (!current || current.expiresAt <= now || current.owner === leaseId) {
+    writeLease({ owner: leaseId, expiresAt: now + LEASE_TTL_MS });
+    isLeader = true;
+    return;
+  }
+  isLeader = false;
+}
+
+function releaseLeadership() {
+  const current = readLease();
+  if (current?.owner === leaseId) {
+    localStorage.removeItem(LEASE_KEY);
+  }
+  isLeader = false;
 }
 
 async function syncOperation(operation: Awaited<ReturnType<typeof getPendingOperations>>[number]): Promise<boolean> {
@@ -180,14 +197,6 @@ async function syncOperation(operation: Awaited<ReturnType<typeof getPendingOper
       }
 
       case "subscription_create": {
-        const existing = await fetchSubscriptionsForMember(operation.payload.memberId);
-        const accessReference = toSubscriptionAccessReferenceUnix(operation.offlineTimestamp);
-        const active = existing.find((item) => item.is_active && item.start_date <= accessReference && item.end_date > accessReference) || null;
-        const activeId = active?.id ?? null;
-        if (activeId !== operation.payload.expectedActiveSubscriptionId) {
-          throw conflict("This member's subscription changed before sync. Review the pending subscription.");
-        }
-
         const response = await api.post("/api/subscriptions", {
           member_id: operation.payload.memberId,
           start_date: operation.payload.startDate,
@@ -203,18 +212,6 @@ async function syncOperation(operation: Awaited<ReturnType<typeof getPendingOper
       }
 
       case "subscription_renew": {
-        const existing = await fetchSubscriptionsForMember(operation.payload.memberId);
-        const previous = existing.find((item) => item.id === operation.payload.previousSubscriptionId) || null;
-        if (!previous) {
-          throw conflict("The original subscription no longer exists. Review the renewal.");
-        }
-        if (
-          previous.end_date !== operation.payload.expectedPreviousEndDate ||
-          previous.is_active !== operation.payload.expectedPreviousIsActive
-        ) {
-          throw conflict("This subscription changed before sync. Review the renewal.");
-        }
-
         const response = await api.post("/api/subscriptions/renew", {
           member_id: operation.payload.memberId,
           previous_subscription_id: operation.payload.previousSubscriptionId,
@@ -222,8 +219,6 @@ async function syncOperation(operation: Awaited<ReturnType<typeof getPendingOper
           price_paid: operation.payload.pricePaid,
           payment_method: operation.payload.paymentMethod,
           sessions_per_month: operation.payload.sessionsPerMonth,
-          expected_previous_end_date: operation.payload.expectedPreviousEndDate,
-          expected_previous_is_active: operation.payload.expectedPreviousIsActive,
         });
         if (!response.success) throw new Error(response.message || "Failed to renew subscription.");
         await markOperationSynced(operation.operationId);
@@ -231,20 +226,6 @@ async function syncOperation(operation: Awaited<ReturnType<typeof getPendingOper
       }
 
       case "subscription_freeze": {
-        const { getSubscription } = await import("./cache");
-        const localSubscription = await getSubscription(operation.payload.subscriptionId);
-        if (!localSubscription) {
-          throw conflict("The local subscription record is missing. Review the pending freeze.");
-        }
-        const existing = await fetchSubscriptionsForMember(localSubscription.member_id);
-        const current = existing.find((item) => item.id === operation.payload.subscriptionId) || null;
-        if (!current) {
-          throw conflict("The subscription no longer exists on the server. Review the pending freeze.");
-        }
-        if (current.end_date !== operation.payload.expectedSubscriptionEndDate) {
-          throw conflict("This subscription changed before sync. Review the pending freeze.");
-        }
-
         const response = await api.post(`/api/subscriptions/${operation.payload.subscriptionId}/freeze`, {
           startDate: operation.payload.startDate,
           days: operation.payload.days,
@@ -262,7 +243,7 @@ async function syncOperation(operation: Awaited<ReturnType<typeof getPendingOper
     }
 
     const message = error instanceof Error ? error.message : "Unknown error";
-    await markOperationFailed(operation.operationId, isConflict(error) ? message : `Sync failed: ${message}`);
+    await markOperationFailed(operation.operationId, message);
     return false;
   }
 }
@@ -298,39 +279,27 @@ async function drainQueue() {
   }
 }
 
-function setupLeaderElection() {
-  if (typeof BroadcastChannel === "undefined") {
-    isLeader = true;
-    return;
-  }
-
-  channel = new BroadcastChannel(LOCK_CHANNEL);
-  isLeader = true;
-
-  channel.onmessage = (event) => {
-    if (event.data === "claim" && !isSyncing) {
-      isLeader = false;
-    }
-  };
-
-  channel.postMessage("claim");
-}
-
 export function startSyncManager() {
   if (syncTimer) return;
-  setupLeaderElection();
+  refreshLeadership();
 
   if (navigator.onLine && isLeader) {
     void drainQueue();
   }
 
   syncTimer = setInterval(() => {
+    refreshLeadership();
     if (navigator.onLine && isLeader) {
       void drainQueue();
     }
   }, SYNC_INTERVAL_MS);
 
+  leaseTimer = setInterval(() => {
+    refreshLeadership();
+  }, LEASE_HEARTBEAT_MS);
+
   onlineHandler = () => {
+    refreshLeadership();
     if (isLeader) void drainQueue();
   };
   window.addEventListener("online", onlineHandler);
@@ -341,15 +310,15 @@ export function stopSyncManager() {
     clearInterval(syncTimer);
     syncTimer = null;
   }
-  if (channel) {
-    channel.close();
-    channel = null;
+  if (leaseTimer) {
+    clearInterval(leaseTimer);
+    leaseTimer = null;
   }
   if (onlineHandler) {
     window.removeEventListener("online", onlineHandler);
     onlineHandler = null;
   }
-  isLeader = false;
+  releaseLeadership();
 }
 
 export function triggerSync() {

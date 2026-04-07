@@ -204,6 +204,7 @@ export async function enqueueOperation(operation: OfflineOperation) {
 }
 
 export async function queueMemberCreate(input: {
+  memberId?: string;
   name: string;
   phone: string;
   gender?: "male" | "female";
@@ -218,7 +219,7 @@ export async function queueMemberCreate(input: {
   sessions_per_month?: number | null;
 }) {
   const profile = readSessionProfile();
-  const memberId = crypto.randomUUID();
+  const memberId = input.memberId || crypto.randomUUID();
   const member: OfflineMember = {
     id: memberId,
     name: input.name,

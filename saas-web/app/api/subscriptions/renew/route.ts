@@ -9,19 +9,6 @@ import { deactivateExpiredSubscriptions } from "@/lib/subscription-status";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function toUnixSeconds(value: unknown) {
-  if (value === null || value === undefined || value === "") return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.floor(parsed) : null;
-}
-
-function toNullableBoolean(value: unknown) {
-  if (typeof value === "boolean") return value;
-  if (value === "true") return true;
-  if (value === "false") return false;
-  return null;
-}
-
 async function ensureSubscriptionPaymentMethodColumn() {
   await query(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS payment_method TEXT`);
   await query(`ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_payment_method_check`);
@@ -30,17 +17,18 @@ async function ensureSubscriptionPaymentMethodColumn() {
       ADD CONSTRAINT subscriptions_payment_method_check
       CHECK (payment_method IN ('cash', 'digital') OR payment_method IS NULL)
   `);
+  await query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_renewed_from_unique
+      ON subscriptions (renewed_from_subscription_id)
+      WHERE renewed_from_subscription_id IS NOT NULL
+  `);
 }
 
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
     await ensureSubscriptionPaymentMethodColumn();
-    const body = await request.json();
-    const payload = subscriptionRenewSchema.parse(body);
-    const expectedPreviousEndDate = toUnixSeconds((body as { expected_previous_end_date?: unknown })?.expected_previous_end_date);
-    const expectedPreviousIsActive = toNullableBoolean((body as { expected_previous_is_active?: unknown })?.expected_previous_is_active);
-    const now = Math.floor(Date.now() / 1000);
+    const payload = subscriptionRenewSchema.parse(await request.json());
     const accessNow = getCurrentSubscriptionAccessReferenceUnix();
     await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, accessNow);
 
@@ -73,7 +61,8 @@ export async function POST(request: NextRequest) {
           WHERE id = $1
             AND organization_id = $2
             AND branch_id = $3
-          LIMIT 1`,
+          LIMIT 1
+          FOR UPDATE`,
         [payload.previous_subscription_id, auth.organizationId, auth.branchId]
       );
 
@@ -89,16 +78,6 @@ export async function POST(request: NextRequest) {
 
       if (!previous.is_active && previousEndDate > accessNow) {
         throw Object.assign(new Error("Only enabled subscription cycles can be renewed"), { statusCode: 400 });
-      }
-
-      if (
-        (expectedPreviousEndDate !== null && previousEndDate !== expectedPreviousEndDate) ||
-        (expectedPreviousIsActive !== null && previous.is_active !== expectedPreviousIsActive)
-      ) {
-        throw Object.assign(new Error("This subscription changed on another device. Review and try again."), {
-          statusCode: 409,
-          code: "offline_conflict",
-        });
       }
 
       const existingRenewalRows = await client.query<{ id: number }>(
@@ -117,6 +96,26 @@ export async function POST(request: NextRequest) {
         throw Object.assign(new Error("This subscription was already renewed. Refresh and review the latest cycle."), {
           statusCode: 409,
           code: "already_renewed",
+        });
+      }
+
+      const newerCycleRows = await client.query<{ id: number }>(
+        `SELECT id
+           FROM subscriptions
+          WHERE organization_id = $1
+            AND branch_id = $2
+            AND member_id = $3
+            AND id <> $4
+            AND start_date >= $5
+          ORDER BY start_date DESC, created_at DESC
+          LIMIT 1`,
+        [auth.organizationId, auth.branchId, payload.member_id, payload.previous_subscription_id, previousEndDate]
+      );
+
+      if (newerCycleRows.rows[0]) {
+        throw Object.assign(new Error("This member already has a newer subscription cycle. Refresh and review the latest state."), {
+          statusCode: 409,
+          code: "newer_cycle_exists",
         });
       }
 
