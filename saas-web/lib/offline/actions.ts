@@ -209,6 +209,8 @@ export async function saveSubscriptionRenew(input: {
 }) {
   if (navigator.onLine) {
     try {
+      // Let the server validate the source subscription directly. Client-side list
+      // lookups can be stale and falsely block valid renewals on the web app.
       const response = await api.post("/api/subscriptions/renew", {
         member_id: input.memberId,
         previous_subscription_id: input.previousSubscriptionId,
