@@ -209,19 +209,13 @@ export async function saveSubscriptionRenew(input: {
 }) {
   if (navigator.onLine) {
     try {
-      const latest = await fetchLatestMemberSubscriptions(input.memberId);
-      const previous = latest.find((item) => item.id === input.previousSubscriptionId) || null;
-      if (!previous) {
-        throw new Error("The original subscription no longer exists.");
-      }
-
       const response = await api.post("/api/subscriptions/renew", {
         member_id: input.memberId,
         previous_subscription_id: input.previousSubscriptionId,
         plan_months: input.planMonths,
         price_paid: input.pricePaid,
         payment_method: input.paymentMethod,
-        sessions_per_month: input.sessionsPerMonth ?? previous.sessions_per_month ?? null,
+        sessions_per_month: input.sessionsPerMonth,
       });
       if (!response.success) throw new Error(response.message || "Failed to renew subscription.");
       await refreshOfflineBundleSafe();
