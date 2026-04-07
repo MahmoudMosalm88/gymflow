@@ -164,7 +164,7 @@ async function syncOperation(operation: Awaited<ReturnType<typeof getPendingOper
             : null;
 
         if (operation.payload.baseUpdatedAt && serverUpdatedAt && serverUpdatedAt !== operation.payload.baseUpdatedAt) {
-          throw conflict("Another device changed this member before sync. Review the member update.");
+          throw new Error("Another device changed this member before sync. Review the member update.");
         }
 
         if (operation.payload.photoDataUrl) {
