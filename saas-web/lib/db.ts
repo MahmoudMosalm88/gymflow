@@ -23,10 +23,12 @@ function buildPool() {
     ? false
     : (env.NODE_ENV === "production" ? true : featureFlags.useDatabaseSsl);
 
+  const poolMax = env.NODE_ENV === "production" ? 4 : 12;
+
   return new Pool({
     connectionString: env.DATABASE_URL,
     ssl: useSSL ? { rejectUnauthorized: true } : undefined,
-    max: 12,
+    max: poolMax,
     idleTimeoutMillis: 30000
   });
 }

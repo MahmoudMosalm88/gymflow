@@ -1,23 +1,11 @@
-import { NextResponse } from "next/server";
 import { ok } from "@/lib/http";
-import { query } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  try {
-    // Test database connectivity with a simple query
-    await query("SELECT 1");
-
-    // Database is reachable
-    return ok({ status: "ok", db: "connected" });
-  } catch (error) {
-    // Database connection failed
-    console.error("Health check: database unreachable", error);
-    return NextResponse.json(
-      { status: "degraded", db: "unreachable" },
-      { status: 503 }
-    );
-  }
+  // Keep Cloud Run startup/liveness checks focused on process health.
+  // Database saturation during rollout should not prevent a new revision
+  // from starting and serving once connection pressure drops.
+  return ok({ status: "ok" });
 }
