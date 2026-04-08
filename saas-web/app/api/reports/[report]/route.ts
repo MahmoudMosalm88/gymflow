@@ -64,20 +64,55 @@ function readThresholdParam(url: URL, fallback = 3) {
   return Math.max(0, Math.trunc(raw));
 }
 
+function getTimeZoneOffsetSeconds(timeZone: string, referenceDate: Date) {
+  const zoneLabel = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  })
+    .formatToParts(referenceDate)
+    .find((part) => part.type === "timeZoneName")?.value;
+
+  const match = zoneLabel?.match(/^GMT([+-])(\d{1,2})(?::?(\d{2}))?$/);
+  if (!match) return 0;
+  const sign = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2] || 0);
+  const minutes = Number(match[3] || 0);
+  return sign * (hours * 3600 + minutes * 60);
+}
+
+function getZonedDayStartUnix(timeZone: string, referenceDate: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(referenceDate);
+
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+  const utcMidnightMs = Date.UTC(year, month - 1, day, 0, 0, 0);
+  const offsetSeconds = getTimeZoneOffsetSeconds(timeZone, new Date(utcMidnightMs));
+  return Math.floor(utcMidnightMs / 1000) - offsetSeconds;
+}
+
 export async function GET(request: NextRequest, { params }: { params: { report: string } }) {
   try {
     const auth = await requireAuth(request);
     await ensurePaymentsTable();
     const report = params.report;
     const url = new URL(request.url);
-    const now = Math.floor(Date.now() / 1000);
-    const startOfDay = now - (now % 86400);
     const nowDate = new Date();
+    const now = Math.floor(Date.now() / 1000);
+    const startOfDay = getZonedDayStartUnix("Africa/Cairo", nowDate);
     const startOfMonth = Math.floor(Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), 1) / 1000);
     const startOfPreviousMonth = Math.floor(Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth() - 1, 1) / 1000);
 
     if (report === "overview") {
-      const [members, activeSubs, expiredSubs, revenue, currentMonthRevenue, previousMonthRevenue, today, revenueAtRisk, revenueSaved, atRiskMembers, newMembersThisMonth, churnedThisMonth] = await Promise.all([
+      const [members, activeSubs, expiredSubs, revenue, currentMonthRevenue, previousMonthRevenue, today, revenueAtRisk, revenueSaved, atRiskMembers, newMembersThisMonth, churnedThisMonth, inGymNow, expiringThisWeek] = await Promise.all([
         query<NumberRow>(
           `SELECT COUNT(*)::text AS count
              FROM members
@@ -261,6 +296,27 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
              LEFT JOIN active_end e ON e.member_id = s.member_id
             WHERE e.member_id IS NULL`,
           [auth.organizationId, auth.branchId, startOfMonth, now]
+        ),
+        // Members likely still in gym — unique successful scans in last 60 min
+        query<NumberRow>(
+          `SELECT COUNT(DISTINCT member_id)::text AS count
+             FROM logs
+            WHERE organization_id = $1
+              AND branch_id = $2
+              AND status = 'success'
+              AND timestamp >= $3`,
+          [auth.organizationId, auth.branchId, now - 3600]
+        ),
+        // Active subscriptions expiring in the next 7 days
+        query<NumberRow>(
+          `SELECT COUNT(*)::text AS count
+             FROM subscriptions
+            WHERE organization_id = $1
+              AND branch_id = $2
+              AND is_active = true
+              AND end_date > $3
+              AND end_date <= $4`,
+          [auth.organizationId, auth.branchId, now, now + 7 * 86400]
         )
       ]);
 
@@ -274,13 +330,16 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
         previousMonthRevenue: toNumber(previousMonthRevenue[0]?.total),
         arpm:
           toNumber(activeSubs[0]?.count) > 0
-            ? toNumber(currentMonthRevenue[0]?.total) / toNumber(activeSubs[0]?.count)
+            ? toNumber(revenue[0]?.total) / toNumber(activeSubs[0]?.count)
             : 0,
         revenueAtRisk: toNumber(revenueAtRisk[0]?.total),
         revenueSaved: toNumber(revenueSaved[0]?.total),
         atRiskMembers: toNumber(atRiskMembers[0]?.count),
         netMemberGrowth: toNumber(newMembersThisMonth[0]?.count) - toNumber(churnedThisMonth[0]?.count),
         todayCheckIns: toNumber(today[0]?.allowed),
+        inGymNow: toNumber(inGymNow[0]?.count),
+        expiringThisWeek: toNumber(expiringThisWeek[0]?.count),
+        newThisMonth: toNumber(newMembersThisMonth[0]?.count),
         todayStats: {
           allowed: toNumber(today[0]?.allowed),
           warning: toNumber(today[0]?.warning),
@@ -330,6 +389,29 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
       );
 
       return ok(rows);
+    }
+
+    if (report === "today-hourly") {
+      // Today's check-ins bucketed by hour (0–23), for the dashboard mini chart
+      const rows = await query<{ hour: number; count: number }>(
+        `SELECT EXTRACT(HOUR FROM to_timestamp(timestamp) AT TIME ZONE 'Africa/Cairo')::int AS hour,
+                COUNT(*)::int AS count
+           FROM logs
+          WHERE organization_id = $1
+            AND branch_id = $2
+            AND status = 'success'
+            AND timestamp >= $3
+            AND timestamp < $4
+          GROUP BY 1
+          ORDER BY 1`,
+        [auth.organizationId, auth.branchId, startOfDay, startOfDay + 86400]
+      );
+      // Fill all 24 hours so the chart always has a full array
+      const byHour = Array.from({ length: 24 }, (_, h) => ({
+        hour: h,
+        count: rows.find(r => r.hour === h)?.count ?? 0,
+      }));
+      return ok(byHour);
     }
 
     if (report === "hourly-distribution") {
