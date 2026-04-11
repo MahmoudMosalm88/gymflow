@@ -393,12 +393,13 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           [auth.organizationId, auth.branchId, startOfDay - 86400, startOfDay]
         ),
         // Last month's active subscriptions (for delta comparison)
+        // Uses date range only — NOT is_active flag, because is_active
+        // reflects current state, not the state 30 days ago
         query<NumberRow>(
           `SELECT COUNT(DISTINCT member_id)::text AS count
              FROM subscriptions
             WHERE organization_id = $1
               AND branch_id = $2
-              AND is_active = true
               AND start_date <= $3
               AND end_date > $3`,
           [auth.organizationId, auth.branchId, now - 30 * 86400]
