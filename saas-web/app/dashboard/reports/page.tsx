@@ -388,6 +388,9 @@ export default function ReportsPage() {
 
   // Jump to a tab — also switches category
   const jumpToTab = useCallback((targetTab: TabKey) => {
+    setLoading(true);
+    setError('');
+    setData(null);
     setCategory(categoryForTab(targetTab));
     setTab(targetTab);
     // Scroll to tab bar smoothly
@@ -397,6 +400,9 @@ export default function ReportsPage() {
   }, []);
 
   const changeCategory = useCallback((cat: CategoryKey) => {
+    setLoading(true);
+    setError('');
+    setData(null);
     setCategory(cat);
     const catDef = CATEGORIES.find(c => c.key === cat);
     if (catDef && !(catDef.tabs as readonly string[]).includes(tab)) {
