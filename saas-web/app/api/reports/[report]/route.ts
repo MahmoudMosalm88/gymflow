@@ -2272,7 +2272,7 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
       const now7 = now - 7 * 86400;
       const now14 = now - 14 * 86400;
       const now30 = now - 30 * 86400;
-      const nowYear = now - 365 * 86400;
+      const weeksBack = Math.max(1, Math.ceil(days / 7));
 
       // Weekly buckets: joins and ends in each of the last N weeks
       const buckets = await query<{
@@ -2281,7 +2281,7 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
         ends: string;
       }>(
         `WITH weeks AS (
-           SELECT generate_series(0, ($3 / 7) - 1) AS w
+           SELECT generate_series(0, $3 - 1) AS w
          ),
          week_bounds AS (
            SELECT
@@ -2291,19 +2291,23 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
          )
          SELECT
            wb.week_start,
-           COUNT(s.id) FILTER (WHERE s.created_at_ts >= wb.week_start AND s.created_at_ts < wb.week_end)::int AS joins,
+           COUNT(s.id) FILTER (
+             WHERE EXTRACT(EPOCH FROM s.created_at)::bigint >= wb.week_start
+               AND EXTRACT(EPOCH FROM s.created_at)::bigint < wb.week_end
+           )::int AS joins,
            COUNT(s.id) FILTER (WHERE s.end_date >= wb.week_start AND s.end_date < wb.week_end AND s.is_active = false)::int AS ends
          FROM week_bounds wb
          LEFT JOIN subscriptions s
            ON s.organization_id = $2
           AND s.branch_id = $4
           AND (
-                (s.created_at_ts >= wb.week_start AND s.created_at_ts < wb.week_end)
+                (EXTRACT(EPOCH FROM s.created_at)::bigint >= wb.week_start
+             AND EXTRACT(EPOCH FROM s.created_at)::bigint < wb.week_end)
              OR (s.end_date >= wb.week_start AND s.end_date < wb.week_end AND s.is_active = false)
               )
          GROUP BY wb.week_start
          ORDER BY wb.week_start ASC`,
-        [now, auth.organizationId, Math.ceil(days / 7), auth.branchId]
+        [now, auth.organizationId, weeksBack, auth.branchId]
       );
 
       // Simple period summaries
@@ -2315,7 +2319,7 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
       }>(
         `SELECT
            'thisWeek'   AS period,
-           COUNT(*)     FILTER (WHERE created_at_ts >= $3)::int AS joins,
+           COUNT(*)     FILTER (WHERE EXTRACT(EPOCH FROM created_at)::bigint >= $3)::int AS joins,
            COUNT(*)     FILTER (WHERE end_date >= $3 AND end_date < $1 AND is_active = false)::int AS ends,
            COUNT(*)     FILTER (WHERE is_active = true)::int AS active
          FROM subscriptions
@@ -2323,7 +2327,10 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
          UNION ALL
          SELECT
            'lastWeek',
-           COUNT(*) FILTER (WHERE created_at_ts >= $4 AND created_at_ts < $3)::int,
+           COUNT(*) FILTER (
+             WHERE EXTRACT(EPOCH FROM created_at)::bigint >= $4
+               AND EXTRACT(EPOCH FROM created_at)::bigint < $3
+           )::int,
            COUNT(*) FILTER (WHERE end_date >= $4 AND end_date < $3 AND is_active = false)::int,
            NULL
          FROM subscriptions
@@ -2331,7 +2338,7 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
          UNION ALL
          SELECT
            'last30Days',
-           COUNT(*) FILTER (WHERE created_at_ts >= $6)::int,
+           COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM created_at)::bigint >= $6)::int,
            COUNT(*) FILTER (WHERE end_date >= $6 AND end_date < $1 AND is_active = false)::int,
            NULL
          FROM subscriptions
