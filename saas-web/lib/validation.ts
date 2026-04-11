@@ -142,6 +142,97 @@ export const settingsPutSchema = z.object({
   }
 });
 
+export const staffCreateSchema = z.object({
+  name: z.string().trim().min(2),
+  title: z.string().trim().max(100).optional().or(z.literal("")),
+  phone: e164PhoneSchema,
+  email: z.string().trim().email().optional().or(z.literal("")),
+  role: z.enum(["manager", "staff", "trainer"])
+});
+
+export const staffPatchSchema = z.object({
+  is_active: z.boolean().optional(),
+  resend_invite: z.boolean().optional(),
+  replacement_trainer_staff_user_id: z.string().uuid().nullable().optional(),
+  gender: z.enum(["male", "female"]).nullable().optional(),
+  languages: z.array(z.string().trim().min(1).max(40)).max(10).optional(),
+  specialties: z.array(z.string().trim().min(1).max(60)).max(12).optional(),
+  certifications: z.array(z.string().trim().min(1).max(80)).max(12).optional(),
+  bio: z.string().trim().max(1000).nullable().optional(),
+  beginner_friendly: z.boolean().optional()
+});
+
+export const staffAcceptInviteSchema = z.object({
+  token: z.string().trim().min(10),
+  idToken: z.string().min(20)
+});
+
+export const trainerAssignmentSchema = z.object({
+  trainer_staff_user_id: z.string().uuid().nullable()
+});
+
+export const ptPackageCreateSchema = z.object({
+  member_id: z.string().uuid(),
+  assigned_trainer_staff_user_id: z.string().uuid(),
+  title: z.string().trim().min(2).max(120),
+  total_sessions: z.number().int().positive().max(500),
+  price_paid: z.number().min(0),
+  payment_method: paymentMethodSchema.optional().nullable(),
+  valid_from: z.string().trim().min(1),
+  valid_until: z.string().trim().min(1),
+  notes: z.string().trim().max(2000).optional().nullable()
+});
+
+export const ptPackagePatchSchema = z.object({
+  assigned_trainer_staff_user_id: z.string().uuid().optional(),
+  title: z.string().trim().min(2).max(120).optional(),
+  total_sessions: z.number().int().positive().max(500).optional(),
+  price_paid: z.number().min(0).optional(),
+  payment_method: paymentMethodSchema.optional().nullable(),
+  valid_from: z.string().trim().min(1).optional(),
+  valid_until: z.string().trim().min(1).optional(),
+  status: z.enum(["active", "exhausted", "expired", "cancelled"]).optional(),
+  notes: z.string().trim().max(2000).optional().nullable(),
+  cancelled_reason: z.string().trim().max(500).optional().nullable()
+});
+
+export const ptSessionCreateSchema = z.object({
+  package_id: z.string().uuid(),
+  member_id: z.string().uuid(),
+  trainer_staff_user_id: z.string().uuid(),
+  scheduled_start: z.string().trim().min(1),
+  scheduled_end: z.string().trim().min(1).optional(),
+  duration_minutes: z.number().int().positive().max(24 * 60).optional(),
+  notes: z.string().trim().max(2000).optional().nullable()
+});
+
+export const ptSessionPatchSchema = z.object({
+  trainer_staff_user_id: z.string().uuid().optional(),
+  scheduled_start: z.string().trim().min(1).optional(),
+  scheduled_end: z.string().trim().min(1).optional(),
+  duration_minutes: z.number().int().positive().max(24 * 60).optional(),
+  status: z.enum(["scheduled", "completed", "no_show", "late_cancel", "cancelled"]).optional(),
+  notes: z.string().trim().max(2000).optional().nullable()
+});
+
+export const trainerAvailabilityPutSchema = z.object({
+  slots: z.array(
+    z.object({
+      weekday: z.number().int().min(0).max(6),
+      start_minute: z.number().int().min(0).max(1439),
+      end_minute: z.number().int().min(1).max(1440),
+      is_active: z.boolean().optional()
+    })
+  ).max(70),
+  time_off: z.array(
+    z.object({
+      starts_at: z.string().trim().min(1),
+      ends_at: z.string().trim().min(1),
+      reason: z.string().trim().max(500).optional().nullable()
+    })
+  ).max(100).optional()
+});
+
 export const whatsappQueueRetrySchema = z.object({
   ids: z.array(z.string().uuid()).max(500).optional()
 });

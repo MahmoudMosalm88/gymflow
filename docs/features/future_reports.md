@@ -1,8 +1,24 @@
 # Future GymFlow Reports
 
-This document outlines report ideas that were considered but excluded from the current development scope. They are documented here for future reference and potential implementation.
+> Status: Legacy backlog notes
+> Source of truth for reporting priorities: `docs/features/reports-optimization-roadmap.md`
+
+This document is no longer the implementation source of truth.
+
+Use it only for:
+- low-priority backlog ideas not yet promoted into the main roadmap
+- rough idea capture before a report is formally scoped
+
+If a report exists in both this file and the main roadmap, the main roadmap wins.
 
 ## Excluded Reports for Future Consideration
+
+### 0. Income by Plan Type
+
+*   **Description:** Break down income by plan type or plan duration so gym owners can see which subscription shapes generate the most revenue. Examples: 1-month, 3-month, 6-month, 12-month, session-limited plans, and PT-linked plan buckets if added later.
+*   **Value:** Helps owners understand what actually sells, which plans drive the most money, and whether shorter or longer plans are performing better.
+*   **Data Sources:** Canonical income/payment events, `subscriptions.plan_months`, future plan metadata if explicit plan types are added.
+*   **Complexity:** Moderate. Must stay aligned with the cycle-based renewal model so renewed cycles are counted correctly and not double-counted.
 
 ### 1. Churn Prediction/Risk Assessment
 

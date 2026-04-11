@@ -1,21 +1,12 @@
 import { NextRequest } from "next/server";
-import { query } from "@/lib/db";
 import { env, getFirebaseWebConfigDiagnostics } from "@/lib/env";
 import { getFirebaseAdminAuth, getFirebaseAdminDiagnostics } from "@/lib/firebase-admin";
 import { fail, ok, routeError } from "@/lib/http";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { loginSchema } from "@/lib/validation";
+import { getActorAccessByFirebaseUid, getActorAccessByPhone, toSessionProfile } from "@/lib/auth";
 
 export const runtime = "nodejs";
-
-type LoginRow = {
-  owner_id: string;
-  branch_id: string;
-  organization_id: string;
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-};
 
 type FirebaseSignInResponse = {
   idToken: string;
@@ -123,32 +114,29 @@ export async function POST(request: NextRequest) {
     }
 
     const decoded = await auth.verifyIdToken(idToken);
-    const rows = await query<LoginRow>(
-      `SELECT o.id AS owner_id,
-              o.name,
-              o.email,
-              o.phone,
-              oba.branch_id,
-              b.organization_id
-         FROM owners o
-         JOIN owner_branch_access oba ON oba.owner_id = o.id
-         JOIN branches b ON b.id = oba.branch_id
-        WHERE o.firebase_uid = $1
-        ORDER BY oba.created_at ASC
-        LIMIT 1`,
-      [decoded.uid]
-    );
+    const isLocalHost = request.nextUrl.hostname === "localhost" || request.nextUrl.hostname === "127.0.0.1";
+    let access = await getActorAccessByFirebaseUid(decoded.uid);
+    if (!access && isLocalHost && typeof decoded.phone_number === "string" && decoded.phone_number) {
+      access = await getActorAccessByPhone(decoded.phone_number);
+    }
+    if (!access) {
+      return fail("Your account exists but isn't fully set up yet. Please contact support to complete your setup.", 404);
+    }
 
-    if (!rows[0]) return fail("Your account exists but isn't fully set up yet. Please contact support to complete your setup.", 404);
+    const profile = toSessionProfile(access);
 
     return ok({
       message: "Login successful",
-      owner: rows[0],
+      owner: profile,
+      user: profile,
       session: {
         idToken,
-        branchId: rows[0].branch_id,
-        organizationId: rows[0].organization_id,
-        ownerId: rows[0].owner_id
+        branchId: access.branch_id,
+        organizationId: access.organization_id,
+        ownerId: access.owner_id,
+        actorId: access.actor_id,
+        actorType: access.actor_type,
+        role: access.role
       }
     });
   } catch (error) {

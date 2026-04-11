@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { query, withTransaction } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRoles } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
 import { settingsPutSchema } from "@/lib/validation";
 import { upsertSetting } from "@/lib/tenant";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner"]);
     const rows = await query<{ key: string; value: unknown }>(
       `SELECT key, value
          FROM settings
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner"]);
     const payload = settingsPutSchema.parse(await request.json());
 
     await withTransaction(async (client) => {

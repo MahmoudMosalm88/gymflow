@@ -2,18 +2,23 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api-client';
+import { formatDateTime } from '@/lib/format';
 import { useLang, t } from '@/lib/i18n';
 import { useAuth, logout } from '@/lib/use-auth';
 import type { Auth, RecaptchaVerifier } from 'firebase/auth';
 import type { FirebaseClientConfig } from '@/lib/firebase-client';
+import { SESSION_PROFILE_KEY } from '@/lib/session';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Textarea } from '@/components/ui/textarea';
 import { Check, Terminal } from 'lucide-react';
 
 type ProfileData = {
@@ -22,6 +27,25 @@ type ProfileData = {
   phone: string | null;
   organization_name: string | null;
   branch_name: string | null;
+  gender?: 'male' | 'female' | '';
+  languages?: string;
+  specialties?: string;
+  certifications?: string;
+  bio?: string | null;
+  beginner_friendly?: boolean;
+};
+
+type AvailabilitySlot = {
+  weekday: number;
+  start_minute: number;
+  end_minute: number;
+  is_active?: boolean;
+};
+
+type TimeOffEntry = {
+  starts_at: string;
+  ends_at: string;
+  reason?: string | null;
 };
 
 type FirebaseRuntime = {
@@ -54,7 +78,42 @@ async function loadFirebaseRuntime(): Promise<FirebaseRuntime> {
 export default function ProfilePage() {
   const { lang } = useLang();
   const { profile } = useAuth();
+  const canEditTenantNames = profile?.role === 'owner';
+  const isTrainer = profile?.role === 'trainer';
   const labels = t[lang];
+  const trainerCopy = lang === 'ar'
+    ? {
+        title: 'ملف المدرب',
+        subtitle: 'هذه البيانات ستُستخدم لاحقاً في إسناد العملاء وواجهة المدرب.',
+        gender: 'النوع',
+        languages: 'اللغات',
+        specialties: 'التخصصات',
+        certifications: 'الشهادات',
+        bio: 'نبذة قصيرة',
+        beginner: 'مناسب للمبتدئين',
+        placeholders: {
+          languages: 'مثال: العربية, English',
+          specialties: 'مثال: خسارة الوزن, قوة, إصابات',
+          certifications: 'مثال: ACE CPT, ISSA',
+          bio: 'عرّف عن نفسك بشكل مختصر'
+        }
+      }
+    : {
+        title: 'Trainer Profile',
+        subtitle: 'These fields will power trainer assignment and the trainer-facing workflow.',
+        gender: 'Gender',
+        languages: 'Languages',
+        specialties: 'Specialties',
+        certifications: 'Certifications',
+        bio: 'Short bio',
+        beginner: 'Beginner-friendly',
+        placeholders: {
+          languages: 'Arabic, English',
+          specialties: 'Weight loss, strength, rehab',
+          certifications: 'ACE CPT, ISSA',
+          bio: 'A short trainer intro'
+        }
+      };
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -65,6 +124,13 @@ export default function ProfilePage() {
   const [otpBusy, setOtpBusy] = useState(false);
   const [otpMessage, setOtpMessage] = useState('');
   const [otpConflict, setOtpConflict] = useState(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilitySaving, setAvailabilitySaving] = useState(false);
+  const [availabilityMessage, setAvailabilityMessage] = useState('');
+  const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([]);
+  const [timeOff, setTimeOff] = useState<TimeOffEntry[]>([]);
+  const [showTimeOffDialog, setShowTimeOffDialog] = useState(false);
+  const [timeOffDraft, setTimeOffDraft] = useState<TimeOffEntry>({ starts_at: '', ends_at: '', reason: '' });
 
   const [form, setForm] = useState<ProfileData>({
     name: '',
@@ -72,6 +138,12 @@ export default function ProfilePage() {
     phone: '',
     organization_name: '',
     branch_name: '',
+    gender: '',
+    languages: '',
+    specialties: '',
+    certifications: '',
+    bio: '',
+    beginner_friendly: false,
   });
 
   // Snapshot of last-saved values — used to detect unsaved changes
@@ -81,6 +153,12 @@ export default function ProfilePage() {
     phone: '',
     organization_name: '',
     branch_name: '',
+    gender: '',
+    languages: '',
+    specialties: '',
+    certifications: '',
+    bio: '',
+    beginner_friendly: false,
   });
   const [verifiedPhone, setVerifiedPhone] = useState('');
   const [verificationId, setVerificationId] = useState<string | null>(null);
@@ -108,6 +186,12 @@ export default function ProfilePage() {
             phone: res.data.phone || '',
             organization_name: res.data.organization_name || '',
             branch_name: res.data.branch_name || '',
+            gender: res.data.gender || '',
+            languages: Array.isArray((res.data as any).languages) ? (res.data as any).languages.join(', ') : '',
+            specialties: Array.isArray((res.data as any).specialties) ? (res.data as any).specialties.join(', ') : '',
+            certifications: Array.isArray((res.data as any).certifications) ? (res.data as any).certifications.join(', ') : '',
+            bio: (res.data as any).bio || '',
+            beginner_friendly: Boolean((res.data as any).beginner_friendly),
           };
           setForm(loaded);
           setSaved(loaded);
@@ -123,6 +207,37 @@ export default function ProfilePage() {
     }
     load();
   }, [labels.profile_load_error]);
+
+  useEffect(() => {
+    async function loadAvailability() {
+      if (!isTrainer || !profile?.id) return;
+      setAvailabilityLoading(true);
+      try {
+        const res = await api.get<{ slots: AvailabilitySlot[]; timeOff: TimeOffEntry[] }>(`/api/trainers/${profile.id}/availability`);
+        if (res.success && res.data) {
+          setAvailabilitySlots(
+            res.data.slots?.length
+              ? res.data.slots
+              : [
+                  { weekday: 0, start_minute: 540, end_minute: 1020, is_active: false },
+                  { weekday: 1, start_minute: 540, end_minute: 1020, is_active: true },
+                  { weekday: 2, start_minute: 540, end_minute: 1020, is_active: true },
+                  { weekday: 3, start_minute: 540, end_minute: 1020, is_active: true },
+                  { weekday: 4, start_minute: 540, end_minute: 1020, is_active: true },
+                  { weekday: 5, start_minute: 540, end_minute: 1020, is_active: true },
+                  { weekday: 6, start_minute: 540, end_minute: 1020, is_active: false },
+                ]
+          );
+          setTimeOff(res.data.timeOff || []);
+        }
+      } catch (err) {
+        setAvailabilityMessage(err instanceof Error ? err.message : labels.error);
+      } finally {
+        setAvailabilityLoading(false);
+      }
+    }
+    void loadAvailability();
+  }, [isTrainer, profile?.id, labels.error]);
 
   // Save profile
   async function handleSave() {
@@ -140,7 +255,22 @@ export default function ProfilePage() {
     setError('');
     setSuccess('');
     try {
-      const res = await api.put('/api/profile', form);
+      const csvToArray = (value: string | null | undefined) =>
+        String(value || '')
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean);
+      const payload = isTrainer
+        ? {
+            ...form,
+            languages: csvToArray(form.languages),
+            specialties: csvToArray(form.specialties),
+            certifications: csvToArray(form.certifications),
+            bio: form.bio || '',
+            beginner_friendly: Boolean(form.beginner_friendly),
+          }
+        : form;
+      const res = await api.put('/api/profile', payload);
       if (res.success) {
         setSuccess(labels.profile_updated);
         setSaved({ ...form }); // reset dirty state
@@ -152,15 +282,17 @@ export default function ProfilePage() {
         setVerificationId(null);
 
         // Update localStorage so Header reflects changes immediately
-        const existing = localStorage.getItem('owner_profile');
+        const existing = localStorage.getItem(SESSION_PROFILE_KEY);
         if (existing) {
           try {
             const parsed = JSON.parse(existing);
             parsed.name = form.name;
             parsed.email = form.email;
-            parsed.organizationName = form.organization_name;
-            parsed.branchName = form.branch_name;
-            localStorage.setItem('owner_profile', JSON.stringify(parsed));
+            if (canEditTenantNames) {
+              parsed.organizationName = form.organization_name;
+              parsed.branchName = form.branch_name;
+            }
+            localStorage.setItem(SESSION_PROFILE_KEY, JSON.stringify(parsed));
           } catch {
             // ignore parse errors
           }
@@ -178,7 +310,7 @@ export default function ProfilePage() {
     }
   }
 
-  function updateField(key: keyof ProfileData, value: string) {
+  function updateField(key: keyof ProfileData, value: string | boolean) {
     setForm((prev) => {
       const next = { ...prev, [key]: value };
       if (key === 'phone') {
@@ -191,6 +323,47 @@ export default function ProfilePage() {
       return next;
     });
   }
+
+  function minutesToTime(value: number) {
+    const hours = Math.floor(value / 60);
+    const minutes = value % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  }
+
+  function timeToMinutes(value: string) {
+    const [hours, minutes] = value.split(':').map(Number);
+    return (hours * 60) + (minutes || 0);
+  }
+
+  async function saveAvailability() {
+    if (!profile?.id) return;
+    setAvailabilitySaving(true);
+    setAvailabilityMessage('');
+    try {
+      const res = await api.put(`/api/trainers/${profile.id}/availability`, {
+        slots: availabilitySlots.map((slot) => ({
+          weekday: slot.weekday,
+          start_minute: slot.start_minute,
+          end_minute: slot.end_minute,
+          is_active: Boolean(slot.is_active),
+        })),
+        time_off: timeOff,
+      });
+      if (res.success) {
+        setAvailabilityMessage(lang === 'ar' ? 'تم حفظ المواعيد.' : 'Availability saved.');
+      } else {
+        setAvailabilityMessage(res.message || labels.error);
+      }
+    } catch (err) {
+      setAvailabilityMessage(err instanceof Error ? err.message : labels.error);
+    } finally {
+      setAvailabilitySaving(false);
+    }
+  }
+
+  const weekdayLabels = lang === 'ar'
+    ? ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
+    : ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   async function getAuthClient() {
     const runtime = await loadFirebaseRuntime();
@@ -395,7 +568,7 @@ export default function ProfilePage() {
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
       {/* ── Page header: title + Save button ── */}
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold">{labels.profile}</h1>
+        <h1 className="text-2xl font-heading font-bold tracking-tight">{labels.profile}</h1>
         <Button
           onClick={handleSave}
           disabled={!isDirty || saving || phoneNeedsVerification}
@@ -544,6 +717,7 @@ export default function ProfilePage() {
                 id="profile-org"
                 value={form.organization_name || ''}
                 onChange={(e) => updateField('organization_name', e.target.value)}
+                disabled={!canEditTenantNames}
               />
             </div>
             <div className="space-y-2">
@@ -552,11 +726,196 @@ export default function ProfilePage() {
                 id="profile-branch"
                 value={form.branch_name || ''}
                 onChange={(e) => updateField('branch_name', e.target.value)}
+                disabled={!canEditTenantNames}
               />
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {isTrainer && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{trainerCopy.title}</CardTitle>
+            <p className="text-sm text-muted-foreground">{trainerCopy.subtitle}</p>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="trainer-gender">{trainerCopy.gender}</Label>
+              <Select value={form.gender || '__none__'} onValueChange={(value) => updateField('gender', value === '__none__' ? '' : value)}>
+                <SelectTrigger id="trainer-gender">
+                  <SelectValue placeholder={lang === 'ar' ? 'غير محدد' : 'Not set'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">{lang === 'ar' ? 'غير محدد' : 'Not set'}</SelectItem>
+                  <SelectItem value="male">{labels.male}</SelectItem>
+                  <SelectItem value="female">{labels.female}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="trainer-beginner">{trainerCopy.beginner}</Label>
+              <label className="flex h-10 items-center gap-3 rounded-md border border-input px-3 text-sm">
+                <input
+                  id="trainer-beginner"
+                  type="checkbox"
+                  checked={Boolean(form.beginner_friendly)}
+                  onChange={(e) => updateField('beginner_friendly', e.target.checked)}
+                />
+                <span>{trainerCopy.beginner}</span>
+              </label>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="trainer-languages">{trainerCopy.languages}</Label>
+              <Input
+                id="trainer-languages"
+                value={form.languages || ''}
+                onChange={(e) => updateField('languages', e.target.value)}
+                placeholder={trainerCopy.placeholders.languages}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="trainer-specialties">{trainerCopy.specialties}</Label>
+              <Input
+                id="trainer-specialties"
+                value={form.specialties || ''}
+                onChange={(e) => updateField('specialties', e.target.value)}
+                placeholder={trainerCopy.placeholders.specialties}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="trainer-certifications">{trainerCopy.certifications}</Label>
+              <Input
+                id="trainer-certifications"
+                value={form.certifications || ''}
+                onChange={(e) => updateField('certifications', e.target.value)}
+                placeholder={trainerCopy.placeholders.certifications}
+              />
+            </div>
+            <div className="space-y-2 lg:col-span-2">
+              <Label htmlFor="trainer-bio">{trainerCopy.bio}</Label>
+              <Textarea
+                id="trainer-bio"
+                value={form.bio || ''}
+                onChange={(e) => updateField('bio', e.target.value)}
+                placeholder={trainerCopy.placeholders.bio}
+                className="min-h-[120px]"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isTrainer && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{lang === 'ar' ? 'مواعيد المدرب' : 'Trainer Availability'}</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {lang === 'ar'
+                ? 'حدّد ساعات العمل الأسبوعية والإجازات حتى يمنع النظام الحجز خارجها.'
+                : 'Set weekly working hours and time off so PT booking blocks invalid slots.'}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {availabilityMessage ? <p className="text-sm text-muted-foreground">{availabilityMessage}</p> : null}
+            {availabilityLoading ? (
+              <p className="text-sm text-muted-foreground">{labels.loading}</p>
+            ) : (
+              <div className="space-y-3">
+                {availabilitySlots
+                  .sort((a, b) => a.weekday - b.weekday)
+                  .map((slot, index) => (
+                    <div key={`${slot.weekday}-${index}`} className="grid gap-3 rounded-md border border-border p-3 md:grid-cols-[160px_1fr_1fr_140px] md:items-center">
+                      <div className="font-medium">{weekdayLabels[slot.weekday]}</div>
+                      <div className="space-y-1">
+                        <Label>{lang === 'ar' ? 'من' : 'From'}</Label>
+                        <Input
+                          type="time"
+                          value={minutesToTime(slot.start_minute)}
+                          onChange={(e) =>
+                            setAvailabilitySlots((current) =>
+                              current.map((row, rowIndex) =>
+                                rowIndex === index ? { ...row, start_minute: timeToMinutes(e.target.value) } : row
+                              )
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>{lang === 'ar' ? 'إلى' : 'To'}</Label>
+                        <Input
+                          type="time"
+                          value={minutesToTime(slot.end_minute)}
+                          onChange={(e) =>
+                            setAvailabilitySlots((current) =>
+                              current.map((row, rowIndex) =>
+                                rowIndex === index ? { ...row, end_minute: timeToMinutes(e.target.value) } : row
+                              )
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label>{lang === 'ar' ? 'الحالة' : 'Status'}</Label>
+                        <Select
+                          value={slot.is_active ? 'active' : 'off'}
+                          onValueChange={(value) =>
+                            setAvailabilitySlots((current) =>
+                              current.map((row, rowIndex) =>
+                                rowIndex === index ? { ...row, is_active: value === 'active' } : row
+                              )
+                            )
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">{lang === 'ar' ? 'متاح' : 'Available'}</SelectItem>
+                            <SelectItem value="off">{lang === 'ar' ? 'إجازة' : 'Off'}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+            <div className="space-y-3 rounded-md border border-border p-4">
+              <div className="flex items-center justify-between">
+                <div className="font-medium">{lang === 'ar' ? 'إجازات واستثناءات' : 'Time Off'}</div>
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowTimeOffDialog(true)}>
+                  {lang === 'ar' ? 'إضافة استثناء' : 'Add time off'}
+                </Button>
+              </div>
+              {timeOff.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{lang === 'ar' ? 'لا توجد استثناءات.' : 'No time off entries yet.'}</p>
+              ) : (
+                <div className="space-y-2">
+                  {timeOff.map((entry, index) => (
+                    <div key={`${entry.starts_at}-${index}`} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
+                      <div>
+                        <div className="text-sm font-medium">{formatDateTime(entry.starts_at, lang === 'ar' ? 'ar-EG' : 'en-US')}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatDateTime(entry.ends_at, lang === 'ar' ? 'ar-EG' : 'en-US')}
+                          {entry.reason ? ` · ${entry.reason}` : ''}
+                        </div>
+                      </div>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setTimeOff((current) => current.filter((_, rowIndex) => rowIndex !== index))}>
+                        {lang === 'ar' ? 'حذف' : 'Remove'}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <Button type="button" onClick={saveAvailability} disabled={availabilitySaving}>
+                {availabilitySaving ? labels.saving : labels.save}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Security row ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-2 border-border bg-card">
@@ -576,6 +935,51 @@ export default function ProfilePage() {
           </Button>
         </div>
       </div>
+
+      <Dialog open={showTimeOffDialog} onOpenChange={setShowTimeOffDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{lang === 'ar' ? 'إضافة إجازة' : 'Add Time Off'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{lang === 'ar' ? 'من' : 'From'}</Label>
+              <Input type="datetime-local" value={timeOffDraft.starts_at} onChange={(e) => setTimeOffDraft((current) => ({ ...current, starts_at: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>{lang === 'ar' ? 'إلى' : 'To'}</Label>
+              <Input type="datetime-local" value={timeOffDraft.ends_at} onChange={(e) => setTimeOffDraft((current) => ({ ...current, ends_at: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>{lang === 'ar' ? 'السبب' : 'Reason'}</Label>
+              <Input value={timeOffDraft.reason || ''} onChange={(e) => setTimeOffDraft((current) => ({ ...current, reason: e.target.value }))} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowTimeOffDialog(false)}>
+                {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (!timeOffDraft.starts_at || !timeOffDraft.ends_at) return;
+                  setTimeOff((current) => [
+                    ...current,
+                    {
+                      starts_at: new Date(timeOffDraft.starts_at).toISOString(),
+                      ends_at: new Date(timeOffDraft.ends_at).toISOString(),
+                      reason: timeOffDraft.reason || null,
+                    },
+                  ]);
+                  setTimeOffDraft({ starts_at: '', ends_at: '', reason: '' });
+                  setShowTimeOffDialog(false);
+                }}
+              >
+                {lang === 'ar' ? 'إضافة' : 'Add'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

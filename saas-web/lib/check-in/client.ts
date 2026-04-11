@@ -6,8 +6,10 @@ export type CheckInMethod = "scan" | "manual" | "camera";
 export type ClientCheckInResult = {
   success: boolean;
   memberName?: string;
+  memberId?: string;
   sessionsRemaining?: number;
   reason?: string;
+  reasonCode?: string;
   memberPhoto?: string;
   offline?: boolean;
 };
@@ -15,6 +17,7 @@ export type ClientCheckInResult = {
 type ApiCheckInResponse = {
   success: boolean;
   member?: {
+    id: string;
     name: string;
     photo_path?: string | null;
   };
@@ -41,8 +44,10 @@ export async function submitCheckIn(
     return {
       success: payload.success,
       memberName: payload.member?.name,
+      memberId: payload.member?.id,
       memberPhoto: payload.member?.photo_path ?? undefined,
       sessionsRemaining: payload.sessionsRemaining,
+      reasonCode: payload.reason,
       reason: payload.success
         ? payload.reason
         : (payload.reason ? (reasonLabels[payload.reason] ?? payload.reason) : fallbackError)

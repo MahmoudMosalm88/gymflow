@@ -24,6 +24,7 @@ const CORE_OFFLINE_ROUTES = [
   '/dashboard',
   '/dashboard/members',
   '/dashboard/members/new',
+  '/dashboard/guest-passes',
   '/dashboard/subscriptions',
   '/dashboard/income',
   '/dashboard/income/payments',

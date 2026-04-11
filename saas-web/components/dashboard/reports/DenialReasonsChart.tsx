@@ -25,14 +25,39 @@ type DenialReasonsChartProps = {
   labels: Labels;
   styles: RechartStyles;
   colors: string[];
+  lang?: string;
 };
+
+const REASON_LABELS: Record<string, { en: string; ar: string }> = {
+  unknown_member:           { en: 'Not found',           ar: 'غير موجود' },
+  cooldown:                 { en: 'Scanned too soon',    ar: 'تم المسح مؤخراً' },
+  already_checked_in_today: { en: 'Already checked in',  ar: 'سجّل حضور اليوم' },
+  no_active_subscription:   { en: 'No subscription',     ar: 'لا اشتراك نشط' },
+  quota_exceeded:           { en: 'Sessions used up',    ar: 'نفدت الجلسات' },
+  subscription_frozen:      { en: 'Subscription frozen', ar: 'الاشتراك مجمّد' },
+  expired_subscription:     { en: 'Expired',             ar: 'منتهي' },
+  no_subscription:          { en: 'No subscription',     ar: 'لا اشتراك' },
+  access_tier_mismatch:     { en: 'Wrong access tier',   ar: 'مستوى وصول خاطئ' },
+  frozen:                   { en: 'Frozen',              ar: 'مجمّد' },
+  deleted:                  { en: 'Deleted member',      ar: 'عضو محذوف' },
+  unknown:                  { en: 'Unknown',             ar: 'غير معروف' },
+};
+
+function humanizeReasonCode(code: string, lang = 'en'): string {
+  const lbl = REASON_LABELS[code];
+  if (lbl) return lbl[lang as 'en' | 'ar'] ?? lbl.en;
+  return code.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export default function DenialReasonsChart({
   data,
   labels,
   styles,
   colors,
+  lang = 'en',
 }: DenialReasonsChartProps) {
+  const chartData = data.map((row) => ({ ...row, name: humanizeReasonCode(row.reason_code, lang) }));
+
   return (
     <Card>
       <CardHeader>
@@ -42,9 +67,9 @@ export default function DenialReasonsChart({
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={data}
+              data={chartData}
               dataKey="count"
-              nameKey="reason_code"
+              nameKey="name"
               cx="50%"
               cy="50%"
               outerRadius={140}

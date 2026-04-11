@@ -185,3 +185,46 @@ Toast notification (success green / denied red)
 2. **Test with real hardware** — this bug was invisible in dev because no one scanned actual printed QR codes during testing. Physical hardware integration needs end-to-end testing with real artifacts.
 
 3. **Desktop → cloud migration needs a compatibility layer** — any data format that exists "in the wild" (printed, on cards, in members' phones) must be supported indefinitely or explicitly migrated.
+
+---
+
+## Troubleshooting Note — Cloud Build Failure After Camera Scanner Release
+
+**Date**: April 2, 2026
+
+Two production Cloud Build runs failed for the camera scanner rollout commits:
+
+- `09f519d` — `feat(scanner): add camera qr scanning to dashboard`
+- `7f61cae` — `fix(members): move photo upload to server route`
+
+**Exact failing step**:
+- Cloud Build step `Build`
+- Docker image build for `saas-web/Dockerfile`
+
+**Exact error**:
+
+```text
+./components/dashboard/CameraScanner.tsx:79:22
+Type error: Parameter 'path' implicitly has an 'any' type.
+```
+
+**Broken code**:
+
+```ts
+locateFile: (path, prefix) => {
+```
+
+**Fix**:
+
+```ts
+locateFile: (path: string, prefix: string) => {
+```
+
+**Why deployment failed**:
+- Cloud Build runs `npm run build` inside the Docker build.
+- Next.js type-checking failed inside the container.
+- The image was never produced, so deploy never started.
+
+**Takeaway**:
+- local scanner testing was not enough
+- SaaS scanner changes must always be verified with `cd saas-web && npm run build` before push because Cloud Build enforces the same type check during Docker build

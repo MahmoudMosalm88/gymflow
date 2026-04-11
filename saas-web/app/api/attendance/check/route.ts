@@ -224,7 +224,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (cooldownRows[0]) {
-      return ok({ success: false, reason: "cooldown" });
+      return ok({ success: false, reason: "cooldown", member: { id: member.id, name: member.name, photo_path: member.photo_path } });
     }
 
     const startOfDay = checkTime - (checkTime % 86400);
@@ -241,7 +241,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (alreadyRows[0]) {
-      return ok({ success: false, reason: "already_checked_in_today" });
+      return ok({ success: false, reason: "already_checked_in_today", member: { id: member.id, name: member.name, photo_path: member.photo_path } });
     }
 
     const subscriptionRows = await query<Subscription>(
@@ -263,7 +263,7 @@ export async function POST(request: NextRequest) {
          VALUES ($1, $2, $3, $4, $5, $6, 'failure', 'no_active_subscription', $7, $8, $9, $10)`,
         [auth.organizationId, auth.branchId, member.id, scannedValue, payload.method, now, operationId, source, deviceId, offlineRecordedAt]
       );
-      return ok({ success: false, reason: "no_active_subscription" });
+      return ok({ success: false, reason: "no_active_subscription", member: { id: member.id, name: member.name, photo_path: member.photo_path } });
     }
 
     const subscription = subscriptionRows[0];
@@ -283,7 +283,7 @@ export async function POST(request: NextRequest) {
          VALUES ($1, $2, $3, $4, $5, $6, 'failure', 'subscription_frozen', $7, $8, $9, $10)`,
         [auth.organizationId, auth.branchId, member.id, scannedValue, payload.method, now, operationId, source, deviceId, offlineRecordedAt]
       );
-      return ok({ success: false, reason: "subscription_frozen" });
+      return ok({ success: false, reason: "subscription_frozen", member: { id: member.id, name: member.name, photo_path: member.photo_path } });
     }
 
     const { cycleStart, cycleEnd } = getMonthlyCycleWindow({
@@ -337,7 +337,7 @@ export async function POST(request: NextRequest) {
            VALUES ($1, $2, $3, $4, $5, $6, 'failure', 'quota_exceeded', $7, $8, $9, $10)`,
           [auth.organizationId, auth.branchId, member.id, scannedValue, payload.method, now, operationId, source, deviceId, offlineRecordedAt]
         );
-        return { success: false, reason: "quota_exceeded" };
+        return { success: false, reason: "quota_exceeded", member: { id: member.id, name: member.name, photo_path: member.photo_path } };
       }
 
       await client.query(

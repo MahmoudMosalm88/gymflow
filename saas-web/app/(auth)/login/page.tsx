@@ -20,7 +20,7 @@ import {
   FormMessage
 } from "@/components/ui/form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Check, Terminal } from "lucide-react";
+import { Check, Eye, EyeOff, Terminal } from "lucide-react";
 
 type Mode = "login" | "register";
 type AuthMethod = "email" | "phone";
@@ -348,6 +348,8 @@ export default function LoginPage() {
   const [phoneTarget, setPhoneTarget] = useState("");
   const [countdown, setCountdown] = useState(0);
   const [canResend, setCanResend] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   const authRef = useRef<Auth | null>(null);
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
@@ -358,6 +360,13 @@ export default function LoginPage() {
 
   const isArabic = lang === "ar";
   const t = useMemo(() => copy[lang], [lang]);
+  const passwordToggleLabels = useMemo(
+    () => ({
+      show: lang === "ar" ? "إظهار كلمة المرور" : "Show password",
+      hide: lang === "ar" ? "إخفاء كلمة المرور" : "Hide password",
+    }),
+    [lang]
+  );
 
   // Forms
   const setupForm = useForm<z.infer<typeof setupFieldsSchema>>({
@@ -437,9 +446,11 @@ export default function LoginPage() {
     const candidate = unwrapData(payload);
     if (!isFirebaseClientConfig(candidate)) throw new Error("Firebase auth configuration is incomplete.");
     const auth = await getFirebaseClientAuth(candidate as FirebaseClientConfig);
-    // Always use real app verification for real phone numbers.
-    // Firebase test-mode is only for fictional test numbers.
-    auth.settings.appVerificationDisabledForTesting = false;
+    // Localhost QA uses Firebase test phone numbers during Playwright and manual smoke tests.
+    // Keep real app verification enabled everywhere else.
+    const host = typeof window !== "undefined" ? window.location.hostname : "";
+    const isLocalHost = host === "localhost" || host === "127.0.0.1";
+    auth.settings.appVerificationDisabledForTesting = isLocalHost;
     authRef.current = auth;
     return auth;
   }
@@ -994,7 +1005,7 @@ export default function LoginPage() {
               variant="outline"
             >
               {/* Google icon */}
-              <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none">
+              <svg className="w-4 h-4 me-2" viewBox="0 0 24 24" fill="none">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 001 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
@@ -1072,7 +1083,24 @@ export default function LoginPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>{t.password}</FormLabel>
-                            <FormControl><Input type="password" autoComplete="new-password" {...field} /></FormControl>
+                            <FormControl>
+                              <div className="relative">
+                                <Input
+                                  type={showRegisterPassword ? "text" : "password"}
+                                  autoComplete="new-password"
+                                  className={isArabic ? "ps-3 pe-11" : "pr-11"}
+                                  {...field}
+                                />
+                                <button
+                                  type="button"
+                                  aria-label={showRegisterPassword ? passwordToggleLabels.hide : passwordToggleLabels.show}
+                                  onClick={() => setShowRegisterPassword((value) => !value)}
+                                  className={`absolute inset-y-0 flex items-center text-muted-foreground hover:text-foreground ${isArabic ? "left-3" : "right-3"}`}
+                                >
+                                  {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </button>
+                              </div>
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -1099,7 +1127,24 @@ export default function LoginPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>{t.password}</FormLabel>
-                            <FormControl><Input type="password" autoComplete="current-password" {...field} /></FormControl>
+                            <FormControl>
+                              <div className="relative">
+                                <Input
+                                  type={showLoginPassword ? "text" : "password"}
+                                  autoComplete="current-password"
+                                  className={isArabic ? "ps-3 pe-11" : "pr-11"}
+                                  {...field}
+                                />
+                                <button
+                                  type="button"
+                                  aria-label={showLoginPassword ? passwordToggleLabels.hide : passwordToggleLabels.show}
+                                  onClick={() => setShowLoginPassword((value) => !value)}
+                                  className={`absolute inset-y-0 flex items-center text-muted-foreground hover:text-foreground ${isArabic ? "left-3" : "right-3"}`}
+                                >
+                                  {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </button>
+                              </div>
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}

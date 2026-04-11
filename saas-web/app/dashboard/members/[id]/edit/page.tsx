@@ -112,7 +112,7 @@ export default function EditMemberPage() {
   return (
     <div className="mx-auto max-w-lg space-y-6 p-4 md:p-6 lg:p-8">
       {/* Page title */}
-      <h1 className="text-3xl font-bold">{labels.edit_member} — {member.name}</h1>
+      <h1 className="text-3xl font-bold truncate">{labels.edit_member} — {member.name}</h1>
 
       {/* Error Alert */}
       {error && (

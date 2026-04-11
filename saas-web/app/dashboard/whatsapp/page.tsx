@@ -1,0 +1,1325 @@
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
+import { api } from '@/lib/api-client';
+import { useLang, t } from '@/lib/i18n';
+import { formatDateTime } from '@/lib/format';
+import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
+import { AlertCircle, CheckCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  DEFAULT_REMINDER_DAYS,
+  getDefaultRenewalTemplate,
+  getDefaultWelcomeTemplate,
+  getTemplateKey,
+} from '@/lib/whatsapp-automation';
+
+export const dynamic = 'force-dynamic';
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+type WhatsAppQueueCounts = {
+  pending: number;
+  processing: number;
+  sent: number;
+  failed: number;
+};
+
+type WhatsAppStatus = {
+  connected: boolean;
+  queue?: Partial<WhatsAppQueueCounts>;
+  workerHeartbeatAt?: string | null;
+  lastQueueRunAt?: string | null;
+  lastQueueSuccessAt?: string | null;
+  lastQueueError?: string | null;
+};
+
+type WhatsAppQueueItem = {
+  id: string;
+  type: 'welcome' | 'qr_code' | 'manual' | 'renewal' | 'broadcast';
+  status: 'pending' | 'processing' | 'sent' | 'failed';
+  attempts: number;
+  scheduled_at: string;
+  sent_at?: string | null;
+  last_error?: string | null;
+  member_name?: string | null;
+  member_phone?: string | null;
+  campaign_title?: string | null;
+};
+
+type WhatsAppQueueResponse = {
+  items: WhatsAppQueueItem[];
+  counts?: Partial<WhatsAppQueueCounts>;
+  workerHeartbeatAt?: string | null;
+  lastQueueRunAt?: string | null;
+  lastQueueSuccessAt?: string | null;
+  lastQueueError?: string | null;
+};
+
+type BroadcastFilters = {
+  search: string;
+  status: 'all' | 'active' | 'expired' | 'no_sub';
+  gender: 'all' | 'male' | 'female';
+  planMonthsMin: string;
+  planMonthsMax: string;
+  daysLeftMin: string;
+  daysLeftMax: string;
+  createdFrom: string;
+  createdTo: string;
+  sessionsMin: string;
+};
+
+type BroadcastPreview = {
+  recipientCount: number;
+  estimatedMinutes?: number | null;
+  filterSummary?: string[];
+  recipients?: Array<{ id: string; name: string; phone?: string | null }>;
+};
+
+type WhatsAppCampaign = {
+  id: string;
+  title: string;
+  message: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | string;
+  recipient_count: number;
+  sent_count: number;
+  failed_count: number;
+  created_at: string;
+  completed_at?: string | null;
+};
+
+type WhatsAppCampaignsResponse = {
+  items: WhatsAppCampaign[];
+};
+
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const DEFAULT_POST_EXPIRY_TEMPLATES = {
+  en: {
+    day0: 'Hi {name}, your membership expired on {expiryDate}. Reply or renew today to reactivate access.',
+    day3: 'Hi {name}, this is a reminder that your membership expired on {expiryDate}. We can reactivate it anytime.',
+    day7: 'Hi {name}, we miss seeing you at the gym. Your membership expired on {expiryDate}. Reply here if you want us to help you renew.',
+    day14: 'Final reminder, {name}: your membership is still inactive since {expiryDate}. Renew now if you want to keep your progress going.',
+  },
+  ar: {
+    day0: 'مرحباً {name}، انتهى اشتراكك بتاريخ {expiryDate}. يمكنك التجديد اليوم لإعادة التفعيل فوراً.',
+    day3: 'مرحباً {name}، تذكير بأن اشتراكك انتهى بتاريخ {expiryDate}. يمكننا إعادة التفعيل في أي وقت.',
+    day7: 'مرحباً {name}، نفتقد حضورك في الصالة. انتهى اشتراكك بتاريخ {expiryDate}. راسلنا إذا أردت المساعدة في التجديد.',
+    day14: 'آخر تذكير يا {name}: ما زالت عضويتك غير مفعلة منذ {expiryDate}. جدّد الآن إذا أردت الاستمرار.',
+  },
+} as const;
+
+const DEFAULT_ONBOARDING_TEMPLATES = {
+  en: {
+    firstVisit: 'Great first visit, {name}. Keep the momentum going and book your next workout this week.',
+    noReturnDay7: 'Hi {name}, we noticed you have not been back yet. Your best results come from the first few visits. Want us to help you plan your next session?',
+    lowEngagementDay14: 'Hi {name}, your first two weeks matter most. We can help you build a routine that fits your schedule. Reply if you want support.',
+  },
+  ar: {
+    firstVisit: 'بداية ممتازة يا {name}. حافظ على الحماس وحدد تمرينك القادم هذا الأسبوع.',
+    noReturnDay7: 'مرحباً {name}، لاحظنا أنك لم تعد بعد. أفضل النتائج تأتي من أول الزيارات. هل تريد مساعدتنا في ترتيب حصتك القادمة؟',
+    lowEngagementDay14: 'مرحباً {name}، أول أسبوعين هم الأهم. نستطيع مساعدتك في بناء روتين مناسب لوقتك. راسلنا إذا أردت دعماً.',
+  },
+} as const;
+
+const DEFAULT_BROADCAST_FILTERS: BroadcastFilters = {
+  search: '',
+  status: 'all',
+  gender: 'all',
+  planMonthsMin: '1',
+  planMonthsMax: '24',
+  daysLeftMin: '0',
+  daysLeftMax: '365',
+  createdFrom: '',
+  createdTo: '',
+  sessionsMin: '',
+};
+
+const REMINDER_OPTIONS = [1, 3, 7];
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function toOptionalInt(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+function pickQueueCounts(source?: Partial<WhatsAppQueueCounts> | null): WhatsAppQueueCounts {
+  return {
+    pending: Number(source?.pending || 0),
+    processing: Number(source?.processing || 0),
+    sent: Number(source?.sent || 0),
+    failed: Number(source?.failed || 0),
+  };
+}
+
+function normalizeBroadcastStatus(status: WhatsAppCampaign['status']): 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' {
+  if (status === 'running' || status === 'completed' || status === 'failed' || status === 'cancelled') return status;
+  return 'queued';
+}
+
+function statusBadgeClass(status: string) {
+  if (status === 'completed' || status === 'sent') return 'bg-success/10 text-success border-success/30';
+  if (status === 'running' || status === 'processing' || status === 'queued' || status === 'pending')
+    return 'bg-warning/10 text-warning border-warning/30';
+  if (status === 'failed') return 'bg-destructive/10 text-destructive border-destructive/30';
+  return 'bg-muted/10 text-muted-foreground border-border';
+}
+
+function typeLabel(type: WhatsAppQueueItem['type'], lang: 'en' | 'ar') {
+  const en = { welcome: 'Welcome', qr_code: 'QR code', manual: 'Manual', renewal: 'Renewal', broadcast: 'Broadcast' } as const;
+  const ar = { welcome: 'ترحيب', qr_code: 'رمز QR', manual: 'يدوي', renewal: 'تجديد', broadcast: 'بث جماعي' } as const;
+  return lang === 'ar' ? ar[type] : en[type];
+}
+
+// ── WA Chat Preview Component ─────────────────────────────────────────────────
+
+const WA_CHAT_BG = `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`;
+
+function WaPreview({ text, sampleName }: { text: string; sampleName: string }) {
+  return (
+    <div className="flex flex-col h-full">
+      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">PREVIEW</p>
+      <div
+        className="border border-[#2a2a2a] overflow-hidden flex flex-col flex-1"
+        style={{ background: WA_CHAT_BG, backgroundColor: '#0b141a' }}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-2 bg-[#1f2c33] px-3 py-2 shrink-0">
+          <div className="w-8 h-8 rounded-full bg-[#2a3942] flex items-center justify-center shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="#8696a0">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-[#e9edef]">{sampleName}</p>
+            <p className="text-[10px] text-[#8696a0]">online</p>
+          </div>
+        </div>
+        {/* Body — grows to match textarea height */}
+        <div className="p-3 flex-1">
+          <div className="flex justify-end">
+            <div
+              className="bg-[#005c4b] text-[#e9edef] text-[13px] leading-[19px] px-2.5 py-1.5 max-w-[85%]"
+              style={{ borderRadius: '7.5px 0 7.5px 7.5px' }}
+            >
+              <p className="whitespace-pre-wrap">{text}</p>
+              <span className="float-end mt-1 ms-2 text-[10px] text-[#ffffff99]">10:30 AM</span>
+            </div>
+          </div>
+        </div>
+        {/* Input bar */}
+        <div className="flex items-center gap-2 bg-[#1f2c33] px-3 py-2 shrink-0">
+          <div className="flex-1 bg-[#2a3942] rounded-full px-3 py-1.5 text-[13px] text-[#8696a0]">
+            Type a message
+          </div>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#8696a0">
+            <path d="M12 14.95q-.425 0-.712-.288T11 13.95V6.35L9.1 8.25q-.3.3-.7.3-.4 0-.7-.3-.3-.3-.3-.713 0-.412.3-.712l3.6-3.6q.15-.15.325-.213.175-.062.375-.062.2 0 .375.062.175.063.325.213l3.6 3.6q.3.3.3.712 0 .413-.3.713-.3.3-.7.3-.4 0-.7-.3L13 6.35v7.6q0 .425-.287.713-.288.287-.713.287zM6 20q-.825 0-1.413-.588T4 18v-2q0-.425.288-.713T5 15q.425 0 .713.288T6 16v2h12v-2q0-.425.288-.713T19 15q.425 0 .713.288T20 16v2q0 .825-.588 1.413T18 20H6z" />
+          </svg>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Lightweight bubble-only preview (no chat chrome) for lifecycle templates
+function WaBubble({ text }: { text: string }) {
+  return (
+    <div className="flex flex-col h-full">
+      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">PREVIEW</p>
+      <div
+        className="p-3 flex-1 border border-[#2a2a2a]"
+        style={{ background: WA_CHAT_BG, backgroundColor: '#0b141a' }}
+      >
+        <div className="flex justify-end">
+          <div
+            className="bg-[#005c4b] text-[#e9edef] text-[13px] leading-[19px] px-2.5 py-1.5 max-w-[85%]"
+            style={{ borderRadius: '7.5px 0 7.5px 7.5px' }}
+          >
+            <p className="whitespace-pre-wrap">{text}</p>
+            <span className="float-end mt-1 ms-2 text-[10px] text-[#ffffff99]">10:30 AM</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Slider ─────────────────────────────────────────────────────────────────────
+
+function RangeSlider({
+  labelEn,
+  labelAr,
+  min,
+  max,
+  value,
+  onChange,
+  lang,
+  anyLabel,
+}: {
+  labelEn: string;
+  labelAr: string;
+  min: number;
+  max: number;
+  value: string;
+  onChange: (v: string) => void;
+  lang: 'en' | 'ar';
+  anyLabel?: string;
+}) {
+  const num = parseInt(value, 10);
+  const displayVal = isNaN(num) ? min : Math.min(Math.max(num, min), max);
+  const isAny = value === '' || isNaN(num);
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-sm">{lang === 'ar' ? labelAr : labelEn}</Label>
+        <span className="text-sm font-semibold text-foreground min-w-[48px] text-end">
+          {isAny ? (anyLabel ?? 'Any') : displayVal}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={isAny ? min : displayVal}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full accent-[#e63946] h-1.5 bg-[#2a2a2a] appearance-none cursor-pointer"
+      />
+      <div className="flex justify-between text-[10px] text-muted-foreground">
+        <span>{min}</span>
+        <span>{max}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
+
+type ActiveTab = 'templates' | 'queue' | 'broadcast';
+
+export default function WhatsAppSystemPage() {
+  const { lang } = useLang();
+  const labels = t[lang];
+  const systemLanguage = lang === 'ar' ? 'ar' : 'en';
+
+  const defaultWelcomeTemplate = getDefaultWelcomeTemplate(systemLanguage);
+  const defaultRenewalTemplate = getDefaultRenewalTemplate(systemLanguage);
+  const defaultPostExpiry = DEFAULT_POST_EXPIRY_TEMPLATES[systemLanguage];
+  const defaultOnboarding = DEFAULT_ONBOARDING_TEMPLATES[systemLanguage];
+
+  const [activeTab, setActiveTab] = useState<ActiveTab>('templates');
+
+  // ── Status & queue state ──
+  const [status, setStatus] = useState<WhatsAppStatus | null>(null);
+  const [queueData, setQueueData] = useState<WhatsAppQueueResponse>({ items: [] });
+  const [queueLoading, setQueueLoading] = useState(true);
+  const [retrying, setRetrying] = useState(false);
+  const [queueFeedback, setQueueFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
+
+  // ── Template state ──
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [templatesSaving, setTemplatesSaving] = useState(false);
+  const [templateFeedback, setTemplateFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
+  const [welcomeTemplate, setWelcomeTemplate] = useState(defaultWelcomeTemplate);
+  const [renewalTemplate, setRenewalTemplate] = useState(defaultRenewalTemplate);
+  const [postExpiryDay0, setPostExpiryDay0] = useState<string>(defaultPostExpiry.day0);
+  const [postExpiryDay3, setPostExpiryDay3] = useState<string>(defaultPostExpiry.day3);
+  const [postExpiryDay7, setPostExpiryDay7] = useState<string>(defaultPostExpiry.day7);
+  const [postExpiryDay14, setPostExpiryDay14] = useState<string>(defaultPostExpiry.day14);
+  const [onboardingFirstVisit, setOnboardingFirstVisit] = useState<string>(defaultOnboarding.firstVisit);
+  const [onboardingNoReturn7, setOnboardingNoReturn7] = useState<string>(defaultOnboarding.noReturnDay7);
+  const [onboardingLowEngagement14, setOnboardingLowEngagement14] = useState<string>(defaultOnboarding.lowEngagementDay14);
+  const [postExpiryEnabled, setPostExpiryEnabled] = useState(false);
+  const [onboardingEnabled, setOnboardingEnabled] = useState(false);
+  const [weeklyDigestEnabled, setWeeklyDigestEnabled] = useState(false);
+  const [reminderDays, setReminderDays] = useState(DEFAULT_REMINDER_DAYS);
+  const [postExpiryDay, setPostExpiryDay] = useState<'day0' | 'day3' | 'day7' | 'day14'>('day0');
+  const [onboardingStep, setOnboardingStep] = useState<'firstVisit' | 'noReturn7' | 'lowEngagement14'>('firstVisit');
+  const [lifecycleInfoOpen, setLifecycleInfoOpen] = useState(false);
+
+  // ── Broadcast state ──
+  const [broadcastFilters, setBroadcastFilters] = useState<BroadcastFilters>(DEFAULT_BROADCAST_FILTERS);
+  const [broadcastTitle, setBroadcastTitle] = useState(lang === 'ar' ? 'رسالة جماعية' : 'Broadcast');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastPreview, setBroadcastPreview] = useState<BroadcastPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [broadcastSubmitting, setBroadcastSubmitting] = useState(false);
+  const [broadcastConfirmOpen, setBroadcastConfirmOpen] = useState(false);
+  const [broadcastFeedback, setBroadcastFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
+  const [campaigns, setCampaigns] = useState<WhatsAppCampaign[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(true);
+
+  // ── Derived values ──
+  const sampleName = labels.sample_name;
+  const sampleExpiry = new Date(Date.now() + 30 * 86400000).toLocaleDateString(
+    lang === 'ar' ? 'ar-EG' : 'en-US',
+    { year: 'numeric', month: 'short', day: 'numeric' }
+  );
+
+  function previewText(template: string, type: 'welcome' | 'renewal' | 'post_expiry' | 'onboarding') {
+    let text = template;
+    if (!text.trim()) {
+      if (type === 'welcome') text = defaultWelcomeTemplate;
+      else if (type === 'renewal') text = defaultRenewalTemplate;
+      else if (type === 'post_expiry') text = defaultPostExpiry.day0;
+      else text = defaultOnboarding.firstVisit;
+    }
+    text = text.replace(/\{name\}/g, sampleName);
+    if (type === 'renewal' || type === 'post_expiry') text = text.replace(/\{expiryDate\}/g, sampleExpiry);
+    if (type === 'renewal') text = text.replace(/\{daysLeft\}/g, '7');
+    return text;
+  }
+
+  const selectedDays = new Set(
+    reminderDays.split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n))
+  );
+
+  function toggleDay(day: number) {
+    const next = new Set(selectedDays);
+    if (next.has(day)) {
+      if (next.size === 1) {
+        setTemplateFeedback({
+          type: 'destructive',
+          text: lang === 'ar' ? 'يجب اختيار يوم تذكير واحد على الأقل.' : 'You must keep at least one reminder day selected.',
+        });
+        return;
+      }
+      next.delete(day);
+    } else {
+      next.add(day);
+    }
+    setTemplateFeedback(null);
+    setReminderDays(Array.from(next).sort((a, b) => b - a).join(','));
+  }
+
+  const queueCounts = pickQueueCounts(status?.queue ?? queueData.counts);
+  const canPreviewBroadcast = Boolean(broadcastMessage.trim()) && !previewLoading && !broadcastSubmitting;
+
+  const buildBroadcastPayload = useCallback(() => ({
+    title: broadcastTitle.trim() || (lang === 'ar' ? 'رسالة جماعية' : 'Broadcast'),
+    message: broadcastMessage.trim(),
+    filters: {
+      search: broadcastFilters.search.trim() || undefined,
+      status: broadcastFilters.status,
+      gender: broadcastFilters.gender,
+      planMonthsMin: toOptionalInt(broadcastFilters.planMonthsMin),
+      planMonthsMax: toOptionalInt(broadcastFilters.planMonthsMax),
+      daysLeftMin: toOptionalInt(broadcastFilters.daysLeftMin),
+      daysLeftMax: toOptionalInt(broadcastFilters.daysLeftMax),
+      createdFrom: broadcastFilters.createdFrom || null,
+      createdTo: broadcastFilters.createdTo || null,
+      sessionsRemainingMax: toOptionalInt(broadcastFilters.sessionsMin),
+    },
+  }), [broadcastFilters, broadcastMessage, broadcastTitle, lang]);
+
+  // ── Data fetching ─────────────────────────────────────────────────────────
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const res = await api.get<WhatsAppStatus>('/api/whatsapp/status');
+      if (res.success && res.data) setStatus(res.data);
+    } catch { /* silently ignore — status is optional */ }
+  }, []);
+
+  const fetchTemplates = useCallback(async () => {
+    setTemplatesLoading(true);
+    try {
+      const res = await api.get<Record<string, unknown>>('/api/settings');
+      if (res.success && res.data) {
+        const d = res.data;
+        const str = (v: unknown, fallback: string) => (typeof v === 'string' && v.trim() ? v : fallback);
+        setWelcomeTemplate(str(d[getTemplateKey('welcome', systemLanguage)] ?? d.whatsapp_template_welcome, defaultWelcomeTemplate));
+        setRenewalTemplate(str(d[getTemplateKey('renewal', systemLanguage)] ?? d.whatsapp_template_renewal, defaultRenewalTemplate));
+        setReminderDays(str(d.whatsapp_reminder_days, DEFAULT_REMINDER_DAYS));
+        setPostExpiryDay0(str(d[`whatsapp_template_post_expiry_day0_${systemLanguage}`], defaultPostExpiry.day0));
+        setPostExpiryDay3(str(d[`whatsapp_template_post_expiry_day3_${systemLanguage}`], defaultPostExpiry.day3));
+        setPostExpiryDay7(str(d[`whatsapp_template_post_expiry_day7_${systemLanguage}`], defaultPostExpiry.day7));
+        setPostExpiryDay14(str(d[`whatsapp_template_post_expiry_day14_${systemLanguage}`], defaultPostExpiry.day14));
+        setOnboardingFirstVisit(str(d[`whatsapp_template_onboarding_first_visit_${systemLanguage}`], defaultOnboarding.firstVisit));
+        setOnboardingNoReturn7(str(d[`whatsapp_template_onboarding_no_return_day7_${systemLanguage}`], defaultOnboarding.noReturnDay7));
+        setOnboardingLowEngagement14(str(d[`whatsapp_template_onboarding_low_engagement_day14_${systemLanguage}`], defaultOnboarding.lowEngagementDay14));
+        setPostExpiryEnabled(Boolean(d.whatsapp_post_expiry_enabled));
+        setOnboardingEnabled(Boolean(d.whatsapp_onboarding_enabled));
+        setWeeklyDigestEnabled(Boolean(d.whatsapp_weekly_digest_enabled));
+      }
+    } catch (err) {
+      setTemplateFeedback({ type: 'destructive', text: err instanceof Error ? err.message : 'Failed to load templates' });
+    } finally {
+      setTemplatesLoading(false);
+    }
+  }, [defaultOnboarding, defaultPostExpiry, defaultRenewalTemplate, defaultWelcomeTemplate, systemLanguage]);
+
+  const fetchQueue = useCallback(async () => {
+    setQueueLoading(true);
+    try {
+      const res = await api.get<WhatsAppQueueResponse>('/api/whatsapp/queue?status=all&limit=12');
+      if (res.success && res.data) setQueueData(res.data);
+    } catch { /* ignore */ } finally {
+      setQueueLoading(false);
+    }
+  }, []);
+
+  const fetchCampaigns = useCallback(async () => {
+    setCampaignsLoading(true);
+    try {
+      const res = await api.get<WhatsAppCampaignsResponse>('/api/whatsapp/campaigns?limit=10');
+      if (res.success && res.data?.items) setCampaigns(res.data.items);
+    } catch { /* ignore */ } finally {
+      setCampaignsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchStatus(); }, [fetchStatus]);
+  useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
+  useEffect(() => { fetchQueue(); }, [fetchQueue]);
+  useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      void fetchQueue();
+      void fetchCampaigns();
+      void fetchStatus();
+    }, 15000);
+    return () => clearInterval(id);
+  }, [fetchCampaigns, fetchQueue, fetchStatus]);
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+
+  const handleTemplateSave = async () => {
+    setTemplatesSaving(true);
+    setTemplateFeedback(null);
+    try {
+      const values: Record<string, string | boolean> = {
+        [getTemplateKey('welcome', systemLanguage)]: welcomeTemplate.trim() || defaultWelcomeTemplate,
+        [getTemplateKey('renewal', systemLanguage)]: renewalTemplate.trim() || defaultRenewalTemplate,
+        [`whatsapp_template_post_expiry_day0_${systemLanguage}`]: postExpiryDay0.trim() || defaultPostExpiry.day0,
+        [`whatsapp_template_post_expiry_day3_${systemLanguage}`]: postExpiryDay3.trim() || defaultPostExpiry.day3,
+        [`whatsapp_template_post_expiry_day7_${systemLanguage}`]: postExpiryDay7.trim() || defaultPostExpiry.day7,
+        [`whatsapp_template_post_expiry_day14_${systemLanguage}`]: postExpiryDay14.trim() || defaultPostExpiry.day14,
+        [`whatsapp_template_onboarding_first_visit_${systemLanguage}`]: onboardingFirstVisit.trim() || defaultOnboarding.firstVisit,
+        [`whatsapp_template_onboarding_no_return_day7_${systemLanguage}`]: onboardingNoReturn7.trim() || defaultOnboarding.noReturnDay7,
+        [`whatsapp_template_onboarding_low_engagement_day14_${systemLanguage}`]: onboardingLowEngagement14.trim() || defaultOnboarding.lowEngagementDay14,
+        whatsapp_reminder_days: reminderDays.trim(),
+        whatsapp_automation_enabled: true,
+        whatsapp_post_expiry_enabled: false,
+        whatsapp_onboarding_enabled: false,
+        whatsapp_weekly_digest_enabled: false,
+        system_language: systemLanguage,
+      };
+      if (systemLanguage === 'en') {
+        values.whatsapp_template_welcome = welcomeTemplate.trim() || defaultWelcomeTemplate;
+        values.whatsapp_template_renewal = renewalTemplate.trim() || defaultRenewalTemplate;
+      }
+      const res = await api.put('/api/settings', { values });
+      if (!res.success) throw new Error(res.message ?? 'Failed to save templates');
+      setTemplateFeedback({ type: 'success', text: labels.saved_successfully });
+    } catch (err) {
+      setTemplateFeedback({ type: 'destructive', text: err instanceof Error ? err.message : labels.failed_to_save });
+    } finally {
+      setTemplatesSaving(false);
+    }
+  };
+
+  const handleRetryFailed = async (ids?: string[]) => {
+    setRetrying(true);
+    setQueueFeedback(null);
+    try {
+      const res = await api.post<{ retried: number }>('/api/whatsapp/queue/retry', { ids });
+      if (!res.success) throw new Error(res.message ?? 'Failed to retry');
+      setQueueFeedback({
+        type: 'success',
+        text: lang === 'ar'
+          ? `تمت إعادة ${res.data?.retried ?? 0} رسالة إلى الطابور.`
+          : `Re-queued ${res.data?.retried ?? 0} WhatsApp messages.`,
+      });
+      await Promise.all([fetchQueue(), fetchStatus(), fetchCampaigns()]);
+    } catch (err) {
+      setQueueFeedback({ type: 'destructive', text: err instanceof Error ? err.message : 'Retry failed.' });
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  const handlePreviewBroadcast = async () => {
+    setPreviewLoading(true);
+    setBroadcastFeedback(null);
+    try {
+      const res = await api.post<BroadcastPreview>('/api/whatsapp/broadcast/preview', buildBroadcastPayload());
+      if (!res.success || !res.data) throw new Error(res.message ?? 'Failed to preview');
+      setBroadcastPreview(res.data);
+    } catch (err) {
+      setBroadcastFeedback({ type: 'destructive', text: err instanceof Error ? err.message : 'Failed to preview broadcast.' });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleSendBroadcast = async () => {
+    if (!broadcastMessage.trim()) {
+      setBroadcastFeedback({ type: 'destructive', text: lang === 'ar' ? 'أدخل نص الرسالة أولاً.' : 'Enter a message first.' });
+      return;
+    }
+    setBroadcastSubmitting(true);
+    setBroadcastFeedback(null);
+    try {
+      const res = await api.post<{ recipientCount: number }>('/api/whatsapp/broadcast', buildBroadcastPayload());
+      if (!res.success) throw new Error(res.message ?? 'Failed to queue broadcast');
+      setBroadcastFeedback({
+        type: 'success',
+        text: lang === 'ar'
+          ? `تمت جدولة البث لـ ${res.data?.recipientCount ?? 0} عميل.`
+          : `Broadcast queued for ${res.data?.recipientCount ?? 0} members.`,
+      });
+      setBroadcastPreview(null);
+      await Promise.all([fetchQueue(), fetchCampaigns(), fetchStatus()]);
+    } catch (err) {
+      setBroadcastFeedback({ type: 'destructive', text: err instanceof Error ? err.message : 'Failed to queue broadcast.' });
+    } finally {
+      setBroadcastSubmitting(false);
+    }
+  };
+
+  // ── Tab config ─────────────────────────────────────────────────────────────
+
+  const tabs: { id: ActiveTab; labelEn: string; labelAr: string }[] = [
+    { id: 'templates', labelEn: 'Templates', labelAr: 'القوالب' },
+    { id: 'queue', labelEn: 'Queue', labelAr: 'الطابور' },
+    { id: 'broadcast', labelEn: 'Broadcast', labelAr: 'البث الجماعي' },
+  ];
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Page header */}
+      <div>
+        <h1 className="text-2xl font-heading font-bold tracking-tight">{lang === 'ar' ? 'نظام واتساب' : 'WhatsApp System'}</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {lang === 'ar'
+            ? 'إدارة قوالب الرسائل، صحة الطابور، والبث الجماعي.'
+            : 'Manage message templates, queue health, and broadcast campaigns.'}
+        </p>
+      </div>
+
+      {/* Internal tab nav */}
+      <div className="flex gap-0 border-b border-border overflow-x-auto">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-5 py-3 text-sm font-semibold border-b-2 shrink-0 transition-colors ${
+              activeTab === tab.id
+                ? 'border-[#e63946] text-[#e63946]'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {lang === 'ar' ? tab.labelAr : tab.labelEn}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Templates Tab ──────────────────────────────────────────────────── */}
+      {activeTab === 'templates' && (
+        <div className="flex flex-col gap-6">
+          {templatesLoading ? (
+            <LoadingSpinner />
+          ) : (
+            <>
+              {/* Welcome Message */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>{labels.welcome_message_template}</CardTitle>
+                  <CardDescription>
+                    {lang === 'ar'
+                      ? 'ترسل عند تسجيل عضو جديد. المتغيرات: {name}'
+                      : 'Sent when a new member is added. Variables: {name}'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+                    <div className="flex flex-col gap-2">
+                      <Textarea
+                        value={welcomeTemplate}
+                        onChange={(e) => setWelcomeTemplate(e.target.value)}
+                        placeholder={defaultWelcomeTemplate}
+                        rows={3}
+                        className="flex-1 resize-none"
+                      />
+                      <p className="text-xs text-muted-foreground">Placeholders: {'{name}'}</p>
+                    </div>
+                    <WaPreview text={previewText(welcomeTemplate, 'welcome')} sampleName={sampleName} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Renewal Reminder */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>{labels.renewal_reminder_template}</CardTitle>
+                  <CardDescription>
+                    {lang === 'ar'
+                      ? 'ترسل قبل انتهاء الاشتراك. المتغيرات: {name}، {expiryDate}، {daysLeft}'
+                      : 'Sent before subscription expiry. Variables: {name}, {expiryDate}, {daysLeft}'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+                    <div className="flex flex-col gap-4">
+                      <Textarea
+                        value={renewalTemplate}
+                        onChange={(e) => setRenewalTemplate(e.target.value)}
+                        placeholder={defaultRenewalTemplate}
+                        rows={3}
+                        className="resize-none"
+                      />
+                      <div className="space-y-2">
+                        <Label>{labels.reminder_days_label}</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {REMINDER_OPTIONS.map((day) => {
+                            const active = selectedDays.has(day);
+                            return (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => toggleDay(day)}
+                                className={`px-3 py-1.5 text-sm font-semibold border transition-colors ${
+                                  active
+                                    ? 'bg-[#e63946] text-white border-[#e63946]'
+                                    : 'bg-[#1e1e1e] text-[#8a8578] border-[#2a2a2a] hover:text-[#e8e4df] hover:border-[#3a3a3a]'
+                                }`}
+                              >
+                                {day} {day === 1 ? (lang === 'ar' ? 'يوم' : 'day') : (lang === 'ar' ? 'أيام' : 'days')}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    <WaPreview text={previewText(renewalTemplate, 'renewal')} sampleName={sampleName} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Separator />
+
+              {/* Lifecycle automations — collapsible banner */}
+              <button
+                type="button"
+                onClick={() => setLifecycleInfoOpen((v) => !v)}
+                className="w-full flex items-center justify-between gap-3 border border-border px-4 py-3 text-left hover:bg-white/5 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold">
+                    {lang === 'ar' ? 'أتمتة دورة حياة العضو' : 'Lifecycle automations'}
+                  </span>
+                  <Badge variant="outline" className="border-warning/40 bg-warning/10 text-warning text-xs">
+                    {lang === 'ar' ? 'قادمًا قريباً' : 'Coming soon'}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {lang === 'ar' ? '3 متوقفة' : '3 off'}
+                  </span>
+                </div>
+                <svg
+                  width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"
+                  className={`shrink-0 transition-transform ${lifecycleInfoOpen ? 'rotate-180' : ''}`}
+                >
+                  <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+
+              {lifecycleInfoOpen && (
+                <div className="border border-border border-t-0 px-4 py-4 space-y-3 bg-[#1a1a1a]">
+                  <p className="text-sm text-muted-foreground">
+                    {lang === 'ar'
+                      ? 'حتى لو تم الحفظ، لن ترسل هذه الرسائل حتى يتم تفعيل المفتاح البيئي على مستوى العامل.'
+                      : 'Even if saved, these messages will not send until the environment kill switch is explicitly enabled on the worker.'}
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {[
+                      { titleEn: 'Post-expiry recovery', titleAr: 'استرجاع ما بعد الانتهاء', enabled: postExpiryEnabled },
+                      { titleEn: 'New member onboarding', titleAr: 'تهيئة العضو الجديد', enabled: onboardingEnabled },
+                      { titleEn: 'Weekly digest', titleAr: 'الملخص الأسبوعي', enabled: weeklyDigestEnabled },
+                    ].map((item) => (
+                      <div key={item.titleEn} className="flex items-center justify-between gap-2 border border-border px-3 py-2">
+                        <p className="text-xs font-medium">{lang === 'ar' ? item.titleAr : item.titleEn}</p>
+                        <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
+                          {item.enabled ? (lang === 'ar' ? 'محجوب' : 'Blocked') : (lang === 'ar' ? 'متوقف' : 'Off')}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Post-expiry templates — sub-tab picker */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">{lang === 'ar' ? 'قوالب ما بعد انتهاء الاشتراك' : 'Post-expiry templates'}</CardTitle>
+                  <CardDescription className="text-xs">
+                    {lang === 'ar' ? 'التسلسل: يوم 0، 3، 7، 14. المتغيرات: {name}، {expiryDate}' : 'Sequence: Day 0, 3, 7, 14 · Variables: {name}, {expiryDate}'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Day picker */}
+                  <div className="flex gap-1 flex-wrap">
+                    {([
+                      { id: 'day0', labelEn: 'Day 0', labelAr: 'يوم 0' },
+                      { id: 'day3', labelEn: 'Day 3', labelAr: 'يوم 3' },
+                      { id: 'day7', labelEn: 'Day 7', labelAr: 'يوم 7' },
+                      { id: 'day14', labelEn: 'Day 14', labelAr: 'يوم 14' },
+                    ] as const).map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => setPostExpiryDay(d.id)}
+                        className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                          postExpiryDay === d.id
+                            ? 'bg-[#e63946] text-white border-[#e63946]'
+                            : 'bg-[#1e1e1e] text-[#8a8578] border-[#2a2a2a] hover:text-[#e8e4df] hover:border-[#3a3a3a]'
+                        }`}
+                      >
+                        {lang === 'ar' ? d.labelAr : d.labelEn}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Active day editor */}
+                  {(() => {
+                    const map = {
+                      day0: { value: postExpiryDay0, setValue: setPostExpiryDay0, defaultVal: defaultPostExpiry.day0 },
+                      day3: { value: postExpiryDay3, setValue: setPostExpiryDay3, defaultVal: defaultPostExpiry.day3 },
+                      day7: { value: postExpiryDay7, setValue: setPostExpiryDay7, defaultVal: defaultPostExpiry.day7 },
+                      day14: { value: postExpiryDay14, setValue: setPostExpiryDay14, defaultVal: defaultPostExpiry.day14 },
+                    };
+                    const active = map[postExpiryDay];
+                    const previewMsg = (active.value.trim() || active.defaultVal)
+                      .replace(/\{name\}/g, sampleName)
+                      .replace(/\{expiryDate\}/g, sampleExpiry);
+                    return (
+                      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+                        <Textarea value={active.value} onChange={(e) => active.setValue(e.target.value)} rows={3} className="resize-none" />
+                        <WaBubble text={previewMsg} />
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+
+              {/* Onboarding templates — sub-tab picker */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">{lang === 'ar' ? 'قوالب تهيئة الأعضاء الجدد' : 'New member onboarding templates'}</CardTitle>
+                  <CardDescription className="text-xs">
+                    {lang === 'ar' ? 'الخطوات: أول زيارة · 7 أيام · 14 يوماً. المتغيرات: {name}' : 'Stages: first visit · 7 days · 14 days · Variable: {name}'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Step picker */}
+                  <div className="flex gap-1 flex-wrap">
+                    {([
+                      { id: 'firstVisit', labelEn: 'First visit', labelAr: 'أول زيارة' },
+                      { id: 'noReturn7', labelEn: 'No return · 7d', labelAr: 'عدم عودة · 7 أيام' },
+                      { id: 'lowEngagement14', labelEn: 'Low engagement · 14d', labelAr: 'تفاعل منخفض · 14 يوماً' },
+                    ] as const).map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setOnboardingStep(s.id)}
+                        className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                          onboardingStep === s.id
+                            ? 'bg-[#e63946] text-white border-[#e63946]'
+                            : 'bg-[#1e1e1e] text-[#8a8578] border-[#2a2a2a] hover:text-[#e8e4df] hover:border-[#3a3a3a]'
+                        }`}
+                      >
+                        {lang === 'ar' ? s.labelAr : s.labelEn}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Active step editor */}
+                  {(() => {
+                    const map = {
+                      firstVisit: { value: onboardingFirstVisit, setValue: setOnboardingFirstVisit, defaultVal: defaultOnboarding.firstVisit },
+                      noReturn7: { value: onboardingNoReturn7, setValue: setOnboardingNoReturn7, defaultVal: defaultOnboarding.noReturnDay7 },
+                      lowEngagement14: { value: onboardingLowEngagement14, setValue: setOnboardingLowEngagement14, defaultVal: defaultOnboarding.lowEngagementDay14 },
+                    };
+                    const active = map[onboardingStep];
+                    const previewMsg = (active.value.trim() || active.defaultVal).replace(/\{name\}/g, sampleName);
+                    return (
+                      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+                        <Textarea value={active.value} onChange={(e) => active.setValue(e.target.value)} rows={3} className="resize-none" />
+                        <WaBubble text={previewMsg} />
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+
+              {/* Save */}
+              <div className="flex flex-wrap items-center gap-3">
+                <Button onClick={handleTemplateSave} disabled={templatesSaving}>
+                  {templatesSaving ? labels.saving : labels.save}
+                </Button>
+                {templateFeedback && (
+                  <span className={`text-sm ${templateFeedback.type === 'success' ? 'text-success' : 'text-destructive'}`}>
+                    {templateFeedback.text}
+                  </span>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Queue Tab ──────────────────────────────────────────────────────── */}
+      {activeTab === 'queue' && (
+        <div className="flex flex-col gap-6">
+          {/* Queue count cards */}
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {[
+              { label: lang === 'ar' ? 'قيد الانتظار' : 'Pending', value: queueCounts.pending, status: 'pending' },
+              { label: lang === 'ar' ? 'قيد المعالجة' : 'Processing', value: queueCounts.processing, status: 'processing' },
+              { label: lang === 'ar' ? 'تم الإرسال' : 'Sent', value: queueCounts.sent, status: 'sent' },
+              { label: lang === 'ar' ? 'فشلت' : 'Failed', value: queueCounts.failed, status: 'failed' },
+            ].map((metric) => (
+              <div key={metric.label} className="border border-border bg-card px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">{metric.label}</p>
+                  <Badge variant="outline" className={statusBadgeClass(metric.status)}>
+                    {metric.value}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Worker metrics */}
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {[
+              { labelEn: 'Last worker heartbeat', labelAr: 'آخر نبضة من العامل', value: status?.workerHeartbeatAt ? formatDateTime(status.workerHeartbeatAt, lang) : (lang === 'ar' ? 'لا يوجد' : 'No heartbeat yet') },
+              { labelEn: 'Last queue run', labelAr: 'آخر تشغيل للطابور', value: status?.lastQueueRunAt ? formatDateTime(status.lastQueueRunAt, lang) : (lang === 'ar' ? 'لا يوجد' : 'No runs yet') },
+              { labelEn: 'Last success', labelAr: 'آخر نجاح', value: status?.lastQueueSuccessAt ? formatDateTime(status.lastQueueSuccessAt, lang) : (lang === 'ar' ? 'لا يوجد' : 'None yet') },
+              { labelEn: 'Last error', labelAr: 'آخر خطأ', value: status?.lastQueueError || (lang === 'ar' ? 'لا يوجد' : 'No errors'), isError: Boolean(status?.lastQueueError) },
+            ].map((m) => (
+              <div key={m.labelEn} className="border border-border px-4 py-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">{lang === 'ar' ? m.labelAr : m.labelEn}</p>
+                <p className={`mt-2 text-sm font-medium ${m.isError ? 'text-destructive' : ''}`}>{m.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => void fetchQueue()} disabled={queueLoading}>
+              {queueLoading ? labels.loading : (lang === 'ar' ? 'تحديث الطابور' : 'Refresh queue')}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => void handleRetryFailed()}
+              disabled={retrying || queueCounts.failed === 0}
+            >
+              {retrying ? (lang === 'ar' ? 'جارٍ الإعادة...' : 'Retrying...') : (lang === 'ar' ? 'إعادة كل الرسائل الفاشلة' : 'Retry all failed')}
+            </Button>
+          </div>
+
+          {queueFeedback && (
+            <Alert variant={queueFeedback.type}>
+              {queueFeedback.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+              <AlertTitle>{queueFeedback.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+              <AlertDescription>{queueFeedback.text}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Queue items table */}
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold">{lang === 'ar' ? 'آخر الرسائل في الطابور' : 'Latest queue items'}</h3>
+              <p className="text-xs text-muted-foreground">
+                {lang === 'ar' ? 'الفاشلة تظهر أولاً.' : 'Failed items stay at the top so they can be fixed quickly.'}
+              </p>
+            </div>
+            {queueLoading ? (
+              <p className="text-sm text-muted-foreground">{labels.loading}</p>
+            ) : queueData.items.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {lang === 'ar' ? 'لا توجد رسائل في الطابور حالياً.' : 'No WhatsApp queue items right now.'}
+              </p>
+            ) : (
+              <div className="overflow-x-auto border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{lang === 'ar' ? 'النوع' : 'Type'}</TableHead>
+                      <TableHead>{lang === 'ar' ? 'العميل' : 'Member'}</TableHead>
+                      <TableHead>{lang === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                      <TableHead>{lang === 'ar' ? 'الموعد' : 'Scheduled'}</TableHead>
+                      <TableHead>{lang === 'ar' ? 'المحاولات' : 'Attempts'}</TableHead>
+                      <TableHead>{lang === 'ar' ? 'الخطأ' : 'Error'}</TableHead>
+                      <TableHead className="text-end">{lang === 'ar' ? 'إجراء' : 'Action'}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {queueData.items.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <Badge variant="outline" className={statusBadgeClass(item.status)}>
+                              {typeLabel(item.type, lang)}
+                            </Badge>
+                            {item.campaign_title && (
+                              <p className="text-xs text-muted-foreground">{item.campaign_title}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-medium">{item.member_name || (lang === 'ar' ? 'بدون اسم' : 'Unnamed')}</p>
+                            <p className="text-xs text-muted-foreground">{item.member_phone || '—'}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={statusBadgeClass(item.status)}>{item.status}</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDateTime(item.sent_at || item.scheduled_at, lang)}
+                        </TableCell>
+                        <TableCell>{item.attempts}</TableCell>
+                        <TableCell className="max-w-[280px] text-sm text-muted-foreground">{item.last_error || '—'}</TableCell>
+                        <TableCell className="text-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={retrying || item.status !== 'failed'}
+                            onClick={() => void handleRetryFailed([item.id])}
+                          >
+                            {lang === 'ar' ? 'إعادة' : 'Retry'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Broadcast Tab ──────────────────────────────────────────────────── */}
+      {activeTab === 'broadcast' && (
+        <div className="flex flex-col gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{lang === 'ar' ? 'بث جماعي' : 'Broadcast composer'}</CardTitle>
+              <CardDescription>
+                {lang === 'ar'
+                  ? 'أنشئ رسالة جماعية مفلترة بدون تعطيل رسائل الترحيب أو التذكير.'
+                  : 'Queue a filtered broadcast without blocking welcome or reminder messages.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-6 lg:grid-cols-2">
+                {/* Left: message */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="bc-title">{lang === 'ar' ? 'عنوان داخلي' : 'Internal title'}</Label>
+                    <Input
+                      id="bc-title"
+                      value={broadcastTitle}
+                      onChange={(e) => setBroadcastTitle(e.target.value)}
+                      placeholder={lang === 'ar' ? 'مثال: عرض نهاية الشهر' : 'Example: Month-end offer'}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bc-message">{lang === 'ar' ? 'نص الرسالة' : 'Message text'}</Label>
+                    <Textarea
+                      id="bc-message"
+                      value={broadcastMessage}
+                      onChange={(e) => setBroadcastMessage(e.target.value)}
+                      rows={6}
+                      placeholder={lang === 'ar' ? 'اكتب الرسالة التي ستصل للأعضاء.' : 'Write the message members will receive.'}
+                    />
+                  </div>
+                </div>
+
+                {/* Right: audience filters */}
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="bc-search">{lang === 'ar' ? 'بحث' : 'Search'}</Label>
+                      <Input
+                        id="bc-search"
+                        value={broadcastFilters.search}
+                        onChange={(e) => setBroadcastFilters((p) => ({ ...p, search: e.target.value }))}
+                        placeholder={lang === 'ar' ? 'اسم أو هاتف' : 'Name or phone'}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>{lang === 'ar' ? 'حالة الاشتراك' : 'Subscription status'}</Label>
+                      <Select
+                        value={broadcastFilters.status}
+                        onValueChange={(v) => setBroadcastFilters((p) => ({ ...p, status: v as BroadcastFilters['status'] }))}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{lang === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                          <SelectItem value="active">{lang === 'ar' ? 'نشط' : 'Active'}</SelectItem>
+                          <SelectItem value="expired">{lang === 'ar' ? 'منتهي' : 'Expired'}</SelectItem>
+                          <SelectItem value="no_sub">{lang === 'ar' ? 'بدون اشتراك' : 'No subscription'}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>{lang === 'ar' ? 'الجنس' : 'Gender'}</Label>
+                      <Select
+                        value={broadcastFilters.gender}
+                        onValueChange={(v) => setBroadcastFilters((p) => ({ ...p, gender: v as BroadcastFilters['gender'] }))}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{lang === 'ar' ? 'الكل' : 'All'}</SelectItem>
+                          <SelectItem value="male">{lang === 'ar' ? 'ذكر' : 'Male'}</SelectItem>
+                          <SelectItem value="female">{lang === 'ar' ? 'أنثى' : 'Female'}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="bc-sessions">{lang === 'ar' ? 'حد الجلسات المتبقية' : 'Max sessions remaining'}</Label>
+                      <Input
+                        id="bc-sessions"
+                        inputMode="numeric"
+                        value={broadcastFilters.sessionsMin}
+                        onChange={(e) => setBroadcastFilters((p) => ({ ...p, sessionsMin: e.target.value }))}
+                        placeholder={lang === 'ar' ? 'مثال: 2' : 'e.g. 2'}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Sliders */}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <RangeSlider
+                      labelEn="Min plan months" labelAr="أقل مدة خطة"
+                      min={1} max={24}
+                      value={broadcastFilters.planMonthsMin}
+                      onChange={(v) => setBroadcastFilters((p) => ({ ...p, planMonthsMin: v }))}
+                      lang={lang}
+                    />
+                    <RangeSlider
+                      labelEn="Max plan months" labelAr="أقصى مدة خطة"
+                      min={1} max={24}
+                      value={broadcastFilters.planMonthsMax}
+                      onChange={(v) => setBroadcastFilters((p) => ({ ...p, planMonthsMax: v }))}
+                      lang={lang}
+                    />
+                    <RangeSlider
+                      labelEn="Min days left" labelAr="أقل أيام متبقية"
+                      min={0} max={365}
+                      value={broadcastFilters.daysLeftMin}
+                      onChange={(v) => setBroadcastFilters((p) => ({ ...p, daysLeftMin: v }))}
+                      lang={lang}
+                    />
+                    <RangeSlider
+                      labelEn="Max days left" labelAr="أقصى أيام متبقية"
+                      min={0} max={365}
+                      value={broadcastFilters.daysLeftMax}
+                      onChange={(v) => setBroadcastFilters((p) => ({ ...p, daysLeftMax: v }))}
+                      lang={lang}
+                    />
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="bc-from">{lang === 'ar' ? 'تاريخ الإنشاء من' : 'Created from'}</Label>
+                      <Input id="bc-from" type="date" value={broadcastFilters.createdFrom} onChange={(e) => setBroadcastFilters((p) => ({ ...p, createdFrom: e.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="bc-to">{lang === 'ar' ? 'تاريخ الإنشاء إلى' : 'Created to'}</Label>
+                      <Input id="bc-to" type="date" value={broadcastFilters.createdTo} onChange={(e) => setBroadcastFilters((p) => ({ ...p, createdTo: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => void handlePreviewBroadcast()} disabled={!canPreviewBroadcast}>
+                  {previewLoading ? (lang === 'ar' ? 'جارٍ المعاينة...' : 'Previewing...') : (lang === 'ar' ? 'معاينة الاستهداف' : 'Preview audience')}
+                </Button>
+                <Button
+                  onClick={() => setBroadcastConfirmOpen(true)}
+                  disabled={broadcastSubmitting || !broadcastMessage.trim()}
+                >
+                  {broadcastSubmitting ? (lang === 'ar' ? 'جارٍ الجدولة...' : 'Queueing...') : (lang === 'ar' ? 'جدولة البث' : 'Queue broadcast')}
+                </Button>
+              </div>
+
+              {broadcastFeedback && (
+                <Alert variant={broadcastFeedback.type}>
+                  {broadcastFeedback.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                  <AlertTitle>{broadcastFeedback.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+                  <AlertDescription>{broadcastFeedback.text}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Preview result */}
+              {broadcastPreview && (
+                <div className="grid gap-4 lg:grid-cols-[1.1fr,0.9fr]">
+                  <div className="border border-border p-4">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{lang === 'ar' ? 'نتيجة المعاينة' : 'Preview result'}</p>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <div>
+                        <p className="text-2xl font-semibold">{broadcastPreview.recipientCount}</p>
+                        <p className="text-sm text-muted-foreground">{lang === 'ar' ? 'عميل مطابق' : 'matching members'}</p>
+                      </div>
+                      <div>
+                        <p className="text-2xl font-semibold">{broadcastPreview.estimatedMinutes ?? 0}</p>
+                        <p className="text-sm text-muted-foreground">{lang === 'ar' ? 'دقيقة تقديرية' : 'estimated minutes to drain'}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      <p className="text-sm font-medium">{lang === 'ar' ? 'المرشحات' : 'Applied filters'}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {(broadcastPreview.filterSummary?.length
+                          ? broadcastPreview.filterSummary
+                          : [lang === 'ar' ? 'بدون مرشحات إضافية' : 'No extra filters']
+                        ).map((item) => (
+                          <Badge key={item} variant="outline">{item}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border border-border p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium">{lang === 'ar' ? 'المستلمون' : 'Matching recipients'}</p>
+                      <p className="text-xs text-muted-foreground">{broadcastPreview.recipientCount} {lang === 'ar' ? 'إجمالي' : 'total'}</p>
+                    </div>
+                    <div className="mt-3 max-h-[360px] space-y-2 overflow-y-auto pe-1">
+                      {broadcastPreview.recipients && broadcastPreview.recipients.length > 0 ? (
+                        broadcastPreview.recipients.map((r) => (
+                          <div key={r.id} className="flex items-center justify-between gap-3 border border-border px-3 py-2">
+                            <div>
+                              <p className="font-medium">{r.name}</p>
+                              <p className="text-xs text-muted-foreground">{r.phone || '—'}</p>
+                            </div>
+                            <Badge variant="outline">{lang === 'ar' ? 'مطابق' : 'Included'}</Badge>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          {lang === 'ar' ? 'لا يوجد أعضاء مطابقون.' : 'No members matched the current filters.'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Campaign history */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{lang === 'ar' ? 'سجل الحملات' : 'Campaign history'}</CardTitle>
+              <CardDescription>
+                {lang === 'ar' ? 'حالة كل حملة، عدد الرسائل المرسلة، والفشل.' : 'Campaign status, sent volume, and failure counts.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button variant="outline" onClick={() => void fetchCampaigns()} disabled={campaignsLoading}>
+                {campaignsLoading ? labels.loading : (lang === 'ar' ? 'تحديث السجل' : 'Refresh history')}
+              </Button>
+
+              {campaignsLoading ? (
+                <p className="text-sm text-muted-foreground">{labels.loading}</p>
+              ) : campaigns.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {lang === 'ar' ? 'لا توجد حملات حتى الآن.' : 'No broadcast campaigns yet.'}
+                </p>
+              ) : (
+                <div className="overflow-x-auto border border-border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{lang === 'ar' ? 'الحملة' : 'Campaign'}</TableHead>
+                        <TableHead>{lang === 'ar' ? 'الحالة' : 'Status'}</TableHead>
+                        <TableHead>{lang === 'ar' ? 'المستلمون' : 'Recipients'}</TableHead>
+                        <TableHead>{lang === 'ar' ? 'تم الإرسال' : 'Sent'}</TableHead>
+                        <TableHead>{lang === 'ar' ? 'فشل' : 'Failed'}</TableHead>
+                        <TableHead>{lang === 'ar' ? 'أُنشئت' : 'Created'}</TableHead>
+                        <TableHead>{lang === 'ar' ? 'اكتملت' : 'Completed'}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {campaigns.map((c) => {
+                        const normalized = normalizeBroadcastStatus(c.status);
+                        return (
+                          <TableRow key={c.id}>
+                            <TableCell>
+                              <div className="space-y-1">
+                                <p className="font-medium">{c.title}</p>
+                                <p className="max-w-[360px] truncate text-xs text-muted-foreground">{c.message}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={statusBadgeClass(normalized)}>{normalized}</Badge>
+                            </TableCell>
+                            <TableCell>{c.recipient_count}</TableCell>
+                            <TableCell>{c.sent_count}</TableCell>
+                            <TableCell>{c.failed_count}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{formatDateTime(c.created_at, lang)}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{c.completed_at ? formatDateTime(c.completed_at, lang) : '—'}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Broadcast confirm dialog */}
+      <Dialog open={broadcastConfirmOpen} onOpenChange={(open) => { if (!open) setBroadcastConfirmOpen(false); }}>
+        <DialogContent className="max-w-sm" role="dialog" aria-modal="true">
+          <DialogHeader>
+            <DialogTitle>{lang === 'ar' ? 'تأكيد البث الجماعي' : 'Confirm Broadcast'}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {broadcastPreview
+              ? (lang === 'ar'
+                ? `سيتم إرسال هذه الرسالة إلى ${broadcastPreview.recipientCount} عميل. لا يمكن التراجع.`
+                : `This will queue a message to ${broadcastPreview.recipientCount} member${broadcastPreview.recipientCount === 1 ? '' : 's'}. This cannot be undone.`)
+              : (lang === 'ar'
+                ? 'سيتم إرسال هذه الرسالة لجميع العملاء المستوفين للمعايير. لا يمكن التراجع.'
+                : 'This will queue the message for all matching members. This cannot be undone.')}
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setBroadcastConfirmOpen(false)}>
+              {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+            </Button>
+            <Button onClick={() => { setBroadcastConfirmOpen(false); void handleSendBroadcast(); }}>
+              {lang === 'ar' ? 'تأكيد الإرسال' : 'Confirm & Queue'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

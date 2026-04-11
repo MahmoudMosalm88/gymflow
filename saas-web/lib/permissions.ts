@@ -4,27 +4,31 @@ export type NavKey =
   | "dashboard"
   | "members"
   | "guest_passes"
+  | "pt"
   | "subscriptions"
   | "reports"
   | "income"
+  | "whatsapp"
   | "notifications"
   | "settings"
   | "profile";
 
 const roleNav: Record<AppRole, NavKey[]> = {
-  owner: ["dashboard", "members", "guest_passes", "subscriptions", "reports", "income", "notifications", "settings", "profile"],
-  manager: ["dashboard", "members", "guest_passes", "subscriptions", "notifications", "profile"],
-  staff: ["dashboard", "members", "guest_passes", "subscriptions", "notifications", "profile"],
-  trainer: ["members", "profile"],
+  owner: ["dashboard", "members", "guest_passes", "pt", "subscriptions", "reports", "income", "whatsapp", "notifications", "settings", "profile"],
+  manager: ["dashboard", "members", "guest_passes", "pt", "subscriptions", "whatsapp", "notifications", "profile"],
+  staff: ["dashboard", "members", "guest_passes", "pt", "subscriptions", "notifications", "profile"],
+  trainer: ["pt", "members", "profile"],
 };
 
 const navPaths: Record<NavKey, string> = {
   dashboard: "/dashboard",
   members: "/dashboard/members",
   guest_passes: "/dashboard/guest-passes",
+  pt: "/dashboard/pt",
   subscriptions: "/dashboard/subscriptions",
   reports: "/dashboard/reports",
   income: "/dashboard/income",
+  whatsapp: "/dashboard/whatsapp",
   notifications: "/dashboard/notifications",
   settings: "/dashboard/settings",
   profile: "/dashboard/profile",

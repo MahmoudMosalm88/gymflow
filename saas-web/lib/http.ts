@@ -67,6 +67,17 @@ export function routeError(error: unknown) {
   if (code === "23505") {
     return fail("A record with the same unique value already exists.", 409);
   }
+  if (
+    typeof error === "object" &&
+    error &&
+    "name" in error &&
+    String((error as { name?: string }).name || "") === "ZodError" &&
+    "issues" in error &&
+    Array.isArray((error as { issues?: Array<{ message?: string }> }).issues)
+  ) {
+    const firstIssue = (error as { issues: Array<{ message?: string }> }).issues[0];
+    return fail(firstIssue?.message || "Some fields are invalid. Please review and try again.", 400);
+  }
 
   return fail("Something went wrong. Please try again.", 500);
 }

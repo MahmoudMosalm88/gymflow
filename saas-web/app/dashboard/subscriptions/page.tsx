@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
@@ -10,6 +10,7 @@ import { getCachedMembers, getCachedSubscriptions } from '@/lib/offline/read-mod
 import { saveSubscriptionCreate } from '@/lib/offline/actions';
 import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-method-ui';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+import StatCard from '@/components/dashboard/StatCard';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -50,7 +51,7 @@ const SubscriptionForm = dynamic(() => import('@/components/dashboard/Subscripti
 type Subscription = {
   id: number;
   member_id: string;
-  member_name?: string; // Add member name for display
+  member_name?: string;
   renewed_from_subscription_id?: number | null;
   start_date: number;
   end_date: number;
@@ -59,6 +60,7 @@ type Subscription = {
   payment_method?: 'cash' | 'digital' | null;
   sessions_per_month: number;
   is_active: boolean;
+  freeze_status?: string | null;
   created_at: number;
   sync_status?: string;
 };
@@ -87,7 +89,7 @@ const pageLabels = {
     deactivateConfirm: 'Deactivate this subscription?',
     subscription_active: 'Active',
     subscription_expired: 'Expired',
-    subscription_inactive: 'Inactive', // For explicitly deactivated
+    subscription_inactive: 'Inactive',
     status: 'Status',
     no_subscriptions_found: 'No subscriptions found.',
     view: 'View',
@@ -104,6 +106,21 @@ const pageLabels = {
     payment_method: 'Payment Method',
     payment_method_cash: 'Cash',
     payment_method_digital: 'Digital',
+    // Stat card labels
+    stat_active: 'Active',
+    stat_expiring: 'Expiring This Week',
+    stat_frozen: 'Frozen',
+    stat_total: 'Total',
+    // Filter labels
+    filter_expiring: 'Expiring',
+    filter_frozen: 'Frozen',
+    filter_ended: 'Ended',
+    // Table caption copy
+    caption_with_history: 'Showing current cycles with historical subscription cycles.',
+    caption_default: 'Default view focuses on the current or upcoming cycle for each client.',
+    // Sessions edit label
+    sessions_per_month: 'Sessions / month',
+    days_left: 'Days Left',
   },
   ar: {
     newSubscription: 'اشتراك جديد',
@@ -133,6 +150,21 @@ const pageLabels = {
     payment_method: 'طريقة الدفع',
     payment_method_cash: 'نقدي',
     payment_method_digital: 'رقمي',
+    // Stat card labels
+    stat_active: 'نشط',
+    stat_expiring: 'تنتهي هذا الأسبوع',
+    stat_frozen: 'مجمّد',
+    stat_total: 'الإجمالي',
+    // Filter labels
+    filter_expiring: 'تنتهي قريباً',
+    filter_frozen: 'مجمّد',
+    filter_ended: 'منتهي',
+    // Table caption copy
+    caption_with_history: 'يتم الآن عرض الدورات الحالية مع السجل السابق.',
+    caption_default: 'يتم التركيز افتراضياً على الدورة الحالية أو القادمة لكل عميل.',
+    // Sessions edit label
+    sessions_per_month: 'جلسات / شهر',
+    days_left: 'متبقي',
   },
 } as const;
 
@@ -144,6 +176,14 @@ function deriveStatus(sub: Subscription): SubscriptionStatus {
   if (sub.end_date < todayStart) return 'expired';
   if (sub.start_date >= todayEnd) return 'pending';
   return 'active';
+}
+
+// Returns true if the subscription's end_date falls within the next 7 days
+function isExpiringThisWeek(sub: Subscription): boolean {
+  const nowDate = new Date();
+  const todayStart = Date.UTC(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()) / 1000;
+  const weekEnd = todayStart + 7 * 86400;
+  return sub.is_active && sub.end_date >= todayStart && sub.end_date < weekEnd;
 }
 
 export default function SubscriptionsPage() {
@@ -171,7 +211,7 @@ export default function SubscriptionsPage() {
 
   // Search + filter
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'expiring' | 'frozen' | 'inactive'>('all');
   const [showHistory, setShowHistory] = useState(false);
 
   // Confirm dialog for activate/deactivate
@@ -367,12 +407,24 @@ export default function SubscriptionsPage() {
   // Locale for date formatting
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
 
+  // Derive stat card counts from the full subscriptions list (not the filtered view)
+  const stats = useMemo(() => {
+    const activeCount = subs.filter((s) => s.is_active).length;
+    const expiringCount = subs.filter((s) => isExpiringThisWeek(s)).length;
+    const frozenCount = subs.filter((s) => s.freeze_status === 'frozen').length;
+    const totalCount = subs.length;
+    return { activeCount, expiringCount, frozenCount, totalCount };
+  }, [subs]);
+
   // Client-side search + filter
   const baseFiltered = subs.filter((sub) => {
     const status = deriveStatus(sub);
     const matchesSearch = !search || (sub.member_name?.toLowerCase().includes(search.toLowerCase()));
-    const matchesStatus = statusFilter === 'all'
+    const matchesStatus =
+      statusFilter === 'all'
       || (statusFilter === 'active' && (status === 'active' || status === 'pending'))
+      || (statusFilter === 'expiring' && isExpiringThisWeek(sub))
+      || (statusFilter === 'frozen' && sub.freeze_status === 'frozen')
       || (statusFilter === 'inactive' && (status === 'expired' || status === 'inactive'));
     return matchesSearch && matchesStatus;
   });
@@ -391,6 +443,7 @@ export default function SubscriptionsPage() {
     { key: 'end_date', label: labels.endDate, className: 'hidden sm:table-cell' },
     { key: 'plan_months', label: labels.planMonths, className: 'hidden md:table-cell' },
     { key: 'price_paid', label: labels.price, className: 'hidden lg:table-cell' },
+    { key: 'days_left', label: labels.days_left, className: 'hidden md:table-cell w-[80px]' },
     { key: 'status', label: labels.status, className: 'w-[100px]' },
     { key: '_actions', label: labels.actions, className: 'w-[50px] text-end' },
   ];
@@ -398,18 +451,34 @@ export default function SubscriptionsPage() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
+    <div className="p-4 md:p-6 lg:p-8">
       {/* Header row */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold">{labels.subscriptions}</h1>
+        <h1 className="text-2xl font-heading font-bold tracking-tight">{labels.subscriptions}</h1>
         <Button onClick={() => setModalOpen(true)} className="text-base">
-          <PlusIcon className={lang === 'ar' ? 'ms-2 h-4 w-4' : 'me-2 h-4 w-4'} />
+          <PlusIcon className="me-2 h-4 w-4" />
           {labels.newSubscription}
         </Button>
       </div>
 
+      {/* Stat cards */}
+      <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <button className="text-start" onClick={() => setStatusFilter('active')}>
+          <StatCard label={labels.stat_active} value={stats.activeCount} color="text-success" />
+        </button>
+        <button className="text-start" onClick={() => setStatusFilter('expiring')}>
+          <StatCard label={labels.stat_expiring} value={stats.expiringCount} color={stats.expiringCount > 0 ? 'text-warning' : 'text-muted-foreground'} />
+        </button>
+        <button className="text-start" onClick={() => setStatusFilter('frozen')}>
+          <StatCard label={labels.stat_frozen} value={stats.frozenCount} color="text-info" />
+        </button>
+        <button className="text-start" onClick={() => setStatusFilter('all')}>
+          <StatCard label={labels.stat_total} value={stats.totalCount} color="text-foreground" />
+        </button>
+      </div>
+
       {/* Search + filter */}
-      <div className="flex flex-wrap gap-3">
+      <div className="mt-6 flex flex-wrap gap-3">
         <Input
           type="text"
           placeholder={labels.search_subscriptions}
@@ -424,7 +493,9 @@ export default function SubscriptionsPage() {
           <SelectContent>
             <SelectItem value="all">{labels.all_statuses}</SelectItem>
             <SelectItem value="active">{labels.subscription_active}</SelectItem>
-            <SelectItem value="inactive">{labels.subscription_expired}</SelectItem>
+            <SelectItem value="expiring">{labels.filter_expiring}</SelectItem>
+            <SelectItem value="frozen">{labels.filter_frozen}</SelectItem>
+            <SelectItem value="inactive">{labels.filter_ended}</SelectItem>
           </SelectContent>
         </Select>
         <Button variant="outline" onClick={() => setShowHistory((value) => !value)}>
@@ -433,15 +504,9 @@ export default function SubscriptionsPage() {
       </div>
 
       {/* Subscriptions table */}
-      <Card>
-        <div className="border-b px-4 py-3 text-sm text-muted-foreground">
-          {showHistory
-            ? (lang === 'ar'
-                ? 'يتم الآن عرض الدورات الحالية مع السجل السابق.'
-                : 'Showing current cycles with historical subscription cycles.')
-            : (lang === 'ar'
-                ? 'يتم التركيز افتراضياً على الدورة الحالية أو القادمة لكل عميل.'
-                : 'Default view focuses on the current or upcoming cycle for each client.')}
+      <Card className="mt-6 shadow-[6px_6px_0_#000000]">
+        <div className="border-b border-border px-4 py-3 text-sm text-muted-foreground">
+          {showHistory ? labels.caption_with_history : labels.caption_default}
         </div>
         <div className="border-2 border-border">
           <Table>
@@ -456,78 +521,98 @@ export default function SubscriptionsPage() {
             </TableHeader>
             <TableBody>
               {filtered.length > 0 ? (
-                filtered.map((sub) => (
-                  <TableRow key={sub.id}>
-                    <TableCell className="font-medium">{sub.member_name}</TableCell>
-                    <TableCell className="hidden sm:table-cell">{formatDate(sub.start_date, locale)}</TableCell>
-                    <TableCell className="hidden sm:table-cell">{formatDate(sub.end_date, locale)}</TableCell>
-                    <TableCell className="hidden md:table-cell">{sub.plan_months}</TableCell>
-                    <TableCell className="hidden lg:table-cell">{formatCurrency(sub.price_paid || 0)}</TableCell>
-                    <TableCell>
-                      {(() => {
-                        const status = deriveStatus(sub);
-                        const badgeClass =
+                filtered.map((sub) => {
+                  const status = deriveStatus(sub);
+                  const expiring = isExpiringThisWeek(sub);
+                  const frozen = sub.freeze_status === 'frozen';
+
+                  // Row accent: expiring takes priority over frozen; inactive/expired gets opacity
+                  const rowClass = expiring
+                    ? 'border-s-2 border-s-warning'
+                    : frozen
+                      ? 'border-s-2 border-s-info'
+                      : (status === 'expired' || status === 'inactive')
+                        ? 'opacity-60'
+                        : '';
+
+                  return (
+                    <TableRow key={sub.id} className={rowClass}>
+                      <TableCell className="font-medium max-w-[200px]">
+                        <span className="truncate block">{sub.member_name}</span>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">{formatDate(sub.start_date, locale)}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{formatDate(sub.end_date, locale)}</TableCell>
+                      <TableCell className="hidden md:table-cell">{sub.plan_months}</TableCell>
+                      <TableCell className="hidden lg:table-cell tabular-nums">{formatCurrency(sub.price_paid || 0)}</TableCell>
+                      <TableCell className="hidden md:table-cell tabular-nums">
+                        {(() => {
+                          if (status === 'expired' || status === 'inactive') return <span className="text-muted-foreground">—</span>;
+                          const now = Math.floor(Date.now() / 1000);
+                          const daysLeft = Math.max(0, Math.ceil((sub.end_date - now) / 86400));
+                          return (
+                            <span className={daysLeft <= 3 ? 'text-destructive font-bold' : daysLeft <= 7 ? 'text-warning font-semibold' : 'text-muted-foreground'}>
+                              {daysLeft}
+                            </span>
+                          );
+                        })()}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={
                           status === 'active'
-                            ? 'bg-success hover:bg-success/90'
+                            ? 'bg-success/20 text-success border-success/30'
                             : status === 'pending'
-                              ? 'bg-info hover:bg-info/90'
-                              : 'bg-destructive hover:bg-destructive/90';
-                        const text =
-                          status === 'active'
+                              ? 'bg-info/20 text-info border-info/30'
+                              : 'bg-destructive/20 text-destructive border-destructive/30'
+                        }>
+                          {status === 'active'
                             ? labels.subscription_active
                             : status === 'pending'
                               ? labels.upcoming
                               : sub.renewed_from_subscription_id
                                 ? labels.historical_cycle
-                                : labels.subscription_expired;
-                        return (
-                      <Badge
-                        className={badgeClass}
-                      >
-                        {text}
-                      </Badge>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell className="text-end">
-                      <DropdownMenu dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">{labels.open_menu}</span>
-                            <DotsHorizontalIcon className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align={lang === 'ar' ? 'start' : 'end'}>
-                          <DropdownMenuLabel>{labels.subscription_actions}</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => router.push(`/dashboard/members/${sub.member_id}`)}>
-                            {labels.view}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem disabled={!online} onClick={() => openEditDialog(sub)}>
-                            {labels.edit}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          {sub.is_active ? (
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              disabled={!online}
-                              onClick={() => setConfirmTarget({ sub, action: 'deactivate' })}
-                            >
-                              {labels.deactivate}
+                                : labels.subscription_expired}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-end">
+                        <DropdownMenu dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">{labels.open_menu}</span>
+                              <DotsHorizontalIcon className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align={lang === 'ar' ? 'start' : 'end'}>
+                            <DropdownMenuLabel>{labels.subscription_actions}</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => router.push(`/dashboard/members/${sub.member_id}`)}>
+                              {labels.view}
                             </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem
-                              className="text-success"
-                              disabled={!online}
-                              onClick={() => setConfirmTarget({ sub, action: 'activate' })}
-                            >
-                              {labels.activate}
+                            <DropdownMenuItem disabled={!online} onClick={() => openEditDialog(sub)}>
+                              {labels.edit}
                             </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
+                            <DropdownMenuSeparator />
+                            {sub.is_active ? (
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                disabled={!online}
+                                onClick={() => setConfirmTarget({ sub, action: 'deactivate' })}
+                              >
+                                {labels.deactivate}
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                className="text-success"
+                                disabled={!online}
+                                onClick={() => setConfirmTarget({ sub, action: 'activate' })}
+                              >
+                                {labels.activate}
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               ) : (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="h-24 text-center">
@@ -539,7 +624,6 @@ export default function SubscriptionsPage() {
           </Table>
         </div>
       </Card>
-
 
       {/* New subscription dialog */}
       <Dialog open={modalOpen} onOpenChange={(open) => {
@@ -586,7 +670,7 @@ export default function SubscriptionsPage() {
           <DialogHeader>
             <DialogTitle>{labels.editSubscription}</DialogTitle>
             <DialogDescription>
-              {labels.edit} #{editingId ?? ''}
+              {subs.find(s => s.id === editingId)?.member_name || `#${editingId ?? ''}`}
             </DialogDescription>
           </DialogHeader>
           {editDraft && (
@@ -622,7 +706,7 @@ export default function SubscriptionsPage() {
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="edit-sessions">{labels.sessionsPerMonth || 'Sessions / month'}</Label>
+                <Label htmlFor="edit-sessions">{labels.sessions_per_month}</Label>
                 <Input
                   id="edit-sessions"
                   type="number"

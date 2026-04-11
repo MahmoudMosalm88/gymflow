@@ -44,9 +44,11 @@ export async function GET(request: NextRequest) {
               effective_at,
               member_name,
               amount,
+              payment_method,
               plan_months,
               sessions_per_month,
-              payment_type
+              payment_type,
+              package_title
          FROM income_events
         ORDER BY effective_at DESC`,
       [organizationId, branchId]
@@ -69,8 +71,10 @@ export async function GET(request: NextRequest) {
       type: r.payment_type,
       name: r.member_name,
       amount: Number(r.amount),
+      paymentMethod: r.payment_method,
       planMonths: r.plan_months,
       sessionsPerMonth: r.sessions_per_month,
+      packageTitle: r.package_title ?? null,
     }));
 
     return ok({ data, hasMore });

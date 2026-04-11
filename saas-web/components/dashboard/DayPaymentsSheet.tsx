@@ -75,7 +75,7 @@ export default function DayPaymentsSheet({ date, open, onOpenChange }: Props) {
                     <p className="text-sm font-medium text-[#e8e4df]">
                       {p.name}
                       {p.type === 'guest_pass' && (
-                        <span className="ml-2 inline-block text-[10px] font-bold tracking-wide px-1.5 py-0.5 bg-[#262626] text-[#8a8578] border border-[#2a2a2a]">
+                        <span className="ms-2 inline-block text-[10px] font-bold tracking-wide px-1.5 py-0.5 bg-[#262626] text-[#8a8578] border border-[#2a2a2a]">
                           {labels.guest_tag}
                         </span>
                       )}

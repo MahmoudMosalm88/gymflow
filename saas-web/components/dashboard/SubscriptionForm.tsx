@@ -185,7 +185,7 @@ export default function SubscriptionForm({ members, preselectedMemberId, onSubmi
                         <Button
                           variant={"outline"}
                           className={cn(
-                            "w-full pl-3 text-left font-normal",
+                            "w-full ps-3 text-start font-normal",
                             !field.value && "text-muted-foreground"
                           )}
                         >

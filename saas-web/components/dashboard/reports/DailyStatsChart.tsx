@@ -51,7 +51,10 @@ export default function DailyStatsChart({ data, labels, styles }: DailyStatsChar
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke={styles.gridStroke} />
-            <XAxis dataKey="date" tick={styles.axis} />
+            <XAxis dataKey="date" tick={styles.axis} tickFormatter={(value: string) => {
+              try { return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); }
+              catch { return value; }
+            }} />
             <YAxis tick={styles.axis} />
             <Tooltip
               contentStyle={styles.tooltipContent}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { toast } from 'sonner';
 import Link from 'next/link';
 import { Pencil, Trash2 } from 'lucide-react';
 import { api } from '@/lib/api-client';
@@ -11,14 +12,57 @@ import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+const copy = {
+  en: {
+    actions: 'Actions',
+    editPayment: 'Edit Payment',
+    editDesc: 'Adjust the amount or date for this payment.',
+    editWarning: 'This will update the recorded amount. The original transaction is not affected.',
+    invalidAmount: 'Invalid amount.',
+    failedUpdate: 'Failed to update payment.',
+    failedDelete: 'Failed to delete payment.',
+    confirmTitle: 'Confirmation Required',
+    confirmSaveDesc: 'This will permanently update the payment record.',
+    confirmDeleteDesc: 'This will permanently remove this payment from your records.',
+    confirmSave: 'Are you sure you want to save these changes?',
+    confirmDelete: 'Are you sure you want to delete this payment? This cannot be undone.',
+    cancel: 'Cancel',
+    save: 'Save',
+    confirm: 'Confirm',
+    editAria: 'Edit payment',
+    deleteAria: 'Delete payment',
+  },
+  ar: {
+    actions: 'إجراءات',
+    editPayment: 'تعديل دفعة',
+    editDesc: 'عدّل المبلغ أو التاريخ لهذه الدفعة.',
+    editWarning: 'سيتم تعديل المبلغ المسجّل. المعاملة الأصلية لن تتأثر.',
+    invalidAmount: 'المبلغ غير صالح.',
+    failedUpdate: 'فشل تعديل الدفعة.',
+    failedDelete: 'فشل حذف الدفعة.',
+    confirmTitle: 'تأكيد مطلوب',
+    confirmSaveDesc: 'سيتم تعديل سجل الدفعة بشكل دائم.',
+    confirmDeleteDesc: 'سيتم حذف هذه الدفعة نهائياً من سجلاتك.',
+    confirmSave: 'هل أنت متأكد من حفظ هذه التعديلات؟',
+    confirmDelete: 'هل أنت متأكد من حذف هذه الدفعة؟ لا يمكن التراجع عن هذا الإجراء.',
+    cancel: 'إلغاء',
+    save: 'حفظ',
+    confirm: 'تأكيد',
+    editAria: 'تعديل الدفعة',
+    deleteAria: 'حذف الدفعة',
+  },
+} as const;
+
 type Payment = {
   id: number | string;
   date: string;
   type: string;
+  paymentMethod?: 'cash' | 'digital' | 'unknown';
   name: string;
   amount: number;
   planMonths: number;
   sessionsPerMonth: number | null;
+  packageTitle?: string | null;
 };
 
 type PaymentsResponse = { data: Payment[]; hasMore: boolean };
@@ -113,7 +157,7 @@ export default function AllPaymentsPage() {
 
     const amount = Number(editAmount);
     if (!Number.isFinite(amount) || amount < 0) {
-      alert(lang === 'ar' ? 'المبلغ غير صالح.' : 'Invalid amount.');
+      toast.error(copy[lang].invalidAmount);
       return;
     }
 
@@ -133,7 +177,7 @@ export default function AllPaymentsPage() {
       setEditRow(null);
       refreshCurrent();
     } catch {
-      alert(lang === 'ar' ? 'فشل تعديل الدفعة.' : 'Failed to update payment.');
+      toast.error(copy[lang].failedUpdate);
     } finally {
       setSaving(false);
     }
@@ -149,7 +193,7 @@ export default function AllPaymentsPage() {
       setConfirmState(null);
       refreshCurrent();
     } catch {
-      alert(lang === 'ar' ? 'فشل حذف الدفعة.' : 'Failed to delete payment.');
+      toast.error(copy[lang].failedDelete);
     }
   };
 
@@ -161,12 +205,12 @@ export default function AllPaymentsPage() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link href="/dashboard/income" className="text-muted-foreground hover:text-foreground transition-colors">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d={lang === 'ar' ? 'M8 4l6 6-6 6' : 'M12 4l-6 6 6 6'} />
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={lang === 'ar' ? '' : 'rotate-180'}>
+            <path d="M8 4l6 6-6 6" />
           </svg>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{labels.all_payments}</h1>
+          <h1 className="text-2xl font-heading font-bold tracking-tight text-foreground">{labels.all_payments}</h1>
         </div>
       </div>
 
@@ -180,7 +224,7 @@ export default function AllPaymentsPage() {
       />
 
       {/* Table */}
-      <Card>
+      <Card className="shadow-[6px_6px_0_#000000]">
         <CardHeader>
           <CardTitle>{labels.all_payments}</CardTitle>
         </CardHeader>
@@ -193,7 +237,7 @@ export default function AllPaymentsPage() {
             <p className="text-sm text-muted-foreground py-8 text-center">{labels.no_income_yet}</p>
           ) : (
             <>
-              <div className="overflow-auto border border-border">
+              <div className="overflow-auto border-2 border-border">
                 <table className="w-full text-sm">
                   <thead className="bg-secondary text-muted-foreground">
                     <tr>
@@ -201,7 +245,7 @@ export default function AllPaymentsPage() {
                       <th className="text-start px-4 py-2.5 font-medium">{labels.name_col}</th>
                       <th className="text-end px-4 py-2.5 font-medium">{labels.amount_col}</th>
                       <th className="text-start px-4 py-2.5 font-medium hidden sm:table-cell">{labels.details_col}</th>
-                      <th className="text-end px-4 py-2.5 font-medium">{lang === 'ar' ? 'إجراءات' : 'Actions'}</th>
+                      <th className="text-end px-4 py-2.5 font-medium">{copy[lang].actions}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -210,23 +254,25 @@ export default function AllPaymentsPage() {
                         <td className="px-4 py-2.5 text-muted-foreground">{formatDate(p.date, locale)}</td>
                         <td className="px-4 py-2.5 text-foreground">
                           {p.name}
-                          {p.type === 'guest_pass' && (
-                            <span className="ml-2 inline-block text-[10px] font-bold tracking-wide px-1.5 py-0.5 bg-muted text-muted-foreground border border-border">
-                              {labels.guest_tag}
+                          {(p.type === 'guest_pass' || p.type === 'pt_package') && (
+                            <span className="ms-2 inline-block text-[10px] font-bold tracking-wide px-1.5 py-0.5 bg-muted text-muted-foreground border border-border">
+                              {p.type === 'guest_pass' ? labels.guest_tag : labels.pt_package_tag}
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5 text-end font-semibold text-foreground">{formatCurrency(p.amount)}</td>
+                        <td className="px-4 py-2.5 text-end font-semibold text-foreground tabular-nums">{formatCurrency(p.amount)}</td>
                         <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">
-                          {p.type === 'guest_pass'
+                          <div>{p.type === 'guest_pass'
                             ? labels.guest_passes
+                            : p.type === 'pt_package'
+                              ? p.packageTitle || labels.pt_package_payment
                             : p.type === 'renewal'
                               ? labels.renewal_payment
                               : <>
                                 {p.planMonths} {labels.months_label}
                                 {p.sessionsPerMonth != null && `, ${p.sessionsPerMonth} ${labels.sessions_per_month_label}`}
                               </>
-                          }
+                          }</div>
                         </td>
                         <td className="px-4 py-2.5 text-end">
                           <div className="inline-flex items-center gap-2">
@@ -235,7 +281,7 @@ export default function AllPaymentsPage() {
                               onClick={() => openEdit(p)}
                               disabled={!online}
                               className="inline-flex h-8 w-8 items-center justify-center border border-border bg-card text-foreground hover:bg-secondary"
-                              aria-label={lang === 'ar' ? 'تعديل الدفعة' : 'Edit payment'}
+                              aria-label={copy[lang].editAria}
                             >
                               <Pencil className="h-4 w-4" />
                             </button>
@@ -244,7 +290,7 @@ export default function AllPaymentsPage() {
                               onClick={() => handleDelete(p)}
                               disabled={!online}
                               className="inline-flex h-8 w-8 items-center justify-center border border-border bg-card text-destructive hover:bg-secondary"
-                              aria-label={lang === 'ar' ? 'حذف الدفعة' : 'Delete payment'}
+                              aria-label={copy[lang].deleteAria}
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -276,12 +322,8 @@ export default function AllPaymentsPage() {
       <Dialog open={!!editRow} onOpenChange={(open) => { if (!open) setEditRow(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{lang === 'ar' ? 'تعديل دفعة' : 'Edit Payment'}</DialogTitle>
-            <DialogDescription>
-              {lang === 'ar'
-                ? 'يمكنك تعديل مبلغ الدفعة وتاريخها فقط. سيتم تطبيق التغييرات على الإيرادات والتقارير.'
-                : 'You can only edit payment amount and date. Changes will be applied to income and reports.'}
-            </DialogDescription>
+            <DialogTitle>{copy[lang].editPayment}</DialogTitle>
+            <DialogDescription>{copy[lang].editDesc}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -304,18 +346,14 @@ export default function AllPaymentsPage() {
                 className="w-full px-3 py-2 border border-input bg-card text-foreground"
               />
             </div>
-            <p className="text-xs text-destructive">
-              {lang === 'ar'
-                ? 'تحذير: تعديل الدفعة سيؤثر على الإيرادات والتقارير ذات الصلة.'
-                : 'Warning: editing this payment will affect related income and reports.'}
-            </p>
+            <p className="text-xs text-destructive">{copy[lang].editWarning}</p>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setEditRow(null)}
                 className="px-4 py-2 border border-border bg-card text-foreground hover:bg-secondary"
               >
-                {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                {copy[lang].cancel}
               </button>
               <button
                 type="button"
@@ -323,7 +361,7 @@ export default function AllPaymentsPage() {
                 onClick={handleSaveEdit}
                 className="px-4 py-2 border border-border bg-destructive text-destructive-foreground disabled:opacity-60"
               >
-                {saving ? labels.loading : (lang === 'ar' ? 'حفظ' : 'Save')}
+                {saving ? labels.loading : copy[lang].save}
               </button>
             </div>
           </div>
@@ -333,22 +371,14 @@ export default function AllPaymentsPage() {
       <Dialog open={!!confirmState} onOpenChange={(open) => { if (!open) setConfirmState(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{lang === 'ar' ? 'تأكيد مطلوب' : 'Confirmation Required'}</DialogTitle>
+            <DialogTitle>{copy[lang].confirmTitle}</DialogTitle>
             <DialogDescription>
-              {lang === 'ar'
-                ? 'راجع التحذير قبل المتابعة، لأن هذا الإجراء يؤثر على بيانات الإيرادات والتقارير.'
-                : 'Review this warning before continuing, because this action affects income and report data.'}
+              {confirmState?.type === 'save' ? copy[lang].confirmSaveDesc : copy[lang].confirmDeleteDesc}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-foreground">
-              {confirmState?.type === 'save'
-                ? (lang === 'ar'
-                  ? 'تحذير قوي: أنت على وشك تعديل مبلغ أو تاريخ دفعة مسجلة. هذا سيؤثر على الإيرادات والتقارير. هل تريد المتابعة؟'
-                  : 'Strong warning: you are about to edit a logged payment amount or date. This will affect income and reports. Do you want to continue?')
-                : (lang === 'ar'
-                  ? 'تحذير قوي: حذف هذه الدفعة سيؤثر على الإيرادات والتقارير ذات الصلة، ولا يمكن التراجع عن الحذف. هل تريد المتابعة؟'
-                  : 'Strong warning: deleting this payment will affect related income and reports, and cannot be undone. Do you want to continue?')}
+              {confirmState?.type === 'save' ? copy[lang].confirmSave : copy[lang].confirmDelete}
             </p>
             <div className="flex justify-end gap-2">
               <button
@@ -356,7 +386,7 @@ export default function AllPaymentsPage() {
                 onClick={() => setConfirmState(null)}
                 className="px-4 py-2 border border-border bg-card text-foreground hover:bg-secondary"
               >
-                {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                {copy[lang].cancel}
               </button>
               <button
                 type="button"
@@ -372,7 +402,7 @@ export default function AllPaymentsPage() {
                 }}
                 className="px-4 py-2 border border-border bg-destructive text-destructive-foreground disabled:opacity-60"
               >
-                {saving ? labels.loading : (lang === 'ar' ? 'تأكيد' : 'Confirm')}
+                {saving ? labels.loading : copy[lang].confirm}
               </button>
             </div>
           </div>

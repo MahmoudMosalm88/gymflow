@@ -50,6 +50,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
+  const [markingId, setMarkingId] = useState<string | null>(null);
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -88,8 +89,14 @@ export default function NotificationsPage() {
   }, [unreadOnly]);
 
   async function markOneRead(id: string) {
-    await api.post(`/api/notifications/${id}/read`, {});
-    setItems((prev) => prev.map((item) => (item.notification_id === id ? { ...item, read_at: item.read_at || new Date().toISOString() } : item)));
+    if (markingId) return;
+    setMarkingId(id);
+    try {
+      await api.post(`/api/notifications/${id}/read`, {});
+      setItems((prev) => prev.map((item) => (item.notification_id === id ? { ...item, read_at: item.read_at || new Date().toISOString() } : item)));
+    } finally {
+      setMarkingId(null);
+    }
   }
 
   async function markAllRead() {
@@ -107,7 +114,7 @@ export default function NotificationsPage() {
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold">{t[lang].notifications}</h1>
+        <h1 className="text-2xl font-heading font-bold tracking-tight">{t[lang].notifications}</h1>
         <div className="flex items-center gap-2">
           <Button
             variant={unreadOnly ? 'default' : 'outline'}
@@ -191,7 +198,7 @@ export default function NotificationsPage() {
                   {(!item.read_at || item.action_url) && (
                     <div className="mt-3 flex items-center gap-2">
                       {!item.read_at && (
-                        <Button size="sm" variant="outline" onClick={() => void markOneRead(item.notification_id)}>
+                        <Button size="sm" variant="outline" disabled={markingId === item.notification_id} onClick={() => void markOneRead(item.notification_id)}>
                           {t[lang].mark_read}
                         </Button>
                       )}

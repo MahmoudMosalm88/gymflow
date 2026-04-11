@@ -1,30 +1,95 @@
 'use client';
 
 import { useLang } from '@/lib/i18n';
+import { Sparkline } from '@derpdaderp/chartkit';
 
 type Props = {
   label: string;
   value: string | number;
   subtitle?: string;
   color?: string;
-  valueSize?: string; // override value font size, e.g. "text-2xl"
+  valueSize?: string;
+  previousValue?: number;
+  compareLabel?: string;
+  sparklineData?: number[];
+  sparklineColor?: string;
+  accent?: string;
 };
 
-export default function StatCard({ label, value, subtitle, color = 'text-brand', valueSize = 'text-4xl' }: Props) {
+function computeDelta(current: number, previous: number): { pct: string; up: boolean; neutral: boolean } {
+  if (previous === 0) return { pct: '—', up: true, neutral: true };
+  const change = ((current - previous) / previous) * 100;
+  return {
+    pct: `${change >= 0 ? '+' : ''}${change.toFixed(0)}%`,
+    up: change >= 0,
+    neutral: Math.abs(change) < 1,
+  };
+}
+
+export default function StatCard({ label, value, subtitle, color = 'text-brand', valueSize, previousValue, compareLabel, sparklineData, sparklineColor, accent }: Props) {
   const { lang } = useLang();
   const isRtl = lang === 'ar';
 
+  const autoSize = valueSize ?? (() => {
+    const len = String(value).length;
+    if (len <= 3) return 'text-3xl md:text-4xl';
+    if (len <= 6) return 'text-2xl md:text-3xl';
+    return 'text-xl md:text-2xl';
+  })();
+
+  const numericValue = typeof value === 'number' ? value : parseFloat(String(value).replace(/[^0-9.-]/g, ''));
+  const hasDelta = previousValue !== undefined && !isNaN(numericValue);
+  const delta = hasDelta ? computeDelta(numericValue, previousValue) : null;
+  const hasSparkline = sparklineData && sparklineData.length >= 2;
+
   return (
-    <div className="flex flex-col justify-between border-2 border-border bg-card p-4 min-h-[100px] shadow-[6px_6px_0_#000000]">
-      {/* Label — top-left (EN) or top-right (AR) */}
-      <p className="text-xs text-muted-foreground" style={{ textAlign: isRtl ? 'right' : 'left' }}>
-        {label}
-      </p>
-      {/* Value — bottom-right (EN) or bottom-left (AR) */}
-      <div className="flex flex-col" style={{ alignItems: isRtl ? 'flex-start' : 'flex-end' }}>
-        <p className={`font-stat ${valueSize} leading-none tracking-wide ${color}`}>{value}</p>
-        {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
+    <div
+      className={`flex flex-col h-full border-2 border-border bg-card shadow-[6px_6px_0_#000000] overflow-hidden ${accent ? `border-s-[3px] ${accent}` : ''}`}
+      dir={isRtl ? 'rtl' : 'ltr'}
+    >
+      <div className="flex flex-col justify-between p-4 pb-2 flex-1">
+        {/* Label — top start */}
+        <p className="text-xs text-muted-foreground text-start">
+          {label}
+        </p>
+
+        {/* Value — bottom end */}
+        <div className="flex flex-col items-end mt-auto">
+          <p className={`font-stat ${autoSize} leading-none tracking-wide ${color}`}>{value}</p>
+
+          {/* Delta pill + compare label — directly under the value */}
+          {delta && !delta.neutral && (
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-semibold border ${
+                delta.up
+                  ? 'text-success border-success/30 bg-success/10'
+                  : 'text-destructive border-destructive/30 bg-destructive/10'
+              }`}>
+                {delta.up ? '↑' : '↓'} {delta.pct}
+              </span>
+              {compareLabel && (
+                <span className="text-[11px] text-muted-foreground/50 hidden sm:inline">{compareLabel}</span>
+              )}
+            </div>
+          )}
+
+          {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
+        </div>
       </div>
+
+      {hasSparkline ? (
+        <div className="h-[32px]">
+          <Sparkline
+            data={sparklineData}
+            theme="midnight"
+            height={32}
+            color={sparklineColor || 'hsl(var(--foreground))'}
+            fill
+          />
+        </div>
+      ) : (
+        <div className="h-[8px]" />
+      )}
     </div>
   );
 }

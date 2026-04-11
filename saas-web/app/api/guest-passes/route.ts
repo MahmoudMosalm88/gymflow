@@ -17,6 +17,7 @@ type GuestPassRow = {
   member_name: string;
   phone: string | null;
   amount: string | null;
+  payment_method: "cash" | "digital" | null;
   inviter_member_id: string | null;
   inviter_subscription_id: number | null;
   inviter_name: string | null;
@@ -35,6 +36,7 @@ function generateCode() {
 
 async function ensureGuestPassColumns() {
   await query(`ALTER TABLE guest_passes ADD COLUMN IF NOT EXISTS amount NUMERIC(12,2)`);
+  await query(`ALTER TABLE guest_passes ADD COLUMN IF NOT EXISTS payment_method TEXT`);
   await query(`ALTER TABLE guest_passes ADD COLUMN IF NOT EXISTS inviter_member_id uuid REFERENCES members(id) ON DELETE SET NULL`);
   await query(`ALTER TABLE guest_passes ADD COLUMN IF NOT EXISTS inviter_subscription_id bigint REFERENCES subscriptions(id) ON DELETE SET NULL`);
   await query(`ALTER TABLE guest_passes ADD COLUMN IF NOT EXISTS voided_at timestamptz`);
@@ -42,6 +44,8 @@ async function ensureGuestPassColumns() {
   await query(`ALTER TABLE guest_passes ADD COLUMN IF NOT EXISTS converted_at timestamptz`);
   await query(`CREATE INDEX IF NOT EXISTS idx_guest_passes_inviter_cycle ON guest_passes (organization_id, branch_id, inviter_subscription_id, created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_guest_passes_inviter_member ON guest_passes (organization_id, branch_id, inviter_member_id, created_at DESC)`);
+  await query(`ALTER TABLE guest_passes DROP CONSTRAINT IF EXISTS guest_passes_payment_method_check`);
+  await query(`ALTER TABLE guest_passes ADD CONSTRAINT guest_passes_payment_method_check CHECK (payment_method IN ('cash', 'digital') OR payment_method IS NULL)`);
 }
 
 async function selectGuestPass(
@@ -56,6 +60,7 @@ async function selectGuestPass(
             gp.member_name,
             gp.phone,
             gp.amount,
+            gp.payment_method,
             gp.inviter_member_id,
             gp.inviter_subscription_id,
             inviter.name AS inviter_name,
@@ -94,6 +99,7 @@ export async function GET(request: NextRequest) {
               gp.member_name,
               gp.phone,
               gp.amount,
+              gp.payment_method,
               gp.inviter_member_id,
               gp.inviter_subscription_id,
               inviter.name AS inviter_name,
@@ -133,6 +139,7 @@ export async function POST(request: NextRequest) {
       member_name?: string;
       phone?: string;
       amount?: number;
+      payment_method?: "cash" | "digital";
       expires_at?: string;
       inviter_member_id?: string;
     };
@@ -192,11 +199,12 @@ export async function POST(request: NextRequest) {
             member_name,
             phone,
             amount,
+            payment_method,
             inviter_member_id,
             inviter_subscription_id,
             expires_at
          ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
          )
          RETURNING id`,
         [
@@ -207,6 +215,7 @@ export async function POST(request: NextRequest) {
           memberName,
           body.phone || null,
           amount,
+          body.payment_method ?? null,
           inviterMemberId,
           inviterSubscriptionId,
           expiresAt.toISOString(),

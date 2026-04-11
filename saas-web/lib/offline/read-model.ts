@@ -16,6 +16,7 @@ import type {
   OfflineSubscription,
 } from "./db";
 import { getCurrentSubscriptionAccessReferenceUnix, toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
+import { getCairoDayStartUnix, getCairoHour } from "@/lib/cairo-time";
 
 export type OfflineMemberListItem = Pick<OfflineMember, "id" | "name" | "phone" | "gender" | "card_code" | "created_at" | "sync_status" | "last_error"> & {
   sub_status: "active" | "expired" | "no_sub";
@@ -74,8 +75,7 @@ function nowUnix() {
 }
 
 function startOfTodayUnix() {
-  const now = new Date();
-  return Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 1000;
+  return getCairoDayStartUnix();
 }
 
 export function deriveSubscriptionStatus(sub: Pick<OfflineSubscription, "is_active" | "start_date" | "end_date">): "active" | "pending" | "expired" | "inactive" {
@@ -332,6 +332,23 @@ export async function getCachedRecentActivity(limit = 20): Promise<OfflineActivi
       member_name: item.member_name,
       sync_status: item.sync_status,
     }));
+}
+
+export async function getCachedTodayHourlyBars() {
+  const logs = await getAllAttendanceLogs();
+  const todayStart = startOfTodayUnix();
+  const bars = Array.from({ length: 24 }, (_, hour) => ({ hour, count: 0 }));
+
+  for (const item of logs) {
+    if (item.status !== "success") continue;
+    if (item.timestamp < todayStart || item.timestamp >= todayStart + 86400) continue;
+    const hour = getCairoHour(new Date(item.timestamp * 1000));
+    if (hour >= 0 && hour < 24) {
+      bars[hour].count += 1;
+    }
+  }
+
+  return bars;
 }
 
 export async function getCachedIncomeSummary() {

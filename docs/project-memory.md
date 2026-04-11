@@ -1,7 +1,7 @@
 # GymFlow — Project Memory (Source of Truth)
 
 > Single living document. Combines git history, session logs, and all docs into one timeline.
-> Any new task should start here. Last updated: **April 6, 2026**.
+> Any new task should start here. Last updated: **April 3, 2026**.
 
 ---
 
@@ -1379,14 +1379,6 @@ The reports revamp roadmap is now implemented for all owner-facing report items 
 - the reports revamp is now much closer to an owner operating cockpit than the earlier basic chart page
 - PT/staff scorecards remain deferred because their upstream feature set is still paused
 
-### 2026-04-06 — Chrome Extension Approval + Sign-In Recovery
-
-- The latest Chrome extension version was approved in the Chrome Web Store.
-- Current owner report:
-  - sign-in is now working correctly again in the approved extension build
-- This closes the immediate extension-auth concern for the last submitted version.
-- Follow-up implication:
-  - future extension auth issues should now be treated as new regressions, not unresolved carry-over from the previously pending store review state
 
 ### 2026-04-06 — Subscription Hotfix Cloud Build Failure Lesson
 
@@ -1490,3 +1482,64 @@ The reports revamp roadmap is now implemented for all owner-facing report items 
 - Any new WhatsApp lifecycle automation must ship behind its own explicit setting, default `off`.
 - `whatsapp_automation_enabled` is too broad for new behavioral sequences.
 - Web deploy verification is not enough for WhatsApp incidents; the VM worker runtime must be checked separately.
+
+## 2026-04-07 (WhatsApp P0) — Sarhan Gym worker queue blocked by `FOR UPDATE` + `LEFT JOIN`
+
+**User request**:
+- Check Sarhan Gym WhatsApp worker status after delivery issues.
+
+**Live status before fix**:
+- VM `gymflow-whatsapp-worker-spot` was `RUNNING`.
+- `gymflow-whatsapp-worker.service` was `active (running)`.
+- Sarhan branch WhatsApp session was still connected:
+  - organization `513d429c-34ce-4dfa-8022-8be2f474cc5b`
+  - branch `614cff5a-78cd-4a95-8f18-3191f61922cf`
+  - phone `201208377611:11@s.whatsapp.net`
+- But the queue loop was failing continuously, so pending messages were not draining.
+
+**Exact live error**:
+- `FOR UPDATE cannot be applied to the nullable side of an outer join`
+
+**Root cause**:
+- In `saas-web/worker/whatsapp-vm/src/index.ts`, `processTenantQueue()` selected queue rows with:
+  - `FROM message_queue mq`
+  - `LEFT JOIN members m ON m.id = mq.member_id`
+  - trailing `FOR UPDATE SKIP LOCKED`
+- PostgreSQL rejects that pattern because `FOR UPDATE` without an explicit target can apply to the nullable side of the outer join.
+
+**Correct fix**:
+- Lock only the queue table:
+  - changed `FOR UPDATE SKIP LOCKED`
+  - to `FOR UPDATE OF mq SKIP LOCKED`
+
+**Live mitigation applied immediately**:
+- Patched the VM runtime file directly:
+  - `/opt/gymflow-whatsapp-worker/dist/index.js`
+- Restarted:
+  - `gymflow-whatsapp-worker.service`
+
+**Post-fix verification**:
+- Worker restarted cleanly.
+- Sarhan branch reconnected successfully after restart.
+- Live logs showed queue processing resumed:
+  - `sent queue=... type=welcome jid=201201008510@s.whatsapp.net`
+  - `sent queue=... type=welcome jid=201288834079@s.whatsapp.net`
+- The runtime on the VM now contains:
+  - `FOR UPDATE OF mq SKIP LOCKED`
+
+**Source-of-truth fix pushed**:
+- commit `cb79b9b`
+- message: `fix(whatsapp): lock queue rows without outer join error`
+
+**Prevention rule going forward**:
+1. Never use bare `FOR UPDATE` / `FOR UPDATE SKIP LOCKED` on a query that includes `LEFT JOIN`.
+2. If row locking is needed in a joined query, always specify the lock target explicitly:
+   - `FOR UPDATE OF <base_table_alias> SKIP LOCKED`
+3. Prefer a two-step queue pattern for workers:
+   - first lock queue IDs from the base queue table only
+   - then join supporting tables in a second read if needed
+4. Any worker SQL that mixes queue locking and joins should be tested against real PostgreSQL semantics, not assumed from TypeScript correctness.
+5. For WhatsApp incidents, verify all three layers separately:
+   - session state (`connected` / `qrCode`)
+   - queue health (`pending` vs draining)
+   - worker logs (`journalctl`)

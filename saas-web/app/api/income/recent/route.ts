@@ -10,11 +10,12 @@ export const dynamic = "force-dynamic";
 type PaymentItem = {
   id: number | string;
   date: string;
-  type: "subscription" | "renewal" | "guest_pass";
+  type: "subscription" | "renewal" | "guest_pass" | "pt_package";
   name: string;
   amount: number;
   planMonths: number;
   sessionsPerMonth: number | null;
+  packageTitle?: string | null;
 };
 
 function toMillis(input: unknown): number {
@@ -52,7 +53,8 @@ export async function GET(request: NextRequest) {
               member_name,
               amount,
               plan_months,
-              sessions_per_month
+              sessions_per_month,
+              package_title
          FROM income_events
         ORDER BY effective_at DESC`,
       [organizationId, branchId]
@@ -66,6 +68,7 @@ export async function GET(request: NextRequest) {
       amount: Number(row.amount || 0),
       planMonths: Number(row.plan_months || 0),
       sessionsPerMonth: row.sessions_per_month,
+      packageTitle: row.package_title ?? null,
     }));
 
     payments.sort((a, b) => toMillis(b.date) - toMillis(a.date));

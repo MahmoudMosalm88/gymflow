@@ -46,6 +46,78 @@ CREATE TABLE IF NOT EXISTS owner_branch_access (
   PRIMARY KEY (owner_id, branch_id)
 );
 
+CREATE TABLE IF NOT EXISTS staff_users (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  branch_id uuid NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+  firebase_uid text UNIQUE,
+  name text NOT NULL,
+  title text,
+  email text,
+  phone text NOT NULL,
+  role text NOT NULL CHECK (role IN ('manager', 'staff', 'trainer')),
+  is_active boolean NOT NULL DEFAULT true,
+  invited_at timestamptz,
+  accepted_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_staff_users_phone_unique
+  ON staff_users (organization_id, branch_id, phone);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_staff_users_email_unique_not_null
+  ON staff_users (organization_id, branch_id, LOWER(email))
+  WHERE email IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_staff_users_role
+  ON staff_users (organization_id, branch_id, role, is_active, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS staff_profiles (
+  staff_user_id uuid PRIMARY KEY REFERENCES staff_users(id) ON DELETE CASCADE,
+  gender text CHECK (gender IN ('male', 'female')),
+  languages text[] NOT NULL DEFAULT '{}'::text[],
+  specialties text[] NOT NULL DEFAULT '{}'::text[],
+  certifications text[] NOT NULL DEFAULT '{}'::text[],
+  bio text,
+  beginner_friendly boolean NOT NULL DEFAULT false,
+  photo_path text,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS staff_permission_overrides (
+  id uuid PRIMARY KEY,
+  staff_user_id uuid NOT NULL REFERENCES staff_users(id) ON DELETE CASCADE,
+  permission_key text NOT NULL,
+  effect text NOT NULL CHECK (effect IN ('allow', 'deny')),
+  created_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_staff_permission_overrides_unique
+  ON staff_permission_overrides (staff_user_id, permission_key);
+
+CREATE TABLE IF NOT EXISTS staff_invites (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  branch_id uuid NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+  staff_user_id uuid NOT NULL REFERENCES staff_users(id) ON DELETE CASCADE,
+  token text NOT NULL UNIQUE,
+  phone text NOT NULL,
+  sent_via text NOT NULL CHECK (sent_via IN ('whatsapp')),
+  status text NOT NULL CHECK (status IN ('pending', 'sent', 'opened', 'accepted', 'cancelled', 'expired')),
+  expires_at timestamptz NOT NULL,
+  opened_at timestamptz,
+  accepted_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_staff_invites_lookup
+  ON staff_invites (token, status, expires_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_staff_invites_staff
+  ON staff_invites (staff_user_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS members (
   id uuid PRIMARY KEY,
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -67,7 +139,120 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_members_branch_card_code
   WHERE card_code IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_members_branch_phone ON members (organization_id, branch_id, phone);
+
+CREATE TABLE IF NOT EXISTS member_trainer_assignments (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  branch_id uuid NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+  member_id uuid NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  trainer_staff_user_id uuid NOT NULL REFERENCES staff_users(id) ON DELETE CASCADE,
+  assigned_by_actor_type text NOT NULL CHECK (assigned_by_actor_type IN ('owner', 'staff')),
+  assigned_by_actor_id uuid NOT NULL,
+  assigned_at timestamptz NOT NULL DEFAULT NOW(),
+  unassigned_at timestamptz,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_member_trainer_assignments_active_member
+  ON member_trainer_assignments (organization_id, branch_id, member_id)
+  WHERE is_active = true;
+
+CREATE INDEX IF NOT EXISTS idx_member_trainer_assignments_trainer
+  ON member_trainer_assignments (organization_id, branch_id, trainer_staff_user_id, is_active, assigned_at DESC);
 CREATE INDEX IF NOT EXISTS idx_members_branch_name ON members (organization_id, branch_id, name);
+
+CREATE TABLE IF NOT EXISTS pt_packages (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  branch_id uuid NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+  member_id uuid NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  assigned_trainer_staff_user_id uuid NOT NULL REFERENCES staff_users(id) ON DELETE RESTRICT,
+  sold_by_actor_type text NOT NULL CHECK (sold_by_actor_type IN ('owner', 'staff')),
+  sold_by_actor_id uuid NOT NULL,
+  title text NOT NULL,
+  total_sessions integer NOT NULL CHECK (total_sessions > 0),
+  sessions_used integer NOT NULL DEFAULT 0 CHECK (sessions_used >= 0),
+  price_paid numeric(12, 2) NOT NULL DEFAULT 0,
+  valid_from timestamptz NOT NULL,
+  valid_until timestamptz NOT NULL,
+  status text NOT NULL CHECK (status IN ('active', 'exhausted', 'expired', 'cancelled')),
+  notes text,
+  cancelled_at timestamptz,
+  cancelled_reason text,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW(),
+  CHECK (valid_until >= valid_from),
+  CHECK (sessions_used <= total_sessions)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pt_packages_member
+  ON pt_packages (organization_id, branch_id, member_id, status, valid_until, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_pt_packages_trainer
+  ON pt_packages (organization_id, branch_id, assigned_trainer_staff_user_id, status, valid_until, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS pt_sessions (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  branch_id uuid NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+  package_id uuid NOT NULL REFERENCES pt_packages(id) ON DELETE CASCADE,
+  member_id uuid NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  trainer_staff_user_id uuid NOT NULL REFERENCES staff_users(id) ON DELETE RESTRICT,
+  created_by_actor_type text NOT NULL CHECK (created_by_actor_type IN ('owner', 'staff')),
+  created_by_actor_id uuid NOT NULL,
+  scheduled_start timestamptz NOT NULL,
+  scheduled_end timestamptz NOT NULL,
+  completed_at timestamptz,
+  status text NOT NULL CHECK (status IN ('scheduled', 'completed', 'no_show', 'late_cancel', 'cancelled')),
+  deducts_session boolean NOT NULL DEFAULT false,
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW(),
+  CHECK (scheduled_end > scheduled_start)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pt_sessions_package
+  ON pt_sessions (organization_id, branch_id, package_id, scheduled_start DESC);
+
+CREATE INDEX IF NOT EXISTS idx_pt_sessions_trainer
+  ON pt_sessions (organization_id, branch_id, trainer_staff_user_id, scheduled_start, status);
+
+CREATE INDEX IF NOT EXISTS idx_pt_sessions_member
+  ON pt_sessions (organization_id, branch_id, member_id, scheduled_start DESC, status);
+
+CREATE TABLE IF NOT EXISTS trainer_availability (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  branch_id uuid NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+  trainer_staff_user_id uuid NOT NULL REFERENCES staff_users(id) ON DELETE CASCADE,
+  weekday integer NOT NULL CHECK (weekday BETWEEN 0 AND 6),
+  start_minute integer NOT NULL CHECK (start_minute BETWEEN 0 AND 1439),
+  end_minute integer NOT NULL CHECK (end_minute BETWEEN 1 AND 1440),
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW(),
+  CHECK (end_minute > start_minute)
+);
+
+CREATE INDEX IF NOT EXISTS idx_trainer_availability_lookup
+  ON trainer_availability (organization_id, branch_id, trainer_staff_user_id, weekday, is_active);
+
+CREATE TABLE IF NOT EXISTS trainer_time_off (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  branch_id uuid NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+  trainer_staff_user_id uuid NOT NULL REFERENCES staff_users(id) ON DELETE CASCADE,
+  starts_at timestamptz NOT NULL,
+  ends_at timestamptz NOT NULL,
+  reason text,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  CHECK (ends_at > starts_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_trainer_time_off_lookup
+  ON trainer_time_off (organization_id, branch_id, trainer_staff_user_id, starts_at, ends_at);
 
 CREATE TABLE IF NOT EXISTS subscriptions (
   id bigserial PRIMARY KEY,
@@ -79,6 +264,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   end_date bigint NOT NULL,
   plan_months integer NOT NULL,
   price_paid numeric(12, 2),
+  payment_method text CHECK (payment_method IN ('cash', 'digital')),
   sessions_per_month integer,
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT NOW()
@@ -158,6 +344,24 @@ CREATE TABLE IF NOT EXISTS settings (
   PRIMARY KEY (organization_id, branch_id, key)
 );
 
+INSERT INTO settings (organization_id, branch_id, key, value, updated_at)
+SELECT organization_id,
+       id AS branch_id,
+       defaults.key,
+       defaults.value,
+       NOW()
+  FROM branches
+ CROSS JOIN (
+   VALUES
+     ('pt_session_default_minutes', '60'::jsonb),
+     ('pt_no_show_deducts', 'true'::jsonb),
+     ('pt_late_cancel_deducts', 'true'::jsonb),
+     ('pt_low_balance_threshold_sessions', '2'::jsonb),
+     ('pt_expiry_warning_days', '3'::jsonb),
+     ('pt_reminder_hours_before', '24'::jsonb)
+ ) AS defaults(key, value)
+ON CONFLICT (organization_id, branch_id, key) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS guest_passes (
   id uuid PRIMARY KEY,
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -165,6 +369,7 @@ CREATE TABLE IF NOT EXISTS guest_passes (
   code text NOT NULL,
   member_name text NOT NULL,
   phone text,
+  payment_method text CHECK (payment_method IN ('cash', 'digital')),
   inviter_member_id uuid REFERENCES members(id) ON DELETE SET NULL,
   inviter_subscription_id bigint REFERENCES subscriptions(id) ON DELETE SET NULL,
   expires_at timestamptz NOT NULL,
@@ -220,8 +425,10 @@ CREATE TABLE IF NOT EXISTS message_queue (
   id uuid PRIMARY KEY,
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   branch_id uuid NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
-  member_id uuid NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  member_id uuid REFERENCES members(id) ON DELETE CASCADE,
   campaign_id uuid REFERENCES whatsapp_campaigns(id) ON DELETE SET NULL,
+  target_phone text,
+  target_name text,
   type text NOT NULL,
   payload jsonb NOT NULL,
   status text NOT NULL CHECK (status IN ('pending', 'processing', 'sent', 'failed')),
@@ -242,6 +449,15 @@ ALTER TABLE message_queue
 
 ALTER TABLE message_queue
   ADD COLUMN IF NOT EXISTS provider_message_id text;
+
+ALTER TABLE message_queue
+  ADD COLUMN IF NOT EXISTS target_phone text;
+
+ALTER TABLE message_queue
+  ADD COLUMN IF NOT EXISTS target_name text;
+
+ALTER TABLE message_queue
+  ALTER COLUMN member_id DROP NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_message_queue_ready
   ON message_queue (organization_id, branch_id, status, scheduled_at);
@@ -336,3 +552,28 @@ CREATE TABLE IF NOT EXISTS migration_jobs (
   finished_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS payments (
+  id SERIAL PRIMARY KEY,
+  organization_id UUID NOT NULL,
+  branch_id UUID NOT NULL,
+  member_id UUID NOT NULL,
+  amount NUMERIC(12, 2) NOT NULL,
+  type TEXT NOT NULL DEFAULT 'subscription',
+  subscription_id INT,
+  guest_pass_id UUID,
+  pt_package_id uuid REFERENCES pt_packages(id) ON DELETE SET NULL,
+  payment_method TEXT,
+  note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_method TEXT;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS pt_package_id uuid REFERENCES pt_packages(id) ON DELETE SET NULL;
+
+ALTER TABLE payments
+  DROP CONSTRAINT IF EXISTS payments_payment_method_check;
+
+ALTER TABLE payments
+  ADD CONSTRAINT payments_payment_method_check
+  CHECK (payment_method IN ('cash', 'digital') OR payment_method IS NULL);

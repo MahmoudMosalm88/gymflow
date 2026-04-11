@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 type ParsedPaymentId =
   | { kind: "subscription"; id: number }
   | { kind: "renewal"; id: number }
+  | { kind: "pt_package"; id: string }
   | { kind: "guest_pass"; id: string };
 
 function isUuid(value: string) {
@@ -34,7 +35,7 @@ function parsePaymentId(raw: string): ParsedPaymentId | null {
     return { kind, id: numericId };
   }
 
-  if (kind === "guest_pass" && isUuid(id)) {
+  if ((kind === "guest_pass" || kind === "pt_package") && isUuid(id)) {
     return { kind, id };
   }
 
@@ -68,10 +69,16 @@ export async function PATCH(
     const parsedId = parsePaymentId(String(params.id || ""));
     if (!parsedId) return fail("Invalid payment id.", 400);
 
-    const payload = (await request.json()) as { amount?: unknown; date?: unknown };
+    const payload = (await request.json()) as { amount?: unknown; date?: unknown; payment_method?: unknown };
+    const nextMethodRaw = payload.payment_method;
+    const nextMethod = nextMethodRaw === "cash" || nextMethodRaw === "digital" ? nextMethodRaw : nextMethodRaw == null ? null : undefined;
+    if (nextMethodRaw !== undefined && nextMethod === undefined) {
+      return fail("Payment method must be cash or digital.", 400);
+    }
     const hasAmount = payload.amount !== undefined;
     const hasDate = payload.date !== undefined;
-    if (!hasAmount && !hasDate) return fail("Nothing to update.", 400);
+    const hasMethod = nextMethod !== undefined;
+    if (!hasAmount && !hasDate && !hasMethod) return fail("Nothing to update.", 400);
 
     const nextAmount =
       hasAmount && payload.amount !== null
@@ -90,17 +97,35 @@ export async function PATCH(
       const rows = await query(
         `UPDATE guest_passes
             SET amount = COALESCE($4::numeric, amount),
-                used_at = COALESCE($5::timestamptz, used_at)
+                used_at = COALESCE($5::timestamptz, used_at),
+                payment_method = COALESCE($6::text, payment_method)
           WHERE id = $1
             AND organization_id = $2
             AND branch_id = $3
             AND used_at IS NOT NULL
             AND amount IS NOT NULL
         RETURNING id`,
-        [parsedId.id, auth.organizationId, auth.branchId, nextAmount ?? null, nextDate?.toISOString() ?? null]
+        [parsedId.id, auth.organizationId, auth.branchId, nextAmount ?? null, nextDate?.toISOString() ?? null, nextMethod]
       );
       if (!rows[0]) return fail("Payment not found.", 404);
       return ok({ id: `guest_pass:${parsedId.id}`, type: "guest_pass", updated: true });
+    }
+
+    if (parsedId.kind === "pt_package") {
+      const rows = await query(
+        `UPDATE payments
+            SET amount = COALESCE($4::numeric, amount),
+                created_at = COALESCE($5::timestamptz, created_at),
+                payment_method = COALESCE($6::text, payment_method)
+          WHERE pt_package_id = $1
+            AND organization_id = $2
+            AND branch_id = $3
+            AND type = 'pt_package'
+        RETURNING pt_package_id`,
+        [parsedId.id, auth.organizationId, auth.branchId, nextAmount ?? null, nextDate?.toISOString() ?? null, nextMethod]
+      );
+      if (!rows[0]) return fail("Payment not found.", 404);
+      return ok({ id: `pt_package:${parsedId.id}`, type: "pt_package", updated: true });
     }
 
     if (parsedId.kind === "renewal") {
@@ -128,12 +153,13 @@ export async function PATCH(
         await client.query(
           `UPDATE payments
               SET amount = $4::numeric,
-                  created_at = COALESCE($5::timestamptz, created_at)
+                  created_at = COALESCE($5::timestamptz, created_at),
+                  payment_method = COALESCE($6::text, payment_method)
             WHERE id = $1
               AND organization_id = $2
               AND branch_id = $3
               AND type = 'renewal'`,
-          [parsedId.id, auth.organizationId, auth.branchId, amountToWrite, nextDate?.toISOString() ?? null]
+          [parsedId.id, auth.organizationId, auth.branchId, amountToWrite, nextDate?.toISOString() ?? null, nextMethod]
         );
 
         if (current.subscription_id && amountDelta !== 0) {
@@ -174,12 +200,13 @@ export async function PATCH(
     const rows = await query(
       `UPDATE subscriptions
           SET price_paid = $4::numeric,
-              created_at = COALESCE($5::timestamptz, created_at)
+              created_at = COALESCE($5::timestamptz, created_at),
+              payment_method = COALESCE($6::text, payment_method)
         WHERE id = $1
           AND organization_id = $2
           AND branch_id = $3
       RETURNING id`,
-      [parsedId.id, auth.organizationId, auth.branchId, nextTotal, nextDate?.toISOString() ?? null]
+      [parsedId.id, auth.organizationId, auth.branchId, nextTotal, nextDate?.toISOString() ?? null, nextMethod]
     );
     if (!rows[0]) return fail("Payment not found.", 404);
     return ok({ id: `subscription:${parsedId.id}`, type: "subscription", updated: true });
@@ -211,6 +238,20 @@ export async function DELETE(
       );
       if (!rows[0]) return fail("Payment not found.", 404);
       return ok({ id: `guest_pass:${parsedId.id}`, type: "guest_pass", deleted: true });
+    }
+
+    if (parsedId.kind === "pt_package") {
+      const rows = await query(
+        `DELETE FROM payments
+          WHERE pt_package_id = $1
+            AND organization_id = $2
+            AND branch_id = $3
+            AND type = 'pt_package'
+        RETURNING pt_package_id`,
+        [parsedId.id, auth.organizationId, auth.branchId]
+      );
+      if (!rows[0]) return fail("Payment not found.", 404);
+      return ok({ id: `pt_package:${parsedId.id}`, type: "pt_package", deleted: true });
     }
 
     if (parsedId.kind === "renewal") {

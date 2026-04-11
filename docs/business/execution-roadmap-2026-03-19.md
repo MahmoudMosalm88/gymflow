@@ -162,36 +162,9 @@ Verified outcomes:
    - last successful send per branch
    - repeated failure grouping
 
-## Next Ship To-Do
+## Remaining Shipping Backlog
 
-These items were explicitly requested for the next shipping backlog.
-
-1. Guest invite tracking
-Reason: gym owners need to know which member brought each guest, how many guest invites were used, and how many are still remaining.
-
-Status: implemented in the SaaS MVP on 2026-04-03
-
-Delivered:
-- link each guest pass to an inviting member
-- link each invite to the inviting member's active subscription cycle
-- branch-level guest invite allowance per cycle
-- remaining guest invite balance per member
-- member-page guest invite history
-- guest-pass conversion tracking
-- void flow that restores balance only for mistaken passes
-
-Later phase:
-- invite analytics and conversion reporting
-- per-plan invite entitlements
-- richer guest invite operational tooling
-- guest invite reporting surfaces
-
-Spec:
-- `docs/features/guest-invite-tracking.md`
-
-Priority: shipped in current batch
-
-2. Income report by plan type
+1. Income report by plan type
 Reason: owners need to understand revenue split by plan shape, not just total income.
 
 Scope:
@@ -199,6 +172,17 @@ Scope:
 - show totals by plan bucket
 - make sure renewed cycles are classified correctly under the new cycle-based subscription model
 - keep this aligned with the canonical income event model
+
+Priority: high
+
+2. Fully working offline mode
+Reason: GymFlow should work offline beyond scans, not just for QR check-in.
+
+Scope:
+- cache the essential dashboard reads needed for front-desk use
+- queue member and payment actions safely while offline
+- show clear sync status and recovery behavior
+- keep offline behavior consistent across app surfaces, not only scanning
 
 Priority: high
 

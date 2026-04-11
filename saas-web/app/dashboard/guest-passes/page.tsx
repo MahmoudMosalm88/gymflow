@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -110,6 +111,7 @@ export default function GuestPassesPage() {
 
   const [rows, setRows] = useState<GuestPass[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionId, setActionId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [policySaving, setPolicySaving] = useState(false);
   const [inviterSearching, setInviterSearching] = useState(false);
@@ -123,20 +125,24 @@ export default function GuestPassesPage() {
   const [selectedInviterSummary, setSelectedInviterSummary] = useState<GuestInviteSummary | null>(null);
 
   const load = useCallback(async () => {
-    const [passesRes, settingsRes] = await Promise.all([
-      api.get<GuestPass[]>('/api/guest-passes'),
-      api.get<SettingsPayload>('/api/settings'),
-    ]);
+    try {
+      const [passesRes, settingsRes] = await Promise.all([
+        api.get<GuestPass[]>('/api/guest-passes'),
+        api.get<SettingsPayload>('/api/settings'),
+      ]);
 
-    if (passesRes.success && passesRes.data) {
-      setRows(passesRes.data);
-    }
+      if (passesRes.success && passesRes.data) {
+        setRows(passesRes.data);
+      }
 
-    if (settingsRes.success && settingsRes.data) {
-      const configured = settingsRes.data.guest_invites_per_cycle;
-      setAllowanceInput(String(typeof configured === 'number' ? configured : 1));
+      if (settingsRes.success && settingsRes.data) {
+        const configured = settingsRes.data.guest_invites_per_cycle;
+        setAllowanceInput(String(typeof configured === 'number' ? configured : 1));
+      }
+    } catch {
+      toast.error(lang === 'ar' ? 'فشل تحميل التصاريح.' : 'Failed to load guest passes.');
     }
-  }, []);
+  }, [lang]);
 
   const loadInviterSummary = useCallback(async (memberId: string) => {
     const res = await api.get<GuestInviteSummary>(`/api/members/${memberId}/guest-invites`);
@@ -210,9 +216,16 @@ export default function GuestPassesPage() {
           guest_invites_per_cycle: Math.floor(parsed),
         },
       });
-      if (res.success && selectedInviterId) {
-        await loadInviterSummary(selectedInviterId);
+      if (res.success) {
+        toast.success(lang === 'ar' ? 'تم حفظ السياسة.' : 'Policy saved.');
+        if (selectedInviterId) {
+          await loadInviterSummary(selectedInviterId);
+        }
+      } else {
+        toast.error(lang === 'ar' ? 'فشل حفظ السياسة.' : 'Failed to save policy.');
       }
+    } catch {
+      toast.error(lang === 'ar' ? 'فشل حفظ السياسة.' : 'Failed to save policy.');
     } finally {
       setPolicySaving(false);
     }
@@ -251,18 +264,32 @@ export default function GuestPassesPage() {
   }
 
   async function markUsed(id: string) {
-    await api.patch('/api/guest-passes', { id, mark_used: true });
-    await load();
-    if (selectedInviterId) {
-      await loadInviterSummary(selectedInviterId);
+    if (actionId) return;
+    setActionId(id);
+    try {
+      const res = await api.patch('/api/guest-passes', { id, mark_used: true });
+      if (!res.success) throw new Error();
+      await load();
+      if (selectedInviterId) await loadInviterSummary(selectedInviterId);
+    } catch {
+      toast.error(lang === 'ar' ? 'فشل تحديث التصريح.' : 'Failed to mark pass as used.');
+    } finally {
+      setActionId(null);
     }
   }
 
   async function voidPass(id: string) {
-    await api.patch('/api/guest-passes', { id, void_pass: true });
-    await load();
-    if (selectedInviterId) {
-      await loadInviterSummary(selectedInviterId);
+    if (actionId) return;
+    setActionId(id);
+    try {
+      const res = await api.patch('/api/guest-passes', { id, void_pass: true });
+      if (!res.success) throw new Error();
+      await load();
+      if (selectedInviterId) await loadInviterSummary(selectedInviterId);
+    } catch {
+      toast.error(lang === 'ar' ? 'فشل إلغاء التصريح.' : 'Failed to void pass.');
+    } finally {
+      setActionId(null);
     }
   }
 
@@ -272,7 +299,7 @@ export default function GuestPassesPage() {
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-      <h1 className="text-3xl font-bold">{labels.guest_passes}</h1>
+      <h1 className="text-2xl font-heading font-bold tracking-tight">{labels.guest_passes}</h1>
 
       <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
         <Card>
@@ -444,19 +471,19 @@ export default function GuestPassesPage() {
                     <TableCell>{row.member_name}</TableCell>
                     <TableCell>{row.inviter_name || '—'}</TableCell>
                     <TableCell dir="ltr">{row.phone || '-'}</TableCell>
-                    <TableCell>{row.amount ? formatCurrency(Number(row.amount)) : '-'}</TableCell>
+                    <TableCell className="tabular-nums">{row.amount ? formatCurrency(Number(row.amount)) : '-'}</TableCell>
                     <TableCell>
                       <Badge className={status.className}>{status.label}</Badge>
                     </TableCell>
                     <TableCell className="text-end">
                       <div className="flex flex-wrap gap-2 justify-end">
                         {!row.used_at && !row.voided_at && !row.converted_at && (
-                          <Button size="sm" variant="outline" onClick={() => markUsed(row.id)}>
+                          <Button size="sm" variant="outline" disabled={actionId === row.id} onClick={() => markUsed(row.id)}>
                             {labels.mark_used}
                           </Button>
                         )}
                         {!row.used_at && !row.voided_at && !row.converted_at && (
-                          <Button size="sm" variant="ghost" onClick={() => voidPass(row.id)}>
+                          <Button size="sm" variant="ghost" disabled={actionId === row.id} onClick={() => voidPass(row.id)}>
                             {lang === 'ar' ? 'إلغاء' : 'Void'}
                           </Button>
                         )}

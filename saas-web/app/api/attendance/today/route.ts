@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
+import { getCairoDayStartUnix } from "@/lib/cairo-time";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,8 +12,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
-    const now = Math.floor(Date.now() / 1000);
-    const startOfDay = now - (now % 86400);
+    const startOfDay = getCairoDayStartUnix();
 
     const rows = await query<{
       id: string;

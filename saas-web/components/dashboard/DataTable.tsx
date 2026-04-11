@@ -45,7 +45,7 @@ export default function DataTable({ columns, data, searchable, onRowClick, empty
         />
       )}
 
-      <div className="border-2 border-[#2a2a2a] overflow-hidden">
+      <div className="border-2 border-[#2a2a2a] overflow-x-auto">
         <table className="w-full text-sm" dir={isRtl ? 'rtl' : 'ltr'}>
 
           {/* Header — dark sidebar background, uppercase muted labels */}
@@ -87,7 +87,7 @@ export default function DataTable({ columns, data, searchable, onRowClick, empty
                   {columns.map((col) => (
                     <td
                       key={col.key}
-                      className={`px-4 py-3 text-[#e8e4df] ${col.className || ''}`}
+                      className={`px-4 py-3 text-[#e8e4df] tabular-nums ${col.className || ''}`}
                     >
                       {col.render ? col.render(row) : row[col.key]}
                     </td>

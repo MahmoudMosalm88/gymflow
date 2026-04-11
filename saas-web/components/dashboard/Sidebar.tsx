@@ -3,6 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLang, t } from '@/lib/i18n';
+import GymFlowLogo from '@/components/GymFlowLogo';
+import { useAuth } from '@/lib/use-auth';
+import { getNavKeysForRole } from '@/lib/permissions';
 
 type Props = {
   open: boolean;
@@ -31,6 +34,29 @@ const navItems = [
         <path d="M2 17c0-3 2.5-5 5-5s5 2 5 5" />
         <circle cx="14" cy="7" r="2" />
         <path d="M14 12c2 0 4 1.5 4 4" />
+      </svg>
+    ),
+  },
+  {
+    key: 'guest_passes' as const,
+    href: '/dashboard/guest-passes',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" strokeLinejoin="miter">
+        <rect x="3" y="4" width="14" height="10" rx="0" />
+        <path d="M7 8h6" />
+        <path d="M10 4v10" />
+      </svg>
+    ),
+  },
+  {
+    key: 'pt' as const,
+    href: '/dashboard/pt',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 16V9" />
+        <path d="M10 16V4" />
+        <path d="M16 16v-6" />
+        <path d="M2 16h16" />
       </svg>
     ),
   },
@@ -71,6 +97,20 @@ const navItems = [
     ),
   },
   {
+    key: 'whatsapp' as const,
+    href: '/dashboard/whatsapp',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="4" cy="10" r="2" />
+        <circle cx="16" cy="4" r="2" />
+        <circle cx="16" cy="16" r="2" />
+        <path d="M6 10h4" />
+        <path d="M10 10l4-4.5" />
+        <path d="M10 10l4 4.5" />
+      </svg>
+    ),
+  },
+  {
     key: 'notifications' as const,
     href: '/dashboard/notifications',
     icon: (
@@ -105,13 +145,15 @@ const navItems = [
 export default function Sidebar({ open, onClose }: Props) {
   const pathname = usePathname();
   const { lang } = useLang();
+  const { profile } = useAuth();
+  const visibleKeys = getNavKeysForRole(profile?.role || 'owner');
 
   const isActive = (href: string) =>
     href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
 
   const nav = (
     <nav className="flex flex-col gap-1 mt-6 px-3">
-      {navItems.map((item) => {
+      {navItems.filter((item) => visibleKeys.includes(item.key)).map((item) => {
         const active = isActive(item.href);
         return (
           <Link
@@ -144,8 +186,10 @@ export default function Sidebar({ open, onClose }: Props) {
         }`}
       >
         <div className="flex items-center gap-2 px-5 py-5">
-          <span style={{ background: '#e63946', color: '#fff', padding: '4px 7px', fontWeight: 800, fontSize: '0.7rem', lineHeight: 1 }}>GF</span>
-          <span className="font-bold text-white text-sm tracking-tight">GymFlow</span>
+          <div className="w-8 h-8 bg-[#e63946] flex items-center justify-center shrink-0 overflow-hidden">
+            <span className="font-heading text-white leading-none" style={{ fontSize: '22px', letterSpacing: '2px', fontWeight: 900 }}>GF</span>
+          </div>
+          <span className="font-heading font-bold text-white text-sm tracking-tight">GymFlow</span>
         </div>
         {nav}
       </aside>

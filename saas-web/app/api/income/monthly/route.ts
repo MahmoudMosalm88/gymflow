@@ -13,6 +13,7 @@ type MonthRow = {
   count: string;
   subscription_revenue: string;
   guest_revenue: string;
+  pt_revenue: string;
 };
 
 export async function GET(request: NextRequest) {
@@ -26,7 +27,8 @@ export async function GET(request: NextRequest) {
          COALESCE(SUM(amount), 0)::text AS revenue,
          COUNT(*)::text AS count,
          COALESCE(SUM(CASE WHEN payment_type IN ('subscription', 'renewal') THEN amount ELSE 0 END), 0)::text AS subscription_revenue,
-         COALESCE(SUM(CASE WHEN payment_type = 'guest_pass' THEN amount ELSE 0 END), 0)::text AS guest_revenue
+         COALESCE(SUM(CASE WHEN payment_type = 'guest_pass' THEN amount ELSE 0 END), 0)::text AS guest_revenue,
+         COALESCE(SUM(CASE WHEN payment_type = 'pt_package' THEN amount ELSE 0 END), 0)::text AS pt_revenue
        FROM income_events
        GROUP BY month
        ORDER BY month DESC`,
@@ -38,6 +40,7 @@ export async function GET(request: NextRequest) {
       revenue: Number(row.revenue),
       subscriptionRevenue: Number(row.subscription_revenue),
       guestRevenue: Number(row.guest_revenue),
+      ptRevenue: Number(row.pt_revenue),
       count: Number(row.count),
     }));
 

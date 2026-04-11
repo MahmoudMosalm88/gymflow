@@ -11,6 +11,36 @@ WITH renewal_totals AS (
      AND p.subscription_id IS NOT NULL
    GROUP BY p.subscription_id
 ),
+pt_package_events AS (
+  SELECT
+    CONCAT('pt_package:', p.id::text) AS event_id,
+    'pt_package'::text AS payment_type,
+    pay.created_at AS effective_at,
+    pay.amount::numeric(12, 2) AS amount,
+    p.member_id,
+    COALESCE(m.name, 'Unknown client') AS member_name,
+    m.phone,
+    NULL::bigint AS subscription_id,
+    pay.id AS payment_id,
+    NULL::uuid AS guest_pass_id,
+    p.id AS pt_package_id,
+    COALESCE(pay.payment_method, 'unknown')::text AS payment_method,
+    0::int AS plan_months,
+    NULL::int AS sessions_per_month,
+    p.title AS package_title
+  FROM pt_packages p
+  JOIN payments pay
+    ON pay.pt_package_id = p.id
+   AND pay.organization_id = p.organization_id
+   AND pay.branch_id = p.branch_id
+   AND pay.type = 'pt_package'
+  LEFT JOIN members m
+    ON m.id = p.member_id
+   AND m.organization_id = p.organization_id
+   AND m.branch_id = p.branch_id
+  WHERE p.organization_id = $1
+    AND p.branch_id = $2
+),
 subscription_events AS (
   SELECT
     CONCAT('subscription:', s.id::text) AS event_id,
@@ -30,8 +60,11 @@ subscription_events AS (
     s.id AS subscription_id,
     NULL::int AS payment_id,
     NULL::uuid AS guest_pass_id,
+    NULL::uuid AS pt_package_id,
+    COALESCE(s.payment_method, 'unknown')::text AS payment_method,
     s.plan_months::int AS plan_months,
-    s.sessions_per_month::int AS sessions_per_month
+    s.sessions_per_month::int AS sessions_per_month,
+    NULL::text AS package_title
   FROM subscriptions s
   LEFT JOIN renewal_totals rt
     ON rt.subscription_id = s.id
@@ -55,8 +88,11 @@ renewal_events AS (
     p.subscription_id,
     p.id AS payment_id,
     NULL::uuid AS guest_pass_id,
+    NULL::uuid AS pt_package_id,
+    COALESCE(p.payment_method, 'unknown')::text AS payment_method,
     s.plan_months::int AS plan_months,
-    s.sessions_per_month::int AS sessions_per_month
+    s.sessions_per_month::int AS sessions_per_month,
+    NULL::text AS package_title
   FROM payments p
   LEFT JOIN subscriptions s
     ON s.id = p.subscription_id
@@ -82,8 +118,11 @@ guest_pass_events AS (
     NULL::bigint AS subscription_id,
     NULL::int AS payment_id,
     g.id AS guest_pass_id,
+    NULL::uuid AS pt_package_id,
+    COALESCE(g.payment_method, 'unknown')::text AS payment_method,
     0::int AS plan_months,
-    NULL::int AS sessions_per_month
+    NULL::int AS sessions_per_month,
+    NULL::text AS package_title
   FROM guest_passes g
   WHERE g.organization_id = $1
     AND g.branch_id = $2
@@ -99,11 +138,15 @@ income_events AS (
     FROM renewal_events
   UNION ALL
   SELECT *
+    FROM pt_package_events
+  UNION ALL
+  SELECT *
     FROM guest_pass_events
 )
 `;
 
 export async function ensurePaymentsTable() {
+  // Keep the three revenue sources aligned so reports can split payment methods honestly.
   await query(`
     CREATE TABLE IF NOT EXISTS payments (
       id SERIAL PRIMARY KEY,
@@ -114,15 +157,57 @@ export async function ensurePaymentsTable() {
       type TEXT NOT NULL DEFAULT 'subscription',
       subscription_id INT,
       guest_pass_id UUID,
+      pt_package_id UUID,
+      payment_method TEXT,
       note TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+  await query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_method TEXT`);
+  await query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS pt_package_id UUID`);
+  await query(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS payment_method TEXT`);
+  await query(`ALTER TABLE guest_passes ADD COLUMN IF NOT EXISTS payment_method TEXT`);
+  await query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'payments_payment_method_check'
+      ) THEN
+        ALTER TABLE payments
+          ADD CONSTRAINT payments_payment_method_check
+          CHECK (payment_method IN ('cash', 'digital') OR payment_method IS NULL);
+      END IF;
+    END $$;
+  `);
+  await query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'subscriptions_payment_method_check'
+      ) THEN
+        ALTER TABLE subscriptions
+          ADD CONSTRAINT subscriptions_payment_method_check
+          CHECK (payment_method IN ('cash', 'digital') OR payment_method IS NULL);
+      END IF;
+    END $$;
+  `);
+  await query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'guest_passes_payment_method_check'
+      ) THEN
+        ALTER TABLE guest_passes
+          ADD CONSTRAINT guest_passes_payment_method_check
+          CHECK (payment_method IN ('cash', 'digital') OR payment_method IS NULL);
+      END IF;
+    END $$;
   `);
 }
 
 export type IncomeEventRow = {
   event_id: string;
-  payment_type: "subscription" | "renewal" | "guest_pass";
+  payment_type: "subscription" | "renewal" | "guest_pass" | "pt_package";
   effective_at: string;
   amount: string | number;
   member_id: string | null;
@@ -131,6 +216,9 @@ export type IncomeEventRow = {
   subscription_id: number | null;
   payment_id: number | null;
   guest_pass_id: string | null;
+  pt_package_id: string | null;
+  payment_method: "cash" | "digital" | "unknown";
   plan_months: number;
   sessions_per_month: number | null;
+  package_title?: string | null;
 };

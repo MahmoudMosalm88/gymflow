@@ -5,8 +5,10 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 export type GlobalScanResult = {
   success: boolean;
   memberName?: string;
+  memberId?: string;
   sessionsRemaining?: number;
   reason?: string;
+  reasonCode?: string;
   memberPhoto?: string;
   offline?: boolean;
   timestamp: number; // Date.now() — used to detect new scans
