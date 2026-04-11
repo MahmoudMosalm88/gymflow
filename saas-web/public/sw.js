@@ -2,7 +2,7 @@
 // Strategy: network-first for HTML with cached dashboard shell fallback, and
 // stale-while-revalidate for static assets needed by the offline app shell.
 
-const CACHE_NAME = "gymflow-shell-v3";
+const CACHE_NAME = "gymflow-shell-v4";
 const OFFLINE_URL = "/offline.html";
 const DASHBOARD_FALLBACK_URL = "/dashboard";
 
@@ -45,6 +45,11 @@ self.addEventListener("fetch", (event) => {
 
   // API calls: pass through — app code handles offline via IndexedDB
   if (url.pathname.startsWith("/api/")) return;
+
+  // Never proxy third-party assets through the GymFlow service worker.
+  // Firebase phone auth loads reCAPTCHA scripts from google.com/gstatic.
+  // Intercepting those requests caused live OTP failures.
+  if (url.origin !== self.location.origin) return;
 
   if (
     url.pathname.startsWith("/_next/static/") ||
