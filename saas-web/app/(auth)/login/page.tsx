@@ -36,6 +36,10 @@ type GooglePendingState = {
   setup?: SetupSnapshot;
   issuedAt: number;
 };
+type PendingGoogleRegistration = {
+  idToken: string;
+  email?: string;
+};
 
 type SessionPayload = {
   idToken?: string;
@@ -74,6 +78,7 @@ type ApiPayload = {
 } & ApiDataPayload;
 
 const GOOGLE_PENDING_KEY = "google_auth_pending_v1";
+const GOOGLE_RECOVERY_KEY = "google_auth_recovery_v1";
 const PHONE_REGEX = /^\+[1-9]\d{7,14}$/;
 
 let firebaseRuntimePromise:
@@ -128,6 +133,7 @@ const copy = {
     googlePopupClosed: "Google sign-in was cancelled before completion.",
     googlePopupBlocked: "Popup was blocked. Continuing with Google redirect flow...",
     googleAccountMissing: "No GymFlow account found for this Google account. Use Create account first.",
+    googleFinishSetup: "This Google account is not set up in GymFlow yet. Finish the setup fields below, then continue with Google again.",
     resendCodeIn: "Resend in",
     resendCode: "Resend code",
     errorTitle: "Error",
@@ -167,6 +173,7 @@ const copy = {
     googlePopupClosed: "تم إلغاء تسجيل الدخول عبر Google قبل الاكتمال.",
     googlePopupBlocked: "تم حظر النافذة المنبثقة. سنكمل عبر إعادة التوجيه...",
     googleAccountMissing: "لا يوجد حساب GymFlow مرتبط بهذا Google. استخدم إنشاء حساب أولاً.",
+    googleFinishSetup: "هذا الحساب عبر Google غير مُعد داخل GymFlow بعد. أكمل بيانات الإعداد بالأسفل ثم تابع عبر Google مرة أخرى.",
     resendCodeIn: "إعادة إرسال خلال",
     resendCode: "إعادة إرسال الرمز",
     errorTitle: "خطأ",
@@ -336,6 +343,34 @@ function clearGooglePendingState() {
   }
 }
 
+function saveGoogleRecoveryState(state: PendingGoogleRegistration) {
+  try {
+    sessionStorage.setItem(GOOGLE_RECOVERY_KEY, JSON.stringify(state));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function readGoogleRecoveryState() {
+  try {
+    const raw = sessionStorage.getItem(GOOGLE_RECOVERY_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PendingGoogleRegistration;
+    if (!parsed || typeof parsed.idToken !== "string" || parsed.idToken.length < 20) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function clearGoogleRecoveryState() {
+  try {
+    sessionStorage.removeItem(GOOGLE_RECOVERY_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
+
 /* ---------- Component ---------- */
 
 export default function LoginPage() {
@@ -350,6 +385,7 @@ export default function LoginPage() {
   const [canResend, setCanResend] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [pendingGoogleRegistration, setPendingGoogleRegistration] = useState<PendingGoogleRegistration | null>(null);
 
   const authRef = useRef<Auth | null>(null);
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
@@ -414,6 +450,14 @@ export default function LoginPage() {
       setFeedback(null);
       setOtpSent(false);
     }
+  }, []);
+
+  useEffect(() => {
+    const recovery = readGoogleRecoveryState();
+    if (!recovery) return;
+    setPendingGoogleRegistration(recovery);
+    setMode("register");
+    setMethod("email");
   }, []);
 
   useEffect(() => {
@@ -612,10 +656,19 @@ export default function LoginPage() {
     await registerGoogleIfNeeded(idToken, modeValue, email, setupOverride);
     try {
       await loginWithIdToken(idToken, modeValue === "register" ? t.registerSuccess : t.loginSuccess);
+      setPendingGoogleRegistration(null);
+      clearGoogleRecoveryState();
     } catch (error) {
       const message = error instanceof Error ? error.message : t.genericError;
       if (modeValue === "login" && message.toLowerCase().includes("isn't fully set up")) {
-        throw new Error(t.googleAccountMissing);
+        const recovery = { idToken, email };
+        setPendingGoogleRegistration(recovery);
+        saveGoogleRecoveryState(recovery);
+        setMode("register");
+        setMethod("email");
+        setOtpSent(false);
+        setFeedback({ kind: "error", text: t.googleFinishSetup });
+        return;
       }
       throw error;
     }
@@ -706,6 +759,15 @@ export default function LoginPage() {
         const setup = getSetupSnapshot();
         if (!setup) { setFeedback({ kind: "error", text: t.requiredSetupFields }); return; }
         setupSnapshot = setup;
+      }
+      if (mode === "register" && pendingGoogleRegistration) {
+        await completeGoogleFlow(
+          pendingGoogleRegistration.idToken,
+          pendingGoogleRegistration.email,
+          "register",
+          setupSnapshot
+        );
+        return;
       }
       const auth = await getAuthClient();
       const { authModule } = await loadFirebaseRuntime();
@@ -838,6 +900,10 @@ export default function LoginPage() {
     setFeedback(null);
     setOtpSent(false);
     setBusyKey(null);
+    if (nextMode === "login") {
+      setPendingGoogleRegistration(null);
+      clearGoogleRecoveryState();
+    }
     const params = new URLSearchParams(window.location.search);
     params.set("mode", nextMode);
     const qs = params.toString();
