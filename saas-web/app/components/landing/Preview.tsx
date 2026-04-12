@@ -17,7 +17,7 @@ export default function Preview({ t }: PreviewProps) {
   const activeTab = t.previewTabs.find((tab) => tab.key === active) ?? t.previewTabs[0];
 
   return (
-    <section className={styles.preview}>
+    <section id="preview" className={styles.preview}>
       <div className={styles.previewInner}>
         <div className={styles.previewHeader}>
           <p className={styles.label}>{t.previewLabel}</p>
@@ -38,9 +38,9 @@ export default function Preview({ t }: PreviewProps) {
 
         <div className={styles.browserFrame}>
           <div className={styles.browserBar}>
-            <span className={styles.dot} style={{ background: '#e63946' }} />
-            <span className={styles.dot} style={{ background: '#f59e0b' }} />
-            <span className={styles.dot} style={{ background: '#10b981' }} />
+            <span className={`${styles.dot} ${styles.dotClose}`} />
+            <span className={`${styles.dot} ${styles.dotMinimize}`} />
+            <span className={`${styles.dot} ${styles.dotMaximize}`} />
             <span className={styles.urlBar}>gymflowsystem.com{activeTab.key === 'home' ? '/dashboard' : `/dashboard/${activeTab.key}`}</span>
           </div>
           <div className={styles.previewImgWrap}>

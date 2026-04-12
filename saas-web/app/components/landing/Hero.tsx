@@ -59,9 +59,9 @@ export default function Hero({ t }: HeroProps) {
   const BrowserFrame = ({ videoRef, isModal }: { videoRef: React.RefObject<HTMLVideoElement>; isModal: boolean }) => (
     <div className={styles.browserFrame} style={isModal ? {} : undefined}>
       <div className={styles.browserBar}>
-        <span className={styles.dot} style={{ background: '#e63946' }} />
-        <span className={styles.dot} style={{ background: '#f59e0b' }} />
-        <span className={styles.dot} style={{ background: '#10b981' }} />
+        <span className={`${styles.dot} ${styles.dotClose}`} />
+        <span className={`${styles.dot} ${styles.dotMinimize}`} />
+        <span className={`${styles.dot} ${styles.dotMaximize}`} />
         <span className={styles.urlBar}>gymflowsystem.com/dashboard</span>
       </div>
       <video
@@ -126,6 +126,9 @@ export default function Hero({ t }: HeroProps) {
         <div
           className={styles.videoModalOverlay}
           onClick={() => setOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Dashboard preview"
         >
           <div
             className={styles.videoModalInner}
@@ -135,6 +138,7 @@ export default function Hero({ t }: HeroProps) {
               className={styles.videoModalClose}
               onClick={() => setOpen(false)}
               aria-label="Close preview"
+              autoFocus
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 6L6 18M6 6l12 12" />

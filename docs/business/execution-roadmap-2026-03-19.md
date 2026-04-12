@@ -212,3 +212,5 @@ As of 2026-04-01, a separate production cost-cut batch was executed:
 Implication for roadmap execution:
 - WhatsApp remains a top product priority
 - but heavier reports/admin work may now feel slower because the app is intentionally running on a leaner infra shape
+
+## Backlog

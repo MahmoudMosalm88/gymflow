@@ -51,12 +51,12 @@ const copy = {
     featuresLabel: "FEATURES",
     featuresTitle: "Everything your gym needs. Nothing it doesn't.",
     featuresCards: [
-      { title: "Smart Check-ins", body: "QR code and client ID scanning with automatic access denial for expired memberships. Zero friction at the front desk.", size: "large" as const, badge: "Most used feature" },
-      { title: "Real-time Reports", body: "Attendance trends, revenue breakdown, top clients, denied entries, peak hours — all in one reporting dashboard.", size: "large" as const },
-      { title: "WhatsApp Notifications", body: "Auto-send renewal reminders and alerts to clients via WhatsApp. No manual messages.", size: "small" as const },
-      { title: "Subscription Plans", body: "Flexible tiers with session quotas, freeze support, and automatic renewals.", size: "small" as const },
-      { title: "Multi-branch Support", body: "One account for all your locations. Manage staff access and reporting per branch.", size: "medium" as const },
-      { title: "Cloud Backup & Recovery", body: "Daily automated backups with one-click restore and pre-restore snapshots for safety.", size: "medium" as const },
+      { title: "Smart Check-ins", body: "QR code scanning with automatic access control. Expired members are denied instantly. Works offline — scans queue and sync when you're back online.", size: "large" as const, badge: "Most used feature" },
+      { title: "WhatsApp Automation", body: "Renewal reminders, payment recovery sequences, welcome messages, and broadcasts — all sent automatically via WhatsApp. Recover up to 30% of lapsed members.", size: "large" as const, badge: "Revenue saver" },
+      { title: "Revenue & Risk Reports", body: "See revenue at risk from expiring members, ghost members who pay but don't show up, and month-over-month income trends — in real EGP numbers.", size: "small" as const },
+      { title: "PT & Staff Management", body: "Trainer profiles, session tracking, package management, and staff roles — all from one hub.", size: "small" as const },
+      { title: "Income Tracking", body: "Monthly revenue breakdown with MoM deltas, PT revenue split, expected monthly income, and per-day earnings calendar.", size: "medium" as const },
+      { title: "Works Offline", body: "Full offline mode for the front desk. Check-ins, member lookups, and actions queue locally and sync automatically when internet returns.", size: "medium" as const },
     ] as const,
 
     /* FAQ */
@@ -85,6 +85,7 @@ const copy = {
       { key: "reports", label: "Reports", src: "/demo-screens/reports.png" },
       { key: "income", label: "Income", src: "/demo-screens/income.png" },
       { key: "subscriptions", label: "Subscriptions", src: "/demo-screens/subscriptions.png" },
+      { key: "pt", label: "PT & Staff", src: "/demo-screens/pt.png" },
     ] as const,
 
     /* Footer */
@@ -146,12 +147,12 @@ const copy = {
     featuresLabel: "المزايا",
     featuresTitle: "كل ما تحتاجه صالتك الرياضية. لا أقل ولا أكثر.",
     featuresCards: [
-      { title: "تسجيل دخول ذكي", body: "مسح رمز QR وهوية العميل مع رفض تلقائي للاشتراكات المنتهية. تجربة سلسة عند مكتب الاستقبال.", size: "large" as const, badge: "الأكثر استخداماً" },
-      { title: "تقارير فورية", body: "اتجاهات الحضور وتفاصيل الإيرادات وأبرز العملاء والدخول المرفوض وأوقات الذروة — جميعها في تقرير واحد.", size: "large" as const },
-      { title: "إشعارات واتساب", body: "تُرسل تذكيرات التجديد والتنبيهات للعملاء تلقائياً عبر واتساب، دون أي رسائل يدوية.", size: "small" as const },
-      { title: "خطط الاشتراك", body: "مستويات مرنة مع حصص الجلسات ودعم التجميد والتجديد التلقائي.", size: "small" as const },
-      { title: "دعم متعدد الفروع", body: "حساب واحد لجميع مواقعك. أدِر صلاحيات الموظفين والتقارير لكل فرع.", size: "medium" as const },
-      { title: "نسخ احتياطي سحابي", body: "نسخ احتياطية يومية تلقائية مع استعادة بنقرة واحدة وحفظ لقطة قبل الاستعادة.", size: "medium" as const },
+      { title: "تسجيل دخول ذكي", body: "مسح رمز QR مع التحكم التلقائي في الدخول. يُرفض الأعضاء المنتهية اشتراكاتهم فوراً. يعمل بدون إنترنت — تُخزّن عمليات المسح وتُزامَن عند العودة.", size: "large" as const, badge: "الأكثر استخداماً" },
+      { title: "أتمتة واتساب", body: "تذكيرات التجديد وتسلسلات استرداد المدفوعات ورسائل الترحيب والبث — تُرسل جميعها تلقائياً عبر واتساب. استرداد حتى 30% من الأعضاء المنقطعين.", size: "large" as const, badge: "موفّر الإيرادات" },
+      { title: "تقارير الإيرادات والمخاطر", body: "اعرف الإيرادات المعرّضة للخطر من الاشتراكات المنتهية، والأعضاء الوهميين الذين يدفعون دون حضور، واتجاهات الدخل الشهرية — بالأرقام الفعلية.", size: "small" as const },
+      { title: "إدارة المدربين والفريق", body: "ملفات المدربين وتتبع الجلسات وإدارة الباقات وأدوار الموظفين — الكل من مكان واحد.", size: "small" as const },
+      { title: "تتبع الإيرادات", body: "تفصيل الإيرادات الشهرية مع مقارنات شهرية، وتقسيم إيرادات التدريب الشخصي، والدخل الشهري المتوقع، وتقويم الأرباح اليومية.", size: "medium" as const },
+      { title: "يعمل بدون إنترنت", body: "وضع كامل للعمل بدون إنترنت لمكتب الاستقبال. تسجيل الدخول والبحث عن الأعضاء والإجراءات تُخزّن محلياً وتُزامَن تلقائياً عند عودة الإنترنت.", size: "medium" as const },
     ] as const,
 
     /* FAQ */
@@ -180,6 +181,7 @@ const copy = {
       { key: "reports", label: "التقارير", src: "/demo-screens/reports.png" },
       { key: "income", label: "الإيرادات", src: "/demo-screens/income.png" },
       { key: "subscriptions", label: "الاشتراكات", src: "/demo-screens/subscriptions.png" },
+      { key: "pt", label: "التدريب والفريق", src: "/demo-screens/pt.png" },
     ] as const,
 
     /* Footer */

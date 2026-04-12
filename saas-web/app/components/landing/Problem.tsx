@@ -10,7 +10,7 @@ interface ProblemProps {
 
 export default function Problem({ t }: ProblemProps) {
   return (
-    <section className={styles.problem}>
+    <section id="problem" className={styles.problem}>
       <div className={styles.problemInner}>
         <div className={styles.problemHeader}>
           <p className={styles.label}>{t.problemLabel}</p>

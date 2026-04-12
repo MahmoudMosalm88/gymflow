@@ -32,7 +32,7 @@ export default function Footer({ t }: FooterProps) {
       <div className={styles.footerInner}>
         {/* Brand column */}
         <div className={styles.footerBrand}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className={styles.footerBrandRow}>
             <GymFlowLogo size={32} />
             <span className={styles.brand}>GymFlow</span>
           </div>
@@ -40,13 +40,11 @@ export default function Footer({ t }: FooterProps) {
         </div>
 
         {/* Link columns */}
-        <div style={{ display: 'flex', gap: '3rem', flexWrap: 'wrap' }}>
+        <div className={styles.footerColumns}>
           {/* Product */}
           <div>
-            <p style={{ color: '#f0f0f0', fontWeight: 600, fontSize: '0.8125rem', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              {t.footerProduct}
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <p className={styles.footerColTitle}>{t.footerProduct}</p>
+            <div className={styles.footerColLinks}>
               <Link href="/features" className={styles.footerLink}>{t.footerAllFeatures}</Link>
               <Link href="/features/qr-check-in" className={styles.footerLink}>{t.footerQrCheckin}</Link>
               <Link href="/features/whatsapp-notifications" className={styles.footerLink}>{t.footerWhatsapp}</Link>
@@ -56,10 +54,8 @@ export default function Footer({ t }: FooterProps) {
 
           {/* Resources */}
           <div>
-            <p style={{ color: '#f0f0f0', fontWeight: 600, fontSize: '0.8125rem', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              {t.footerResources}
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <p className={styles.footerColTitle}>{t.footerResources}</p>
+            <div className={styles.footerColLinks}>
               <Link href="/blog" className={styles.footerLink}>{t.footerBlog}</Link>
               <Link href="/solutions" className={styles.footerLink}>{t.footerSolutions}</Link>
               <Link href="/compare" className={styles.footerLink}>{t.footerCompare}</Link>
@@ -68,10 +64,8 @@ export default function Footer({ t }: FooterProps) {
 
           {/* Locations */}
           <div>
-            <p style={{ color: '#f0f0f0', fontWeight: 600, fontSize: '0.8125rem', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              {t.footerLocations}
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <p className={styles.footerColTitle}>{t.footerLocations}</p>
+            <div className={styles.footerColLinks}>
               <Link href="/gym-management-software-cairo" className={styles.footerLink}>{t.footerLocationCairo}</Link>
               <Link href="/gym-management-software-riyadh" className={styles.footerLink}>{t.footerLocationRiyadh}</Link>
               <Link href="/gym-management-software-dubai" className={styles.footerLink}>{t.footerLocationDubai}</Link>
@@ -83,7 +77,7 @@ export default function Footer({ t }: FooterProps) {
       </div>
 
       {/* Bottom bar */}
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '1.5rem 1.5rem 0', borderTop: '2px solid #2a2a2a', marginTop: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className={styles.footerBottom}>
         <p className={styles.footerCopy}>{t.footerCopyright}</p>
         <div className={styles.footerLinks}>
           <Link href="/privacy-policy" className={styles.footerLink}>{t.footerPrivacy}</Link>

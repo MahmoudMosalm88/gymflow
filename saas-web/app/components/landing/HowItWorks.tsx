@@ -10,7 +10,7 @@ interface HowItWorksProps {
 
 export default function HowItWorks({ t }: HowItWorksProps) {
   return (
-    <section className={styles.how}>
+    <section id="how-it-works" className={styles.how}>
       <div className={styles.howInner}>
         <div className={styles.howHeader}>
           <p className={styles.label}>{t.howLabel}</p>
