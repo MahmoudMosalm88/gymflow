@@ -16,6 +16,22 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 
+// Fallback copy for labels that may not exist in all i18n locales
+const copy = {
+  cardsTitle: 'Pre-Printed Cards',
+  cardsDescription: 'Generate A4 QR code sheets for printing.',
+  cardsCount: 'How many codes?',
+  cardsNext: 'Next code',
+  exportFormat: 'Export format',
+  pdfFormat: 'PDF',
+  csvFormat: 'CSV',
+  cardsGeneratePdf: 'Generate PDF',
+  cardsGenerateCsv: 'Generate CSV',
+  cardsCountError: 'Enter a valid count between 1 and 2000.',
+  cardsGenerated: 'Generated',
+  cardsDownloadStarted: 'Files downloaded successfully.',
+};
+
 type BackupEntry = {
   id: string;
   source: string;
@@ -97,7 +113,7 @@ export default function BackupTab() {
     setCardResult(null);
     const count = Number(cardCount);
     if (!Number.isFinite(count) || count < 1 || count > 2000 || !Number.isInteger(count)) {
-      setCardResult({ type: 'destructive', text: labels.cards_count_error || 'Enter a valid count between 1 and 2000.' });
+      setCardResult({ type: 'destructive', text: labels.cards_count_error || copy.cardsCountError });
       return;
     }
 
@@ -131,7 +147,7 @@ export default function BackupTab() {
       triggerDownload(fileBlob, fileName);
       setCardResult({
         type: 'success',
-        text: `${labels.cards_generated || 'Generated'} ${from} → ${to}. ${labels.cards_download_started || 'Files downloaded successfully.'}`,
+        text: `${labels.cards_generated || copy.cardsGenerated} ${from} → ${to}. ${labels.cards_download_started || copy.cardsDownloadStarted}`,
       });
 
       const preview = await api.get<{ next: string }>('/api/cards/next-preview');
@@ -213,15 +229,16 @@ export default function BackupTab() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
+      {/* Card 1: Pre-Printed Cards */}
+      <Card className="shadow-[6px_6px_0_#000000]">
         <CardHeader>
-          <CardTitle>{labels.cards_title || 'Pre-Printed Cards'}</CardTitle>
-          <CardDescription>{labels.cards_description || 'Generate A4 QR code sheets for printing.'}</CardDescription>
+          <CardTitle>{labels.cards_title || copy.cardsTitle}</CardTitle>
+          <CardDescription>{labels.cards_description || copy.cardsDescription}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 md:grid-cols-2">
             <div>
-              <Label htmlFor="card-count">{labels.cards_count || 'How many codes?'}</Label>
+              <Label htmlFor="card-count">{labels.cards_count || copy.cardsCount}</Label>
               <Input
                 id="card-count"
                 type="number"
@@ -233,18 +250,18 @@ export default function BackupTab() {
               />
             </div>
                     <div>
-                      <Label htmlFor="card-next">{labels.cards_next || 'Next code'}</Label>
+                      <Label htmlFor="card-next">{labels.cards_next || copy.cardsNext}</Label>
                       <Input id="card-next" value={cardNextPreview} readOnly className="max-w-xs mt-1" />
                     </div>
                     <div>
-                      <Label>{labels.export_format || 'Export format'}</Label>
+                      <Label>{labels.export_format || copy.exportFormat}</Label>
                       <Select value={cardFormat} onValueChange={(v) => setCardFormat(v as 'pdf' | 'csv')} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                         <SelectTrigger className="max-w-xs mt-1">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="pdf">{labels.pdf_format || 'PDF'}</SelectItem>
-                          <SelectItem value="csv">{labels.csv_format || 'CSV'}</SelectItem>
+                          <SelectItem value="pdf">{labels.pdf_format || copy.pdfFormat}</SelectItem>
+                          <SelectItem value="csv">{labels.csv_format || copy.csvFormat}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -254,8 +271,8 @@ export default function BackupTab() {
                       {cardGenerating
                         ? labels.loading
                         : (cardFormat === 'pdf'
-                          ? (labels.cards_generate_pdf || 'Generate PDF')
-                          : (labels.cards_generate_csv || 'Generate CSV'))}
+                          ? (labels.cards_generate_pdf || copy.cardsGeneratePdf)
+                          : (labels.cards_generate_csv || copy.cardsGenerateCsv))}
                     </Button>
             {cardResult && (
               <Alert variant={cardResult.type} className="max-w-xl">
@@ -268,20 +285,24 @@ export default function BackupTab() {
         </CardContent>
       </Card>
 
-      <Card>
+      {/* Card 2: Create Backup */}
+      <Card className="shadow-[6px_6px_0_#000000]">
         <CardHeader>
           <CardTitle>{labels.create_backup}</CardTitle>
           <CardDescription>{labels.backup_and_restore_description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-md border border-border p-4 space-y-3">
+          {/* Auto-backup schedule section */}
+          <div className="border border-border p-4 space-y-3">
             <h3 className="text-base font-semibold">{labels.periodic_backups}</h3>
+            {/* Styled checkbox — border-2, accent color, no native appearance */}
             <div className="flex items-center gap-2">
               <input
                 id="auto-backup-enabled"
                 type="checkbox"
                 checked={autoEnabled}
                 onChange={(e) => setAutoEnabled(e.target.checked)}
+                className="h-4 w-4 appearance-none border-2 border-input checked:bg-primary checked:border-primary cursor-pointer"
               />
               <Label htmlFor="auto-backup-enabled">{labels.enable_auto_backups}</Label>
             </div>
@@ -318,7 +339,7 @@ export default function BackupTab() {
           </div>
 
           <h3 className="text-base font-semibold text-foreground pt-2">{labels.backup_history}</h3>
-          <div className="rounded-md border overflow-x-auto">
+          <div className="border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -347,7 +368,8 @@ export default function BackupTab() {
         </CardContent>
       </Card>
 
-      <Card>
+      {/* Card 3: Restore from Backup */}
+      <Card className="shadow-[6px_6px_0_#000000]">
         <CardHeader>
           <CardTitle>{labels.restore_from_backup}</CardTitle>
           <CardDescription>{labels.restore_from_backup_description}</CardDescription>

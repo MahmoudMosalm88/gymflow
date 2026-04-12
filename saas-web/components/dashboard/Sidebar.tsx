@@ -1,11 +1,13 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useLang, t } from '@/lib/i18n';
 import GymFlowLogo from '@/components/GymFlowLogo';
 import { useAuth } from '@/lib/use-auth';
 import { getNavKeysForRole } from '@/lib/permissions';
+import { api } from '@/lib/api-client';
 
 type Props = {
   open: boolean;
@@ -142,11 +144,32 @@ const navItems = [
   },
 ];
 
+type Branch = { id: string; name: string };
+
 export default function Sidebar({ open, onClose }: Props) {
   const pathname = usePathname();
   const { lang } = useLang();
   const { profile } = useAuth();
   const visibleKeys = getNavKeysForRole(profile?.role || 'owner');
+
+  // Branch switcher — only for owners with multiple branches
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branchOpen, setBranchOpen] = useState(false);
+  const currentBranchId = typeof window !== 'undefined' ? localStorage.getItem('branch_id') : null;
+  const currentBranch = branches.find(b => b.id === currentBranchId);
+
+  useEffect(() => {
+    if (profile?.role !== 'owner') return;
+    api.get<Branch[]>('/api/branches').then(res => {
+      if (res.data && res.data.length > 1) setBranches(res.data);
+    }).catch(() => {});
+  }, [profile?.role]);
+
+  function switchBranch(branchId: string) {
+    localStorage.setItem('branch_id', branchId);
+    setBranchOpen(false);
+    window.location.reload();
+  }
 
   const isActive = (href: string) =>
     href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
@@ -162,11 +185,11 @@ export default function Sidebar({ open, onClose }: Props) {
             onClick={onClose}
             className={`flex items-center gap-3 px-3 py-3 text-sm font-medium transition-colors ${
               active
-                ? 'border-s-[4px] border-[#e63946] text-[#e63946] bg-[#e63946]/10'
-                : 'border-s-[4px] border-transparent text-muted-foreground hover:text-[#f0f0f0] hover:bg-white/5'
+                ? 'border-s-[4px] border-destructive text-destructive bg-destructive/10'
+                : 'border-s-[4px] border-transparent text-muted-foreground hover:text-foreground hover:bg-white/5'
             }`}
           >
-            <span className={active ? 'text-[#e63946]' : 'text-muted-foreground'} aria-hidden="true">{item.icon}</span>
+            <span className={active ? 'text-destructive' : 'text-muted-foreground'} aria-hidden="true">{item.icon}</span>
             {t[lang][item.key]}
           </Link>
         );
@@ -191,6 +214,40 @@ export default function Sidebar({ open, onClose }: Props) {
           </div>
           <span className="font-heading font-bold text-white text-sm tracking-tight">GymFlow</span>
         </div>
+
+        {/* Branch switcher — only when owner has 2+ branches */}
+        {branches.length > 1 && (
+          <div className="px-3 pb-2">
+            <button
+              onClick={() => setBranchOpen(!branchOpen)}
+              className="w-full flex items-center justify-between px-3 py-2 border-2 border-border bg-card text-sm text-foreground hover:border-muted-foreground/40 transition-colors"
+            >
+              <span className="truncate">{currentBranch?.name || (lang === 'ar' ? 'الفرع' : 'Branch')}</span>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" className={`shrink-0 transition-transform ${branchOpen ? 'rotate-180' : ''}`}>
+                <path d="M3 4.5l3 3 3-3" />
+              </svg>
+            </button>
+            {branchOpen && (
+              <div className="mt-1 border-2 border-border bg-card">
+                {branches.map(branch => (
+                  <button
+                    key={branch.id}
+                    onClick={() => switchBranch(branch.id)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors text-start ${
+                      branch.id === currentBranchId
+                        ? 'text-destructive bg-destructive/5'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                    }`}
+                  >
+                    {branch.id === currentBranchId && <span className="w-1.5 h-1.5 bg-destructive shrink-0" />}
+                    <span className="truncate">{branch.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {nav}
       </aside>
     </>

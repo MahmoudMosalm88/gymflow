@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatDateTime } from '@/lib/format';
+import { toast } from 'sonner';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,8 +45,30 @@ const SYSTEM_NOTIF_I18N: Record<string, { en: { title: string; body: string }; a
   },
 };
 
+const SEVERITY_COLORS: Record<string, string> = {
+  critical: 'bg-destructive',
+  warning: 'bg-warning',
+  info: 'bg-info',
+};
+
+// Group notifications by date
+function getDateGroup(dateStr: string, lang: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const weekAgo = new Date(today.getTime() - 7 * 86400000);
+
+  if (date >= today) return lang === 'ar' ? 'اليوم' : 'Today';
+  if (date >= yesterday) return lang === 'ar' ? 'أمس' : 'Yesterday';
+  if (date >= weekAgo) return lang === 'ar' ? 'هذا الأسبوع' : 'This Week';
+  return lang === 'ar' ? 'أقدم' : 'Older';
+}
+
 export default function NotificationsPage() {
+  const router = useRouter();
   const { lang } = useLang();
+  const labels = t[lang];
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
 
   const [loading, setLoading] = useState(true);
@@ -58,12 +82,24 @@ export default function NotificationsPage() {
 
   const unreadCount = useMemo(() => items.filter((x) => !x.read_at).length, [items]);
 
-  async function fetchList(next = false) {
-    if (next) {
-      setLoadingMore(true);
-    } else {
-      setLoading(true);
+  // Group items by date
+  const grouped = useMemo(() => {
+    const groups: { label: string; items: NotificationItem[] }[] = [];
+    let currentLabel = '';
+    for (const item of items) {
+      const label = getDateGroup(item.delivered_at, lang);
+      if (label !== currentLabel) {
+        currentLabel = label;
+        groups.push({ label, items: [] });
+      }
+      groups[groups.length - 1].items.push(item);
     }
+    return groups;
+  }, [items, lang]);
+
+  async function fetchList(next = false) {
+    if (next) setLoadingMore(true);
+    else setLoading(true);
 
     const params = new URLSearchParams();
     params.set('limit', '25');
@@ -73,11 +109,12 @@ export default function NotificationsPage() {
     try {
       const res = await api.get<NotificationsResponse>(`/api/notifications?${params.toString()}`);
       if (!res.success || !res.data) return;
-
       const incoming = Array.isArray(res.data.items) ? res.data.items : [];
       setItems((prev) => (next ? [...prev, ...incoming] : incoming));
       setCursor(res.data.nextCursor || null);
       setHasMore(Boolean(res.data.hasMore));
+    } catch {
+      toast.error(lang === 'ar' ? 'تعذر تحميل الإشعارات' : 'Failed to load notifications');
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -86,7 +123,7 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     void fetchList(false);
-  }, [unreadOnly]);
+  }, [unreadOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function markOneRead(id: string) {
     if (markingId) return;
@@ -94,6 +131,8 @@ export default function NotificationsPage() {
     try {
       await api.post(`/api/notifications/${id}/read`, {});
       setItems((prev) => prev.map((item) => (item.notification_id === id ? { ...item, read_at: item.read_at || new Date().toISOString() } : item)));
+    } catch {
+      toast.error(lang === 'ar' ? 'تعذر تحديث الإشعار' : 'Failed to mark as read');
     } finally {
       setMarkingId(null);
     }
@@ -106,22 +145,25 @@ export default function NotificationsPage() {
       if (res.success) {
         setItems((prev) => prev.map((item) => ({ ...item, read_at: item.read_at || new Date().toISOString() })));
       }
+    } catch {
+      toast.error(lang === 'ar' ? 'تعذر تحديث الإشعارات' : 'Failed to mark all as read');
     } finally {
       setMarkingAll(false);
     }
   }
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="flex flex-col p-4 md:p-6 lg:p-8" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-heading font-bold tracking-tight">{t[lang].notifications}</h1>
+        <h1 className="text-2xl font-heading font-bold tracking-tight">{labels.notifications}</h1>
         <div className="flex items-center gap-2">
           <Button
             variant={unreadOnly ? 'default' : 'outline'}
             size="sm"
             onClick={() => setUnreadOnly((v) => !v)}
           >
-            {t[lang].unread_only}
+            {labels.unread_only}
           </Button>
           <Button
             variant="outline"
@@ -129,20 +171,19 @@ export default function NotificationsPage() {
             onClick={markAllRead}
             disabled={markingAll || unreadCount === 0}
           >
-            {markingAll ? t[lang].saving : t[lang].mark_all_read}
+            {markingAll ? labels.saving : labels.mark_all_read}
           </Button>
         </div>
       </div>
 
-      <Card>
+      {/* Notifications list */}
+      <Card className="mt-5 shadow-[6px_6px_0_#000000]">
         <CardHeader>
-          <CardTitle>{unreadOnly ? t[lang].unread_only : t[lang].all_notifications}</CardTitle>
+          <CardTitle className="text-sm">{unreadOnly ? labels.unread_only : labels.all_notifications}</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent>
           {loading && (
-            <div className="flex justify-center py-8">
-              <LoadingSpinner />
-            </div>
+            <div className="flex justify-center py-8"><LoadingSpinner /></div>
           )}
 
           {!loading && items.length === 0 && (
@@ -151,77 +192,87 @@ export default function NotificationsPage() {
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
-              <p className="text-sm text-muted-foreground">{t[lang].no_notifications}</p>
+              <p className="text-sm text-muted-foreground">{labels.no_notifications}</p>
             </div>
           )}
 
-          {!loading && items.map((item) => {
-            const severityColor = item.severity === 'critical' ? 'bg-[#e63946]'
-              : item.severity === 'warning' ? 'bg-[#f59e0b]'
-              : 'bg-[#3b82f6]';
+          {!loading && grouped.length > 0 && (
+            <div role="list" aria-label={labels.notifications}>
+              {grouped.map((group) => (
+                <div key={group.label}>
+                  {/* Date group label */}
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest pt-4 pb-2 first:pt-0">
+                    {group.label}
+                  </p>
 
-            // Use i18n text for known system notification types
-            const i18n = SYSTEM_NOTIF_I18N[item.type]?.[lang];
-            const title = i18n?.title || item.title;
-            const body = i18n?.body || item.body;
+                  {group.items.map((item) => {
+                    const severityColor = SEVERITY_COLORS[item.severity] || SEVERITY_COLORS.info;
+                    const i18n = SYSTEM_NOTIF_I18N[item.type]?.[lang];
+                    const title = i18n?.title || item.title;
+                    const body = i18n?.body || item.body;
 
-            return (
-              <article
-                key={item.notification_id}
-                className={`flex border border-[#2a2a2a] ${item.read_at ? 'bg-[#1a1a1a]' : 'bg-[#1e1e1e]'}`}
-              >
-                {/* Severity strip */}
-                <div className={`w-1 shrink-0 ${severityColor}`} />
+                    return (
+                      <article
+                        key={item.notification_id}
+                        role="listitem"
+                        className={`flex border-2 mb-2 ${item.read_at ? 'border-border bg-background' : 'border-border bg-card'}`}
+                      >
+                        {/* Severity strip */}
+                        <div className={`w-1 shrink-0 ${severityColor}`} />
 
-                <div className="flex-1 p-4">
-                  {/* Top row: unread dot + title — timestamp */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      {!item.read_at && (
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-[#e63946]" aria-label="unread" />
-                      )}
-                      <h3 className={`text-sm font-semibold ${item.read_at ? 'text-muted-foreground' : 'text-foreground'}`}>
-                        {title}
-                      </h3>
-                    </div>
-                    <time className="shrink-0 text-xs text-muted-foreground">
-                      {formatDateTime(item.delivered_at, locale)}
-                    </time>
-                  </div>
+                        <div className="flex-1 p-3">
+                          {/* Top row */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {!item.read_at && (
+                                <span className="h-2 w-2 shrink-0 rounded-full bg-destructive" aria-label="unread" />
+                              )}
+                              <h3 className={`text-sm font-semibold truncate ${item.read_at ? 'text-muted-foreground' : 'text-foreground'}`}>
+                                {title}
+                              </h3>
+                            </div>
+                            <time className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                              {formatDateTime(item.delivered_at, locale)}
+                            </time>
+                          </div>
 
-                  {/* Body */}
-                  {body && (
-                    <p className="mt-1.5 whitespace-pre-wrap text-sm text-[#8a8578]">{body}</p>
-                  )}
+                          {/* Body */}
+                          {body && (
+                            <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{body}</p>
+                          )}
 
-                  {/* Actions */}
-                  {(!item.read_at || item.action_url) && (
-                    <div className="mt-3 flex items-center gap-2">
-                      {!item.read_at && (
-                        <Button size="sm" variant="outline" disabled={markingId === item.notification_id} onClick={() => void markOneRead(item.notification_id)}>
-                          {t[lang].mark_read}
-                        </Button>
-                      )}
-                      {item.action_url && (
-                        <Button size="sm" variant="ghost" onClick={() => window.location.assign(item.action_url as string)}>
-                          {t[lang].view}
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                          {/* Actions */}
+                          {(!item.read_at || item.action_url) && (
+                            <div className="mt-2 flex items-center gap-2">
+                              {!item.read_at && (
+                                <Button size="sm" variant="outline" className="h-7 text-xs" disabled={markingId === item.notification_id} onClick={() => void markOneRead(item.notification_id)}>
+                                  {labels.mark_read}
+                                </Button>
+                              )}
+                              {item.action_url && (
+                                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => router.push(item.action_url as string)}>
+                                  {labels.view}
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
-              </article>
-            );
-          })}
+              ))}
+            </div>
+          )}
 
           {!loading && hasMore && (
             <Button
               variant="outline"
-              className="w-full"
+              className="w-full mt-3"
               onClick={() => void fetchList(true)}
               disabled={loadingMore}
             >
-              {loadingMore ? t[lang].loading : t[lang].load_more}
+              {loadingMore ? labels.loading : labels.load_more}
             </Button>
           )}
         </CardContent>

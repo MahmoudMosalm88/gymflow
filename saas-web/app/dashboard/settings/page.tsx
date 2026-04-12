@@ -15,6 +15,86 @@ import { Separator } from '@/components/ui/separator';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
+// All bilingual UI strings in one place — update here, propagates everywhere
+const copy = {
+  en: {
+    // Tab labels
+    tab_general: 'General',
+    tab_whatsapp: 'WhatsApp',
+    tab_backup: 'Backup & Restore',
+    tab_import: 'Import Data',
+    tab_pt: 'PT',
+
+    // Language toggle
+    lang_en: 'English',
+    lang_ar: 'العربية',
+    lang_save_error: 'Failed to save language',
+
+    // Scanner settings card
+    scanner_card_title: 'Scanner Settings',
+    scanner_card_description: 'Controls how quickly the scanner accepts back-to-back check-ins for the same member.',
+    scanner_cooldown_label: 'Time Between Scans (seconds)',
+
+    // Card code maintenance card
+    card_code_card_title: 'Sync Card Codes',
+    card_code_card_description: 'Run card-code sync manually only after importing legacy data.',
+    card_code_button_running: 'Running...',
+    card_code_button_idle: 'Run Sync Now',
+    card_code_no_artifact: 'No imported artifact found to backfill.',
+    card_code_success: (updated: number, skipped: number) =>
+      `Sync complete. Updated ${updated}, skipped ${skipped}.`,
+    card_code_error: 'Failed to run sync.',
+
+    // PT Settings card
+    pt_card_title: 'PT Settings',
+    pt_card_description: 'Control the default session length, reminder timing, and deduction rules.',
+    pt_session_minutes: 'Default session minutes',
+    pt_low_balance: 'Low balance threshold (sessions)',
+    pt_expiry_warning: 'Package expiry warning (days)',
+    pt_reminder_hours: 'Session reminder (hours before)',
+    pt_no_show_deducts: 'Deduct a session on no-show',
+    pt_late_cancel_deducts: 'Deduct a session on late cancel',
+  },
+  ar: {
+    // Tab labels
+    tab_general: 'عام',
+    tab_whatsapp: 'واتساب',
+    tab_backup: 'النسخ الاحتياطي',
+    tab_import: 'استيراد البيانات',
+    tab_pt: 'التدريب الشخصي',
+
+    // Language toggle
+    lang_en: 'English',
+    lang_ar: 'العربية',
+    lang_save_error: 'فشل حفظ اللغة',
+
+    // Scanner settings card
+    scanner_card_title: 'إعدادات الماسح',
+    scanner_card_description: 'يتحكم في مدى سرعة قبول الماسح للتسجيلات المتتالية لنفس العضو.',
+    scanner_cooldown_label: 'الوقت بين التسجيلات (ثوان)',
+
+    // Card code maintenance card
+    card_code_card_title: 'مزامنة رموز البطاقات',
+    card_code_card_description: 'تشغيل مزامنة رموز البطاقات يدويًا بعد استيراد بيانات قديمة فقط.',
+    card_code_button_running: 'جاري التنفيذ...',
+    card_code_button_idle: 'تشغيل المزامنة الآن',
+    card_code_no_artifact: 'لا توجد بيانات استيراد سابقة للمزامنة.',
+    card_code_success: (updated: number, skipped: number) =>
+      `تمت المزامنة. تم تحديث ${updated} سجل، وتخطي ${skipped}.`,
+    card_code_error: 'فشل تنفيذ المزامنة.',
+
+    // PT Settings card
+    pt_card_title: 'إعدادات التدريب الشخصي',
+    pt_card_description: 'حدد مدة الجلسة الافتراضية والتنبيهات وسلوك خصم الجلسات.',
+    pt_session_minutes: 'مدة الجلسة الافتراضية بالدقائق',
+    pt_low_balance: 'حد تنبيه الجلسات المتبقية',
+    pt_expiry_warning: 'أيام تنبيه قرب انتهاء الباقة',
+    pt_reminder_hours: 'ساعات تذكير الجلسة قبل الموعد',
+    pt_no_show_deducts: 'خصم جلسة عند عدم الحضور',
+    pt_late_cancel_deducts: 'خصم جلسة عند الإلغاء المتأخر',
+  },
+} as const;
+
 const TabLoading = () => (
   <div className="flex min-h-[240px] items-center justify-center">
     <LoadingSpinner size="lg" />
@@ -31,35 +111,35 @@ const BackupTab = dynamic(() => import('@/components/dashboard/settings/BackupTa
 const ImportTab = dynamic(() => import('@/components/dashboard/settings/ImportTab'), {
   loading: () => <TabLoading />,
 });
-const TeamTab = dynamic(() => import('@/components/dashboard/settings/TeamTab'), {
-  loading: () => <TabLoading />,
-});
 
-type Tab = 'general' | 'team' | 'whatsapp' | 'backup' | 'import' | 'pt';
+type Tab = 'general' | 'whatsapp' | 'backup' | 'import' | 'pt';
 
 export default function SettingsPage() {
   const { lang } = useLang();
   const { profile } = useAuth();
   const labels = t[lang];
+  const c = copy[lang];
   const [activeTab, setActiveTab] = useState<Tab>('general');
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: 'general', label: labels.general_settings || 'General' },
-    // Team management moved to PT & Staff hub (/dashboard/pt?tab=staff)
-    { key: 'whatsapp', label: 'WhatsApp' },
-    { key: 'backup', label: labels.backup_and_restore || 'Backup & Restore' },
-    { key: 'import', label: labels.import_data || 'Import Data' },
-    { key: 'pt' as const, label: lang === 'ar' ? 'التدريب الشخصي' : 'PT' },
+    { key: 'general', label: c.tab_general },
+    { key: 'whatsapp', label: c.tab_whatsapp },
+    { key: 'backup', label: c.tab_backup },
+    { key: 'import', label: c.tab_import },
+    { key: 'pt', label: c.tab_pt },
   ];
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
       <h1 className="text-2xl font-heading font-bold tracking-tight">{labels.settings}</h1>
 
-      <div className="flex flex-wrap gap-1 border-b border-border pb-2">
+      {/* Tab bar — role="tablist" for screen-reader accessibility */}
+      <div role="tablist" className="flex flex-wrap gap-1 border-b border-border pb-2">
         {tabs.map((tab) => (
           <Button
             key={tab.key}
+            role="tab"
+            aria-selected={activeTab === tab.key}
             onClick={() => setActiveTab(tab.key)}
             variant={activeTab === tab.key ? 'default' : 'ghost'}
             className="min-w-[100px]"
@@ -70,7 +150,6 @@ export default function SettingsPage() {
       </div>
 
       {activeTab === 'general' && <GeneralTab />}
-      {/* Team tab moved to PT & Staff hub */}
       {activeTab === 'whatsapp' && <WhatsAppTab />}
       {activeTab === 'backup' && <BackupTab />}
       {activeTab === 'import' && <ImportTab />}
@@ -82,6 +161,7 @@ export default function SettingsPage() {
 function PtSettingsTab() {
   const { lang } = useLang();
   const labels = t[lang];
+  const c = copy[lang];
   const [ptSessionMinutes, setPtSessionMinutes] = useState('60');
   const [ptLowBalanceThreshold, setPtLowBalanceThreshold] = useState('2');
   const [ptExpiryWarningDays, setPtExpiryWarningDays] = useState('3');
@@ -135,43 +215,50 @@ function PtSettingsTab() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <Card>
+    <Card className="shadow-[6px_6px_0_#000000]">
       <CardHeader>
-        <CardTitle>{lang === 'ar' ? 'إعدادات التدريب الشخصي' : 'PT Settings'}</CardTitle>
-        <CardDescription>
-          {lang === 'ar'
-            ? 'حدد مدة الجلسة الافتراضية والتنبيهات وسلوك خصم الجلسات.'
-            : 'Control the default session length, reminder timing, and deduction rules.'}
-        </CardDescription>
+        <CardTitle>{c.pt_card_title}</CardTitle>
+        <CardDescription>{c.pt_card_description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <Label htmlFor="pt-session-minutes">{lang === 'ar' ? 'مدة الجلسة الافتراضية بالدقائق' : 'Default session minutes'}</Label>
+            <Label htmlFor="pt-session-minutes">{c.pt_session_minutes}</Label>
             <Input id="pt-session-minutes" type="number" min={15} step={15} value={ptSessionMinutes} onChange={(e) => setPtSessionMinutes(e.target.value)} className="mt-1" />
           </div>
           <div>
-            <Label htmlFor="pt-low-balance">{lang === 'ar' ? 'حد تنبيه الجلسات المتبقية' : 'Low balance threshold (sessions)'}</Label>
+            <Label htmlFor="pt-low-balance">{c.pt_low_balance}</Label>
             <Input id="pt-low-balance" type="number" min={1} value={ptLowBalanceThreshold} onChange={(e) => setPtLowBalanceThreshold(e.target.value)} className="mt-1" />
           </div>
           <div>
-            <Label htmlFor="pt-expiry">{lang === 'ar' ? 'أيام تنبيه قرب انتهاء الباقة' : 'Package expiry warning (days)'}</Label>
+            <Label htmlFor="pt-expiry">{c.pt_expiry_warning}</Label>
             <Input id="pt-expiry" type="number" min={1} value={ptExpiryWarningDays} onChange={(e) => setPtExpiryWarningDays(e.target.value)} className="mt-1" />
           </div>
           <div>
-            <Label htmlFor="pt-reminder-hours">{lang === 'ar' ? 'ساعات تذكير الجلسة قبل الموعد' : 'Session reminder (hours before)'}</Label>
+            <Label htmlFor="pt-reminder-hours">{c.pt_reminder_hours}</Label>
             <Input id="pt-reminder-hours" type="number" min={1} value={ptReminderHoursBefore} onChange={(e) => setPtReminderHoursBefore(e.target.value)} className="mt-1" />
           </div>
         </div>
         <Separator />
+        {/* Styled toggle checkboxes using accent-destructive */}
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={ptNoShowDeducts} onChange={(e) => setPtNoShowDeducts(e.target.checked)} />
-            <span>{lang === 'ar' ? 'خصم جلسة عند عدم الحضور' : 'Deduct a session on no-show'}</span>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={ptNoShowDeducts}
+              onChange={(e) => setPtNoShowDeducts(e.target.checked)}
+              className="h-4 w-4 accent-destructive cursor-pointer"
+            />
+            <span>{c.pt_no_show_deducts}</span>
           </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={ptLateCancelDeducts} onChange={(e) => setPtLateCancelDeducts(e.target.checked)} />
-            <span>{lang === 'ar' ? 'خصم جلسة عند الإلغاء المتأخر' : 'Deduct a session on late cancel'}</span>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={ptLateCancelDeducts}
+              onChange={(e) => setPtLateCancelDeducts(e.target.checked)}
+              className="h-4 w-4 accent-destructive cursor-pointer"
+            />
+            <span>{c.pt_late_cancel_deducts}</span>
           </label>
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -194,6 +281,7 @@ function PtSettingsTab() {
 function GeneralTab() {
   const { lang, setLang } = useLang();
   const labels = t[lang];
+  const c = copy[lang];
   const [cooldown, setCooldown] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -247,31 +335,22 @@ function GeneralTab() {
       if (!res.success || !res.data) {
         setBackfillMessage({
           type: 'destructive',
-          text: res.message || (lang === 'ar' ? 'فشل تنفيذ المزامنة.' : 'Failed to run backfill.'),
+          text: res.message || c.card_code_error,
         });
         return;
       }
 
       if (res.data.noArtifact) {
-        setBackfillMessage({
-          type: 'success',
-          text: lang === 'ar' ? 'لا توجد بيانات استيراد سابقة للمزامنة.' : 'No imported artifact found to backfill.',
-        });
+        setBackfillMessage({ type: 'success', text: c.card_code_no_artifact });
         return;
       }
 
       setBackfillMessage({
         type: 'success',
-        text:
-          lang === 'ar'
-            ? `تمت المزامنة. تم تحديث ${res.data.updated ?? 0} سجل، وتخطي ${res.data.skipped ?? 0}.`
-            : `Backfill complete. Updated ${res.data.updated ?? 0}, skipped ${res.data.skipped ?? 0}.`,
+        text: c.card_code_success(res.data.updated ?? 0, res.data.skipped ?? 0),
       });
     } catch {
-      setBackfillMessage({
-        type: 'destructive',
-        text: lang === 'ar' ? 'فشل تنفيذ المزامنة.' : 'Failed to run backfill.',
-      });
+      setBackfillMessage({ type: 'destructive', text: c.card_code_error });
     } finally {
       setBackfillRunning(false);
     }
@@ -280,84 +359,94 @@ function GeneralTab() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{labels.general_settings}</CardTitle>
-        <CardDescription>{labels.general_settings_description}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <div>
+    <div className="flex flex-col gap-6">
+      {/* Card 1: Language */}
+      <Card className="shadow-[6px_6px_0_#000000]">
+        <CardHeader>
+          <CardTitle>{labels.general_settings}</CardTitle>
+          <CardDescription>{labels.general_settings_description}</CardDescription>
+        </CardHeader>
+        <CardContent>
           <Label>{labels.language}</Label>
-          <div className="mt-1 flex w-fit border border-[#2a2a2a]">
+          {/* Language toggle — design tokens instead of hardcoded hex */}
+          <div className="mt-2 flex w-fit border-2 border-border">
             <button
               onClick={() => {
                 setLang('en');
                 api.put('/api/settings', { values: { system_language: 'en' } }).catch(() => {
-                  toast.error(lang === 'ar' ? 'فشل حفظ اللغة' : 'Failed to save language');
+                  toast.error(c.lang_save_error);
                 });
               }}
               className={`px-4 py-2 text-sm font-bold transition-colors ${
-                lang === 'en' ? 'bg-[#e63946] text-white' : 'bg-[#1e1e1e] text-[#888888] hover:text-[#e8e4df]'
+                lang === 'en'
+                  ? 'bg-destructive text-white'
+                  : 'bg-card text-muted-foreground hover:text-foreground'
               }`}
             >
-              English
+              {c.lang_en}
             </button>
             <button
               onClick={() => {
                 setLang('ar');
                 api.put('/api/settings', { values: { system_language: 'ar' } }).catch(() => {
-                  toast.error(lang === 'ar' ? 'فشل حفظ اللغة' : 'Failed to save language');
+                  toast.error(c.lang_save_error);
                 });
               }}
               className={`px-4 py-2 text-sm font-bold transition-colors ${
-                lang === 'ar' ? 'bg-[#e63946] text-white' : 'bg-[#1e1e1e] text-[#888888] hover:text-[#e8e4df]'
+                lang === 'ar'
+                  ? 'bg-destructive text-white'
+                  : 'bg-card text-muted-foreground hover:text-foreground'
               }`}
             >
-              العربية
+              {c.lang_ar}
             </button>
           </div>
-        </div>
-        <Separator />
-        <div>
-          <Label htmlFor="scan-cooldown">{labels.scan_cooldown_seconds}</Label>
-          <Input
-            id="scan-cooldown"
-            type="number"
-            min={0}
-            value={cooldown}
-            onChange={(e) => setCooldown(e.target.value)}
-            className="mt-1 max-w-xs"
-          />
-        </div>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <Button onClick={handleSave} disabled={saving} className="min-w-[120px]">
-            {saving ? labels.saving : labels.save}
-          </Button>
-          {message && (
-            <Alert variant={message.type} className="max-w-md">
-              {message.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-              <AlertTitle>{message.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
-              <AlertDescription>{message.text}</AlertDescription>
-            </Alert>
-          )}
-        </div>
-        <Separator />
-        <div className="space-y-3">
+        </CardContent>
+      </Card>
+
+      {/* Card 2: Scanner Settings */}
+      <Card className="shadow-[6px_6px_0_#000000]">
+        <CardHeader>
+          <CardTitle>{c.scanner_card_title}</CardTitle>
+          <CardDescription>{c.scanner_card_description}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
           <div>
-            <p className="text-sm font-medium">
-              {lang === 'ar' ? 'صيانة رموز بطاقات العملاء' : 'Client Card Code Maintenance'}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {lang === 'ar'
-                ? 'تشغيل مزامنة رموز البطاقات يدويًا بعد استيراد بيانات قديمة فقط.'
-                : 'Run card-code backfill manually only after importing legacy data.'}
-            </p>
+            <Label htmlFor="scan-cooldown">{c.scanner_cooldown_label}</Label>
+            <Input
+              id="scan-cooldown"
+              type="number"
+              min={0}
+              value={cooldown}
+              onChange={(e) => setCooldown(e.target.value)}
+              className="mt-1 max-w-xs"
+            />
           </div>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <Button onClick={handleSave} disabled={saving} className="min-w-[120px]">
+              {saving ? labels.saving : labels.save}
+            </Button>
+            {message && (
+              <Alert variant={message.type} className="max-w-md">
+                {message.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                <AlertTitle>{message.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+                <AlertDescription>{message.text}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Card 3: Card Code Maintenance */}
+      <Card className="shadow-[6px_6px_0_#000000]">
+        <CardHeader>
+          <CardTitle>{c.card_code_card_title}</CardTitle>
+          <CardDescription>{c.card_code_card_description}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <Button onClick={handleCardCodeBackfill} disabled={backfillRunning} variant="outline">
-              {backfillRunning
-                ? (lang === 'ar' ? 'جاري التنفيذ...' : 'Running...')
-                : (lang === 'ar' ? 'تشغيل المزامنة الآن' : 'Run Backfill Now')}
+              {backfillRunning ? c.card_code_button_running : c.card_code_button_idle}
             </Button>
             {backfillMessage && (
               <Alert variant={backfillMessage.type} className="max-w-md">
@@ -367,8 +456,8 @@ function GeneralTab() {
               </Alert>
             )}
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

@@ -9,7 +9,6 @@ import type { Auth, RecaptchaVerifier } from 'firebase/auth';
 import type { FirebaseClientConfig } from '@/lib/firebase-client';
 import { SESSION_PROFILE_KEY } from '@/lib/session';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
-import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { Check, Terminal } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 type ProfileData = {
   name: string | null;
@@ -117,6 +117,7 @@ export default function ProfilePage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sendingPasswordReset, setSendingPasswordReset] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [otpStatus, setOtpStatus] = useState<'idle' | 'sent' | 'verified'>('idle');
@@ -307,6 +308,40 @@ export default function ProfilePage() {
       setError(labels.error);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handlePasswordResetLink() {
+    const email = (form.email || '').trim();
+    if (!email) {
+      setError(lang === 'ar' ? 'لا يوجد بريد إلكتروني مرتبط بهذا الحساب.' : 'No email address is linked to this account.');
+      setSuccess('');
+      return;
+    }
+
+    setSendingPasswordReset(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok || !payload?.success) {
+        throw new Error(payload?.message || (lang === 'ar' ? 'تعذر إرسال رابط تغيير كلمة المرور.' : 'Could not send the password reset link.'));
+      }
+      setSuccess(
+        payload?.data?.message ||
+          (lang === 'ar'
+            ? 'تم إرسال رابط تغيير كلمة المرور إلى بريدك الإلكتروني. سيبقى حسابك مسجلاً على هذا الجهاز.'
+            : 'A password reset link was sent to your email. You will stay signed in on this device.')
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : (lang === 'ar' ? 'تعذر إرسال رابط تغيير كلمة المرور.' : 'Could not send the password reset link.'));
+    } finally {
+      setSendingPasswordReset(false);
     }
   }
 
@@ -597,12 +632,12 @@ export default function ProfilePage() {
       {/* ── Identity Banner ── */}
       <div
         className="flex items-center gap-4 p-5 bg-card border-2 border-border shadow-[6px_6px_0_#000000]"
-        style={{ borderInlineStart: '4px solid var(--accent-red, #e63946)' }}
+        style={{ borderInlineStart: '4px solid hsl(var(--destructive))' }}
       >
         {/* Initials badge — same visual language as the sidebar GF logo */}
         <span
           style={{
-            background: '#e63946',
+            background: 'hsl(var(--destructive))',
             color: '#fff',
             padding: '10px 14px',
             fontWeight: 800,
@@ -615,6 +650,9 @@ export default function ProfilePage() {
         </span>
         <div className="flex flex-col gap-0.5 min-w-0">
           <p className="font-bold text-lg text-foreground truncate">{form.name || '—'}</p>
+          {profile?.role && (
+            <Badge variant="outline" className="text-[10px] w-fit capitalize">{profile.role}</Badge>
+          )}
           <p className="text-sm text-muted-foreground truncate">{orgLine}</p>
         </div>
       </div>
@@ -623,7 +661,7 @@ export default function ProfilePage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* Personal Info */}
-        <Card>
+        <Card className="shadow-[6px_6px_0_#000000]">
           <CardHeader>
             <CardTitle>{labels.personal_info}</CardTitle>
           </CardHeader>
@@ -706,7 +744,7 @@ export default function ProfilePage() {
         </Card>
 
         {/* Organization */}
-        <Card>
+        <Card className="shadow-[6px_6px_0_#000000]">
           <CardHeader>
             <CardTitle>{labels.organization}</CardTitle>
           </CardHeader>
@@ -734,7 +772,7 @@ export default function ProfilePage() {
       </div>
 
       {isTrainer && (
-        <Card>
+        <Card className="shadow-[6px_6px_0_#000000]">
           <CardHeader>
             <CardTitle>{trainerCopy.title}</CardTitle>
             <p className="text-sm text-muted-foreground">{trainerCopy.subtitle}</p>
@@ -807,13 +845,11 @@ export default function ProfilePage() {
       )}
 
       {isTrainer && (
-        <Card>
+        <Card className="shadow-[6px_6px_0_#000000]">
           <CardHeader>
-            <CardTitle>{lang === 'ar' ? 'مواعيد المدرب' : 'Trainer Availability'}</CardTitle>
+            <CardTitle>{labels.trainer_availability}</CardTitle>
             <p className="text-sm text-muted-foreground">
-              {lang === 'ar'
-                ? 'حدّد ساعات العمل الأسبوعية والإجازات حتى يمنع النظام الحجز خارجها.'
-                : 'Set weekly working hours and time off so PT booking blocks invalid slots.'}
+              {trainerCopy.subtitle}
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -923,9 +959,9 @@ export default function ProfilePage() {
           {labels.security}
         </span>
         <div className="flex flex-wrap gap-3">
-          <Link href="/forgot-password">
-            <Button variant="outline">{labels.change_password}</Button>
-          </Link>
+          <Button variant="outline" onClick={handlePasswordResetLink} disabled={sendingPasswordReset}>
+            {sendingPasswordReset ? labels.loading : labels.change_password}
+          </Button>
           <Button
             variant="outline"
             onClick={logout}

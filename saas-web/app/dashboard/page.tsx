@@ -530,7 +530,7 @@ export default function DashboardPage() {
           ) : (
             <>
               <StatCard
-                label={lang === 'ar' ? 'إيراد على وشك الضياع' : 'Revenue at Risk'}
+                label={lang === 'ar' ? 'إيراد مهدد هذا الأسبوع' : 'Revenue at Risk This Week'}
                 value={formatCurrencyCompact(overview?.revenueAtRisk ?? 0)}
                 color={(overview?.revenueAtRisk ?? 0) > 0 ? 'text-destructive' : 'text-foreground'}
                 accent={(overview?.revenueAtRisk ?? 0) > 0 ? 'border-s-destructive' : undefined}

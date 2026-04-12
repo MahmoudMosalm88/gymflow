@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
@@ -61,6 +62,7 @@ function ImportRow({ label, value, color }: { label: string; value: string; colo
 export default function ImportTab() {
   const { lang } = useLang();
   const labels = t[lang];
+  const router = useRouter();
 
   const [step, setStep] = useState(1);
   const [error, setError] = useState('');
@@ -166,13 +168,24 @@ export default function ImportTab() {
             <CardDescription>{labels.upload_file_description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".db"
-              onChange={(e) => setFileName(e.target.files?.[0]?.name || '')}
-              style={{ display: 'block', width: '100%', padding: '16px', border: '2px dashed #3a3a3a', backgroundColor: 'transparent', color: '#8a8578', cursor: 'pointer' }}
-            />
+            {/* Styled upload zone — replaces the native inline-styled file input */}
+            <label
+              htmlFor="db-file-input"
+              className="flex flex-col items-center justify-center border-2 border-dashed border-border p-6 text-center cursor-pointer hover:border-primary transition-colors"
+            >
+              <span className="text-muted-foreground text-sm">
+                {fileName ? fileName : labels.select_db_file}
+              </span>
+              <span className="mt-2 text-xs text-muted-foreground">{labels.upload_file_description}</span>
+              <input
+                ref={fileRef}
+                id="db-file-input"
+                type="file"
+                accept=".db"
+                className="sr-only"
+                onChange={(e) => setFileName(e.target.files?.[0]?.name || '')}
+              />
+            </label>
             <Button onClick={handleUpload} disabled={uploading || !fileName} className="w-full">
               {uploading ? labels.uploading : labels.upload}
             </Button>
@@ -213,7 +226,8 @@ export default function ImportTab() {
           <CardContent className="space-y-4">
             {!executing && !result && !showConfirm && (
               <>
-                <Alert variant={"warning" as any}>
+                {/* Warning alert — className override since Alert has no "warning" variant */}
+                <Alert className="border-warning/50 text-warning [&>svg]:text-warning">
                   <Terminal className="h-4 w-4" />
                   <AlertTitle>{labels.warning_title}</AlertTitle>
                   <AlertDescription>{labels.warning_replace_data}</AlertDescription>
@@ -242,7 +256,8 @@ export default function ImportTab() {
             {result && (
               <div className="space-y-4">
                 {result.status === 'completed' ? (
-                  <Alert variant={"success" as any}>
+                  /* Success alert — className override since Alert "success" variant uses Tailwind green not design token */
+                  <Alert className="border-success/50 text-success [&>svg]:text-success">
                     <Check className="h-4 w-4" />
                     <AlertTitle>{labels.import_successful}</AlertTitle>
                     <AlertDescription>
@@ -268,7 +283,7 @@ export default function ImportTab() {
                     </AlertDescription>
                   </Alert>
                 )}
-                <Button onClick={() => { window.location.href = '/dashboard'; }} className="w-full">{labels.done}</Button>
+                <Button onClick={() => router.push('/dashboard')} className="w-full">{labels.done}</Button>
               </div>
             )}
           </CardContent>

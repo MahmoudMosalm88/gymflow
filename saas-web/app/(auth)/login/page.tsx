@@ -446,11 +446,10 @@ export default function LoginPage() {
     const candidate = unwrapData(payload);
     if (!isFirebaseClientConfig(candidate)) throw new Error("Firebase auth configuration is incomplete.");
     const auth = await getFirebaseClientAuth(candidate as FirebaseClientConfig);
-    // Localhost QA uses Firebase test phone numbers during Playwright and manual smoke tests.
-    // Keep real app verification enabled everywhere else.
-    const host = typeof window !== "undefined" ? window.location.hostname : "";
-    const isLocalHost = host === "localhost" || host === "127.0.0.1";
-    auth.settings.appVerificationDisabledForTesting = isLocalHost;
+    // Only disable app verification when we intentionally opt into Firebase's
+    // fictional phone-number flow. Real OTP on localhost still needs reCAPTCHA.
+    auth.settings.appVerificationDisabledForTesting =
+      process.env.NEXT_PUBLIC_FIREBASE_PHONE_TEST_MODE === "true";
     authRef.current = auth;
     return auth;
   }

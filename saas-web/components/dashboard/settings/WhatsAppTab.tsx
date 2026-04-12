@@ -7,6 +7,16 @@ import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
+// Hardcoded fallback copy (used when i18n key is missing)
+const copy = {
+  connecting: 'Connecting...',
+  cancel: 'Cancel',
+  failedFetchStatus: 'Failed to fetch WhatsApp status',
+  failedConnect: 'Failed to start WhatsApp connection',
+  failedDisconnect: 'Failed to disconnect WhatsApp',
+  whatsappIntegration: 'WhatsApp Integration',
+};
+
 type WhatsAppStatus = {
   connected: boolean;
   state?: string;
@@ -28,7 +38,7 @@ export default function WhatsAppTab() {
       if (res.success && res.data) {
         setStatus(res.data);
       } else {
-        setError(res.message ?? 'Failed to fetch WhatsApp status');
+        setError(res.message ?? copy.failedFetchStatus);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -48,7 +58,7 @@ export default function WhatsAppTab() {
     setError(null);
     try {
       const res = await api.post('/api/whatsapp/connect', {});
-      if (!res.success) throw new Error(res.message ?? 'Failed to start WhatsApp connection');
+      if (!res.success) throw new Error(res.message ?? copy.failedConnect);
       await fetchStatus();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -62,7 +72,7 @@ export default function WhatsAppTab() {
     setError(null);
     try {
       const res = await api.post('/api/whatsapp/disconnect', {});
-      if (!res.success) throw new Error(res.message ?? 'Failed to disconnect WhatsApp');
+      if (!res.success) throw new Error(res.message ?? copy.failedDisconnect);
       await fetchStatus();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -77,17 +87,18 @@ export default function WhatsAppTab() {
   const connected = status?.connected ?? state === 'connected';
   const connecting = state === 'connecting' && !connected;
   const showWaitingQr = connecting && !status?.qrCode;
-  const statusText = connected ? labels.connected : connecting ? (labels.connecting ?? 'Connecting...') : labels.disconnected;
+  const statusText = connected ? labels.connected : connecting ? (labels.connecting ?? copy.connecting) : labels.disconnected;
 
-  const badgeDotColor = connected ? 'bg-emerald-500' : connecting ? 'bg-amber-400' : 'bg-red-500';
+  // Design-system tokens — no off-system color classes
+  const badgeDotColor = connected ? 'bg-success' : connecting ? 'bg-warning' : 'bg-destructive';
   const badgeBgColor = connected
-    ? 'bg-emerald-900/40 text-emerald-400 border-emerald-700'
+    ? 'bg-success/10 text-success border-success/30'
     : connecting
-    ? 'bg-amber-900/40 text-amber-400 border-amber-700'
-    : 'bg-red-900/40 text-red-400 border-red-700';
+    ? 'bg-warning/10 text-warning border-warning/30'
+    : 'bg-destructive/10 text-destructive border-destructive/30';
 
   return (
-    <Card>
+    <Card className="shadow-[6px_6px_0_#000000]">
       <CardHeader>
         <CardTitle>WhatsApp {labels.integration}</CardTitle>
         <CardDescription>{labels.whatsapp_integration_description}</CardDescription>
@@ -124,7 +135,7 @@ export default function WhatsAppTab() {
             </Button>
           ) : connecting ? (
             <Button onClick={handleDisconnect} disabled={acting} variant="outline" className="min-w-[120px]">
-              {acting ? labels.disconnecting : (labels.cancel ?? 'Cancel')}
+              {acting ? labels.disconnecting : (labels.cancel ?? copy.cancel)}
             </Button>
           ) : (
             <Button onClick={handleConnect} disabled={acting} className="min-w-[120px]">
