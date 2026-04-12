@@ -260,14 +260,21 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
         ),
         query<NumberRow>(
           `SELECT COALESCE(SUM(price_paid), 0)::text AS total
-             FROM subscriptions
-            WHERE organization_id = $1
-              AND branch_id = $2
-              AND is_active = true
-              AND start_date <= $3
-              AND end_date > $3
-              AND end_date <= $4`,
-          [auth.organizationId, auth.branchId, now, now + 14 * 86400]
+             FROM subscriptions s
+            WHERE s.organization_id = $1
+              AND s.branch_id = $2
+              AND s.is_active = true
+              AND s.start_date <= $3
+              AND s.end_date > $3
+              AND s.end_date <= $4
+              AND NOT EXISTS (
+                SELECT 1 FROM subscriptions r
+                 WHERE r.organization_id = s.organization_id
+                   AND r.branch_id = s.branch_id
+                   AND r.member_id = s.member_id
+                   AND r.renewed_from_subscription_id = s.id
+              )`,
+          [auth.organizationId, auth.branchId, now, now + 7 * 86400]
         ),
         query<NumberRow>(
           `WITH sent_messages AS (
@@ -392,9 +399,9 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
               AND timestamp < $4`,
           [auth.organizationId, auth.branchId, startOfDay - 86400, startOfDay]
         ),
-        // Last month's active subscriptions (for delta comparison)
-        // Uses date range only — NOT is_active flag, because is_active
-        // reflects current state, not the state 30 days ago
+        // Last month's active subscriptions (for delta comparison).
+        // Uses start_date/end_date window only — not is_active — because
+        // is_active reflects the current state, not state 30 days ago.
         query<NumberRow>(
           `SELECT COUNT(DISTINCT member_id)::text AS count
              FROM subscriptions
@@ -2291,20 +2298,16 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
          )
          SELECT
            wb.week_start,
-           COUNT(s.id) FILTER (
-             WHERE EXTRACT(EPOCH FROM s.created_at)::bigint >= wb.week_start
-               AND EXTRACT(EPOCH FROM s.created_at)::bigint < wb.week_end
-           )::int AS joins,
+           COUNT(s.id) FILTER (WHERE EXTRACT(EPOCH FROM s.created_at)::bigint >= wb.week_start AND EXTRACT(EPOCH FROM s.created_at)::bigint < wb.week_end)::int AS joins,
            COUNT(s.id) FILTER (WHERE s.end_date >= wb.week_start AND s.end_date < wb.week_end AND s.is_active = false)::int AS ends
          FROM week_bounds wb
          LEFT JOIN subscriptions s
            ON s.organization_id = $2
           AND s.branch_id = $4
           AND (
-                (EXTRACT(EPOCH FROM s.created_at)::bigint >= wb.week_start
-             AND EXTRACT(EPOCH FROM s.created_at)::bigint < wb.week_end)
+                (EXTRACT(EPOCH FROM s.created_at)::bigint >= wb.week_start AND EXTRACT(EPOCH FROM s.created_at)::bigint < wb.week_end)
              OR (s.end_date >= wb.week_start AND s.end_date < wb.week_end AND s.is_active = false)
-              )
+          )
          GROUP BY wb.week_start
          ORDER BY wb.week_start ASC`,
         [now, auth.organizationId, weeksBack, auth.branchId]
@@ -2327,10 +2330,7 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
          UNION ALL
          SELECT
            'lastWeek',
-           COUNT(*) FILTER (
-             WHERE EXTRACT(EPOCH FROM created_at)::bigint >= $4
-               AND EXTRACT(EPOCH FROM created_at)::bigint < $3
-           )::int,
+           COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM created_at)::bigint >= $4 AND EXTRACT(EPOCH FROM created_at)::bigint < $3)::int,
            COUNT(*) FILTER (WHERE end_date >= $4 AND end_date < $3 AND is_active = false)::int,
            NULL
          FROM subscriptions
