@@ -57,6 +57,14 @@ const copy = {
     trainer_update_failed: 'Could not update trainer assignment.',
     trainer_updated: 'Trainer assignment updated.',
     trainer_removed: 'Trainer removed from this client.',
+    whatsapp_dnc_enabled: 'WhatsApp automation is blocked for this member.',
+    whatsapp_dnc_disabled: 'WhatsApp automation is allowed for this member.',
+    whatsapp_dnc_enable_action: 'Block WhatsApp',
+    whatsapp_dnc_disable_action: 'Allow WhatsApp',
+    whatsapp_dnc_label: 'WhatsApp contact',
+    whatsapp_dnc_on: 'Blocked',
+    whatsapp_dnc_off: 'Allowed',
+    whatsapp_dnc_save_failed: 'Could not update WhatsApp contact preference.',
     send_checkin_code: 'Send Check-in Code',
     send_welcome: 'Send Welcome Message',
     assigned_trainer: 'Assigned Trainer',
@@ -101,6 +109,14 @@ const copy = {
     trainer_update_failed: 'تعذر تحديث المدرب.',
     trainer_updated: 'تم تحديث إسناد المدرب.',
     trainer_removed: 'تم إزالة المدرب من هذا العميل.',
+    whatsapp_dnc_enabled: 'تم حظر أتمتة واتساب لهذا العضو.',
+    whatsapp_dnc_disabled: 'تم السماح بأتمتة واتساب لهذا العضو.',
+    whatsapp_dnc_enable_action: 'حظر واتساب',
+    whatsapp_dnc_disable_action: 'السماح بواتساب',
+    whatsapp_dnc_label: 'التواصل عبر واتساب',
+    whatsapp_dnc_on: 'محظور',
+    whatsapp_dnc_off: 'مسموح',
+    whatsapp_dnc_save_failed: 'تعذر تحديث تفضيل التواصل عبر واتساب.',
     send_checkin_code: 'إرسال رمز الدخول',
     send_welcome: 'إرسال رسالة ترحيب',
     assigned_trainer: 'المدرب المسؤول',
@@ -149,6 +165,7 @@ type Member = {
   access_tier: string;
   card_code?: string;
   address?: string;
+  whatsapp_do_not_contact?: boolean;
   created_at: number;
   updated_at: number;
   trainer_staff_user_id?: string | null;
@@ -259,6 +276,7 @@ export default function MemberDetailPage() {
   const [trainersLoading, setTrainersLoading] = useState(true);
   const [waFeedback, setWaFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
   const [sendingWaType, setSendingWaType] = useState<'welcome' | 'qr_code' | null>(null);
+  const [updatingWhatsappDnc, setUpdatingWhatsappDnc] = useState(false);
   const [freezeSubId, setFreezeSubId] = useState<string | null>(null);
   const [renewSub, setRenewSub] = useState<Subscription | null>(null);
   const [renewForm, setRenewForm] = useState({ plan_months: '1', sessions_per_month: '', price_paid: '' });
@@ -406,6 +424,34 @@ export default function MemberDetailPage() {
     }
   }
 
+  async function toggleWhatsAppDnc() {
+    if (!member || updatingWhatsappDnc) return;
+    try {
+      setUpdatingWhatsappDnc(true);
+      setWaFeedback(null);
+      const nextValue = !member.whatsapp_do_not_contact;
+      const res = await api.patch(`/api/members/${member.id}`, {
+        whatsapp_do_not_contact: nextValue,
+      });
+      if (!res.success) {
+        setWaFeedback({ type: 'destructive', text: res.message || c.whatsapp_dnc_save_failed });
+        return;
+      }
+      await loadMemberData();
+      setWaFeedback({
+        type: 'success',
+        text: nextValue ? c.whatsapp_dnc_enabled : c.whatsapp_dnc_disabled,
+      });
+    } catch (error) {
+      setWaFeedback({
+        type: 'destructive',
+        text: error instanceof Error ? error.message : c.whatsapp_dnc_save_failed,
+      });
+    } finally {
+      setUpdatingWhatsappDnc(false);
+    }
+  }
+
   async function deleteMember() {
     if (!member || deleting) return;
     setDeleting(true);
@@ -549,6 +595,7 @@ export default function MemberDetailPage() {
                 <div className="space-y-2 text-sm border-t border-border pt-3">
                   {member.card_code && <InfoRow label={labels.card_code} value={member.card_code} />}
                   {member.address && <InfoRow label={labels.address} value={member.address} />}
+                  <InfoRow label={c.whatsapp_dnc_label} value={member.whatsapp_do_not_contact ? c.whatsapp_dnc_on : c.whatsapp_dnc_off} />
                   <InfoRow label={labels.created_at} value={formatDate(member.created_at, locale)} />
                   <InfoRow label={labels.updated_at} value={formatDate(member.updated_at, locale)} />
                 </div>
@@ -593,6 +640,10 @@ export default function MemberDetailPage() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align={lang === 'ar' ? 'start' : 'end'}>
                   <DropdownMenuLabel>{labels.member_actions}</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => void toggleWhatsAppDnc()} disabled={updatingWhatsappDnc || sendingWaType !== null}>
+                    {member.whatsapp_do_not_contact ? c.whatsapp_dnc_disable_action : c.whatsapp_dnc_enable_action}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => sendWhatsApp('qr_code')} disabled={sendingWaType !== null}>
                     {c.send_checkin_code}
                   </DropdownMenuItem>

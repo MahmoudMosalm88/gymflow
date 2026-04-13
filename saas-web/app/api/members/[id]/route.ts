@@ -107,6 +107,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
               access_tier = COALESCE($8, access_tier),
               card_code = COALESCE($9, card_code),
               address = COALESCE($10, address),
+              whatsapp_do_not_contact = COALESCE($11, whatsapp_do_not_contact),
               updated_at = NOW()
         WHERE id = $1
           AND organization_id = $2
@@ -123,7 +124,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         payload.photo_path || null,
         payload.access_tier || null,
         payload.card_code || null,
-        payload.address || null
+        payload.address || null,
+        payload.whatsapp_do_not_contact ?? null
       ]
     );
 

@@ -1458,58 +1458,106 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
       const days = readDaysParam(url, 30);
       const rangeStart = now - days * 86400;
 
-      const rows = await query<{
-        sequence_step: number;
-        messages_sent: number;
-        members_reached: number;
-        renewals_won: number;
-        revenue_saved: string | number;
-      }>(
-        `WITH sent_messages AS (
-           SELECT mq.id,
-                  mq.member_id,
-                  COALESCE(mq.sent_at, mq.scheduled_at) AS sent_at,
-                  NULLIF(mq.payload->>'sequence_step', '')::int AS sequence_step,
-                  NULLIF(mq.payload->>'subscription_id', '')::int AS source_subscription_id
-             FROM message_queue mq
-            WHERE mq.organization_id = $1
-              AND mq.branch_id = $2
-              AND mq.type = 'renewal'
-              AND mq.payload->>'sequence_kind' = 'post_expiry'
-              AND mq.status = 'sent'
-              AND COALESCE(mq.sent_at, mq.scheduled_at) >= to_timestamp($3)
-         ),
-         attributed AS (
-           SELECT sm.id,
-                  sm.sequence_step,
-                  sm.member_id,
-                  renewal.id AS renewal_id,
-                  COALESCE(renewal.price_paid, 0)::numeric(12, 2) AS revenue_saved
-             FROM sent_messages sm
-             LEFT JOIN LATERAL (
-               SELECT s.id, s.price_paid
-                 FROM subscriptions s
-                WHERE s.organization_id = $1
-                  AND s.branch_id = $2
-                  AND s.member_id = sm.member_id
-                  AND s.renewed_from_subscription_id IS NOT NULL
-                  AND (sm.source_subscription_id IS NULL OR s.renewed_from_subscription_id = sm.source_subscription_id)
-                  AND s.created_at >= sm.sent_at
-                  AND s.created_at < sm.sent_at + interval '14 day'
-                ORDER BY s.created_at ASC
-                LIMIT 1
-             ) renewal ON true
-         )
-         SELECT COALESCE(sequence_step, 0)::int AS sequence_step,
-                COUNT(*)::int AS messages_sent,
-                COUNT(DISTINCT member_id)::int AS members_reached,
-                COUNT(renewal_id)::int AS renewals_won,
-                COALESCE(SUM(revenue_saved), 0)::text AS revenue_saved
-           FROM attributed
-          GROUP BY COALESCE(sequence_step, 0)
-          ORDER BY sequence_step ASC`,
-        [auth.organizationId, auth.branchId, rangeStart]
-      );
+      const [rows, summaryRows] = await Promise.all([
+        query<{
+          sequence_step: number;
+          messages_sent: number;
+          members_reached: number;
+          renewals_won: number;
+          revenue_saved: string | number;
+        }>(
+          `WITH sent_messages AS (
+             SELECT mq.id,
+                    mq.member_id,
+                    COALESCE(mq.sent_at, mq.scheduled_at) AS sent_at,
+                    NULLIF(mq.payload->>'sequence_step', '')::int AS sequence_step,
+                    NULLIF(mq.payload->>'subscription_id', '')::int AS source_subscription_id
+               FROM message_queue mq
+              WHERE mq.organization_id = $1
+                AND mq.branch_id = $2
+                AND mq.type = 'renewal'
+                AND mq.payload->>'sequence_kind' = 'post_expiry'
+                AND mq.status = 'sent'
+                AND COALESCE(mq.sent_at, mq.scheduled_at) >= to_timestamp($3)
+           ),
+           attributed AS (
+             SELECT sm.id,
+                    sm.sequence_step,
+                    sm.member_id,
+                    renewal.id AS renewal_id,
+                    COALESCE(renewal.price_paid, 0)::numeric(12, 2) AS revenue_saved
+               FROM sent_messages sm
+               LEFT JOIN LATERAL (
+                 SELECT s.id, s.price_paid
+                   FROM subscriptions s
+                  WHERE s.organization_id = $1
+                    AND s.branch_id = $2
+                    AND s.member_id = sm.member_id
+                    AND s.renewed_from_subscription_id IS NOT NULL
+                    AND (sm.source_subscription_id IS NULL OR s.renewed_from_subscription_id = sm.source_subscription_id)
+                    AND s.created_at >= sm.sent_at
+                    AND s.created_at < sm.sent_at + interval '14 day'
+                  ORDER BY s.created_at ASC
+                  LIMIT 1
+               ) renewal ON true
+           )
+           SELECT COALESCE(sequence_step, 0)::int AS sequence_step,
+                  COUNT(*)::int AS messages_sent,
+                  COUNT(DISTINCT member_id)::int AS members_reached,
+                  COUNT(renewal_id)::int AS renewals_won,
+                  COALESCE(SUM(revenue_saved), 0)::text AS revenue_saved
+             FROM attributed
+            GROUP BY COALESCE(sequence_step, 0)
+            ORDER BY sequence_step ASC`,
+          [auth.organizationId, auth.branchId, rangeStart]
+        ),
+        query<{
+          members_in_sequence: number;
+          messages_sent: number;
+          renewals_won: number;
+          revenue_saved: string | number;
+        }>(
+          `WITH sent_messages AS (
+             SELECT mq.id,
+                    mq.member_id,
+                    COALESCE(mq.sent_at, mq.scheduled_at) AS sent_at,
+                    NULLIF(mq.payload->>'subscription_id', '')::int AS source_subscription_id
+               FROM message_queue mq
+              WHERE mq.organization_id = $1
+                AND mq.branch_id = $2
+                AND mq.type = 'renewal'
+                AND mq.payload->>'sequence_kind' = 'post_expiry'
+                AND mq.status = 'sent'
+                AND COALESCE(mq.sent_at, mq.scheduled_at) >= to_timestamp($3)
+           ),
+           attributed AS (
+             SELECT sm.id,
+                    sm.member_id,
+                    renewal.id AS renewal_id,
+                    COALESCE(renewal.price_paid, 0)::numeric(12, 2) AS revenue_saved
+               FROM sent_messages sm
+               LEFT JOIN LATERAL (
+                 SELECT s.id, s.price_paid
+                   FROM subscriptions s
+                  WHERE s.organization_id = $1
+                    AND s.branch_id = $2
+                    AND s.member_id = sm.member_id
+                    AND s.renewed_from_subscription_id IS NOT NULL
+                    AND (sm.source_subscription_id IS NULL OR s.renewed_from_subscription_id = sm.source_subscription_id)
+                    AND s.created_at >= sm.sent_at
+                    AND s.created_at < sm.sent_at + interval '14 day'
+                  ORDER BY s.created_at ASC
+                  LIMIT 1
+               ) renewal ON true
+           )
+           SELECT COUNT(DISTINCT member_id)::int AS members_in_sequence,
+                  COUNT(*)::int AS messages_sent,
+                  COUNT(renewal_id)::int AS renewals_won,
+                  COALESCE(SUM(revenue_saved), 0)::text AS revenue_saved
+             FROM attributed`,
+          [auth.organizationId, auth.branchId, rangeStart]
+        ),
+      ]);
 
       const normalized = rows.map((row) => ({
         step: row.sequence_step,
@@ -1518,14 +1566,15 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
         renewalsWon: row.renewals_won,
         revenueSaved: toNumber(row.revenue_saved),
       }));
+      const summaryRow = summaryRows[0];
 
       return ok({
         attributionWindowDays: WHATSAPP_ATTRIBUTION_WINDOW_DAYS,
         summary: {
-          membersInSequence: normalized.reduce((sum, row) => sum + row.membersReached, 0),
-          messagesSent: normalized.reduce((sum, row) => sum + row.messagesSent, 0),
-          renewalsWon: normalized.reduce((sum, row) => sum + row.renewalsWon, 0),
-          revenueSaved: normalized.reduce((sum, row) => sum + row.revenueSaved, 0),
+          membersInSequence: Number(summaryRow?.members_in_sequence || 0),
+          messagesSent: Number(summaryRow?.messages_sent || 0),
+          renewalsWon: Number(summaryRow?.renewals_won || 0),
+          revenueSaved: toNumber(summaryRow?.revenue_saved),
         },
         rows: normalized,
       });
@@ -1600,7 +1649,7 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
       return ok({
         summary: {
           joinedMembers: Number(summary.joined_members || 0),
-          welcomeSent: Number(messageMap.get("onboarding_welcome") || 0),
+          welcomeSent: Number(messageMap.get("welcome") || 0),
           firstVisitMembers: Number(summary.first_visit_members || 0),
           firstVisitRecognitionSent: Number(messageMap.get("onboarding_first_visit") || 0),
           completedThreeVisits14d: Number(summary.completed_three_visits_14d || 0),
@@ -1609,7 +1658,7 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           noReturnMembers: Number(summary.no_return_members || 0),
         },
         rows: [
-          { stage: "welcome", count: Number(messageMap.get("onboarding_welcome") || 0) },
+          { stage: "welcome", count: Number(messageMap.get("welcome") || 0) },
           { stage: "first_visit", count: Number(summary.first_visit_members || 0) },
           { stage: "first_visit_recognition", count: Number(messageMap.get("onboarding_first_visit") || 0) },
           { stage: "completed_3_visits_14d", count: Number(summary.completed_three_visits_14d || 0) },

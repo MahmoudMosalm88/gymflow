@@ -92,6 +92,21 @@ const defaultOnboardingTemplates = {
     low_engagement_day14: "مرحباً {name}، أول أسبوعين هم الأهم. نستطيع مساعدتك في بناء روتين مناسب لوقتك. راسلنا إذا أردت دعماً.",
   },
 } as const;
+const defaultBehaviorTemplates = {
+  habit_break: {
+    en: "Hi {name}, we noticed you have not checked in for {daysAbsent} days after a strong start. Keep your momentum going and plan your next workout this week.",
+    ar: "مرحباً {name}، لاحظنا أنك لم تسجل حضوراً منذ {daysAbsent} أيام بعد بداية جيدة. حافظ على الزخم وحدد تمرينك القادم هذا الأسبوع.",
+  },
+  streak: {
+    en: "Great work, {name}. You just hit a {streakDays}-day streak at the gym. Keep showing up and protect your progress.",
+    ar: "عمل رائع يا {name}. وصلت الآن إلى سلسلة حضور لمدة {streakDays} أيام في الجيم. استمر واحمِ تقدمك.",
+  },
+  freeze_ending: {
+    en: "Hi {name}, your freeze ends on {resumeDate}. We are ready to welcome you back. Reply if you want help planning your return.",
+    ar: "مرحباً {name}، ينتهي التجميد بتاريخ {resumeDate}. نحن جاهزون لاستقبالك من جديد. راسلنا إذا أردت المساعدة في ترتيب عودتك.",
+  },
+} as const;
+const streakMilestones = [3, 7, 14, 21, 30, 50, 100] as const;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -161,6 +176,13 @@ function getOnboardingTemplateKey(
   lang: SystemLanguage
 ) {
   return `whatsapp_template_onboarding_${stage}_${lang}`;
+}
+
+function getBehaviorTemplateKey(
+  type: "habit_break" | "streak" | "freeze_ending",
+  lang: SystemLanguage
+) {
+  return `whatsapp_template_${type}_${lang}`;
 }
 
 function getSavedTemplate(settings: Record<string, unknown>, key: string, fallback: string) {
@@ -341,6 +363,9 @@ async function readTenantSettings(organizationId: string, branchId: string) {
         "whatsapp_post_expiry_enabled",
         "whatsapp_onboarding_enabled",
         "whatsapp_weekly_digest_enabled",
+        "whatsapp_habit_break_enabled",
+        "whatsapp_streaks_enabled",
+        "whatsapp_freeze_ending_enabled",
         "whatsapp_template_post_expiry_day0_en",
         "whatsapp_template_post_expiry_day3_en",
         "whatsapp_template_post_expiry_day7_en",
@@ -355,6 +380,12 @@ async function readTenantSettings(organizationId: string, branchId: string) {
         "whatsapp_template_onboarding_first_visit_ar",
         "whatsapp_template_onboarding_no_return_day7_ar",
         "whatsapp_template_onboarding_low_engagement_day14_ar",
+        "whatsapp_template_habit_break_en",
+        "whatsapp_template_habit_break_ar",
+        "whatsapp_template_streak_en",
+        "whatsapp_template_streak_ar",
+        "whatsapp_template_freeze_ending_en",
+        "whatsapp_template_freeze_ending_ar",
         "pt_reminder_hours_before",
         "pt_expiry_warning_days",
         "pt_low_balance_threshold_sessions",
@@ -567,7 +598,8 @@ async function processTenantQueue(runtime: TenantRuntime) {
               mq.target_phone,
               mq.target_name,
               m.phone AS member_phone,
-              m.card_code AS member_card_code
+              m.card_code AS member_card_code,
+              COALESCE(m.whatsapp_do_not_contact, false) AS member_whatsapp_do_not_contact
          FROM message_queue mq
          LEFT JOIN members m ON m.id = mq.member_id
         WHERE mq.scheduled_at <= NOW()
@@ -626,6 +658,20 @@ async function processTenantQueue(runtime: TenantRuntime) {
           );
           await refreshCampaignStatus(client, row.campaign_id);
           console.warn(`[${runtime.key}] suppressed queue=${row.id} type=${row.type} by safe mode`);
+          continue;
+        }
+        const manualOverride = payload?.manual_override === true;
+        if (row.member_whatsapp_do_not_contact && !manualOverride) {
+          await client.query(
+            `UPDATE message_queue
+                SET status = 'failed',
+                    attempts = GREATEST(attempts, 3),
+                    last_error = $2
+              WHERE id = $1`,
+            [row.id, "Suppressed because member is marked do-not-contact for WhatsApp"]
+          );
+          await refreshCampaignStatus(client, row.campaign_id);
+          console.warn(`[${runtime.key}] suppressed queue=${row.id} type=${row.type} by do-not-contact`);
           continue;
         }
         const rawPhone = String(
@@ -1347,6 +1393,309 @@ async function scheduleWeeklyDigestForTenant(organizationId: string, branchId: s
   }
 }
 
+async function scheduleHabitBreakForTenant(organizationId: string, branchId: string) {
+  const settings = await readTenantSettings(organizationId, branchId);
+  const automationEnabled = parseBooleanSetting(settings.whatsapp_automation_enabled, true);
+  if (!automationEnabled || isStaffInvitesOnlyMode(settings)) return;
+  if (!isLifecycleFlagEnabled(settings, "whatsapp_habit_break_enabled")) return;
+
+  const systemLanguage = normalizeSystemLanguage(settings.system_language, "en");
+  const rows = await pool.query<{
+    member_id: string;
+    name: string;
+    phone: string | null;
+    days_absent: number;
+    visits_last_14d: number;
+  }>(
+    `WITH active_members AS (
+       SELECT DISTINCT s.member_id
+         FROM subscriptions s
+         JOIN members m ON m.id = s.member_id
+        WHERE s.organization_id = $1
+          AND s.branch_id = $2
+          AND s.is_active = true
+          AND s.start_date <= $3
+          AND s.end_date > $3
+          AND m.deleted_at IS NULL
+          AND m.phone IS NOT NULL
+          AND COALESCE(m.whatsapp_do_not_contact, false) = false
+     ),
+     visits AS (
+       SELECT l.member_id,
+              COUNT(*) FILTER (WHERE l.status = 'success' AND l.timestamp >= $3 - (14 * 86400))::int AS visits_last_14d,
+              MAX(l.timestamp) FILTER (WHERE l.status = 'success')::bigint AS last_visit
+         FROM logs l
+        WHERE l.organization_id = $1
+          AND l.branch_id = $2
+          AND l.member_id IS NOT NULL
+        GROUP BY l.member_id
+     )
+     SELECT m.id AS member_id,
+            m.name,
+            m.phone,
+            FLOOR(($3 - v.last_visit) / 86400.0)::int AS days_absent,
+            COALESCE(v.visits_last_14d, 0)::int AS visits_last_14d
+       FROM active_members am
+       JOIN members m ON m.id = am.member_id
+       JOIN visits v ON v.member_id = am.member_id
+      WHERE v.last_visit IS NOT NULL
+        AND v.visits_last_14d >= 3
+        AND FLOOR(($3 - v.last_visit) / 86400.0) BETWEEN 4 AND 6`,
+    [organizationId, branchId, toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000))]
+  );
+
+  for (const row of rows.rows) {
+    const exists = await pool.query(
+      `SELECT 1
+         FROM message_queue
+        WHERE organization_id = $1
+          AND branch_id = $2
+          AND member_id = $3
+          AND payload->>'sequence_kind' = 'habit_break'
+          AND created_at >= NOW() - interval '7 day'
+        LIMIT 1`,
+      [organizationId, branchId, row.member_id]
+    );
+    if (exists.rows[0]) continue;
+
+    const template = getSavedTemplate(
+      settings,
+      getBehaviorTemplateKey("habit_break", systemLanguage),
+      defaultBehaviorTemplates.habit_break[systemLanguage]
+    );
+    const message = renderTemplate(template, {
+      name: row.name || "Member",
+      daysAbsent: row.days_absent,
+    });
+
+    await pool.query(
+      `INSERT INTO message_queue (
+          id, organization_id, branch_id, member_id, type, payload, status, attempts, scheduled_at
+       ) VALUES (
+          $1, $2, $3, $4, 'manual', $5::jsonb, 'pending', 0, NOW()
+       )`,
+      [
+        randomUUID(),
+        organizationId,
+        branchId,
+        row.member_id,
+        JSON.stringify({
+          message,
+          template,
+          sequence_kind: "habit_break",
+          days_absent: row.days_absent,
+          visits_last_14d: row.visits_last_14d,
+          phone: row.phone,
+          name: row.name,
+          generated_at: new Date().toISOString(),
+        }),
+      ]
+    );
+  }
+}
+
+async function scheduleStreakMessagesForTenant(organizationId: string, branchId: string) {
+  const settings = await readTenantSettings(organizationId, branchId);
+  const automationEnabled = parseBooleanSetting(settings.whatsapp_automation_enabled, true);
+  if (!automationEnabled || isStaffInvitesOnlyMode(settings)) return;
+  if (!isLifecycleFlagEnabled(settings, "whatsapp_streaks_enabled")) return;
+
+  const systemLanguage = normalizeSystemLanguage(settings.system_language, "en");
+  const rows = await pool.query<{
+    member_id: string;
+    name: string;
+    phone: string | null;
+    streak_days: number;
+  }>(
+    `WITH daily_visits AS (
+       SELECT l.member_id,
+              DATE(to_timestamp(l.timestamp)) AS visit_day
+         FROM logs l
+         JOIN members m ON m.id = l.member_id
+         JOIN subscriptions s
+           ON s.member_id = l.member_id
+          AND s.organization_id = $1
+          AND s.branch_id = $2
+          AND s.is_active = true
+          AND s.start_date <= $3
+          AND s.end_date > $3
+        WHERE l.organization_id = $1
+          AND l.branch_id = $2
+          AND l.status = 'success'
+          AND l.member_id IS NOT NULL
+          AND m.deleted_at IS NULL
+          AND m.phone IS NOT NULL
+          AND COALESCE(m.whatsapp_do_not_contact, false) = false
+        GROUP BY l.member_id, DATE(to_timestamp(l.timestamp))
+     ),
+     ordered_days AS (
+       SELECT member_id,
+              visit_day,
+              visit_day - (ROW_NUMBER() OVER (PARTITION BY member_id ORDER BY visit_day))::int AS streak_group
+         FROM daily_visits
+     ),
+     current_streak AS (
+       SELECT od.member_id,
+              COUNT(*)::int AS streak_days,
+              MAX(od.visit_day) AS last_visit_day
+         FROM ordered_days od
+        GROUP BY od.member_id, od.streak_group
+        HAVING MAX(od.visit_day) = CURRENT_DATE
+     )
+     SELECT m.id AS member_id,
+            m.name,
+            m.phone,
+            cs.streak_days
+       FROM current_streak cs
+       JOIN members m ON m.id = cs.member_id
+      WHERE cs.streak_days = ANY($4::int[])`,
+    [
+      organizationId,
+      branchId,
+      toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000)),
+      streakMilestones,
+    ]
+  );
+
+  for (const row of rows.rows) {
+    const exists = await pool.query(
+      `SELECT 1
+         FROM message_queue
+        WHERE organization_id = $1
+          AND branch_id = $2
+          AND member_id = $3
+          AND payload->>'sequence_kind' = 'streak'
+          AND payload->>'streak_days' = $4
+        LIMIT 1`,
+      [organizationId, branchId, row.member_id, String(row.streak_days)]
+    );
+    if (exists.rows[0]) continue;
+
+    const template = getSavedTemplate(
+      settings,
+      getBehaviorTemplateKey("streak", systemLanguage),
+      defaultBehaviorTemplates.streak[systemLanguage]
+    );
+    const message = renderTemplate(template, {
+      name: row.name || "Member",
+      streakDays: row.streak_days,
+    });
+
+    await pool.query(
+      `INSERT INTO message_queue (
+          id, organization_id, branch_id, member_id, type, payload, status, attempts, scheduled_at
+       ) VALUES (
+          $1, $2, $3, $4, 'manual', $5::jsonb, 'pending', 0, NOW()
+       )`,
+      [
+        randomUUID(),
+        organizationId,
+        branchId,
+        row.member_id,
+        JSON.stringify({
+          message,
+          template,
+          sequence_kind: "streak",
+          streak_days: row.streak_days,
+          phone: row.phone,
+          name: row.name,
+          generated_at: new Date().toISOString(),
+        }),
+      ]
+    );
+  }
+}
+
+async function scheduleFreezeEndingRemindersForTenant(organizationId: string, branchId: string) {
+  const settings = await readTenantSettings(organizationId, branchId);
+  const automationEnabled = parseBooleanSetting(settings.whatsapp_automation_enabled, true);
+  if (!automationEnabled || isStaffInvitesOnlyMode(settings)) return;
+  if (!isLifecycleFlagEnabled(settings, "whatsapp_freeze_ending_enabled")) return;
+
+  const systemLanguage = normalizeSystemLanguage(settings.system_language, "en");
+  const nowSec = toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000));
+  const reminderStart = nowSec + 86400;
+  const reminderEnd = nowSec + 2 * 86400;
+
+  const rows = await pool.query<{
+    freeze_id: number;
+    subscription_id: number;
+    member_id: string;
+    name: string;
+    phone: string | null;
+    end_date: number;
+  }>(
+    `SELECT sf.id AS freeze_id,
+            sf.subscription_id,
+            s.member_id,
+            m.name,
+            m.phone,
+            sf.end_date
+       FROM subscription_freezes sf
+       JOIN subscriptions s ON s.id = sf.subscription_id
+       JOIN members m ON m.id = s.member_id
+      WHERE sf.organization_id = $1
+        AND sf.branch_id = $2
+        AND sf.end_date >= $3
+        AND sf.end_date < $4
+        AND m.deleted_at IS NULL
+        AND m.phone IS NOT NULL
+        AND COALESCE(m.whatsapp_do_not_contact, false) = false`,
+    [organizationId, branchId, reminderStart, reminderEnd]
+  );
+
+  for (const row of rows.rows) {
+    const exists = await pool.query(
+      `SELECT 1
+         FROM message_queue
+        WHERE organization_id = $1
+          AND branch_id = $2
+          AND member_id = $3
+          AND payload->>'sequence_kind' = 'freeze_ending'
+          AND payload->>'freeze_id' = $4
+        LIMIT 1`,
+      [organizationId, branchId, row.member_id, String(row.freeze_id)]
+    );
+    if (exists.rows[0]) continue;
+
+    const template = getSavedTemplate(
+      settings,
+      getBehaviorTemplateKey("freeze_ending", systemLanguage),
+      defaultBehaviorTemplates.freeze_ending[systemLanguage]
+    );
+    const resumeDate = formatLocalizedDate(Number(row.end_date), systemLanguage);
+    const message = renderTemplate(template, {
+      name: row.name || "Member",
+      resumeDate,
+    });
+
+    await pool.query(
+      `INSERT INTO message_queue (
+          id, organization_id, branch_id, member_id, type, payload, status, attempts, scheduled_at
+       ) VALUES (
+          $1, $2, $3, $4, 'manual', $5::jsonb, 'pending', 0, NOW()
+       )`,
+      [
+        randomUUID(),
+        organizationId,
+        branchId,
+        row.member_id,
+        JSON.stringify({
+          message,
+          template,
+          sequence_kind: "freeze_ending",
+          freeze_id: row.freeze_id,
+          subscription_id: row.subscription_id,
+          resumeDate,
+          phone: row.phone,
+          name: row.name,
+          generated_at: new Date().toISOString(),
+        }),
+      ]
+    );
+  }
+}
+
 async function scheduleLifecycleAutomations() {
   try {
     const statuses = await listTenantStatuses();
@@ -1354,6 +1703,9 @@ async function scheduleLifecycleAutomations() {
       await schedulePostExpirySequencesForTenant(tenant.organizationId, tenant.branchId);
       await scheduleOnboardingSequencesForTenant(tenant.organizationId, tenant.branchId);
       await scheduleWeeklyDigestForTenant(tenant.organizationId, tenant.branchId);
+      await scheduleHabitBreakForTenant(tenant.organizationId, tenant.branchId);
+      await scheduleStreakMessagesForTenant(tenant.organizationId, tenant.branchId);
+      await scheduleFreezeEndingRemindersForTenant(tenant.organizationId, tenant.branchId);
       await schedulePtAutomationsForTenant(tenant.organizationId, tenant.branchId);
     }
   } catch (error) {

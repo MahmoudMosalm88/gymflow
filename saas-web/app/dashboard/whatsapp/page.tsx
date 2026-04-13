@@ -18,10 +18,19 @@ import { Separator } from '@/components/ui/separator';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
+  DEFAULT_BEHAVIOR_TEMPLATES,
+  DEFAULT_ONBOARDING_TEMPLATES,
+  DEFAULT_POST_EXPIRY_TEMPLATES,
   DEFAULT_REMINDER_DAYS,
   getDefaultRenewalTemplate,
   getDefaultWelcomeTemplate,
+  getAutomationStatusLabel,
+  getAutomationWarningLabel,
   getTemplateKey,
+  parseBooleanSetting,
+  getReminderDaysLabel,
+  WHATSAPP_AUTOMATION_GROUPS,
+  WHATSAPP_AUTOMATIONS,
 } from '@/lib/whatsapp-automation';
 
 export const dynamic = 'force-dynamic';
@@ -42,6 +51,34 @@ type WhatsAppStatus = {
   lastQueueRunAt?: string | null;
   lastQueueSuccessAt?: string | null;
   lastQueueError?: string | null;
+  warningSummary?: {
+    warningActive: boolean;
+    affectedMembers: number;
+    membersChecked: number;
+    topSources: Array<{ key: string; count: number }>;
+    members: Array<{
+      memberId: string;
+      name: string | null;
+      phone: string | null;
+      messagesLast72h: number;
+      messagesLast7d: number;
+      topSources: string[];
+    }>;
+    thresholds: {
+      shortWindowHours: number;
+      shortWindowMessages: number;
+      longWindowDays: number;
+      longWindowMessages: number;
+      affectedMemberThreshold: number;
+    };
+  };
+  automationStates?: Array<{
+    id: string;
+    enabled: boolean;
+    locked: boolean;
+    ownerControlled: boolean;
+    status: 'live' | 'blocked' | 'planned';
+  }>;
 };
 
 type WhatsAppQueueItem = {
@@ -102,36 +139,6 @@ type WhatsAppCampaignsResponse = {
   items: WhatsAppCampaign[];
 };
 
-// ── Constants ────────────────────────────────────────────────────────────────
-
-const DEFAULT_POST_EXPIRY_TEMPLATES = {
-  en: {
-    day0: 'Hi {name}, your membership expired on {expiryDate}. Reply or renew today to reactivate access.',
-    day3: 'Hi {name}, this is a reminder that your membership expired on {expiryDate}. We can reactivate it anytime.',
-    day7: 'Hi {name}, we miss seeing you at the gym. Your membership expired on {expiryDate}. Reply here if you want us to help you renew.',
-    day14: 'Final reminder, {name}: your membership is still inactive since {expiryDate}. Renew now if you want to keep your progress going.',
-  },
-  ar: {
-    day0: 'مرحباً {name}، انتهى اشتراكك بتاريخ {expiryDate}. يمكنك التجديد اليوم لإعادة التفعيل فوراً.',
-    day3: 'مرحباً {name}، تذكير بأن اشتراكك انتهى بتاريخ {expiryDate}. يمكننا إعادة التفعيل في أي وقت.',
-    day7: 'مرحباً {name}، نفتقد حضورك في الصالة. انتهى اشتراكك بتاريخ {expiryDate}. راسلنا إذا أردت المساعدة في التجديد.',
-    day14: 'آخر تذكير يا {name}: ما زالت عضويتك غير مفعلة منذ {expiryDate}. جدّد الآن إذا أردت الاستمرار.',
-  },
-} as const;
-
-const DEFAULT_ONBOARDING_TEMPLATES = {
-  en: {
-    firstVisit: 'Great first visit, {name}. Keep the momentum going and book your next workout this week.',
-    noReturnDay7: 'Hi {name}, we noticed you have not been back yet. Your best results come from the first few visits. Want us to help you plan your next session?',
-    lowEngagementDay14: 'Hi {name}, your first two weeks matter most. We can help you build a routine that fits your schedule. Reply if you want support.',
-  },
-  ar: {
-    firstVisit: 'بداية ممتازة يا {name}. حافظ على الحماس وحدد تمرينك القادم هذا الأسبوع.',
-    noReturnDay7: 'مرحباً {name}، لاحظنا أنك لم تعد بعد. أفضل النتائج تأتي من أول الزيارات. هل تريد مساعدتنا في ترتيب حصتك القادمة؟',
-    lowEngagementDay14: 'مرحباً {name}، أول أسبوعين هم الأهم. نستطيع مساعدتك في بناء روتين مناسب لوقتك. راسلنا إذا أردت دعماً.',
-  },
-} as const;
-
 const DEFAULT_BROADCAST_FILTERS: BroadcastFilters = {
   search: '',
   status: 'all',
@@ -144,8 +151,6 @@ const DEFAULT_BROADCAST_FILTERS: BroadcastFilters = {
   createdTo: '',
   sessionsMin: '',
 };
-
-const REMINDER_OPTIONS = [1, 3, 7];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -318,6 +323,7 @@ export default function WhatsAppSystemPage() {
   const defaultRenewalTemplate = getDefaultRenewalTemplate(systemLanguage);
   const defaultPostExpiry = DEFAULT_POST_EXPIRY_TEMPLATES[systemLanguage];
   const defaultOnboarding = DEFAULT_ONBOARDING_TEMPLATES[systemLanguage];
+  const defaultBehavior = DEFAULT_BEHAVIOR_TEMPLATES[systemLanguage];
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('templates');
 
@@ -341,12 +347,18 @@ export default function WhatsAppSystemPage() {
   const [onboardingFirstVisit, setOnboardingFirstVisit] = useState<string>(defaultOnboarding.firstVisit);
   const [onboardingNoReturn7, setOnboardingNoReturn7] = useState<string>(defaultOnboarding.noReturnDay7);
   const [onboardingLowEngagement14, setOnboardingLowEngagement14] = useState<string>(defaultOnboarding.lowEngagementDay14);
+  const [habitBreakTemplate, setHabitBreakTemplate] = useState<string>(defaultBehavior.habitBreak);
+  const [streakTemplate, setStreakTemplate] = useState<string>(defaultBehavior.streaks);
+  const [freezeEndingTemplate, setFreezeEndingTemplate] = useState<string>(defaultBehavior.freezeEnding);
   const [postExpiryEnabled, setPostExpiryEnabled] = useState(false);
   const [onboardingEnabled, setOnboardingEnabled] = useState(false);
   const [weeklyDigestEnabled, setWeeklyDigestEnabled] = useState(false);
-  const [reminderDays, setReminderDays] = useState(DEFAULT_REMINDER_DAYS);
+  const [habitBreakEnabled, setHabitBreakEnabled] = useState(false);
+  const [streaksEnabled, setStreaksEnabled] = useState(false);
+  const [freezeEndingEnabled, setFreezeEndingEnabled] = useState(false);
   const [postExpiryDay, setPostExpiryDay] = useState<'day0' | 'day3' | 'day7' | 'day14'>('day0');
   const [onboardingStep, setOnboardingStep] = useState<'firstVisit' | 'noReturn7' | 'lowEngagement14'>('firstVisit');
+  const [behaviorStep, setBehaviorStep] = useState<'habitBreak' | 'streaks' | 'freezeEnding'>('habitBreak');
   const [lifecycleInfoOpen, setLifecycleInfoOpen] = useState(false);
 
   // ── Broadcast state ──
@@ -368,44 +380,30 @@ export default function WhatsAppSystemPage() {
     { year: 'numeric', month: 'short', day: 'numeric' }
   );
 
-  function previewText(template: string, type: 'welcome' | 'renewal' | 'post_expiry' | 'onboarding') {
+  function previewText(template: string, type: 'welcome' | 'renewal' | 'post_expiry' | 'onboarding' | 'habit_break' | 'streaks' | 'freeze_ending') {
     let text = template;
     if (!text.trim()) {
       if (type === 'welcome') text = defaultWelcomeTemplate;
       else if (type === 'renewal') text = defaultRenewalTemplate;
       else if (type === 'post_expiry') text = defaultPostExpiry.day0;
-      else text = defaultOnboarding.firstVisit;
+      else if (type === 'onboarding') text = defaultOnboarding.firstVisit;
+      else if (type === 'habit_break') text = defaultBehavior.habitBreak;
+      else if (type === 'streaks') text = defaultBehavior.streaks;
+      else text = defaultBehavior.freezeEnding;
     }
     text = text.replace(/\{name\}/g, sampleName);
     if (type === 'renewal' || type === 'post_expiry') text = text.replace(/\{expiryDate\}/g, sampleExpiry);
     if (type === 'renewal') text = text.replace(/\{daysLeft\}/g, '7');
+    if (type === 'habit_break') text = text.replace(/\{daysAbsent\}/g, '4');
+    if (type === 'streaks') text = text.replace(/\{streakDays\}/g, '7');
+    if (type === 'freeze_ending') text = text.replace(/\{resumeDate\}/g, sampleExpiry);
     return text;
-  }
-
-  const selectedDays = new Set(
-    reminderDays.split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n))
-  );
-
-  function toggleDay(day: number) {
-    const next = new Set(selectedDays);
-    if (next.has(day)) {
-      if (next.size === 1) {
-        setTemplateFeedback({
-          type: 'destructive',
-          text: lang === 'ar' ? 'يجب اختيار يوم تذكير واحد على الأقل.' : 'You must keep at least one reminder day selected.',
-        });
-        return;
-      }
-      next.delete(day);
-    } else {
-      next.add(day);
-    }
-    setTemplateFeedback(null);
-    setReminderDays(Array.from(next).sort((a, b) => b - a).join(','));
   }
 
   const queueCounts = pickQueueCounts(status?.queue ?? queueData.counts);
   const canPreviewBroadcast = Boolean(broadcastMessage.trim()) && !previewLoading && !broadcastSubmitting;
+  const warningSummary = status?.warningSummary;
+  const automationStateMap = new Map((status?.automationStates ?? []).map((item) => [item.id, item]));
 
   const buildBroadcastPayload = useCallback(() => ({
     title: broadcastTitle.trim() || (lang === 'ar' ? 'رسالة جماعية' : 'Broadcast'),
@@ -442,7 +440,6 @@ export default function WhatsAppSystemPage() {
         const str = (v: unknown, fallback: string) => (typeof v === 'string' && v.trim() ? v : fallback);
         setWelcomeTemplate(str(d[getTemplateKey('welcome', systemLanguage)] ?? d.whatsapp_template_welcome, defaultWelcomeTemplate));
         setRenewalTemplate(str(d[getTemplateKey('renewal', systemLanguage)] ?? d.whatsapp_template_renewal, defaultRenewalTemplate));
-        setReminderDays(str(d.whatsapp_reminder_days, DEFAULT_REMINDER_DAYS));
         setPostExpiryDay0(str(d[`whatsapp_template_post_expiry_day0_${systemLanguage}`], defaultPostExpiry.day0));
         setPostExpiryDay3(str(d[`whatsapp_template_post_expiry_day3_${systemLanguage}`], defaultPostExpiry.day3));
         setPostExpiryDay7(str(d[`whatsapp_template_post_expiry_day7_${systemLanguage}`], defaultPostExpiry.day7));
@@ -450,16 +447,22 @@ export default function WhatsAppSystemPage() {
         setOnboardingFirstVisit(str(d[`whatsapp_template_onboarding_first_visit_${systemLanguage}`], defaultOnboarding.firstVisit));
         setOnboardingNoReturn7(str(d[`whatsapp_template_onboarding_no_return_day7_${systemLanguage}`], defaultOnboarding.noReturnDay7));
         setOnboardingLowEngagement14(str(d[`whatsapp_template_onboarding_low_engagement_day14_${systemLanguage}`], defaultOnboarding.lowEngagementDay14));
-        setPostExpiryEnabled(Boolean(d.whatsapp_post_expiry_enabled));
-        setOnboardingEnabled(Boolean(d.whatsapp_onboarding_enabled));
-        setWeeklyDigestEnabled(Boolean(d.whatsapp_weekly_digest_enabled));
+        setHabitBreakTemplate(str(d[`whatsapp_template_habit_break_${systemLanguage}`], defaultBehavior.habitBreak));
+        setStreakTemplate(str(d[`whatsapp_template_streak_${systemLanguage}`], defaultBehavior.streaks));
+        setFreezeEndingTemplate(str(d[`whatsapp_template_freeze_ending_${systemLanguage}`], defaultBehavior.freezeEnding));
+        setPostExpiryEnabled(parseBooleanSetting(d.whatsapp_post_expiry_enabled, false));
+        setOnboardingEnabled(parseBooleanSetting(d.whatsapp_onboarding_enabled, false));
+        setWeeklyDigestEnabled(parseBooleanSetting(d.whatsapp_weekly_digest_enabled, false));
+        setHabitBreakEnabled(parseBooleanSetting(d.whatsapp_habit_break_enabled, false));
+        setStreaksEnabled(parseBooleanSetting(d.whatsapp_streaks_enabled, false));
+        setFreezeEndingEnabled(parseBooleanSetting(d.whatsapp_freeze_ending_enabled, false));
       }
     } catch (err) {
       setTemplateFeedback({ type: 'destructive', text: err instanceof Error ? err.message : 'Failed to load templates' });
     } finally {
       setTemplatesLoading(false);
     }
-  }, [defaultOnboarding, defaultPostExpiry, defaultRenewalTemplate, defaultWelcomeTemplate, systemLanguage]);
+  }, [defaultBehavior, defaultOnboarding, defaultPostExpiry, defaultRenewalTemplate, defaultWelcomeTemplate, systemLanguage]);
 
   const fetchQueue = useCallback(async () => {
     setQueueLoading(true);
@@ -504,14 +507,7 @@ export default function WhatsAppSystemPage() {
       const values: Record<string, string | boolean> = {
         [getTemplateKey('welcome', systemLanguage)]: welcomeTemplate.trim() || defaultWelcomeTemplate,
         [getTemplateKey('renewal', systemLanguage)]: renewalTemplate.trim() || defaultRenewalTemplate,
-        [`whatsapp_template_post_expiry_day0_${systemLanguage}`]: postExpiryDay0.trim() || defaultPostExpiry.day0,
-        [`whatsapp_template_post_expiry_day3_${systemLanguage}`]: postExpiryDay3.trim() || defaultPostExpiry.day3,
-        [`whatsapp_template_post_expiry_day7_${systemLanguage}`]: postExpiryDay7.trim() || defaultPostExpiry.day7,
-        [`whatsapp_template_post_expiry_day14_${systemLanguage}`]: postExpiryDay14.trim() || defaultPostExpiry.day14,
-        [`whatsapp_template_onboarding_first_visit_${systemLanguage}`]: onboardingFirstVisit.trim() || defaultOnboarding.firstVisit,
-        [`whatsapp_template_onboarding_no_return_day7_${systemLanguage}`]: onboardingNoReturn7.trim() || defaultOnboarding.noReturnDay7,
-        [`whatsapp_template_onboarding_low_engagement_day14_${systemLanguage}`]: onboardingLowEngagement14.trim() || defaultOnboarding.lowEngagementDay14,
-        whatsapp_reminder_days: reminderDays.trim(),
+        whatsapp_reminder_days: DEFAULT_REMINDER_DAYS,
         whatsapp_automation_enabled: true,
         whatsapp_post_expiry_enabled: false,
         whatsapp_onboarding_enabled: false,
@@ -638,6 +634,125 @@ export default function WhatsAppSystemPage() {
             <LoadingSpinner />
           ) : (
             <>
+              {warningSummary && warningSummary.affectedMembers > 0 && (
+                <Alert variant={warningSummary.warningActive ? 'destructive' : 'default'}>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>
+                    {lang === 'ar' ? 'تحذير كثافة الرسائل' : 'Messaging frequency warning'}
+                  </AlertTitle>
+                  <AlertDescription className="space-y-2">
+                    <p>
+                      {lang === 'ar'
+                        ? `${warningSummary.affectedMembers} عضو من أصل ${warningSummary.membersChecked} تلقوا رسائل كثيرة خلال آخر ${warningSummary.thresholds.longWindowDays} أيام.`
+                        : `${warningSummary.affectedMembers} of ${warningSummary.membersChecked} checked members received high message volume in the last ${warningSummary.thresholds.longWindowDays} days.`}
+                    </p>
+                    {warningSummary.topSources.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {warningSummary.topSources.map((source) => (
+                          <Badge key={source.key} variant="outline" className="border-border text-xs">
+                            {getAutomationWarningLabel(source.key, systemLanguage)} · {source.count}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    {warningSummary.members.length > 0 && (
+                      <div className="grid gap-2 md:grid-cols-2">
+                        {warningSummary.members.slice(0, 4).map((member) => (
+                          <div key={member.memberId} className="border border-border px-3 py-2 text-xs">
+                            <p className="font-medium text-foreground">{member.name || (lang === 'ar' ? 'بدون اسم' : 'Unnamed')}</p>
+                            <p className="text-muted-foreground">
+                              {lang === 'ar'
+                                ? `${member.messagesLast72h} خلال ${warningSummary.thresholds.shortWindowHours} ساعة · ${member.messagesLast7d} خلال ${warningSummary.thresholds.longWindowDays} أيام`
+                                : `${member.messagesLast72h} in ${warningSummary.thresholds.shortWindowHours}h · ${member.messagesLast7d} in ${warningSummary.thresholds.longWindowDays}d`}
+                            </p>
+                            <p className="text-muted-foreground">
+                              {(member.topSources.length > 0 ? member.topSources : ['manual'])
+                                .map((key) => getAutomationWarningLabel(key, systemLanguage))
+                                .join(' • ')}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>{lang === 'ar' ? 'مركز تحكم الأتمتة' : 'Automation control center'}</CardTitle>
+                  <CardDescription>
+                    {lang === 'ar'
+                      ? 'كل الأتمتات ضمن النطاق ظاهرة هنا. المحجوب منها يبقى مرئياً لكنه مقفل حتى الإطلاق.'
+                      : 'All in-scope automations stay visible here. Blocked ones remain visible but locked until release.'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {WHATSAPP_AUTOMATION_GROUPS.map((group) => {
+                    const items = WHATSAPP_AUTOMATIONS.filter((item) => item.group === group.id);
+                    return (
+                      <div key={group.id} className="space-y-3">
+                        <div>
+                          <h3 className="text-sm font-semibold">{group.title[systemLanguage]}</h3>
+                          <p className="text-xs text-muted-foreground">{group.description[systemLanguage]}</p>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                          {items.map((item) => {
+                            const serverState = automationStateMap.get(item.id);
+                            const configured = serverState
+                              ? serverState.enabled
+                              : item.id === 'post_expiry'
+                                ? postExpiryEnabled
+                                : item.id === 'onboarding'
+                                  ? onboardingEnabled
+                                  : item.id === 'weekly_digest'
+                                    ? weeklyDigestEnabled
+                                    : item.status === 'live';
+                            return (
+                              <div key={item.id} className="border border-border px-4 py-3 space-y-2">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-semibold">{item.title[systemLanguage]}</p>
+                                    <p className="text-xs text-muted-foreground">{item.description[systemLanguage]}</p>
+                                  </div>
+                                  <Badge
+                                    variant="outline"
+                                    className={item.status === 'live' ? 'border-success/30 text-success' : 'border-warning/30 text-warning'}
+                                  >
+                                    {getAutomationStatusLabel(item.status, systemLanguage)}
+                                  </Badge>
+                                </div>
+                                <div className="flex flex-wrap gap-2 text-xs">
+                                  <Badge variant="outline" className="border-border text-muted-foreground">
+                                    {configured
+                                      ? (lang === 'ar' ? 'مُعدّ' : 'Configured')
+                                      : (lang === 'ar' ? 'غير مفعّل' : 'Off')}
+                                  </Badge>
+                                  <Badge variant="outline" className="border-border text-muted-foreground">
+                                    {item.ownerControlled
+                                      ? (lang === 'ar' ? 'يتحكم به المالك' : 'Owner controlled')
+                                      : (lang === 'ar' ? 'نظامي / يدوي' : 'System / manual')}
+                                  </Badge>
+                                  {item.editableTemplates ? (
+                                    <Badge variant="outline" className="border-border text-muted-foreground">
+                                      {lang === 'ar' ? 'قابل للتعديل الآن' : 'Editable now'}
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="border-border text-muted-foreground">
+                                      {lang === 'ar' ? 'مقفل حالياً' : 'Locked for now'}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+
               {/* Welcome Message */}
               <Card>
                 <CardHeader>
@@ -687,24 +802,8 @@ export default function WhatsAppSystemPage() {
                       />
                       <div className="space-y-2">
                         <Label>{labels.reminder_days_label}</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {REMINDER_OPTIONS.map((day) => {
-                            const active = selectedDays.has(day);
-                            return (
-                              <button
-                                key={day}
-                                type="button"
-                                onClick={() => toggleDay(day)}
-                                className={`px-3 py-1.5 text-sm font-semibold border transition-colors ${
-                                  active
-                                    ? 'bg-[#e63946] text-white border-[#e63946]'
-                                    : 'bg-[#1e1e1e] text-[#8a8578] border-[#2a2a2a] hover:text-[#e8e4df] hover:border-[#3a3a3a]'
-                                }`}
-                              >
-                                {day} {day === 1 ? (lang === 'ar' ? 'يوم' : 'day') : (lang === 'ar' ? 'أيام' : 'days')}
-                              </button>
-                            );
-                          })}
+                        <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                          {getReminderDaysLabel(systemLanguage)}
                         </div>
                       </div>
                     </div>
@@ -729,7 +828,7 @@ export default function WhatsAppSystemPage() {
                     {lang === 'ar' ? 'قادمًا قريباً' : 'Coming soon'}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {lang === 'ar' ? '3 متوقفة' : '3 off'}
+                    {lang === 'ar' ? 'ظاهرة لكنها مقفلة' : 'Visible but locked'}
                   </span>
                 </div>
                 <svg
@@ -744,19 +843,22 @@ export default function WhatsAppSystemPage() {
                 <div className="border border-border border-t-0 px-4 py-4 space-y-3 bg-[#1a1a1a]">
                   <p className="text-sm text-muted-foreground">
                     {lang === 'ar'
-                      ? 'حتى لو تم الحفظ، لن ترسل هذه الرسائل حتى يتم تفعيل المفتاح البيئي على مستوى العامل.'
-                      : 'Even if saved, these messages will not send until the environment kill switch is explicitly enabled on the worker.'}
+                      ? 'هذه الرسائل تبقى مرئية لفهم ما سيصدر لاحقاً، لكنها للعرض فقط الآن ولن يتم تفعيلها من الواجهة.'
+                      : 'These automations stay visible so owners can understand what is coming next, but they are read-only for now and cannot be activated from this UI.'}
                   </p>
                   <div className="grid gap-2 sm:grid-cols-3">
                     {[
                       { titleEn: 'Post-expiry recovery', titleAr: 'استرجاع ما بعد الانتهاء', enabled: postExpiryEnabled },
                       { titleEn: 'New member onboarding', titleAr: 'تهيئة العضو الجديد', enabled: onboardingEnabled },
+                      { titleEn: 'Habit-break nudge', titleAr: 'تنبيه انقطاع العادة', enabled: habitBreakEnabled },
+                      { titleEn: 'Streak encouragement', titleAr: 'تشجيع الاستمرارية', enabled: streaksEnabled },
+                      { titleEn: 'Freeze-ending reminder', titleAr: 'تذكير انتهاء التجميد', enabled: freezeEndingEnabled },
                       { titleEn: 'Weekly digest', titleAr: 'الملخص الأسبوعي', enabled: weeklyDigestEnabled },
                     ].map((item) => (
                       <div key={item.titleEn} className="flex items-center justify-between gap-2 border border-border px-3 py-2">
                         <p className="text-xs font-medium">{lang === 'ar' ? item.titleAr : item.titleEn}</p>
                         <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
-                          {item.enabled ? (lang === 'ar' ? 'محجوب' : 'Blocked') : (lang === 'ar' ? 'متوقف' : 'Off')}
+                          {item.enabled ? (lang === 'ar' ? 'مُعدّ لكن محجوب' : 'Configured but blocked') : (lang === 'ar' ? 'محجوب' : 'Blocked')}
                         </Badge>
                       </div>
                     ))}
@@ -809,7 +911,7 @@ export default function WhatsAppSystemPage() {
                       .replace(/\{expiryDate\}/g, sampleExpiry);
                     return (
                       <div className="grid gap-4 lg:grid-cols-2 items-stretch">
-                        <Textarea value={active.value} onChange={(e) => active.setValue(e.target.value)} rows={3} className="resize-none" />
+                        <Textarea value={active.value} onChange={(e) => active.setValue(e.target.value)} rows={3} className="resize-none" disabled />
                         <WaBubble text={previewMsg} />
                       </div>
                     );
@@ -858,8 +960,55 @@ export default function WhatsAppSystemPage() {
                     const previewMsg = (active.value.trim() || active.defaultVal).replace(/\{name\}/g, sampleName);
                     return (
                       <div className="grid gap-4 lg:grid-cols-2 items-stretch">
-                        <Textarea value={active.value} onChange={(e) => active.setValue(e.target.value)} rows={3} className="resize-none" />
+                        <Textarea value={active.value} onChange={(e) => active.setValue(e.target.value)} rows={3} className="resize-none" disabled />
                         <WaBubble text={previewMsg} />
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">{lang === 'ar' ? 'قوالب الأتمتات السلوكية' : 'Behavior automation templates'}</CardTitle>
+                  <CardDescription className="text-xs">
+                    {lang === 'ar'
+                      ? 'ضمن النطاق لكنها مقفلة حتى الإطلاق. المتغيرات: {name}، {daysAbsent}، {streakDays}، {resumeDate}'
+                      : 'In scope but locked until release. Variables: {name}, {daysAbsent}, {streakDays}, {resumeDate}'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-1 flex-wrap">
+                    {([
+                      { id: 'habitBreak', labelEn: 'Habit break', labelAr: 'انقطاع العادة' },
+                      { id: 'streaks', labelEn: 'Streaks', labelAr: 'الاستمرارية' },
+                      { id: 'freezeEnding', labelEn: 'Freeze ending', labelAr: 'انتهاء التجميد' },
+                    ] as const).map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setBehaviorStep(s.id)}
+                        className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                          behaviorStep === s.id
+                            ? 'bg-[#e63946] text-white border-[#e63946]'
+                            : 'bg-[#1e1e1e] text-[#8a8578] border-[#2a2a2a] hover:text-[#e8e4df] hover:border-[#3a3a3a]'
+                        }`}
+                      >
+                        {lang === 'ar' ? s.labelAr : s.labelEn}
+                      </button>
+                    ))}
+                  </div>
+                  {(() => {
+                    const map = {
+                      habitBreak: { value: habitBreakTemplate, type: 'habit_break' as const },
+                      streaks: { value: streakTemplate, type: 'streaks' as const },
+                      freezeEnding: { value: freezeEndingTemplate, type: 'freeze_ending' as const },
+                    };
+                    const active = map[behaviorStep];
+                    return (
+                      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+                        <Textarea value={active.value} onChange={() => undefined} rows={3} className="resize-none" disabled />
+                        <WaBubble text={previewText(active.value, active.type)} />
                       </div>
                     );
                   })()}

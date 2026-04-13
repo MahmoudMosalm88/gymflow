@@ -173,10 +173,10 @@ export async function POST(request: NextRequest) {
       const inserted = await client.query(
         `INSERT INTO members (
             id, organization_id, branch_id, name, phone, gender, photo_path,
-            access_tier, card_code, address, created_at, updated_at
+            access_tier, card_code, address, whatsapp_do_not_contact, created_at, updated_at
          ) VALUES (
             $1, $2, $3, $4, $5, $6, $7,
-            $8, $9, $10, $11, $11
+            $8, $9, $10, $11, $12, $12
          )
          RETURNING *`,
         [
@@ -190,6 +190,7 @@ export async function POST(request: NextRequest) {
           payload.access_tier,
           payload.card_code || null,
           payload.address || null,
+          payload.whatsapp_do_not_contact ?? false,
           now
         ]
       );
@@ -262,7 +263,7 @@ export async function POST(request: NextRequest) {
       const automationEnabled = parseBooleanSetting(settings.whatsapp_automation_enabled, true);
       const systemLanguage = normalizeSystemLanguage(settings.system_language, "en");
 
-      if (automationEnabled) {
+      if (automationEnabled && !member.whatsapp_do_not_contact) {
         const templateByLanguageKey = getTemplateKey("welcome", systemLanguage);
         const byLanguage = parseTextSetting(settings[templateByLanguageKey]);
         const rawTemplate = parseTextSetting(settings.whatsapp_template_welcome);

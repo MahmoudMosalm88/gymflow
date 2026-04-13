@@ -16,6 +16,7 @@ import { Terminal, Pin, PinOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PAYMENT_METHOD_UI_ENABLED } from '@/lib/payment-method-ui';
+import { getAutomationWarningLabel } from '@/lib/whatsapp-automation';
 
 // ── Pinnable stats: for each tab key, how to fetch + display a single headline number ──
 const PINNED_STAT_FETCH: Record<string, { url: string; extract: (d: any) => string }> = {
@@ -953,11 +954,11 @@ export default function ReportsPage() {
               <CardContent>
                 <DataTable
                   columns={[
-                    { key: 'messageType',   label: lang === 'ar' ? 'النوع'           : 'Type' },
+                    { key: 'messageType',   label: lang === 'ar' ? 'النوع'           : 'Type', render: (row: any) => getAutomationWarningLabel(row.messageType, lang === 'ar' ? 'ar' : 'en') },
                     { key: 'messagesSent',  label: lang === 'ar' ? 'تم الإرسال'      : 'Sent' },
                     { key: 'membersReached',label: lang === 'ar' ? 'الأعضاء'         : 'Members' },
                     { key: 'renewalsWon',   label: lang === 'ar' ? 'التجديدات'       : 'Renewals' },
-                    { key: 'revenueSaved',  label: lang === 'ar' ? 'الإيراد المحفوظ' : 'Revenue Saved', render: (row: any) => formatCurrency(row.revenueSaved || 0) },
+                    { key: 'revenueSaved',  label: lang === 'ar' ? 'الإيراد المستعاد' : 'Recovered Revenue', render: (row: any) => formatCurrency(row.revenueSaved || 0) },
                   ]}
                   data={data.rows}
                   emptyMessage={lang === 'ar' ? 'لا بيانات بعد.' : 'No data yet.'}

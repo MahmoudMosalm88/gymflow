@@ -26,8 +26,10 @@ export async function POST(request: NextRequest) {
 
     if (!memberId) return fail("memberId is required", 400);
 
-    const memberRows = await query<{ id: string; name: string; card_code: string | null }>(
-      `SELECT id, name, card_code
+    const allowManualOverride = Boolean(body.allowManualOverride);
+
+    const memberRows = await query<{ id: string; name: string; card_code: string | null; whatsapp_do_not_contact: boolean }>(
+      `SELECT id, name, card_code, whatsapp_do_not_contact
          FROM members
         WHERE id = $1
           AND organization_id = $2
@@ -39,6 +41,10 @@ export async function POST(request: NextRequest) {
 
     if (!memberRows[0]) return fail("Member not found", 404);
     const member = memberRows[0];
+
+    if (member.whatsapp_do_not_contact && !(type === "manual" && allowManualOverride)) {
+      return fail("This member is marked as do-not-contact for WhatsApp.", 409);
+    }
 
     let payloadWithDefaults: Record<string, unknown> = { ...payload };
 

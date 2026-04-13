@@ -609,7 +609,7 @@ These are not optional forever. Some of the highest-value reports depend on thes
 
 ### A. Post-Expiry Recovery Workflow
 This workflow has enough logic and edge cases that it must have its own implementation spec:
-- `docs/features/post-expiry-reengagement-sequence.md`
+- `docs/features/whatsapp-automation-source-of-truth.md`
 
 Locked minimum sequence:
 1. Day 0 expiry or payment failure message
@@ -629,8 +629,8 @@ Recommended minimum sequence:
 3. no-return warning after missed early visits
 4. 14-day check-in for low-engagement members
 
-This workflow now has its own implementation spec:
-- `docs/features/early-onboarding-retention-sequence.md`
+This workflow is now defined in:
+- `docs/features/whatsapp-automation-source-of-truth.md`
 
 Reports that depend on it:
 - Cohort Retention

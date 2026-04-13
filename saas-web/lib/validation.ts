@@ -72,6 +72,7 @@ export const memberSchema = z.object({
   access_tier: z.string().default("full"),
   card_code: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
+  whatsapp_do_not_contact: z.boolean().optional(),
   from_guest_pass_id: z.string().uuid().optional().nullable()
 });
 
@@ -248,6 +249,44 @@ export const whatsappBroadcastFiltersSchema = z.object({
   createdFrom: z.string().trim().optional().nullable(),
   createdTo: z.string().trim().optional().nullable(),
   sessionsRemainingMax: z.number().int().min(0).max(10000).nullable().optional()
+});
+
+export const importPreviewSchema = z.object({
+  artifactId: z.string().uuid(),
+  mapping: z.object({
+    member_name: z.string().trim().min(1),
+    phone: z.string().trim().min(1),
+    gender: z.string().trim().min(1).optional(),
+    joined_at: z.string().trim().min(1).optional(),
+    date_of_birth: z.string().trim().min(1).optional(),
+    notes: z.string().trim().min(1).optional(),
+    card_code: z.string().trim().min(1).optional(),
+    subscription_start: z.string().trim().min(1).optional(),
+    subscription_end: z.string().trim().min(1).optional(),
+    plan_months: z.string().trim().min(1).optional(),
+    sessions_per_month: z.string().trim().min(1).optional(),
+    amount_paid: z.string().trim().min(1).optional()
+  }),
+  defaults: z
+    .object({
+      gender_default: z.enum(["male", "female"]).optional(),
+      duplicate_mode: z.enum(["skip_duplicates", "new_only"]).optional()
+    })
+    .optional()
+}).superRefine((payload, ctx) => {
+  if (!payload.mapping.gender && !payload.defaults?.gender_default) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["defaults", "gender_default"],
+      message: "Map a gender column or choose a default gender for missing rows."
+    });
+  }
+});
+
+export const importExecuteSchema = z.object({
+  artifactId: z.string().uuid(),
+  duplicate_mode: z.enum(["skip_duplicates", "new_only"]).optional(),
+  suppressImportedAutomations: z.boolean().optional()
 });
 
 export const whatsappBroadcastSchema = z.object({

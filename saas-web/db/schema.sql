@@ -540,6 +540,39 @@ CREATE TABLE IF NOT EXISTS import_artifacts (
   updated_at timestamptz NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE import_artifacts
+  ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'desktop_archive';
+
+ALTER TABLE import_artifacts
+  ADD COLUMN IF NOT EXISTS file_format text;
+
+ALTER TABLE import_artifacts
+  ADD COLUMN IF NOT EXISTS mapping jsonb;
+
+ALTER TABLE import_artifacts
+  ADD COLUMN IF NOT EXISTS preview_summary jsonb;
+
+ALTER TABLE import_artifacts
+  DROP CONSTRAINT IF EXISTS import_artifacts_kind_check;
+
+ALTER TABLE import_artifacts
+  ADD CONSTRAINT import_artifacts_kind_check
+  CHECK (kind IN ('desktop_archive', 'spreadsheet'));
+
+ALTER TABLE import_artifacts
+  DROP CONSTRAINT IF EXISTS import_artifacts_file_format_check;
+
+ALTER TABLE import_artifacts
+  ADD CONSTRAINT import_artifacts_file_format_check
+  CHECK (file_format IN ('csv', 'xlsx', 'sqlite_db') OR file_format IS NULL);
+
+ALTER TABLE import_artifacts
+  DROP CONSTRAINT IF EXISTS import_artifacts_status_check;
+
+ALTER TABLE import_artifacts
+  ADD CONSTRAINT import_artifacts_status_check
+  CHECK (status IN ('uploaded', 'parsed', 'mapped', 'validated', 'invalid', 'imported', 'failed'));
+
 CREATE TABLE IF NOT EXISTS migration_jobs (
   id uuid PRIMARY KEY,
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -552,6 +585,36 @@ CREATE TABLE IF NOT EXISTS migration_jobs (
   finished_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE migration_jobs
+  DROP CONSTRAINT IF EXISTS migration_jobs_type_check;
+
+ALTER TABLE migration_jobs
+  ADD CONSTRAINT migration_jobs_type_check
+  CHECK (type IN ('desktop_import', 'backup_restore', 'spreadsheet_import'));
+
+CREATE TABLE IF NOT EXISTS import_row_results (
+  id uuid PRIMARY KEY,
+  artifact_id uuid NOT NULL REFERENCES import_artifacts(id) ON DELETE CASCADE,
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  branch_id uuid NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+  row_number integer NOT NULL,
+  raw_row jsonb NOT NULL,
+  normalized_row jsonb,
+  status text NOT NULL CHECK (status IN ('valid', 'warning', 'invalid', 'duplicate', 'imported', 'skipped', 'failed')),
+  issues jsonb NOT NULL DEFAULT '[]'::jsonb,
+  matched_member_id uuid,
+  created_member_id uuid,
+  created_subscription_id bigint,
+  created_at timestamptz NOT NULL DEFAULT NOW(),
+  updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_import_row_results_artifact
+  ON import_row_results (artifact_id, row_number);
+
+CREATE INDEX IF NOT EXISTS idx_import_row_results_status
+  ON import_row_results (organization_id, branch_id, status, updated_at DESC);
 
 CREATE TABLE IF NOT EXISTS payments (
   id SERIAL PRIMARY KEY,
@@ -577,3 +640,44 @@ ALTER TABLE payments
 ALTER TABLE payments
   ADD CONSTRAINT payments_payment_method_check
   CHECK (payment_method IN ('cash', 'digital') OR payment_method IS NULL);
+
+ALTER TABLE members
+  ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'manual';
+
+ALTER TABLE members
+  ADD COLUMN IF NOT EXISTS import_job_id uuid;
+
+ALTER TABLE members
+  ADD COLUMN IF NOT EXISTS is_legacy_import boolean NOT NULL DEFAULT false;
+
+ALTER TABLE members
+  ADD COLUMN IF NOT EXISTS joined_at timestamptz;
+
+ALTER TABLE members
+  ADD COLUMN IF NOT EXISTS notes text;
+
+ALTER TABLE members
+  ADD COLUMN IF NOT EXISTS whatsapp_do_not_contact boolean NOT NULL DEFAULT false;
+
+ALTER TABLE members
+  DROP CONSTRAINT IF EXISTS members_source_check;
+
+ALTER TABLE members
+  ADD CONSTRAINT members_source_check
+  CHECK (source IN ('manual', 'import_csv', 'import_desktop'));
+
+ALTER TABLE subscriptions
+  ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'manual';
+
+ALTER TABLE subscriptions
+  ADD COLUMN IF NOT EXISTS import_job_id uuid;
+
+ALTER TABLE subscriptions
+  ADD COLUMN IF NOT EXISTS is_legacy_import boolean NOT NULL DEFAULT false;
+
+ALTER TABLE subscriptions
+  DROP CONSTRAINT IF EXISTS subscriptions_source_check;
+
+ALTER TABLE subscriptions
+  ADD CONSTRAINT subscriptions_source_check
+  CHECK (source IN ('manual', 'renewal', 'import_csv', 'import_desktop'));

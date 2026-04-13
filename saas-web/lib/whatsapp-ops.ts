@@ -2,6 +2,16 @@ import { PoolClient } from "pg";
 import { randomUUID } from "crypto";
 import { query, withTransaction } from "@/lib/db";
 import { toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
+import {
+  WHATSAPP_AUTOMATIONS,
+  WARNING_AFFECTED_MEMBER_THRESHOLD,
+  WARNING_MEMBER_MESSAGE_THRESHOLD_LONG,
+  WARNING_MEMBER_MESSAGE_THRESHOLD_SHORT,
+  WARNING_WINDOW_DAYS,
+  WARNING_WINDOW_HOURS,
+  classifyAutomationSource,
+  parseBooleanSetting,
+} from "@/lib/whatsapp-automation";
 
 export type QueueStatus = "pending" | "processing" | "sent" | "failed";
 export type QueueType =
@@ -20,6 +30,38 @@ export type QueueCounts = {
   processing: number;
   sent: number;
   failed: number;
+};
+
+export type WhatsAppWarningMember = {
+  memberId: string;
+  name: string | null;
+  phone: string | null;
+  messagesLast72h: number;
+  messagesLast7d: number;
+  topSources: string[];
+};
+
+export type WhatsAppWarningSummary = {
+  warningActive: boolean;
+  affectedMembers: number;
+  membersChecked: number;
+  topSources: Array<{ key: string; count: number }>;
+  members: WhatsAppWarningMember[];
+  thresholds: {
+    shortWindowHours: number;
+    shortWindowMessages: number;
+    longWindowDays: number;
+    longWindowMessages: number;
+    affectedMemberThreshold: number;
+  };
+};
+
+export type WhatsAppAutomationControlState = {
+  id: string;
+  enabled: boolean;
+  locked: boolean;
+  ownerControlled: boolean;
+  status: "live" | "blocked" | "planned";
 };
 
 export type QueueItem = {
@@ -79,6 +121,21 @@ type StatusRow = {
   value: unknown;
 };
 
+type WarningRow = {
+  member_id: string;
+  member_name: string | null;
+  member_phone: string | null;
+  type: string;
+  sequence_kind: string | null;
+  sent_last_72h: string;
+  sent_last_7d: string;
+};
+
+type SettingRow = {
+  key: string;
+  value: unknown;
+};
+
 const AVG_SEND_SECONDS = 14;
 const DEFAULT_QUEUE_LIMIT = 20;
 const DEFAULT_CAMPAIGN_LIMIT = 20;
@@ -101,7 +158,7 @@ function normalizeStatusValue(value: unknown) {
 }
 
 export async function getWhatsAppStatusWithQueue(organizationId: string, branchId: string) {
-  const [statusRows, counts] = await Promise.all([
+  const [statusRows, counts, warningSummary, automationStates] = await Promise.all([
     query<StatusRow>(
       `SELECT value
          FROM settings
@@ -112,6 +169,8 @@ export async function getWhatsAppStatusWithQueue(organizationId: string, branchI
       [organizationId, branchId]
     ),
     getQueueCounts(organizationId, branchId),
+    getWhatsAppWarningSummary(organizationId, branchId),
+    getWhatsAppAutomationStates(organizationId, branchId),
   ]);
 
   const raw = normalizeStatusValue(statusRows[0]?.value || null);
@@ -125,6 +184,146 @@ export async function getWhatsAppStatusWithQueue(organizationId: string, branchI
     lastQueueRunAt: raw.lastQueueRunAt,
     lastQueueSuccessAt: raw.lastQueueSuccessAt,
     lastQueueError: raw.lastQueueError,
+    warningSummary,
+    automationStates,
+  };
+}
+
+export async function getWhatsAppAutomationStates(
+  organizationId: string,
+  branchId: string
+): Promise<WhatsAppAutomationControlState[]> {
+  const settingKeys = WHATSAPP_AUTOMATIONS.map((item) => item.settingKey).filter(Boolean) as string[];
+  if (settingKeys.length === 0) return [];
+  const rows = await query<SettingRow>(
+    `SELECT key, value
+       FROM settings
+      WHERE organization_id = $1
+        AND branch_id = $2
+        AND key = ANY($3::text[])`,
+    [organizationId, branchId, settingKeys]
+  );
+  const settings = Object.fromEntries(rows.map((row) => [row.key, row.value]));
+  return WHATSAPP_AUTOMATIONS.map((item) => ({
+    id: item.id,
+    enabled: item.settingKey ? parseBooleanSetting(settings[item.settingKey], false) : item.status === "live",
+    locked: item.status !== "live",
+    ownerControlled: item.ownerControlled,
+    status: item.status,
+  }));
+}
+
+export async function getWhatsAppWarningSummary(
+  organizationId: string,
+  branchId: string
+): Promise<WhatsAppWarningSummary> {
+  const rows = await query<WarningRow>(
+    `WITH recent_messages AS (
+       SELECT mq.member_id,
+              COALESCE(m.name, mq.target_name) AS member_name,
+              COALESCE(m.phone, mq.target_phone) AS member_phone,
+              mq.type,
+              mq.payload->>'sequence_kind' AS sequence_kind,
+              CASE WHEN mq.sent_at >= NOW() - INTERVAL '72 hours' THEN 1 ELSE 0 END AS in_short_window
+         FROM message_queue mq
+         LEFT JOIN members m ON m.id = mq.member_id
+        WHERE mq.organization_id = $1
+          AND mq.branch_id = $2
+          AND mq.status = 'sent'
+          AND mq.member_id IS NOT NULL
+          AND mq.sent_at >= NOW() - INTERVAL '7 days'
+     )
+     SELECT member_id,
+            member_name,
+            member_phone,
+            type,
+            sequence_kind,
+            SUM(in_short_window)::text AS sent_last_72h,
+            COUNT(*)::text AS sent_last_7d
+       FROM recent_messages
+      GROUP BY member_id, member_name, member_phone, type, sequence_kind`,
+    [organizationId, branchId]
+  );
+
+  const byMember = new Map<
+    string,
+    {
+      memberId: string;
+      name: string | null;
+      phone: string | null;
+      messagesLast72h: number;
+      messagesLast7d: number;
+      topSources: Map<string, number>;
+    }
+  >();
+
+  for (const row of rows) {
+    const automationKey = classifyAutomationSource(row.type, row.sequence_kind);
+    if (automationKey === "weekly_digest") continue;
+    const current =
+      byMember.get(row.member_id) ||
+      {
+        memberId: row.member_id,
+        name: row.member_name,
+        phone: row.member_phone,
+        messagesLast72h: 0,
+        messagesLast7d: 0,
+        topSources: new Map<string, number>(),
+      };
+    current.messagesLast72h += Number(row.sent_last_72h || 0);
+    current.messagesLast7d += Number(row.sent_last_7d || 0);
+    current.topSources.set(
+      automationKey,
+      (current.topSources.get(automationKey) || 0) + Number(row.sent_last_7d || 0)
+    );
+    byMember.set(row.member_id, current);
+  }
+
+  const members = Array.from(byMember.values());
+  const warnedMembers = members
+    .filter(
+      (member) =>
+        member.messagesLast72h >= WARNING_MEMBER_MESSAGE_THRESHOLD_SHORT ||
+        member.messagesLast7d >= WARNING_MEMBER_MESSAGE_THRESHOLD_LONG
+    )
+    .sort((a, b) => {
+      if (b.messagesLast72h !== a.messagesLast72h) return b.messagesLast72h - a.messagesLast72h;
+      return b.messagesLast7d - a.messagesLast7d;
+    });
+
+  const topSources = new Map<string, number>();
+  for (const member of warnedMembers) {
+    for (const [sourceKey, count] of member.topSources.entries()) {
+      topSources.set(sourceKey, (topSources.get(sourceKey) || 0) + count);
+    }
+  }
+
+  return {
+    warningActive: warnedMembers.length >= WARNING_AFFECTED_MEMBER_THRESHOLD,
+    affectedMembers: warnedMembers.length,
+    membersChecked: members.length,
+    topSources: Array.from(topSources.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([key, count]) => ({ key, count })),
+    members: warnedMembers.slice(0, 8).map((member) => ({
+      memberId: member.memberId,
+      name: member.name,
+      phone: member.phone,
+      messagesLast72h: member.messagesLast72h,
+      messagesLast7d: member.messagesLast7d,
+      topSources: Array.from(member.topSources.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([key]) => key),
+    })),
+    thresholds: {
+      shortWindowHours: WARNING_WINDOW_HOURS,
+      shortWindowMessages: WARNING_MEMBER_MESSAGE_THRESHOLD_SHORT,
+      longWindowDays: WARNING_WINDOW_DAYS,
+      longWindowMessages: WARNING_MEMBER_MESSAGE_THRESHOLD_LONG,
+      affectedMemberThreshold: WARNING_AFFECTED_MEMBER_THRESHOLD,
+    },
   };
 }
 
@@ -332,6 +531,7 @@ function buildRecipientSql(filters: Required<BroadcastFilters>) {
        WHERE m.organization_id = $12
          AND m.branch_id = $13
          AND m.deleted_at IS NULL
+         AND COALESCE(m.whatsapp_do_not_contact, false) = false
          AND NULLIF(BTRIM(m.phone), '') IS NOT NULL
     )
     SELECT *
