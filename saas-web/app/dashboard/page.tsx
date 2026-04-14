@@ -4,7 +4,6 @@ import dynamic from 'next/dynamic';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Camera } from 'lucide-react';
-import { BorderBeam } from '@stianlarsen/border-beam';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatCurrency, formatCurrencyCompact } from '@/lib/format';
@@ -93,6 +92,7 @@ export default function DashboardPage() {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [scanning, setScanning] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [scanInputFocused, setScanInputFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
@@ -311,7 +311,6 @@ export default function DashboardPage() {
   }, [scanResult]);
 
   // Derive hero status from scan state
-  const heroIdle = !scanning && !scanResult;
   const heroSuccess = !scanning && scanResult?.success === true;
   const heroDenied = !scanning && scanResult?.success === false;
 
@@ -420,7 +419,7 @@ export default function DashboardPage() {
               <Camera />
             </Button>
             <Label htmlFor="scannedValue" className="sr-only">{labels.scanPlaceholder}</Label>
-            <div className="flex-1 relative">
+            <div className={`search-bar-wrapper flex-1${scanInputFocused ? ' focused' : ''}`}>
               <Input
                 id="scannedValue"
                 ref={inputRef}
@@ -429,19 +428,12 @@ export default function DashboardPage() {
                 value={scannedValue}
                 onChange={(e) => setScannedValue(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleScan(); }}
+                onFocus={() => setScanInputFocused(true)}
+                onBlur={() => setScanInputFocused(false)}
                 placeholder={labels.scanPlaceholder}
                 disabled={scanning}
-                className="w-full h-12 text-lg"
+                className="w-full h-12 text-lg bg-card"
               />
-              {heroIdle && (
-                <BorderBeam
-                  size={200}
-                  duration={12}
-                  borderWidth={2}
-                  colorFrom="#e63946"
-                  colorTo="#e63946"
-                />
-              )}
             </div>
             <Button onClick={handleScan} disabled={scanning} className="h-12 px-8 shrink-0">
               {scanning ? labels.scanning : labels.scan}

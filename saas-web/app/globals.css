@@ -140,3 +140,36 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── Scanner search bar snake border ──────────────────────────────────────── */
+
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.search-bar-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.search-bar-wrapper::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: conic-gradient(from var(--angle), transparent 50%, #e63946, transparent);
+  z-index: -1;
+  animation: border-snake 6s linear infinite;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+  border-radius: inherit;
+}
+
+.search-bar-wrapper.focused::after {
+  opacity: 1;
+}
+
+@keyframes border-snake {
+  to { --angle: 360deg; }
+}
