@@ -508,10 +508,6 @@ export default function WhatsAppSystemPage() {
         [getTemplateKey('welcome', systemLanguage)]: welcomeTemplate.trim() || defaultWelcomeTemplate,
         [getTemplateKey('renewal', systemLanguage)]: renewalTemplate.trim() || defaultRenewalTemplate,
         whatsapp_reminder_days: DEFAULT_REMINDER_DAYS,
-        whatsapp_automation_enabled: true,
-        whatsapp_post_expiry_enabled: false,
-        whatsapp_onboarding_enabled: false,
-        whatsapp_weekly_digest_enabled: false,
         system_language: systemLanguage,
       };
       if (systemLanguage === 'en') {
@@ -683,8 +679,8 @@ export default function WhatsAppSystemPage() {
                   <CardTitle>{lang === 'ar' ? 'مركز تحكم الأتمتة' : 'Automation control center'}</CardTitle>
                   <CardDescription>
                     {lang === 'ar'
-                      ? 'كل الأتمتات ضمن النطاق ظاهرة هنا. المحجوب منها يبقى مرئياً لكنه مقفل حتى الإطلاق.'
-                      : 'All in-scope automations stay visible here. Blocked ones remain visible but locked until release.'}
+                      ? 'كل الأتمتات ضمن النطاق ظاهرة هنا. المحجوب منها قد يكون منفذاً في العامل لكنه يبقى محجوباً افتراضياً حتى الإطلاق الرسمي.'
+                      : 'All in-scope automations stay visible here. Blocked ones may already exist in the worker, but they stay rollout-gated by default until release.'}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -843,8 +839,8 @@ export default function WhatsAppSystemPage() {
                 <div className="border border-border border-t-0 px-4 py-4 space-y-3 bg-[#1a1a1a]">
                   <p className="text-sm text-muted-foreground">
                     {lang === 'ar'
-                      ? 'هذه الرسائل تبقى مرئية لفهم ما سيصدر لاحقاً، لكنها للعرض فقط الآن ولن يتم تفعيلها من الواجهة.'
-                      : 'These automations stay visible so owners can understand what is coming next, but they are read-only for now and cannot be activated from this UI.'}
+                      ? 'هذه الرسائل تبقى مرئية لفهم ما هو جاهز تقنياً وما هو محجوب على مستوى الإطلاق. العرض هنا للمتابعة فقط وليس لتفعيلها من هذه الواجهة.'
+                      : 'These automations stay visible so owners can see what is technically implemented versus rollout-gated. This section is read-only and does not activate them from this UI.'}
                   </p>
                   <div className="grid gap-2 sm:grid-cols-3">
                     {[

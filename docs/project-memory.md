@@ -1483,6 +1483,114 @@ The reports revamp roadmap is now implemented for all owner-facing report items 
 - `whatsapp_automation_enabled` is too broad for new behavioral sequences.
 - Web deploy verification is not enough for WhatsApp incidents; the VM worker runtime must be checked separately.
 
+## 2026-04-13 (WhatsApp) — Expanded automation system landed in source of truth
+
+**Commit**:
+- `d1e0ed6`
+- `feat(whatsapp): build expanded automation system`
+
+**What shipped in code**:
+- Added a broader WhatsApp automation model in SaaS:
+  - grouped automation definitions and status metadata in `saas-web/lib/whatsapp-automation.ts`
+  - richer queue / warning / automation-state APIs in `saas-web/lib/whatsapp-ops.ts`
+  - expanded owner-facing WhatsApp dashboard in `saas-web/app/dashboard/whatsapp/page.tsx`
+  - worker-side scheduling for:
+    - post-expiry recovery
+    - onboarding follow-ups
+    - weekly digest
+    - habit-break nudges
+    - streak messages
+    - freeze-ending reminders
+- Added related report surfaces and report queries for WhatsApp performance / saved revenue.
+- Added member-level do-not-contact handling in member API / UI.
+- Consolidated product rules into:
+  - `docs/features/whatsapp-automation-source-of-truth.md`
+
+**Important architecture reality**:
+- Even when the owner UI labels an automation as blocked, the worker may already contain the scheduler logic.
+- Actual delivery still depends on both:
+  - worker environment gate(s)
+  - per-automation settings flags
+
+**Timeline relationship to the April 6 incident**:
+- The April 6 production incident happened because lifecycle automation logic was already capable of sending once it was not properly gated.
+- This April 13 commit brought that expanded automation model into the main source-of-truth codebase and UI.
+
+**Operational rule**:
+- Treat worker implementation status, product metadata status, and owner-facing rollout status as three separate things.
+- They must be kept aligned explicitly in docs and UI copy.
+
+## 2026-04-14 (WhatsApp review) — Fixed rollout-state drift and template-save flag mutation
+
+**Context**:
+- A code review of the expanded WhatsApp automation work found two follow-up problems:
+  1. saving templates in the WhatsApp dashboard mutated live automation flags
+  2. several automations were described as “future” / “not implemented yet” even though worker scheduling code already existed for them
+
+**Fix applied**:
+- `saas-web/app/dashboard/whatsapp/page.tsx`
+  - template save no longer forces:
+    - `whatsapp_automation_enabled = true`
+    - `whatsapp_post_expiry_enabled = false`
+    - `whatsapp_onboarding_enabled = false`
+    - `whatsapp_weekly_digest_enabled = false`
+  - saving templates now updates templates/settings only, without silently changing rollout flags
+- `saas-web/lib/whatsapp-automation.ts`
+  - rewrote blocked automation descriptions to reflect reality:
+    - implemented in worker
+    - blocked by default until rollout
+  - removed misleading “not implemented yet” style wording for:
+    - `habit_break`
+    - `streaks`
+    - `freeze_ending`
+    - and aligned recovery / onboarding / weekly digest descriptions
+- `saas-web/app/dashboard/whatsapp/page.tsx`
+  - updated control-center copy so “blocked” means rollout-gated, not nonexistent
+
+**Why this matters**:
+- Template editing must never change live automation behavior as a side effect.
+- Product wording must not tell operators a flow does not exist when the worker can in fact send it if flags/env gates allow it.
+
+**Process rule going forward**:
+- In WhatsApp automation work, always check these three layers together before release:
+  1. worker implementation
+  2. settings / runtime gates
+  3. owner-facing UI wording and docs
+- If those three layers disagree, assume the system is unsafe until corrected.
+
+## 2026-04-14 (Onboarding P1) — Existing Sarhan Gym owner leaked into onboarding after device restart
+
+**Context**:
+- Sarhan Gym reported that an existing live user turned his device off, turned it back on, and was redirected into the new onboarding flow.
+- This was a live regression, not a new-user activation case.
+
+**Root cause**:
+- Onboarding checks are branch-specific.
+- After session recovery, the client could restore the Firebase session without reliably preserving the previously selected branch context.
+- The onboarding redirect logic only trusted `branch_id` from storage.
+- If `branch_id` was missing after recovery, the server-side login/access lookup could fall back to a different/default branch for the same owner.
+- That fallback branch could appear incomplete and trigger `/dashboard/onboarding` even though Sarhan’s real live branch was already set up.
+
+**Fix shipped**:
+- `saas-web/app/api/auth/login/route.ts`
+  - now accepts and validates `x-branch-id`
+  - passes that branch through when rebuilding access from Firebase UID / phone
+- `saas-web/lib/api-client.ts`
+  - session rehydration now sends stored branch context during `/api/auth/login`
+  - request retries now recover branch from either `branch_id` or stored profile
+- `saas-web/lib/use-auth.ts`
+  - auth recovery now preserves stored branch context during login/session rebuild
+- `saas-web/lib/onboarding-client.ts`
+  - onboarding redirect lookup now falls back to the stored profile branch if `branch_id` is missing
+
+**Why this matters**:
+- Existing users must never be evaluated against the wrong branch after session recovery.
+- Any branch-scoped feature gate or redirect is unsafe if auth rehydration can silently drop branch context.
+
+**Rule going forward**:
+- For any branch-scoped SaaS flow, session recovery must treat stored profile branch and `branch_id` as equivalent recovery sources.
+- Any login/session rebuild endpoint that can change branch context must accept an explicit branch hint and validate it.
+
 ## 2026-04-07 (WhatsApp P0) — Sarhan Gym worker queue blocked by `FOR UPDATE` + `LEFT JOIN`
 
 **User request**:
@@ -1543,3 +1651,43 @@ The reports revamp roadmap is now implemented for all owner-facing report items 
    - session state (`connected` / `qrCode`)
    - queue health (`pending` vs draining)
    - worker logs (`journalctl`)
+
+## 2026-04-14 (Sarhan Gym P1) — Add-member flow blocked by optional WhatsApp queue tables on older branch schema
+
+**Context**:
+- Sarhan Gym reported that creating a new member showed:
+  - `Database schema is missing tables. Please run migrations.`
+- This happened from the live add-member flow for an existing gym, not from a brand-new tenant setup.
+- The error was recurring enough that Sarhan had reported the same class of failure before.
+
+**Root cause**:
+- `saas-web/app/api/members/route.ts` creates the member inside a transaction, then immediately tries to:
+  - read WhatsApp template/settings from `settings`
+  - enqueue welcome + QR jobs into `message_queue`
+- On older branch schemas where those optional automation tables were not present, Postgres raised a missing-relation error.
+- Because that failure happened inside the same transaction as the core member insert, the whole add-member flow rolled back.
+- The UI then surfaced the generic migration message even though the core `members` and `subscriptions` tables themselves were fine.
+
+**Timeline**:
+- `2026-02-23`:
+  - `a91f44d` (`fix(income,whatsapp): show recent payments with drifted member links and auto-queue QR on member create`)
+  - Member creation started depending on WhatsApp queue infrastructure for welcome / QR side effects.
+- `2026-04-13`:
+  - `d1e0ed6` (`feat(whatsapp): build expanded automation system`)
+  - Automation surface area grew, making queue/settings assumptions more visible across branches.
+- `2026-04-14`:
+  - Sarhan Gym reported the add-member break again from production.
+  - Root cause traced to optional messaging writes being treated as mandatory during member creation.
+
+**Fix shipped**:
+- Added schema-compatibility guards in `saas-web/app/api/members/route.ts`:
+  - check whether `settings` exists before querying it
+  - check whether `message_queue` exists before enqueueing welcome / QR jobs
+- If those optional relations are missing, member creation now still succeeds and simply skips the WhatsApp side effects for that branch.
+- Notification creation was already non-blocking after commit, so no extra hard-failure path remained there.
+
+**Rule going forward**:
+- Core member, revenue, renewal, and subscription actions must fail open on optional messaging/notification infrastructure.
+- Any new side effect added to create/renew/member-edit flows must either:
+  - verify the required relation exists first, or
+  - degrade safely without rolling back the primary business action.
