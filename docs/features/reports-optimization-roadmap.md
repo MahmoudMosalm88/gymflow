@@ -195,7 +195,13 @@ This is the single strongest validated pain point from the Reddit research. Owne
 - count and EGP value with no renewal yet
 - count and EGP value already reminded by WhatsApp
 - count and EGP value already renewed
+- for renewed rows, a separate `renewed_after_whatsapp: yes/no` field
 - optional split by plan type
+
+Important interpretation rule:
+- `already renewed` in Revenue At Risk means the expiring cycle is no longer at risk
+- it does **not** mean the renewal is automatically counted as WhatsApp-saved revenue
+- WhatsApp attribution totals belong to the `Revenue Saved by WhatsApp` report only
 
 **Main screen elements**
 - headline KPI card: `Revenue At Risk`

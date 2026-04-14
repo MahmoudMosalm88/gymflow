@@ -765,9 +765,18 @@ export default function ReportsPage() {
                         </span>
                       )},
                       { key: 'renewed', label: labels.renewal_status, render: (row: any) => (
-                        <span className={row.renewed || row.renewal_status === 'renewed' ? 'font-semibold text-success' : 'font-semibold text-destructive'}>
-                          {row.renewed || row.renewal_status === 'renewed' ? labels.already_renewed : labels.at_risk_status}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className={row.renewed || row.renewal_status === 'renewed' ? 'font-semibold text-success' : 'font-semibold text-destructive'}>
+                            {row.renewed || row.renewal_status === 'renewed' ? labels.already_renewed : labels.at_risk_status}
+                          </span>
+                          {(row.renewed || row.renewal_status === 'renewed') && (
+                            <span className={row.renewed_after_whatsapp || row.whatsapp_attributed_renewal ? 'text-xs font-medium text-primary' : 'text-xs text-muted-foreground'}>
+                              {labels.renewed_after_whatsapp}: {(row.renewed_after_whatsapp || row.whatsapp_attributed_renewal)
+                                ? (lang === 'ar' ? 'نعم' : 'Yes')
+                                : (lang === 'ar' ? 'لا' : 'No')}
+                            </span>
+                          )}
+                        </div>
                       )},
                     ]}
                     data={riskItems}

@@ -62,9 +62,12 @@ type RevenueAtRiskRow = {
   plan_months: number;
   price_paid: string | number | null;
   end_date: number;
+  created_at: string;
   reminder_sent_at: string | null;
   has_reminder: boolean;
+  has_pending_reminder?: boolean;
   has_renewal: boolean;
+  has_whatsapp_attributed_renewal?: boolean;
 };
 
 type RetentionRow = {
@@ -795,6 +798,7 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
                   s.plan_months,
                   s.price_paid,
                   s.end_date,
+                  s.created_at::text,
                   m.name,
                   m.phone
              FROM subscriptions s
@@ -846,16 +850,43 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
                 ec.plan_months,
                 ec.price_paid,
                 ec.end_date,
+                ec.created_at,
                 re.reminder_at::text AS reminder_sent_at,
                 (re.status = 'sent') AS has_reminder,
                 (re.status IN ('pending', 'processing')) AS has_pending_reminder,
-                (rl.previous_subscription_id IS NOT NULL) AS has_renewal,
+                (renewal.id IS NOT NULL OR rl.previous_subscription_id IS NOT NULL) AS has_renewal,
+                (
+                  renewal.id IS NOT NULL
+                  AND re.status = 'sent'
+                  AND renewal.created_at >= re.reminder_at
+                  AND renewal.created_at < re.reminder_at + interval '14 day'
+                ) AS has_whatsapp_attributed_renewal,
                 wa.has_any AS wa_active
            FROM expiring_cycles ec
            LEFT JOIN reminder_events re
              ON re.subscription_id = ec.id
            LEFT JOIN renewal_links rl
              ON rl.previous_subscription_id = ec.id
+           LEFT JOIN LATERAL (
+             SELECT s.id,
+                    s.created_at
+               FROM subscriptions s
+              WHERE s.organization_id = $1
+                AND s.branch_id = $2
+                AND s.member_id = ec.member_id
+                AND s.id <> ec.id
+                AND (
+                  s.renewed_from_subscription_id = ec.id
+                  OR (
+                    s.created_at >= ec.created_at::timestamptz
+                    AND s.end_date > ec.end_date
+                  )
+                )
+              ORDER BY
+                CASE WHEN s.renewed_from_subscription_id = ec.id THEN 0 ELSE 1 END,
+                s.created_at ASC
+              LIMIT 1
+           ) renewal ON true
            CROSS JOIN wa_active wa
           ORDER BY ec.end_date ASC, ec.name ASC`,
         [auth.organizationId, auth.branchId, now, cutoff]
@@ -864,6 +895,7 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
       const items = rows.map((row) => {
         const pricePaid = toNumber(row.price_paid);
         const amountAtRisk = row.has_renewal ? 0 : pricePaid;
+        const renewedAfterWhatsapp = Boolean(row.has_whatsapp_attributed_renewal);
         const reminderStatus = row.has_reminder
           ? "reminded"
           : (row as any).has_pending_reminder
@@ -883,7 +915,10 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           days_left: Math.max(0, Math.ceil((row.end_date - now) / 86400)),
           reminder_status: reminderStatus,
           reminder_sent_at: row.reminder_sent_at,
+          renewed: row.has_renewal,
           renewal_status: row.has_renewal ? "renewed" : "at_risk",
+          renewed_after_whatsapp: renewedAfterWhatsapp,
+          whatsapp_attributed_renewal: renewedAfterWhatsapp,
         };
       });
 
@@ -900,6 +935,12 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
             acc.renewedMembers += 1;
             acc.revenueSecured += item.price_paid;
           }
+          if (item.whatsapp_attributed_renewal) {
+            acc.whatsappRenewedMembers += 1;
+            acc.whatsappRevenueSecured += item.price_paid;
+            acc.renewedAfterWhatsappMembers += 1;
+            acc.renewedAfterWhatsappValue += item.price_paid;
+          }
           return acc;
         },
         {
@@ -912,6 +953,10 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           notRemindedValue: 0,
           renewedMembers: 0,
           revenueSecured: 0,
+          renewedAfterWhatsappMembers: 0,
+          renewedAfterWhatsappValue: 0,
+          whatsappRenewedMembers: 0,
+          whatsappRevenueSecured: 0,
         }
       );
 
@@ -1062,10 +1107,26 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
                 WHERE s.organization_id = $1
                   AND s.branch_id = $2
                   AND s.member_id = sm.member_id
-                  AND s.renewed_from_subscription_id IS NOT NULL
-                  AND (sm.source_subscription_id IS NULL OR s.renewed_from_subscription_id = sm.source_subscription_id)
                   AND s.created_at >= sm.sent_at
                   AND s.created_at < sm.sent_at + interval '14 day'
+                  AND (
+                    (sm.source_subscription_id IS NOT NULL AND s.renewed_from_subscription_id = sm.source_subscription_id)
+                    OR (
+                      sm.source_subscription_id IS NULL
+                      AND s.renewed_from_subscription_id IS NOT NULL
+                    )
+                    OR (
+                      sm.source_subscription_id IS NOT NULL
+                      AND s.end_date > (
+                        SELECT src.end_date
+                          FROM subscriptions src
+                         WHERE src.id = sm.source_subscription_id
+                           AND src.organization_id = $1
+                           AND src.branch_id = $2
+                         LIMIT 1
+                      )
+                    )
+                  )
                 ORDER BY s.created_at ASC
                 LIMIT 1
              ) renewal ON true
