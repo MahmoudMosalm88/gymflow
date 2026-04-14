@@ -31,6 +31,20 @@ async function relationExists(
   return result.rows[0]?.exists === true;
 }
 
+function isMissingRelationOrColumn(error: unknown) {
+  const code =
+    typeof error === "object" && error && "code" in error
+      ? String((error as { code?: string }).code || "")
+      : "";
+  if (code === "42P01" || code === "42703") return true;
+
+  const message = error instanceof Error ? error.message : String(error || "");
+  return (
+    (message.includes("relation") && message.includes("does not exist")) ||
+    (message.includes("column") && message.includes("does not exist"))
+  );
+}
+
 const initialSubscriptionSchema = z.object({
   start_date: z.number().int().positive(),
   plan_months: z.number().int().positive(),
@@ -251,89 +265,94 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const hasSettingsTable = await relationExists(client, "settings");
-      const hasMessageQueueTable = await relationExists(client, "message_queue");
-      const settingsRows = hasSettingsTable
-        ? await client.query<{ key: string; value: unknown }>(
-            `SELECT key, value
-               FROM settings
-              WHERE organization_id = $1
-                AND branch_id = $2
-                AND key = ANY($3::text[])`,
+      let systemLanguage: "en" | "ar" = "en";
+      try {
+        const hasSettingsTable = await relationExists(client, "settings");
+        const hasMessageQueueTable = await relationExists(client, "message_queue");
+        const settingsRows = hasSettingsTable
+          ? await client.query<{ key: string; value: unknown }>(
+              `SELECT key, value
+                 FROM settings
+                WHERE organization_id = $1
+                  AND branch_id = $2
+                  AND key = ANY($3::text[])`,
+              [
+                auth.organizationId,
+                auth.branchId,
+                [
+                  "whatsapp_automation_enabled",
+                  "system_language",
+                  "whatsapp_template_welcome",
+                  "whatsapp_template_welcome_en",
+                  "whatsapp_template_welcome_ar"
+                ]
+              ]
+            )
+          : { rows: [] };
+
+        const settings = Object.fromEntries(settingsRows.rows.map((row) => [row.key, row.value]));
+        const automationEnabled = parseBooleanSetting(settings.whatsapp_automation_enabled, true);
+        systemLanguage = normalizeSystemLanguage(settings.system_language, "en");
+
+        if (automationEnabled && hasMessageQueueTable && !member.whatsapp_do_not_contact) {
+          const templateByLanguageKey = getTemplateKey("welcome", systemLanguage);
+          const byLanguage = parseTextSetting(settings[templateByLanguageKey]);
+          const rawTemplate = parseTextSetting(settings.whatsapp_template_welcome);
+          const legacyFallback = systemLanguage === "en" ? rawTemplate : "";
+          const template = byLanguage || legacyFallback || getDefaultWelcomeTemplate(systemLanguage);
+
+          const message = renderWhatsappTemplate(template, {
+            name: member.name || "Member"
+          });
+
+          await client.query(
+            `INSERT INTO message_queue (
+                id, organization_id, branch_id, member_id, type, payload, status, attempts, scheduled_at
+             ) VALUES (
+                $1, $2, $3, $4, 'welcome', $5::jsonb, 'pending', 0, NOW()
+             )`,
             [
+              uuidv4(),
               auth.organizationId,
               auth.branchId,
-              [
-                "whatsapp_automation_enabled",
-                "system_language",
-                "whatsapp_template_welcome",
-                "whatsapp_template_welcome_en",
-                "whatsapp_template_welcome_ar"
-              ]
+              member.id,
+              JSON.stringify({
+                message,
+                template,
+                sequence_kind: "onboarding_welcome",
+                placeholders: { name: member.name || "Member" },
+                generated_at: new Date().toISOString()
+              })
             ]
-          )
-        : { rows: [] };
+          );
 
-      const settings = Object.fromEntries(settingsRows.rows.map((row) => [row.key, row.value]));
-      const automationEnabled = parseBooleanSetting(settings.whatsapp_automation_enabled, true);
-      const systemLanguage = normalizeSystemLanguage(settings.system_language, "en");
+          const qrCodeValue = String(member.card_code || member.id);
+          const qrMessage =
+            systemLanguage === "ar"
+              ? `مرحباً ${member.name || "عميل"}.\nهذا رمز الدخول الخاص بك. يرجى إبرازه عند تسجيل الدخول.`
+              : `Hi ${member.name || "Member"}.\nThis is your check-in QR code. Please show it at the front desk.`;
 
-      if (automationEnabled && hasMessageQueueTable && !member.whatsapp_do_not_contact) {
-        const templateByLanguageKey = getTemplateKey("welcome", systemLanguage);
-        const byLanguage = parseTextSetting(settings[templateByLanguageKey]);
-        const rawTemplate = parseTextSetting(settings.whatsapp_template_welcome);
-        const legacyFallback = systemLanguage === "en" ? rawTemplate : "";
-        const template = byLanguage || legacyFallback || getDefaultWelcomeTemplate(systemLanguage);
-
-        const message = renderWhatsappTemplate(template, {
-          name: member.name || "Member"
-        });
-
-        await client.query(
-          `INSERT INTO message_queue (
-              id, organization_id, branch_id, member_id, type, payload, status, attempts, scheduled_at
-           ) VALUES (
-              $1, $2, $3, $4, 'welcome', $5::jsonb, 'pending', 0, NOW()
-           )`,
-          [
-            uuidv4(),
-            auth.organizationId,
-            auth.branchId,
-            member.id,
-            JSON.stringify({
-              message,
-              template,
-              sequence_kind: "onboarding_welcome",
-              placeholders: { name: member.name || "Member" },
-              generated_at: new Date().toISOString()
-            })
-          ]
-        );
-
-        const qrCodeValue = String(member.card_code || member.id);
-        const qrMessage =
-          systemLanguage === "ar"
-            ? `مرحباً ${member.name || "عميل"}.\nهذا رمز الدخول الخاص بك. يرجى إبرازه عند تسجيل الدخول.`
-            : `Hi ${member.name || "Member"}.\nThis is your check-in QR code. Please show it at the front desk.`;
-
-        await client.query(
-          `INSERT INTO message_queue (
-              id, organization_id, branch_id, member_id, type, payload, status, attempts, scheduled_at
-           ) VALUES (
-              $1, $2, $3, $4, 'qr_code', $5::jsonb, 'pending', 0, NOW()
-           )`,
-          [
-            uuidv4(),
-            auth.organizationId,
-            auth.branchId,
-            member.id,
-            JSON.stringify({
-              message: qrMessage,
-              code: qrCodeValue,
-              generated_at: new Date().toISOString()
-            })
-          ]
-        );
+          await client.query(
+            `INSERT INTO message_queue (
+                id, organization_id, branch_id, member_id, type, payload, status, attempts, scheduled_at
+             ) VALUES (
+                $1, $2, $3, $4, 'qr_code', $5::jsonb, 'pending', 0, NOW()
+             )`,
+            [
+              uuidv4(),
+              auth.organizationId,
+              auth.branchId,
+              member.id,
+              JSON.stringify({
+                message: qrMessage,
+                code: qrCodeValue,
+                generated_at: new Date().toISOString()
+              })
+            ]
+          );
+        }
+      } catch (error) {
+        if (!isMissingRelationOrColumn(error)) throw error;
       }
 
       return { member, systemLanguage };

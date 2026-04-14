@@ -1685,6 +1685,9 @@ The reports revamp roadmap is now implemented for all owner-facing report items 
   - check whether `message_queue` exists before enqueueing welcome / QR jobs
 - If those optional relations are missing, member creation now still succeeds and simply skips the WhatsApp side effects for that branch.
 - Notification creation was already non-blocking after commit, so no extra hard-failure path remained there.
+- Follow-up hardening:
+  - wrapped the optional WhatsApp side-effect block in a fail-open guard for missing relation / missing column drift
+  - this covers partially migrated older branches where the table may exist but optional WhatsApp schema pieces still do not
 
 **Rule going forward**:
 - Core member, revenue, renewal, and subscription actions must fail open on optional messaging/notification infrastructure.
