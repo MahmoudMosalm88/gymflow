@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Auth, ConfirmationResult, RecaptchaVerifier } from "firebase/auth";
 import type { FirebaseClientConfig } from "@/lib/firebase-client";
 import { BRANCH_ID_KEY, SESSION_PROFILE_KEY, SESSION_TOKEN_KEY, type AppRole, type ActorType } from "@/lib/session";
+import { fetchOnboardingRedirectTarget } from "@/lib/onboarding-client";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -579,14 +580,15 @@ export default function LoginPage() {
     }
   }
 
-  async function loginWithIdToken(idToken: string, successMessage: string) {
+  async function loginWithIdToken(idToken: string, successMessage: string, targetOverride?: string) {
     const login = await postJson("/api/auth/login", { idToken });
     if (!login.response.ok || !isSuccessPayload(login.payload)) {
       throw new Error(readMessage(login.payload, t.genericError));
     }
     persistSession(login.payload);
     setFeedback({ kind: "success", text: successMessage });
-    window.location.assign("/dashboard");
+    const targetPath = targetOverride || (await fetchOnboardingRedirectTarget());
+    window.location.assign(targetPath);
   }
 
   function getSetupSnapshot() {
@@ -655,7 +657,11 @@ export default function LoginPage() {
   ) {
     await registerGoogleIfNeeded(idToken, modeValue, email, setupOverride);
     try {
-      await loginWithIdToken(idToken, modeValue === "register" ? t.registerSuccess : t.loginSuccess);
+      await loginWithIdToken(
+        idToken,
+        modeValue === "register" ? t.registerSuccess : t.loginSuccess,
+        modeValue === "register" ? "/dashboard/onboarding" : undefined
+      );
       setPendingGoogleRegistration(null);
       clearGoogleRecoveryState();
     } catch (error) {
@@ -740,7 +746,7 @@ export default function LoginPage() {
       }
 
       const idToken = await signInEmailOnClient(d.email.trim(), d.password);
-      await loginWithIdToken(idToken, t.registerSuccess);
+      await loginWithIdToken(idToken, t.registerSuccess, "/dashboard/onboarding");
     } catch (error) {
       setFeedback({ kind: "error", text: error instanceof Error ? error.message : t.genericError });
     } finally {
@@ -886,7 +892,11 @@ export default function LoginPage() {
           return;
         }
       }
-      await loginWithIdToken(idToken, mode === "register" ? t.registerSuccess : t.loginSuccess);
+      await loginWithIdToken(
+        idToken,
+        mode === "register" ? t.registerSuccess : t.loginSuccess,
+        mode === "register" ? "/dashboard/onboarding" : undefined
+      );
     } catch (error) {
       setFeedback({ kind: "error", text: error instanceof Error ? error.message : t.genericError });
     } finally {

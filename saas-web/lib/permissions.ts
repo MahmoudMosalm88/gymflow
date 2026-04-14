@@ -43,6 +43,12 @@ export function getAllowedPathsForRole(role: AppRole): string[] {
 }
 
 export function canAccessPath(role: AppRole, pathname: string): boolean {
+  if (
+    role === 'owner' &&
+    (pathname.startsWith('/dashboard/import') || pathname.startsWith('/dashboard/onboarding'))
+  ) {
+    return true;
+  }
   const allowed = getAllowedPathsForRole(role);
   return allowed.some((href) => (href === "/dashboard" ? pathname === href : pathname.startsWith(href)));
 }

@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import ImportOnboardingFlow from '@/components/dashboard/import/ImportOnboardingFlow';
 
 export default function ImportPage() {
-  redirect('/dashboard/settings');
+  return <ImportOnboardingFlow variant="import" />;
 }

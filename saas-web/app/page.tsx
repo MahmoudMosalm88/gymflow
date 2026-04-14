@@ -5,7 +5,6 @@ import Problem from "./components/landing/Problem";
 import HowItWorks from "./components/landing/HowItWorks";
 import Features from "./components/landing/Features";
 import FAQ from "./components/landing/FAQ";
-import Preview from "./components/landing/Preview";
 import CTA from "./components/landing/CTA";
 import Footer from "./components/landing/Footer";
 import StructuredData from "./components/landing/StructuredData";
@@ -220,7 +219,6 @@ export default function HomePage() {
       <Problem t={t} />
       <HowItWorks t={t} />
       <Features t={t} />
-      <Preview t={t} />
       <FAQ t={t} />
       <CTA t={t} />
       <Footer t={t} />

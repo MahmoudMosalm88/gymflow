@@ -11,6 +11,7 @@ import Header from '@/components/dashboard/Header';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { ScanProvider } from '@/lib/scan-context';
 import { canAccessPath, getDefaultPathForRole } from '@/lib/permissions';
+import { fetchOnboardingRedirectTarget } from '@/lib/onboarding-client';
 
 const InstallPrompt = dynamic(() => import('@/components/dashboard/InstallPrompt'), { ssr: false });
 const GlobalScanner = dynamic(() => import('@/components/dashboard/GlobalScanner'), { ssr: false });
@@ -36,6 +37,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { loading, profile } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const isOnboarding = pathname.startsWith('/dashboard/onboarding');
 
   // Language state, persisted to localStorage
   const [lang, setLangState] = useState<Lang>('en');
@@ -79,6 +81,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const saved = localStorage.getItem('dashboard_lang') as Lang | null;
     if (saved === 'en' || saved === 'ar') setLangState(saved);
   }, []);
+
+  // Geo-language detection for first-time onboarding users
+  useEffect(() => {
+    if (!isOnboarding) return;
+    const saved = localStorage.getItem('dashboard_lang');
+    if (saved === 'en' || saved === 'ar') return;
+    if (typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('ar')) {
+      setLangState('ar');
+    }
+  }, [isOnboarding]);
 
   // Sync dashboard language with server-side settings so backend automations
   // can use the same system language.
@@ -146,6 +158,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [loading, pathname, profile, router]);
 
   useEffect(() => {
+    if (loading || !profile || profile.role !== 'owner') return;
+    if (pathname.startsWith('/dashboard/onboarding') || pathname.startsWith('/dashboard/import')) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      const targetPath = await fetchOnboardingRedirectTarget();
+      if (cancelled || targetPath !== '/dashboard/onboarding') return;
+      router.replace(targetPath);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, pathname, profile, router]);
+
+  useEffect(() => {
     document.documentElement.style.fontSize = '16px';
     document.body.style.fontFamily = lang === 'ar' ? 'var(--font-arabic)' : 'var(--font-sans)';
     return () => {
@@ -160,6 +189,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex h-screen items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
       </div>
+    );
+  }
+
+  // Clean full-screen shell for onboarding — no sidebar, no header, no PWA banner
+  if (isOnboarding) {
+    return (
+      <LangContext.Provider value={{ lang, setLang }}>
+        <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-background text-foreground">
+          <button
+            type="button"
+            onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
+            className="fixed top-4 end-4 z-50 border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-muted-foreground/40 transition-colors"
+          >
+            {lang === 'ar' ? 'EN' : 'عربي'}
+          </button>
+          <main>{children}</main>
+          <Toaster />
+        </div>
+      </LangContext.Provider>
     );
   }
 
