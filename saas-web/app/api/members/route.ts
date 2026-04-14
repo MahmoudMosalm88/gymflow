@@ -31,6 +31,24 @@ async function relationExists(
   return result.rows[0]?.exists === true;
 }
 
+async function columnExists(
+  client: { query: <T = Record<string, unknown>>(text: string, values?: unknown[]) => Promise<{ rows: T[] }> },
+  tableName: string,
+  columnName: string
+) {
+  const result = await client.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+         FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = $1
+          AND column_name = $2
+     ) AS exists`,
+    [tableName, columnName]
+  );
+  return result.rows[0]?.exists === true;
+}
+
 function isMissingRelationOrColumn(error: unknown) {
   const code =
     typeof error === "object" && error && "code" in error
@@ -195,32 +213,62 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const inserted = await client.query(
-        `INSERT INTO members (
-            id, organization_id, branch_id, name, phone, gender, photo_path,
-            access_tier, card_code, address, whatsapp_do_not_contact, created_at, updated_at
-         ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7,
-            $8, $9, $10, $11, $12, $12
-         )
-         RETURNING *`,
-        [
-          id,
-          auth.organizationId,
-          auth.branchId,
-          payload.name,
-          payload.phone,
-          payload.gender,
-          payload.photo_path || null,
-          payload.access_tier,
-          payload.card_code || null,
-          payload.address || null,
-          payload.whatsapp_do_not_contact ?? false,
-          now
-        ]
-      );
+      const hasWhatsappDoNotContactColumn = await columnExists(client, "members", "whatsapp_do_not_contact");
+      const inserted = hasWhatsappDoNotContactColumn
+        ? await client.query(
+            `INSERT INTO members (
+                id, organization_id, branch_id, name, phone, gender, photo_path,
+                access_tier, card_code, address, whatsapp_do_not_contact, created_at, updated_at
+             ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7,
+                $8, $9, $10, $11, $12, $12
+             )
+             RETURNING *`,
+            [
+              id,
+              auth.organizationId,
+              auth.branchId,
+              payload.name,
+              payload.phone,
+              payload.gender,
+              payload.photo_path || null,
+              payload.access_tier,
+              payload.card_code || null,
+              payload.address || null,
+              payload.whatsapp_do_not_contact ?? false,
+              now
+            ]
+          )
+        : await client.query(
+            `INSERT INTO members (
+                id, organization_id, branch_id, name, phone, gender, photo_path,
+                access_tier, card_code, address, created_at, updated_at
+             ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7,
+                $8, $9, $10, $11, $11
+             )
+             RETURNING *`,
+            [
+              id,
+              auth.organizationId,
+              auth.branchId,
+              payload.name,
+              payload.phone,
+              payload.gender,
+              payload.photo_path || null,
+              payload.access_tier,
+              payload.card_code || null,
+              payload.address || null,
+              now
+            ]
+          );
 
-      const member = inserted.rows[0];
+      const member = {
+        ...inserted.rows[0],
+        whatsapp_do_not_contact: hasWhatsappDoNotContactColumn
+          ? inserted.rows[0]?.whatsapp_do_not_contact
+          : (payload.whatsapp_do_not_contact ?? false),
+      };
 
       if (initialSubscription) {
         const endDate = calculateSubscriptionEndDateUnix(initialSubscription.start_date, initialSubscription.plan_months);
