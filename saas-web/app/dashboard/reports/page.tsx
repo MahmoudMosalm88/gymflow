@@ -40,7 +40,7 @@ const PINNED_STAT_FETCH: Record<string, { url: string; extract: (d: any) => stri
   'denied-entries':         { url: '/api/reports/denied-entries?days=30',             extract: d => String(Array.isArray(d) ? d.length : 0) },
   'referral-funnel':        { url: '/api/reports/referral-funnel?days=30',            extract: d => String(d?.summary?.convertedMembers ?? 0) },
   'daily-stats':            { url: '/api/reports/daily-stats?days=7',                 extract: d => String(Array.isArray(d) ? d.reduce((s: number, r: any) => s + Number(r.allowed ?? 0), 0) : 0) },
-  'cohort-retention':       { url: '/api/reports/cohort-retention',                   extract: d => Array.isArray(d) && d.length ? `${(d[d.length - 1]?.retentionRate ?? 0).toFixed(0)}%` : '—' },
+  'cohort-retention':       { url: '/api/reports/cohort-retention',                   extract: d => Array.isArray(d) && d.length ? `${(d[0]?.retentionRate ?? 0).toFixed(0)}%` : '—' },
   'plan-revenue':           { url: '/api/reports/revenue-by-plan?days=30',            extract: d => formatCurrencyCompact(Array.isArray(d) ? d.reduce((s: number, r: any) => s + Number(r.totalRevenue ?? 0), 0) : 0) },
 };
 
@@ -214,14 +214,14 @@ const SUB_STATUS_LABELS: Record<string, { en: string; ar: string }> = {
 const TAB_DESCRIPTIONS: Record<string, { en: string; ar: string }> = {
   'revenue-at-risk':         { en: 'Shows subscriptions expiring soon with no renewal — the exact cash you stand to lose this month if you do nothing.', ar: 'الاشتراكات التي تنتهي قريباً دون تجديد — المبلغ الذي ستخسره هذا الشهر إذا لم تتحرك.' },
   'plan-revenue':            { en: 'Breaks revenue down by subscription plan — shows which plans are generating the most money and which are dead weight.', ar: 'تفاصيل الإيراد حسب نوع الاشتراك — أي الخطط تجلب أكثر وأيها لا يُسهم.' },
-  'expected-revenue':        { en: 'Projects your cash flow for the next 30 days based on active subscriptions — plan expenses before the money arrives.', ar: 'توقعات التدفق النقدي للـ30 يوماً القادمة بناءً على الاشتراكات النشطة.' },
+  'expected-revenue':        { en: 'Forecasts renewal cash expected in the next 30 days from members due soon, using your current retention rate as the assumption.', ar: 'يتوقع النقد القادم من التجديدات خلال 30 يوماً للأعضاء القريبين من الانتهاء، بالاعتماد على معدل الاحتفاظ الحالي.' },
   'renewal-vs-new':          { en: 'Splits revenue into renewals vs. brand-new members — tells you if growth is real or just old members cycling through.', ar: 'الإيراد مقسوم إلى تجديدات مقابل أعضاء جدد — هل النمو حقيقي أم مجرد تدوير للقدامى؟' },
   'cash-vs-digital':         { en: 'Compares cash payments vs. digital — useful for spotting unreported cash and planning which payment methods to push.', ar: 'مقارنة المدفوعات النقدية بالرقمية — مفيد لاكتشاف النقد غير المسجل وتحديد طرق الدفع الأفضل.' },
   'retention-churn':         { en: 'Your monthly retention rate — the percentage of paying members who stayed vs. left. The #1 health indicator for your gym.', ar: 'معدل الاحتفاظ الشهري — نسبة الأعضاء الذين بقوا مقابل من غادروا. أهم مؤشر لصحة الصالة.' },
   'at-risk-members':         { en: 'Members showing early warning signs of cancellation — low visits, attendance drop, or expiring soon. Act before they\'re gone.', ar: 'الأعضاء الذين تظهر عليهم علامات الإلغاء المبكر — تدخّل قبل أن يغادروا.' },
   'ghost-members':           { en: 'Paying members who haven\'t scanned in 14+ days — they\'re paying but not coming. High cancel risk. Reach out now.', ar: 'أعضاء يدفعون لكنهم لم يحضروا منذ 14+ يوماً. خطر إلغاء مرتفع — تواصل معهم الآن.' },
   'visit-frequency-risk':    { en: 'Segments members by how often they visit. Members coming once a week cancel at 50% — this shows exactly who they are.', ar: 'تصنيف الأعضاء حسب تكرار الحضور. من يأتي مرة أسبوعياً يلغي باحتمال 50٪ — اعرف من هم.' },
-  'cohort-retention':        { en: 'Groups members by the month they joined and tracks how many stayed month by month — shows if your gym is improving over time.', ar: 'تتبع مجموعات الأعضاء حسب شهر الانضمام — هل تحسّن الاحتفاظ مع مرور الوقت؟' },
+  'cohort-retention':        { en: 'Groups members by the month they joined and shows how many from each cohort are still active today.', ar: 'يجمع الأعضاء حسب شهر الانضمام ويعرض كم بقي نشطاً من كل مجموعة حتى اليوم.' },
   'attendance-decline':      { en: 'Members whose visit frequency has dropped significantly in the last two weeks — early churn signal before they actually cancel.', ar: 'أعضاء تراجع حضورهم بشكل ملحوظ في الأسبوعين الأخيرين — إشارة مبكرة للإلغاء.' },
   'top-members':             { en: 'Your most loyal, highest-visit members — the ones to protect, reward, and ask for referrals.', ar: 'أكثر أعضائك حضوراً وولاءً — يستحقون المكافأة والتشجيع على الإحالة.' },
   'net-membership-change':   { en: 'Shows how many members joined vs. left each week — answers whether you\'re actually growing or just replacing people who leave.', ar: 'كم عضواً انضم وكم غادر كل أسبوع — هل تنمو فعلاً أم تستبدل من يغادر فقط؟' },
@@ -1032,8 +1032,8 @@ export default function ReportsPage() {
           {tab === 'expected-revenue' && (expectedRevenueSummary ? (
             <>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <StatCard label={lang === 'ar' ? 'المتوقع خلال ٣٠ يوم'  : 'Expected Next 30 Days'}    value={formatCurrencyCompact(expectedRevenueSummary.projectedRevenueNext30Days ?? 0)} color="text-success"     valueSize="text-2xl" />
-                <StatCard label={lang === 'ar' ? 'المعدل الشهري'        : 'Monthly Average'}      value={formatCurrencyCompact(expectedRevenueSummary.monthlyRunRate ?? 0)}             color="text-foreground"  valueSize="text-2xl" />
+                <StatCard label={lang === 'ar' ? 'نقد متوقع خلال ٣٠ يوم'  : 'Projected Cash Next 30 Days'}    value={formatCurrencyCompact(expectedRevenueSummary.projectedRevenueNext30Days ?? 0)} color="text-success"     valueSize="text-2xl" />
+                <StatCard label={lang === 'ar' ? 'قاعدة الإيراد الحالية'   : 'Current Revenue Base'}      value={formatCurrencyCompact(expectedRevenueSummary.monthlyRunRate ?? 0)}             color="text-foreground"  valueSize="text-2xl" />
                 <StatCard label={lang === 'ar' ? 'تجديدات مؤكدة'        : 'Confirmed Renewals'}    value={formatCurrencyCompact(expectedRevenueSummary.securedRenewalValue ?? 0)}        color="text-success"     valueSize="text-2xl" />
                 <StatCard label={lang === 'ar' ? 'بحاجة لتجديد'         : 'Needs Renewal'}         value={formatCurrencyCompact(expectedRevenueSummary.renewalExposure ?? 0)}            color="text-warning"     valueSize="text-2xl" />
               </div>
@@ -1042,8 +1042,8 @@ export default function ReportsPage() {
                   <CardTitle>{lang === 'ar' ? 'نظرة على الإيراد المتوقع' : 'Expected Revenue Overview'}</CardTitle>
                   <p className="text-sm text-muted-foreground">
                     {lang === 'ar'
-                      ? 'يعرض هذا التبويب توقع الدخل القادم من الاشتراكات النشطة والإيرادات الحالية.'
-                      : 'This forecast combines current monthly run rate with renewals expected in the next 30 days.'}
+                      ? 'يعرض هذا التبويب النقد المتوقع من التجديدات القريبة، مع إظهار قاعدة الإيراد الحالية بشكل منفصل.'
+                      : 'This forecast focuses on renewal cash expected in the next 30 days and shows the current revenue base separately.'}
                   </p>
                 </CardHeader>
                 <CardContent>

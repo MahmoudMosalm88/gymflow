@@ -347,9 +347,8 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           `WITH active_start AS (
              SELECT DISTINCT member_id
                FROM subscriptions
-              WHERE organization_id = $1
-                AND branch_id = $2
-                AND is_active = true
+             WHERE organization_id = $1
+               AND branch_id = $2
                 AND start_date <= $3
                 AND end_date > $3
            ),
@@ -358,7 +357,6 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
                FROM subscriptions
               WHERE organization_id = $1
                 AND branch_id = $2
-                AND is_active = true
                 AND start_date <= $4
                 AND end_date > $4
            )
@@ -815,7 +813,8 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
          reminder_events AS (
            SELECT DISTINCT ON ((payload->>'subscription_id'))
                   (payload->>'subscription_id')::bigint AS subscription_id,
-                  sent_at
+                  COALESCE(sent_at, scheduled_at) AS reminder_at,
+                  status
              FROM message_queue
             WHERE organization_id = $1
               AND branch_id = $2
@@ -847,8 +846,9 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
                 ec.plan_months,
                 ec.price_paid,
                 ec.end_date,
-                re.sent_at::text AS reminder_sent_at,
-                (re.subscription_id IS NOT NULL) AS has_reminder,
+                re.reminder_at::text AS reminder_sent_at,
+                (re.status = 'sent') AS has_reminder,
+                (re.status IN ('pending', 'processing')) AS has_pending_reminder,
                 (rl.previous_subscription_id IS NOT NULL) AS has_renewal,
                 wa.has_any AS wa_active
            FROM expiring_cycles ec
@@ -864,6 +864,13 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
       const items = rows.map((row) => {
         const pricePaid = toNumber(row.price_paid);
         const amountAtRisk = row.has_renewal ? 0 : pricePaid;
+        const reminderStatus = row.has_reminder
+          ? "reminded"
+          : (row as any).has_pending_reminder
+            ? "pending"
+            : (row as any).wa_active
+              ? "not_reminded"
+              : "no_automation";
         return {
           id: row.id,
           member_id: row.member_id,
@@ -874,7 +881,7 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           amount_at_risk: amountAtRisk,
           end_date: row.end_date,
           days_left: Math.max(0, Math.ceil((row.end_date - now) / 86400)),
-          reminder_status: row.has_reminder ? "reminded" : (row as any).wa_active ? "pending" : "no_automation",
+          reminder_status: reminderStatus,
           reminder_sent_at: row.reminder_sent_at,
           renewal_status: row.has_renewal ? "renewed" : "at_risk",
         };
@@ -1159,9 +1166,8 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           `WITH active_start AS (
              SELECT DISTINCT member_id
                FROM subscriptions
-              WHERE organization_id = $1
-                AND branch_id = $2
-                AND is_active = true
+             WHERE organization_id = $1
+               AND branch_id = $2
                 AND start_date <= $3
                 AND end_date > $3
            ),
@@ -1170,7 +1176,6 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
                FROM subscriptions
               WHERE organization_id = $1
                 AND branch_id = $2
-                AND is_active = true
                 AND start_date <= $4
                 AND end_date > $4
            ),
@@ -1204,7 +1209,6 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
                FROM subscriptions
               WHERE organization_id = $1
                 AND branch_id = $2
-                AND is_active = true
                 AND start_date <= $3
                 AND end_date > $3
            ),
@@ -1213,7 +1217,6 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
                FROM subscriptions
               WHERE organization_id = $1
                 AND branch_id = $2
-                AND is_active = true
                 AND start_date <= $4
                 AND end_date > $4
            ),
@@ -1984,9 +1987,8 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           `WITH active_start AS (
              SELECT DISTINCT member_id
                FROM subscriptions
-              WHERE organization_id = $1
-                AND branch_id = $2
-                AND is_active = true
+             WHERE organization_id = $1
+               AND branch_id = $2
                 AND start_date <= $3
                 AND end_date > $3
            ),
@@ -1995,7 +1997,6 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
                FROM subscriptions
               WHERE organization_id = $1
                 AND branch_id = $2
-                AND is_active = true
                 AND start_date <= $4
                 AND end_date > $4
            )
@@ -2013,6 +2014,7 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
       const retainedMembers = Number(retentionRows[0]?.retained_members || 0);
       const retentionRate = activeStart > 0 ? retainedMembers / activeStart : 0;
       const projectedRenewalValue = securedRenewalValue + Math.max(renewalExposure - securedRenewalValue, 0) * retentionRate;
+      const projectedRevenueNext30Days = projectedRenewalValue;
 
       return ok({
         summary: {
@@ -2020,7 +2022,7 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           renewalExposure,
           securedRenewalValue,
           projectedRenewalValue,
-          projectedRevenueNext30Days: runRate + projectedRenewalValue,
+          projectedRevenueNext30Days,
           expectedRetentionRate: retentionRate * 100,
           membersDue: Number(dueRows[0]?.members || 0),
         },
@@ -2199,9 +2201,8 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           `WITH active_start AS (
              SELECT DISTINCT member_id
                FROM subscriptions
-              WHERE organization_id = $1
-                AND branch_id = $2
-                AND is_active = true
+             WHERE organization_id = $1
+               AND branch_id = $2
                 AND start_date <= $3
                 AND end_date > $3
            ),
@@ -2210,7 +2211,6 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
                FROM subscriptions
               WHERE organization_id = $1
                 AND branch_id = $2
-                AND is_active = true
                 AND start_date <= $4
                 AND end_date > $4
            )
@@ -2347,17 +2347,32 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
          )
          SELECT
            wb.week_start,
-           COUNT(s.id) FILTER (WHERE EXTRACT(EPOCH FROM s.created_at)::bigint >= wb.week_start AND EXTRACT(EPOCH FROM s.created_at)::bigint < wb.week_end)::int AS joins,
-           COUNT(s.id) FILTER (WHERE s.end_date >= wb.week_start AND s.end_date < wb.week_end AND s.is_active = false)::int AS ends
+           (
+             SELECT COUNT(*)::int
+               FROM subscriptions s
+              WHERE s.organization_id = $2
+                AND s.branch_id = $4
+                AND EXTRACT(EPOCH FROM s.created_at)::bigint >= wb.week_start
+                AND EXTRACT(EPOCH FROM s.created_at)::bigint < wb.week_end
+           ) AS joins,
+           (
+             SELECT COUNT(*)::int
+               FROM subscriptions s
+              WHERE s.organization_id = $2
+                AND s.branch_id = $4
+                AND s.end_date >= wb.week_start
+                AND s.end_date < wb.week_end
+                AND NOT EXISTS (
+                  SELECT 1
+                    FROM subscriptions future_sub
+                   WHERE future_sub.organization_id = s.organization_id
+                     AND future_sub.branch_id = s.branch_id
+                     AND future_sub.member_id = s.member_id
+                     AND future_sub.start_date <= wb.week_end
+                     AND future_sub.end_date > wb.week_end
+                )
+           ) AS ends
          FROM week_bounds wb
-         LEFT JOIN subscriptions s
-           ON s.organization_id = $2
-          AND s.branch_id = $4
-          AND (
-                (EXTRACT(EPOCH FROM s.created_at)::bigint >= wb.week_start AND EXTRACT(EPOCH FROM s.created_at)::bigint < wb.week_end)
-             OR (s.end_date >= wb.week_start AND s.end_date < wb.week_end AND s.is_active = false)
-          )
-         GROUP BY wb.week_start
          ORDER BY wb.week_start ASC`,
         [now, auth.organizationId, weeksBack, auth.branchId]
       );
@@ -2372,7 +2387,19 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
         `SELECT
            'thisWeek'   AS period,
            COUNT(*)     FILTER (WHERE EXTRACT(EPOCH FROM created_at)::bigint >= $3)::int AS joins,
-           COUNT(*)     FILTER (WHERE end_date >= $3 AND end_date < $1 AND is_active = false)::int AS ends,
+           COUNT(*) FILTER (
+             WHERE end_date >= $3
+               AND end_date < $1
+               AND NOT EXISTS (
+                 SELECT 1
+                   FROM subscriptions future_sub
+                  WHERE future_sub.organization_id = subscriptions.organization_id
+                    AND future_sub.branch_id = subscriptions.branch_id
+                    AND future_sub.member_id = subscriptions.member_id
+                    AND future_sub.start_date <= $1
+                    AND future_sub.end_date > $1
+               )
+           )::int AS ends,
            COUNT(*)     FILTER (WHERE is_active = true)::int AS active
          FROM subscriptions
          WHERE organization_id = $2 AND branch_id = $5
@@ -2380,7 +2407,19 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
          SELECT
            'lastWeek',
            COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM created_at)::bigint >= $4 AND EXTRACT(EPOCH FROM created_at)::bigint < $3)::int,
-           COUNT(*) FILTER (WHERE end_date >= $4 AND end_date < $3 AND is_active = false)::int,
+           COUNT(*) FILTER (
+             WHERE end_date >= $4
+               AND end_date < $3
+               AND NOT EXISTS (
+                 SELECT 1
+                   FROM subscriptions future_sub
+                  WHERE future_sub.organization_id = subscriptions.organization_id
+                    AND future_sub.branch_id = subscriptions.branch_id
+                    AND future_sub.member_id = subscriptions.member_id
+                    AND future_sub.start_date <= $3
+                    AND future_sub.end_date > $3
+               )
+           )::int,
            NULL
          FROM subscriptions
          WHERE organization_id = $2 AND branch_id = $5
@@ -2388,7 +2427,19 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
          SELECT
            'last30Days',
            COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM created_at)::bigint >= $6)::int,
-           COUNT(*) FILTER (WHERE end_date >= $6 AND end_date < $1 AND is_active = false)::int,
+           COUNT(*) FILTER (
+             WHERE end_date >= $6
+               AND end_date < $1
+               AND NOT EXISTS (
+                 SELECT 1
+                   FROM subscriptions future_sub
+                  WHERE future_sub.organization_id = subscriptions.organization_id
+                    AND future_sub.branch_id = subscriptions.branch_id
+                    AND future_sub.member_id = subscriptions.member_id
+                    AND future_sub.start_date <= $1
+                    AND future_sub.end_date > $1
+               )
+           )::int,
            NULL
          FROM subscriptions
          WHERE organization_id = $2 AND branch_id = $5`,
