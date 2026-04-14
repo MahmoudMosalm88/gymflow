@@ -13,6 +13,10 @@ type FirebaseSignInResponse = {
   email: string;
 };
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function mapFirebaseAuthError(code: string) {
   switch (code) {
     case "INVALID_LOGIN_CREDENTIALS":
@@ -115,9 +119,12 @@ export async function POST(request: NextRequest) {
 
     const decoded = await auth.verifyIdToken(idToken);
     const isLocalHost = request.nextUrl.hostname === "localhost" || request.nextUrl.hostname === "127.0.0.1";
-    let access = await getActorAccessByFirebaseUid(decoded.uid);
+    const rawBranchHeader = request.headers.get("x-branch-id");
+    const branchHeader = rawBranchHeader && isUuid(rawBranchHeader) ? rawBranchHeader : null;
+
+    let access = await getActorAccessByFirebaseUid(decoded.uid, branchHeader);
     if (!access && isLocalHost && typeof decoded.phone_number === "string" && decoded.phone_number) {
-      access = await getActorAccessByPhone(decoded.phone_number);
+      access = await getActorAccessByPhone(decoded.phone_number, branchHeader);
     }
     if (!access) {
       return fail("Your account exists but isn't fully set up yet. Please contact support to complete your setup.", 404);

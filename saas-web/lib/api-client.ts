@@ -135,6 +135,19 @@ function persistSessionFromLoginPayload(payload: unknown): boolean {
   return true;
 }
 
+function getStoredBranchId() {
+  const branchId = localStorage.getItem(BRANCH_ID_KEY);
+  if (branchId) return branchId;
+  try {
+    const raw = localStorage.getItem(SESSION_PROFILE_KEY);
+    if (!raw) return null;
+    const profile = JSON.parse(raw) as { branchId?: unknown };
+    return typeof profile.branchId === "string" ? profile.branchId : null;
+  } catch {
+    return null;
+  }
+}
+
 async function rehydrateSessionFromFirebase(): Promise<boolean> {
   if (rehydratePromise) return rehydratePromise;
 
@@ -148,9 +161,13 @@ async function rehydrateSessionFromFirebase(): Promise<boolean> {
       if (!idToken) return false;
       localStorage.setItem(SESSION_TOKEN_KEY, idToken);
 
+      const branchId = getStoredBranchId();
       const response = await fetch("/api/auth/login", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          ...(branchId ? { "x-branch-id": branchId } : {})
+        },
         body: JSON.stringify({ idToken })
       });
 
@@ -188,7 +205,7 @@ async function request<T = unknown>(
   url: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  let branchId = localStorage.getItem(BRANCH_ID_KEY);
+  let branchId = getStoredBranchId();
   let token = await resolveBearerToken(false);
   let headers = buildHeaders(options, token, branchId);
   let res = await fetch(url, { ...options, headers });
@@ -203,7 +220,7 @@ async function request<T = unknown>(
   if (res.status === 401) {
     const rehydrated = await rehydrateSessionFromFirebase();
     if (rehydrated) {
-      branchId = localStorage.getItem(BRANCH_ID_KEY);
+      branchId = getStoredBranchId();
       token = await resolveBearerToken(true);
       headers = buildHeaders(options, token, branchId);
       res = await fetch(url, { ...options, headers });
@@ -231,7 +248,7 @@ export const api = {
     request<T>(url, { method: "PUT", body: JSON.stringify(body) }),
 
   postFormData: async <T = unknown>(url: string, body: FormData) => {
-    let branchId = localStorage.getItem(BRANCH_ID_KEY);
+    let branchId = getStoredBranchId();
     let token = await resolveBearerToken(false);
     let headers: Record<string, string> = {};
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -250,7 +267,7 @@ export const api = {
     if (res.status === 401) {
       const rehydrated = await rehydrateSessionFromFirebase();
       if (rehydrated) {
-        branchId = localStorage.getItem(BRANCH_ID_KEY);
+        branchId = getStoredBranchId();
         token = await resolveBearerToken(true);
         headers = {};
         if (token) headers.Authorization = `Bearer ${token}`;

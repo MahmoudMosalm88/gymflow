@@ -20,6 +20,17 @@ import { createNotification } from "@/lib/notifications";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+async function relationExists(
+  client: { query: <T = Record<string, unknown>>(text: string, values?: unknown[]) => Promise<{ rows: T[] }> },
+  relationName: string
+) {
+  const result = await client.query<{ exists: boolean }>(
+    `SELECT to_regclass(current_schema() || '.' || $1) IS NOT NULL AS exists`,
+    [relationName]
+  );
+  return result.rows[0]?.exists === true;
+}
+
 const initialSubscriptionSchema = z.object({
   start_date: z.number().int().positive(),
   plan_months: z.number().int().positive(),
@@ -240,30 +251,34 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const settingsRows = await client.query<{ key: string; value: unknown }>(
-        `SELECT key, value
-           FROM settings
-          WHERE organization_id = $1
-            AND branch_id = $2
-            AND key = ANY($3::text[])`,
-        [
-          auth.organizationId,
-          auth.branchId,
-          [
-            "whatsapp_automation_enabled",
-            "system_language",
-            "whatsapp_template_welcome",
-            "whatsapp_template_welcome_en",
-            "whatsapp_template_welcome_ar"
-          ]
-        ]
-      );
+      const hasSettingsTable = await relationExists(client, "settings");
+      const hasMessageQueueTable = await relationExists(client, "message_queue");
+      const settingsRows = hasSettingsTable
+        ? await client.query<{ key: string; value: unknown }>(
+            `SELECT key, value
+               FROM settings
+              WHERE organization_id = $1
+                AND branch_id = $2
+                AND key = ANY($3::text[])`,
+            [
+              auth.organizationId,
+              auth.branchId,
+              [
+                "whatsapp_automation_enabled",
+                "system_language",
+                "whatsapp_template_welcome",
+                "whatsapp_template_welcome_en",
+                "whatsapp_template_welcome_ar"
+              ]
+            ]
+          )
+        : { rows: [] };
 
       const settings = Object.fromEntries(settingsRows.rows.map((row) => [row.key, row.value]));
       const automationEnabled = parseBooleanSetting(settings.whatsapp_automation_enabled, true);
       const systemLanguage = normalizeSystemLanguage(settings.system_language, "en");
 
-      if (automationEnabled && !member.whatsapp_do_not_contact) {
+      if (automationEnabled && hasMessageQueueTable && !member.whatsapp_do_not_contact) {
         const templateByLanguageKey = getTemplateKey("welcome", systemLanguage);
         const byLanguage = parseTextSetting(settings[templateByLanguageKey]);
         const rawTemplate = parseTextSetting(settings.whatsapp_template_welcome);

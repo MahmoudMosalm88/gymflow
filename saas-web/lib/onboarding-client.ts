@@ -16,6 +16,13 @@ function readStoredProfile() {
   }
 }
 
+function getStoredBranchId() {
+  const direct = localStorage.getItem(BRANCH_ID_KEY);
+  if (direct) return direct;
+  const profile = readStoredProfile();
+  return typeof profile?.branchId === "string" ? profile.branchId : null;
+}
+
 export function getStoredDefaultPath() {
   const profile = readStoredProfile();
   return profile ? getDefaultPathForRole(profile.role) : '/dashboard';
@@ -23,7 +30,7 @@ export function getStoredDefaultPath() {
 
 export async function fetchOnboardingRedirectTarget() {
   const token = localStorage.getItem(SESSION_TOKEN_KEY);
-  const branchId = localStorage.getItem(BRANCH_ID_KEY);
+  const branchId = getStoredBranchId();
   if (!token) return getStoredDefaultPath();
 
   try {

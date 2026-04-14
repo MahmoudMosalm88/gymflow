@@ -39,6 +39,13 @@ function readProfileFromStorage() {
   }
 }
 
+function getStoredBranchId() {
+  const branchId = localStorage.getItem(BRANCH_ID_KEY);
+  if (branchId) return branchId;
+  const profile = readProfileFromStorage();
+  return typeof profile?.branchId === "string" ? profile.branchId : null;
+}
+
 async function clearOfflineState() {
   try {
     const [{ clearOfflineData }] = await Promise.all([
@@ -77,9 +84,13 @@ async function recoverSessionFromFirebase(): Promise<boolean> {
     if (!idToken) return false;
     localStorage.setItem(SESSION_TOKEN_KEY, idToken);
 
+    const branchId = getStoredBranchId();
     const loginResponse = await fetch("/api/auth/login", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        ...(branchId ? { "x-branch-id": branchId } : {})
+      },
       body: JSON.stringify({ idToken })
     });
     const loginPayload = await loginResponse.json().catch(() => null);
@@ -131,7 +142,7 @@ export function useAuth(): AuthState {
 
     (async () => {
       let token = localStorage.getItem(SESSION_TOKEN_KEY);
-      let branchId = localStorage.getItem(BRANCH_ID_KEY);
+      let branchId = getStoredBranchId();
       let profile = readProfileFromStorage();
 
       if (!token) {
@@ -151,7 +162,7 @@ export function useAuth(): AuthState {
           return;
         }
         token = localStorage.getItem(SESSION_TOKEN_KEY);
-        branchId = localStorage.getItem(BRANCH_ID_KEY);
+        branchId = getStoredBranchId();
         profile = readProfileFromStorage();
       }
 
