@@ -432,7 +432,7 @@ export default function DashboardPage() {
                 onBlur={() => setScanInputFocused(false)}
                 placeholder={labels.scanPlaceholder}
                 disabled={scanning}
-                className="w-full h-12 text-lg bg-card relative z-[1]"
+                className="w-full h-12 text-lg bg-card relative z-[1] border-transparent"
               />
             </div>
             <Button onClick={handleScan} disabled={scanning} className="h-12 px-8 shrink-0">
