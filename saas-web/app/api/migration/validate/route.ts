@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
+import type { DesktopImportValidationResponse } from "@/lib/migration-contracts";
 
 export const runtime = "nodejs";
 
@@ -48,7 +49,8 @@ export async function POST(request: NextRequest) {
       ]
     );
 
-    return ok({ schemaVersion, members, subscriptions, isValid });
+    const response: DesktopImportValidationResponse = { schemaVersion, members, subscriptions, isValid };
+    return ok(response);
   } catch (error) {
     return routeError(error);
   }

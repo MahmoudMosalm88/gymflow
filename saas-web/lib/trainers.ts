@@ -17,6 +17,33 @@ export type TrainerProfileRow = {
   photo_path: string | null;
 };
 
+export type TrainerRosterStatRow = {
+  trainer_id: string;
+  active_clients: number;
+  sessions_this_month: number;
+};
+
+export type TrainerDetailStatsRow = {
+  sessions_completed: number;
+  sessions_no_show: number;
+  sessions_late_cancel: number;
+  sessions_cancelled: number;
+  sessions_scheduled: number;
+  active_clients: number;
+  active_packages: number;
+  total_revenue: string;
+};
+
+export type TrainerClientRow = {
+  id: string;
+  name: string;
+  phone: string | null;
+  photo_path?: string | null;
+  assigned_at: string;
+  active_packages: number;
+  sessions_remaining: number;
+};
+
 export type MemberTrainerAssignmentRow = {
   assignment_id: string;
   member_id: string;

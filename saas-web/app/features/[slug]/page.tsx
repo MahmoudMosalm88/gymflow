@@ -1,7 +1,3 @@
-// Server Component — no "use client" needed.
-// Renders a feature detail page from the data file.
-// URL pattern: /features/[slug]
-
 import { Metadata } from "next";
 
 import { notFound } from "next/navigation";
@@ -11,12 +7,10 @@ import {
   type FeaturePage,
 } from "@/lib/features-data";
 
-// ─── Static params — one page per feature slug ───────────────────────────────
 export function generateStaticParams() {
   return getAllFeatures().map((f) => ({ slug: f.slug }));
 }
 
-// ─── Dynamic <head> metadata per feature ─────────────────────────────────────
 export function generateMetadata({
   params,
 }: {
@@ -42,8 +36,6 @@ export function generateMetadata({
     },
   };
 }
-
-// ─── JSON-LD schemas ──────────────────────────────────────────────────────────
 
 function FaqSchema({ faq }: { faq: { q: string; a: string }[] }) {
   const schema = {
@@ -88,8 +80,6 @@ function SoftwareApplicationSchema({ feature }: { feature: FeaturePage }) {
   );
 }
 
-// ─── Page component ───────────────────────────────────────────────────────────
-
 export default function FeaturePage({
   params,
 }: {
@@ -98,7 +88,6 @@ export default function FeaturePage({
   const feature = getFeatureBySlug(params.slug);
   if (!feature) notFound();
 
-  // Resolve related feature objects for the sidebar links
   const related = feature.relatedFeatures
     .map((s) => getFeatureBySlug(s))
     .filter((f): f is FeaturePage => f !== undefined);
@@ -112,13 +101,11 @@ export default function FeaturePage({
         padding: "4rem 1.5rem",
       }}
     >
-      {/* JSON-LD schemas injected in <head> via Next.js */}
       <FaqSchema faq={feature.faqEn} />
       <SoftwareApplicationSchema feature={feature} />
 
       <div style={{ maxWidth: 800, margin: "0 auto" }}>
 
-        {/* ── Breadcrumb ── */}
         <div style={{ marginBottom: "2rem", fontSize: "0.875rem" }}>
           <a href="/" style={{ color: "#888", textDecoration: "none" }}>
             GymFlow
@@ -134,9 +121,7 @@ export default function FeaturePage({
           <span style={{ color: "#e63946" }}>{feature.titleEn}</span>
         </div>
 
-        {/* ── Hero ── */}
         <section style={{ marginBottom: "3.5rem" }}>
-          {/* Accent label */}
           <span
             style={{
               display: "inline-block",
@@ -174,7 +159,6 @@ export default function FeaturePage({
             {feature.heroEn}
           </p>
 
-          {/* Primary CTA */}
           <a
             href="/login"
             style={{
@@ -195,7 +179,6 @@ export default function FeaturePage({
           </a>
         </section>
 
-        {/* ── Description ── */}
         <section style={{ marginBottom: "3.5rem" }}>
           <p
             style={{
@@ -208,7 +191,6 @@ export default function FeaturePage({
           </p>
         </section>
 
-        {/* ── Benefits grid ── */}
         <section style={{ marginBottom: "3.5rem" }}>
           <h2
             style={{
@@ -220,7 +202,6 @@ export default function FeaturePage({
             Why it matters
           </h2>
 
-          {/* 3-column grid that collapses to 1 on narrow screens via flex-wrap */}
           <div
             style={{
               display: "flex",
@@ -239,7 +220,6 @@ export default function FeaturePage({
                   boxShadow: "4px 4px 0 #000",
                 }}
               >
-                {/* Red number accent */}
                 <span
                   style={{
                     display: "block",
@@ -277,7 +257,6 @@ export default function FeaturePage({
           </div>
         </section>
 
-        {/* ── How it works ── */}
         <section style={{ marginBottom: "3.5rem" }}>
           <h2
             style={{
@@ -289,7 +268,6 @@ export default function FeaturePage({
             How it works
           </h2>
 
-          {/* Numbered vertical steps */}
           <div
             style={{
               border: "2px solid #2a2a2a",
@@ -310,7 +288,6 @@ export default function FeaturePage({
                   alignItems: "flex-start",
                 }}
               >
-                {/* Step number badge */}
                 <div
                   style={{
                     flexShrink: 0,
@@ -354,7 +331,6 @@ export default function FeaturePage({
           </div>
         </section>
 
-        {/* ── FAQ ── */}
         <section style={{ marginBottom: "3.5rem" }}>
           <h2
             style={{
@@ -407,7 +383,6 @@ export default function FeaturePage({
           </div>
         </section>
 
-        {/* ── Related features ── */}
         {related.length > 0 && (
           <section style={{ marginBottom: "3.5rem" }}>
             <h2
@@ -454,7 +429,6 @@ export default function FeaturePage({
           </section>
         )}
 
-        {/* ── Bottom CTA ── */}
         <div
           style={{
             padding: "2.5rem",

@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { createRequire } from "node:module";
 import { BranchArchive } from "@/lib/archive-engine";
+import { parseJsonSafe, toInteger, toNullableNumber } from "@/lib/coerce";
 
 // Use createRequire so webpack ignores this import at build time.
 // sql.js UMD wrapper breaks when webpack bundles it.
@@ -28,21 +29,6 @@ function getSqlRuntime() {
     });
   }
   return sqlRuntime;
-}
-
-function toInteger(value: unknown, fallback = 0) {
-  if (typeof value === "number" && Number.isFinite(value)) return Math.trunc(value);
-  if (typeof value === "string") {
-    const parsed = Number(value.trim());
-    if (Number.isFinite(parsed)) return Math.trunc(parsed);
-  }
-  return fallback;
-}
-
-function toNullableNumber(value: unknown) {
-  if (value === null || value === undefined || value === "") return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function readRows(db: SqlJsDatabase, table: string): PlainRow[] {
@@ -79,18 +65,6 @@ function normalizeLogReason(status: unknown, reason: unknown) {
   if (statusValue === "warning") return "already_checked_in_today";
   if (statusValue === "denied") return "unknown_member";
   return "unknown";
-}
-
-function parseJsonSafe(value: unknown) {
-  if (typeof value !== "string") return value ?? {};
-  const trimmed = value.trim();
-  if (!trimmed) return {};
-
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    return { raw: value };
-  }
 }
 
 function normalizeAccessTier(value: unknown) {

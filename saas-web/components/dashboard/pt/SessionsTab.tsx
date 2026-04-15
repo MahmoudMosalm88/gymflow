@@ -16,39 +16,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus } from 'lucide-react';
+import type { PtPackageViewRow, PtSessionStatus, PtSessionViewRow } from '@/lib/pt';
+import type { TrainerProfileRow } from '@/lib/trainers';
 
 // ── Types ──
 
-type PtSession = {
-  id: string;
-  member_name?: string;
-  trainer_name?: string;
-  trainer_staff_user_id?: string;
-  package_title?: string;
-  scheduled_start: string;
-  scheduled_end: string;
-  status: 'scheduled' | 'completed' | 'no_show' | 'late_cancel' | 'cancelled';
-  notes: string | null;
-};
-
-type PtPackage = {
-  id: string;
-  member_id?: string;
-  member_name?: string;
-  trainer_name?: string;
-  assigned_trainer_staff_user_id?: string;
-  title: string;
-  sessions_remaining: number;
-  total_sessions: number;
-  valid_until: string;
-  status: 'active' | 'exhausted' | 'expired' | 'cancelled';
-};
-
-type Trainer = { id: string; name: string; is_active: boolean };
-
 type ConfirmAction = {
   sessionId: string;
-  status: PtSession['status'];
+  status: PtSessionStatus;
   label: string;
 };
 
@@ -76,8 +51,8 @@ function nowLocalIso() {
   return d.toISOString().slice(0, 16);
 }
 
-function getStatusBadge(status: PtSession['status'], lang: string): { label: string; className: string } {
-  const labels: Record<PtSession['status'], { en: string; ar: string; className: string }> = {
+function getStatusBadge(status: PtSessionStatus, lang: string): { label: string; className: string } {
+  const labels: Record<PtSessionStatus, { en: string; ar: string; className: string }> = {
     scheduled:   { en: 'Scheduled',    ar: 'مجدول',        className: 'bg-info/20 text-info border-info/30' },
     completed:   { en: 'Completed',    ar: 'مكتمل',        className: 'bg-success/20 text-success border-success/30' },
     no_show:     { en: 'No-show',      ar: 'لم يحضر',      className: 'bg-warning/20 text-warning border-warning/30' },
@@ -98,9 +73,9 @@ export default function SessionsTab() {
   const isTrainer = profile?.role === 'trainer';
 
   // Data
-  const [sessions, setSessions] = useState<PtSession[]>([]);
-  const [packages, setPackages] = useState<PtPackage[]>([]);
-  const [trainers, setTrainers] = useState<Trainer[]>([]);
+  const [sessions, setSessions] = useState<PtSessionViewRow[]>([]);
+  const [packages, setPackages] = useState<PtPackageViewRow[]>([]);
+  const [trainers, setTrainers] = useState<TrainerProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -112,7 +87,7 @@ export default function SessionsTab() {
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
 
   // Reschedule dialog
-  const [editSession, setEditSession] = useState<PtSession | null>(null);
+  const [editSession, setEditSession] = useState<PtSessionViewRow | null>(null);
   const [editStart, setEditStart] = useState('');
   const [editDuration, setEditDuration] = useState('60');
   const [editNotes, setEditNotes] = useState('');
@@ -127,7 +102,7 @@ export default function SessionsTab() {
 
   async function loadSessions() {
     const url = `/api/pt/sessions?from=${encodeURIComponent(startOfTodayIso())}&to=${encodeURIComponent(endOfWeekIso())}`;
-    const res = await api.get<PtSession[]>(url);
+    const res = await api.get<PtSessionViewRow[]>(url);
     setSessions(res.data ?? []);
   }
 
@@ -139,13 +114,13 @@ export default function SessionsTab() {
         ? `/api/pt/packages?trainer_id=${encodeURIComponent(profile?.id || '')}`
         : `/api/pt/packages`;
 
-      const fetches: Promise<any>[] = [
+      const fetches: Promise<unknown>[] = [
         loadSessions(),
-        api.get<PtPackage[]>(packageUrl).then(res => setPackages(res.data ?? [])),
+        api.get<PtPackageViewRow[]>(packageUrl).then(res => setPackages(res.data ?? [])),
       ];
       // Managers get the trainer list for filtering
       if (!isTrainer) {
-        fetches.push(api.get<Trainer[]>('/api/trainers').then(res => setTrainers(res.data ?? [])));
+        fetches.push(api.get<TrainerProfileRow[]>('/api/trainers').then(res => setTrainers(res.data ?? [])));
       }
       await Promise.all(fetches);
     } catch (err) {
@@ -197,7 +172,7 @@ export default function SessionsTab() {
 
   // ── Actions ──
 
-  function requestAction(session: PtSession, status: PtSession['status'], label: string) {
+  function requestAction(session: PtSessionViewRow, status: PtSessionStatus, label: string) {
     if (status === 'completed') {
       void doUpdateSession(session.id, status);
     } else {
@@ -205,7 +180,7 @@ export default function SessionsTab() {
     }
   }
 
-  async function doUpdateSession(id: string, status: PtSession['status']) {
+  async function doUpdateSession(id: string, status: PtSessionStatus) {
     setUpdatingSessionId(id);
     try {
       await api.patch(`/api/pt/sessions/${id}`, { status });
@@ -228,7 +203,7 @@ export default function SessionsTab() {
     setConfirmAction(null);
   }
 
-  function openEdit(session: PtSession) {
+  function openEdit(session: PtSessionViewRow) {
     setEditSession(session);
     setEditStart(new Date(session.scheduled_start).toISOString().slice(0, 16));
     setEditDuration(String(Math.max(15, Math.round((new Date(session.scheduled_end).getTime() - new Date(session.scheduled_start).getTime()) / 60000))));
@@ -503,8 +478,8 @@ export default function SessionsTab() {
 function BookSessionDialog({ open, onClose, trainers, packages, lang, labels, onBooked }: {
   open: boolean;
   onClose: () => void;
-  trainers: Trainer[];
-  packages: PtPackage[];
+  trainers: TrainerProfileRow[];
+  packages: PtPackageViewRow[];
   lang: string;
   labels: Record<string, string>;
   onBooked: () => void;

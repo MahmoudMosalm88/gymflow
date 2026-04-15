@@ -43,7 +43,9 @@ export default function MonthCalendarDialog({ month, open, onOpenChange }: Props
     setLoading(true);
     api.get<MonthData>(`/api/income/monthly/${currentMonth}`)
       .then((res) => { if (res.data) setData(res.data); })
-      .catch(() => {})
+      .catch((error) => {
+        console.error(`Failed to load month income data for ${currentMonth}`, error);
+      })
       .finally(() => setLoading(false));
   }, [currentMonth, open]);
 

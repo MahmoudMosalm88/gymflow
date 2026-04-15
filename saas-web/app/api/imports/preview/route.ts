@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import {
   buildImportPreview,
+  type ImportPreviewResponse,
   type SpreadsheetImportArtifactPayload
 } from "@/lib/imports";
 import { importPreviewSchema } from "@/lib/validation";
@@ -133,11 +134,13 @@ export async function POST(request: NextRequest) {
       );
     });
 
-    return ok({
+    const response: ImportPreviewResponse = {
       artifactId: body.artifactId,
       summary,
       rows: rowResults.slice(0, 100)
-    });
+    };
+
+    return ok(response);
   } catch (error) {
     return routeError(error);
   }

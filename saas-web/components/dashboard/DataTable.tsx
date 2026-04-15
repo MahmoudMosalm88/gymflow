@@ -4,22 +4,28 @@ import { ReactNode, useState } from 'react';
 import { useLang, t } from '@/lib/i18n';
 import { Input } from '@/components/ui/input';
 
-type Column = {
-  key: string;
+type Column<T extends Record<string, unknown>> = {
+  key: keyof T & string;
   label: string;
-  render?: (row: any) => ReactNode;
+  render?: (row: T) => ReactNode;
   className?: string;
 };
 
-type Props = {
-  columns: Column[];
-  data: any[];
+type Props<T extends Record<string, unknown>> = {
+  columns: Column<T>[];
+  data: T[];
   searchable?: boolean;
-  onRowClick?: (row: any) => void;
+  onRowClick?: (row: T) => void;
   emptyMessage?: string;
 };
 
-export default function DataTable({ columns, data, searchable, onRowClick, emptyMessage }: Props) {
+export default function DataTable<T extends Record<string, unknown>>({
+  columns,
+  data,
+  searchable,
+  onRowClick,
+  emptyMessage,
+}: Props<T>) {
   const { lang } = useLang();
   const [query, setQuery] = useState('');
   const labels = t[lang];
@@ -75,8 +81,11 @@ export default function DataTable({ columns, data, searchable, onRowClick, empty
               </tr>
             ) : (
               filtered.map((row, i) => (
-                <tr
-                  key={row.id ?? i}
+              <tr
+                  key={(() => {
+                    const id = (row as { id?: string | number }).id;
+                    return id !== undefined ? String(id) : i;
+                  })()}
                   onClick={() => onRowClick?.(row)}
                   className={[
                     'border-b border-[#2a2a2a] transition-colors',
@@ -85,11 +94,11 @@ export default function DataTable({ columns, data, searchable, onRowClick, empty
                   ].join(' ')}
                 >
                   {columns.map((col) => (
-                    <td
+                  <td
                       key={col.key}
                       className={`px-4 py-3 text-[#e8e4df] tabular-nums ${col.className || ''}`}
                     >
-                      {col.render ? col.render(row) : row[col.key]}
+                      {col.render ? col.render(row) : String(row[col.key] ?? '')}
                     </td>
                   ))}
                 </tr>

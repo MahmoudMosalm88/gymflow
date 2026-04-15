@@ -1,6 +1,3 @@
-// Features index page — lists all feature pages as cards.
-// URL: /features
-
 import { Metadata } from "next";
 
 import { getAllFeatures } from "@/lib/features-data";
@@ -31,7 +28,6 @@ export default function FeaturesIndexPage() {
     >
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
 
-        {/* ── Header ── */}
         <div style={{ marginBottom: "3rem" }}>
           <a
             href="/"
@@ -40,7 +36,6 @@ export default function FeaturesIndexPage() {
             &larr; GymFlow
           </a>
 
-          {/* Section label */}
           <div
             style={{
               marginTop: "1.5rem",
@@ -78,7 +73,6 @@ export default function FeaturesIndexPage() {
           </p>
         </div>
 
-        {/* ── Feature cards grid ── */}
         <div
           style={{
             display: "grid",
@@ -99,11 +93,8 @@ export default function FeaturesIndexPage() {
                 textDecoration: "none",
                 color: "inherit",
                 boxShadow: "4px 4px 0 #000",
-                // Hover effect applied via className would need CSS;
-                // keeping it purely inline here to match the blog approach.
               }}
             >
-              {/* Feature name */}
               <h2
                 style={{
                   fontSize: "1.125rem",
@@ -115,7 +106,6 @@ export default function FeaturesIndexPage() {
                 {feature.titleEn}
               </h2>
 
-              {/* One-line hero subtitle */}
               <p
                 style={{
                   fontSize: "0.875rem",
@@ -128,7 +118,6 @@ export default function FeaturesIndexPage() {
                 {feature.heroEn}
               </p>
 
-              {/* "Learn more" affordance */}
               <span
                 style={{
                   display: "inline-block",
@@ -144,7 +133,6 @@ export default function FeaturesIndexPage() {
           ))}
         </div>
 
-        {/* ── Bottom CTA ── */}
         <div
           style={{
             marginTop: "4rem",

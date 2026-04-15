@@ -126,16 +126,17 @@ export default function MembersPage() {
       } else {
         try {
           setMembers((await getCachedMembers(q || '')) as Member[]);
-        } catch {
-          // silently fail — table will show "no data"
+        } catch (error) {
+          console.error('Failed to load cached members list', error);
         }
       }
-    } catch {
+    } catch (error) {
       if (thisRequest !== fetchCounterRef.current) return;
       try {
         setMembers(await getCachedMembers(q || ''));
-      } catch {
-        // silently fail — table will show "no data"
+      } catch (cacheError) {
+        console.error('Failed to load members list', error);
+        console.error('Failed to load cached members list', cacheError);
       }
     } finally {
       if (thisRequest === fetchCounterRef.current) setLoading(false);
@@ -174,12 +175,12 @@ export default function MembersPage() {
             if (response.ok) {
               await cache.put(route, response.clone());
             }
-          } catch {
-            // Ignore individual route warm failures.
+          } catch (error) {
+            console.error(`Failed to warm route cache for ${route}`, error);
           }
         }));
-      } catch {
-        // Ignore cache warm failures.
+      } catch (error) {
+        console.error('Failed to warm member route cache', error);
       }
     })();
   }, [isTrainer, members, router]);
@@ -204,8 +205,9 @@ export default function MembersPage() {
       await api.delete('/api/members', { id: deleteTarget.id });
       setMembers((prev) => prev.filter((m) => m.id !== deleteTarget.id));
       setDeleteTarget(null);
-    } catch {
+    } catch (error) {
       // keep modal open on error so user can retry
+      console.error('Failed to delete member', error);
       toast.error(c.delete_error);
     } finally {
       setDeleting(false);

@@ -3,29 +3,10 @@ import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
 import { ensurePaymentsTable, incomeEventsCte, type IncomeEventRow } from "@/lib/income-events";
+import { toIsoString, toMillis } from "@/lib/coerce";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function toMillis(input: unknown): number {
-  if (input instanceof Date) return input.getTime();
-  if (typeof input === "number" && Number.isFinite(input)) {
-    return input > 1_000_000_000_000 ? input : input * 1000;
-  }
-  if (typeof input === "string") {
-    const n = Number(input);
-    if (Number.isFinite(n)) return n > 1_000_000_000_000 ? n : n * 1000;
-    const parsed = Date.parse(input);
-    if (!Number.isNaN(parsed)) return parsed;
-  }
-  return 0;
-}
-
-function toIso(input: unknown): string {
-  const ms = toMillis(input);
-  if (!ms) return new Date(0).toISOString();
-  return new Date(ms).toISOString();
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -67,7 +48,7 @@ export async function GET(request: NextRequest) {
 
     const data = trimmed.map((r) => ({
       id: r.event_id,
-      date: toIso(r.effective_at),
+      date: toIsoString(r.effective_at),
       type: r.payment_type,
       name: r.member_name,
       amount: Number(r.amount),

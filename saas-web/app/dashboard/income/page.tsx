@@ -65,8 +65,9 @@ export default function IncomePage() {
         if (s.data) setSummary(s.data);
         if (m.data) setMonthly(m.data);
         if (r.data) setRecent(r.data);
-      } catch {
+      } catch (error) {
         if (!mounted) return;
+        console.error('Failed to load income data from API', error);
         // Offline fallback
         try {
           const [summaryData, monthlyData, recentData] = await Promise.all([
@@ -77,7 +78,9 @@ export default function IncomePage() {
           setSummary(summaryData as Summary);
           setMonthly(monthlyData as MonthlyRow[]);
           setRecent(recentData as Payment[]);
-        } catch {}
+        } catch (error) {
+          console.error('Failed to load cached income data', error);
+        }
       }
       if (mounted) setLoading(false);
     })();

@@ -38,7 +38,9 @@ export default function DayPaymentsSheet({ date, open, onOpenChange }: Props) {
       .then((res) => {
         if (res.data) setPayments(res.data);
       })
-      .catch(() => {})
+      .catch((error) => {
+        console.error(`Failed to load payments for ${date}`, error);
+      })
       .finally(() => setLoading(false));
   }, [date, open]);
 

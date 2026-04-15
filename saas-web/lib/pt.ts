@@ -45,6 +45,16 @@ export type PtPackageRow = {
   last_session_at?: string | null;
 };
 
+export type PtPackageViewRow = PtPackageRow & {
+  member_name?: string;
+  member_phone?: string | null;
+  trainer_name?: string;
+  trainer_phone?: string | null;
+  sessions_remaining: number;
+  next_session_at?: string | null;
+  last_session_at?: string | null;
+};
+
 export type PtSessionRow = {
   id: string;
   package_id: string;
@@ -58,6 +68,13 @@ export type PtSessionRow = {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  member_name?: string;
+  member_phone?: string | null;
+  trainer_name?: string;
+  package_title?: string;
+};
+
+export type PtSessionViewRow = PtSessionRow & {
   member_name?: string;
   member_phone?: string | null;
   trainer_name?: string;
@@ -399,7 +416,7 @@ export async function syncPtPackageState(client: PoolClient, packageId: string, 
     sessionsUsed,
   });
 
-  const rows = await client.query<PtPackageRow>(
+  const rows = await client.query<PtPackageViewRow>(
     `UPDATE pt_packages
         SET sessions_used = $4,
             status = $5,
@@ -423,7 +440,7 @@ export async function syncPtPackageState(client: PoolClient, packageId: string, 
 }
 
 export async function listMemberPtPackages(organizationId: string, branchId: string, memberId: string) {
-  return query<PtPackageRow>(
+  return query<PtPackageViewRow>(
     `SELECT p.*,
             m.name AS member_name,
             m.phone AS member_phone,
@@ -454,7 +471,7 @@ export async function listMemberPtPackages(organizationId: string, branchId: str
 }
 
 export async function listTrainerPtPackages(organizationId: string, branchId: string, trainerStaffUserId: string) {
-  return query<PtPackageRow>(
+  return query<PtPackageViewRow>(
     `SELECT p.*,
             m.name AS member_name,
             m.phone AS member_phone,
@@ -485,7 +502,7 @@ export async function listTrainerPtPackages(organizationId: string, branchId: st
 }
 
 export async function listBranchPtPackages(organizationId: string, branchId: string) {
-  return query<PtPackageRow>(
+  return query<PtPackageViewRow>(
     `SELECT p.*,
             m.name AS member_name,
             m.phone AS member_phone,
@@ -515,7 +532,7 @@ export async function listBranchPtPackages(organizationId: string, branchId: str
 }
 
 export async function listMemberPtSessions(organizationId: string, branchId: string, memberId: string) {
-  return query<PtSessionRow>(
+  return query<PtSessionViewRow>(
     `SELECT s.*,
             m.name AS member_name,
             m.phone AS member_phone,
@@ -559,7 +576,7 @@ export async function createPtPackage(input: {
     }
 
     const packageId = randomUUID();
-    const rows = await client.query<PtPackageRow>(
+    const rows = await client.query<PtPackageViewRow>(
       `INSERT INTO pt_packages (
           id,
           organization_id,
@@ -631,7 +648,7 @@ async function loadPackageForSession(
   client: PoolClient,
   input: { organizationId: string; branchId: string; packageId: string; memberId: string; trainerStaffUserId: string }
 ) {
-  const rows = await client.query<PtPackageRow>(
+  const rows = await client.query<PtPackageViewRow>(
     `SELECT *
        FROM pt_packages
       WHERE id = $1
@@ -703,7 +720,7 @@ export async function createPtSession(input: {
       scheduledEnd,
     });
 
-    const rows = await client.query<PtSessionRow>(
+    const rows = await client.query<PtSessionViewRow>(
       `INSERT INTO pt_sessions (
           id,
           organization_id,
@@ -821,7 +838,7 @@ export async function updatePtSession(input: {
       completedAt = nextStatus === "scheduled" ? null : current.completed_at;
     }
 
-    const updatedRows = await client.query<PtSessionRow>(
+    const updatedRows = await client.query<PtSessionViewRow>(
       `UPDATE pt_sessions
           SET scheduled_start = $4::timestamptz,
               scheduled_end = $5::timestamptz,
@@ -880,7 +897,7 @@ export async function listTrainerPtSessions(input: {
     conditions.push(`s.status = ANY($${values.length}::text[])`);
   }
 
-  return query<PtSessionRow>(
+  return query<PtSessionViewRow>(
     `SELECT s.*,
             m.name AS member_name,
             m.phone AS member_phone,
@@ -919,7 +936,7 @@ export async function listBranchPtSessions(input: {
     conditions.push(`s.status = ANY($${values.length}::text[])`);
   }
 
-  return query<PtSessionRow>(
+  return query<PtSessionViewRow>(
     `SELECT s.*,
             m.name AS member_name,
             m.phone AS member_phone,

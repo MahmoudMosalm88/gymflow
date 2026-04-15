@@ -2,23 +2,10 @@ import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
+import type { NotificationListItem, NotificationListResponse } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type NotificationRow = {
-  notification_id: string;
-  source: "system" | "broadcast";
-  type: string;
-  title: string;
-  body: string;
-  severity: "info" | "warning" | "critical";
-  action_url: string | null;
-  metadata: Record<string, unknown>;
-  created_at: string;
-  delivered_at: string;
-  read_at: string | null;
-};
 
 type CursorPayload = {
   deliveredAt: string;
@@ -62,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     const cursor = decodeCursor(url.searchParams.get("cursor"));
 
-    const rows = await query<NotificationRow>(
+    const rows = await query<NotificationListItem & { metadata: Record<string, unknown> }>(
       `SELECT
           n.id AS notification_id,
           n.source,
@@ -103,13 +90,15 @@ export async function GET(request: NextRequest) {
     const data = hasMore ? rows.slice(0, limit) : rows;
     const last = data[data.length - 1];
 
-    return ok({
+    const response: NotificationListResponse = {
       items: data,
       nextCursor: hasMore && last
         ? encodeCursor({ deliveredAt: last.delivered_at, notificationId: last.notification_id })
         : null,
       hasMore,
-    });
+    };
+
+    return ok(response);
   } catch (error) {
     const code =
       typeof error === "object" && error && "code" in error

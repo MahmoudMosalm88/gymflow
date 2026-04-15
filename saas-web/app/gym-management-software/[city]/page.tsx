@@ -1,18 +1,13 @@
-// Server Component — one file renders all 5 city landing pages.
-// Route: /gym-management-software-cairo, /gym-management-software-dubai, etc.
 
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { locationPages, locationPageMap } from "@/lib/locations-data";
 
-// ─── Static params ────────────────────────────────────────────────────────────
-// Tell Next.js which city slugs exist at build time.
 export function generateStaticParams() {
   return locationPages.map((p) => ({ city: p.slug }));
 }
 
-// ─── Per-page metadata ────────────────────────────────────────────────────────
 export async function generateMetadata({
   params,
 }: {
@@ -40,7 +35,6 @@ export async function generateMetadata({
   };
 }
 
-// ─── JSON-LD structured data ──────────────────────────────────────────────────
 function JsonLd({ city }: { city: (typeof locationPages)[number] }) {
   const url = `https://gymflowsystem.com/gym-management-software-${city.slug}`;
 
@@ -98,7 +92,6 @@ function JsonLd({ city }: { city: (typeof locationPages)[number] }) {
   );
 }
 
-// ─── Feature list (shared across all pages, short labels) ────────────────────
 const features = [
   {
     icon: "⚡",
@@ -156,14 +149,12 @@ const features = [
   },
 ];
 
-// ─── Other city links shown at the bottom of every page ──────────────────────
 const otherCities = locationPages.map((p) => ({
   slug: p.slug,
   labelEn: `${p.cityEn}, ${p.countryEn}`,
   labelAr: `${p.cityAr}، ${p.countryAr}`,
 }));
 
-// ─── Page component ───────────────────────────────────────────────────────────
 export default async function CityPage({
   params,
 }: {
@@ -173,7 +164,6 @@ export default async function CityPage({
   const page = locationPageMap[city];
   if (!page) notFound();
 
-  // Inline style tokens — match the locked brutalist design system
   const bg = "#0a0a0a";
   const surface = "#141414";
   const surface2 = "#1e1e1e";

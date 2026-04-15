@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { ok, fail, routeError } from "@/lib/http";
+import type { TrainerDetailStatsRow } from "@/lib/trainers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,16 +20,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     const days = Math.min(365, Math.max(1, Number(url.searchParams.get("days") || 30)));
     const since = Math.floor(Date.now() / 1000) - days * 86400;
 
-    const rows = await query<{
-      sessions_completed: number;
-      sessions_no_show: number;
-      sessions_late_cancel: number;
-      sessions_cancelled: number;
-      sessions_scheduled: number;
-      active_clients: number;
-      active_packages: number;
-      total_revenue: string;
-    }>(
+    const rows = await query<TrainerDetailStatsRow>(
       `SELECT
         COUNT(*) FILTER (WHERE ps.status = 'completed')::int AS sessions_completed,
         COUNT(*) FILTER (WHERE ps.status = 'no_show')::int AS sessions_no_show,

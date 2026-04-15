@@ -89,7 +89,10 @@ export default function GlobalScanner() {
           </div>
         ), { duration: 5000, position: lang === 'ar' ? 'top-left' : 'top-right' });
       }
-    } catch {}
+    } catch (error) {
+      console.error('Failed to process barcode scan', error);
+      toast.error(labels.error_scan_failed);
+    }
   }, [lang, labels, reasonLabels, setScan]);
 
   useEffect(() => {

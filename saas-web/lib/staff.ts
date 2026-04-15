@@ -110,7 +110,7 @@ export async function listStaffUsers(organizationId: string, branchId: string) {
   return query<StaffRow>(
     `SELECT su.id,
             su.name,
-            su.title,
+            NULL::text AS title,
             su.phone,
             su.email,
             su.role,
@@ -207,13 +207,13 @@ export async function createStaffUserAndInvite(input: {
 
     await client.query(
       `INSERT INTO staff_users (
-          id, organization_id, branch_id, name, title, email, phone, role,
+          id, organization_id, branch_id, name, email, phone, role,
           is_active, invited_at, created_at, updated_at
        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8,
+          $1, $2, $3, $4, $5, $6, $7,
           true, NOW(), NOW(), NOW()
        )`,
-      [staffUserId, input.organizationId, input.branchId, input.name, input.title || null, input.email || null, input.phone, input.role]
+      [staffUserId, input.organizationId, input.branchId, input.name, input.email || null, input.phone, input.role]
     );
 
     await client.query(

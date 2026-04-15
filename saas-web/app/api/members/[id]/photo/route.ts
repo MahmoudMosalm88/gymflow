@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { fail, ok, routeError } from "@/lib/http";
 import { getFirebaseAdminDiagnostics } from "@/lib/firebase-admin";
+import { toNullableUnixSeconds } from "@/lib/coerce";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,12 +21,6 @@ function getPhotoBucketName() {
   return `${env.FIREBASE_PROJECT_ID}-gymflow-photos`;
 }
 
-function toUnixSeconds(value: FormDataEntryValue | null) {
-  if (typeof value !== "string" || !value.trim()) return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.floor(parsed) : null;
-}
-
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const auth = await requireAuth(request);
@@ -36,7 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     const formData = await request.formData();
     const candidate = formData.get("photo");
-    const baseUpdatedAt = toUnixSeconds(formData.get("base_updated_at"));
+    const baseUpdatedAt = toNullableUnixSeconds(formData.get("base_updated_at"));
     if (!(candidate instanceof File)) {
       return fail("Missing photo file", 400);
     }

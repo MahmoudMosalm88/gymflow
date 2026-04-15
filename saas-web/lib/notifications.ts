@@ -26,6 +26,29 @@ export type CreateNotificationResult = {
   recipients: number;
 };
 
+export type NotificationListItem = {
+  notification_id: string;
+  source: NotificationSource;
+  type: string;
+  title: string;
+  body: string;
+  severity: NotificationSeverity;
+  action_url: string | null;
+  created_at: string;
+  delivered_at: string;
+  read_at: string | null;
+};
+
+export type NotificationListResponse = {
+  items: NotificationListItem[];
+  hasMore: boolean;
+  nextCursor: string | null;
+};
+
+export type NotificationUnreadCountResponse = {
+  unread: number;
+};
+
 function asJson(value: Record<string, unknown> | undefined) {
   return JSON.stringify(value ?? {});
 }

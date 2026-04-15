@@ -1,14 +1,9 @@
 'use client';
 
-type Slot = {
-  weekday: number;
-  start_minute: number;
-  end_minute: number;
-  is_active: boolean;
-};
+import type { TrainerAvailabilitySlot } from '@/lib/pt';
 
 type Props = {
-  slots: Slot[];
+  slots: TrainerAvailabilitySlot[];
   lang: string;
 };
 
@@ -28,7 +23,7 @@ export default function AvailabilityGrid({ slots, lang }: Props) {
   const activeSlots = slots.filter(s => s.is_active);
 
   // Group by weekday
-  const byDay = new Map<number, Slot[]>();
+  const byDay = new Map<number, TrainerAvailabilitySlot[]>();
   for (const slot of activeSlots) {
     const existing = byDay.get(slot.weekday) ?? [];
     existing.push(slot);

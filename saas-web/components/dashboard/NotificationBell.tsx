@@ -7,16 +7,7 @@ import { useLang, t } from '@/lib/i18n';
 import { formatDateTime } from '@/lib/format';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-
-type NotificationItem = {
-  notification_id: string;
-  type: string;
-  title: string;
-  body: string;
-  action_url: string | null;
-  read_at: string | null;
-  delivered_at: string;
-};
+import type { NotificationListItem, NotificationListResponse, NotificationUnreadCountResponse } from '@/lib/notifications';
 
 const SYSTEM_NOTIF_I18N: Record<string, { en: { title: string; body: string }; ar: { title: string; body: string } }> = {
   whatsapp_connecting: {
@@ -33,18 +24,10 @@ const SYSTEM_NOTIF_I18N: Record<string, { en: { title: string; body: string }; a
   },
 };
 
-type NotificationsResponse = {
-  items: NotificationItem[];
-};
-
-type UnreadCountResponse = {
-  unread: number;
-};
-
 export default function NotificationBell() {
   const { lang } = useLang();
   const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<NotificationItem[]>([]);
+  const [items, setItems] = useState<NotificationListItem[]>([]);
   const [unread, setUnread] = useState(0);
 
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
@@ -54,8 +37,8 @@ export default function NotificationBell() {
   async function load() {
     try {
       const [countRes, listRes] = await Promise.all([
-        api.get<UnreadCountResponse>('/api/notifications/unread-count'),
-        api.get<NotificationsResponse>('/api/notifications?limit=5&status=all'),
+        api.get<NotificationUnreadCountResponse>('/api/notifications/unread-count'),
+        api.get<NotificationListResponse>('/api/notifications?limit=5&status=all'),
       ]);
 
       if (countRes.success && countRes.data) {

@@ -1,6 +1,7 @@
 import { PoolClient } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import { addCalendarMonthsEpoch } from "./billing-cycle";
+import { toBoolean, toInteger, toNullableNumber } from "@/lib/coerce";
 
 export const BRANCH_TABLES = [
   "members",
@@ -80,33 +81,6 @@ function isUuid(value: unknown): boolean {
 function ensureUuid(value: unknown): string {
   if (isUuid(value)) return String(value).trim();
   return uuidv4();
-}
-
-function toInteger(value: unknown, fallback: number): number {
-  if (typeof value === "number" && Number.isFinite(value)) return Math.trunc(value);
-  if (typeof value === "string") {
-    const num = Number(value.trim());
-    if (Number.isFinite(num)) return Math.trunc(num);
-  }
-  return fallback;
-}
-
-function toNullableNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") return null;
-  const num = Number(value);
-  if (!Number.isFinite(num)) return null;
-  return num;
-}
-
-function toBoolean(value: unknown, fallback = false): boolean {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "number") return value !== 0;
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (["true", "1", "yes", "y"].includes(normalized)) return true;
-    if (["false", "0", "no", "n"].includes(normalized)) return false;
-  }
-  return fallback;
 }
 
 function toDateOrNull(value: unknown): Date | null {

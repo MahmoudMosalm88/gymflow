@@ -11,15 +11,7 @@ import {
   YAxis,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
-type RechartStyles = {
-  axis: { fill: string; fontSize: number };
-  gridStroke: string;
-  tooltipContent: { backgroundColor: string; border: string; borderRadius: number };
-  tooltipLabel: { color: string };
-  tooltipItem: { color: string };
-  legendItem: { color: string };
-};
+import type { ReportChartStyles } from './chart-types';
 
 type Labels = {
   daily_checkins_stats: string;
@@ -38,7 +30,7 @@ type DailyStatRow = {
 type DailyStatsChartProps = {
   data: DailyStatRow[];
   labels: Labels;
-  styles: RechartStyles;
+  styles: ReportChartStyles;
 };
 
 export default function DailyStatsChart({ data, labels, styles }: DailyStatsChartProps) {

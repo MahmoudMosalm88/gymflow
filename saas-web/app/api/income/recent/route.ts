@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
 import { ensurePaymentsTable, incomeEventsCte, type IncomeEventRow } from "@/lib/income-events";
+import { toIsoString, toMillis } from "@/lib/coerce";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,26 +18,6 @@ type PaymentItem = {
   sessionsPerMonth: number | null;
   packageTitle?: string | null;
 };
-
-function toMillis(input: unknown): number {
-  if (input instanceof Date) return input.getTime();
-  if (typeof input === "number" && Number.isFinite(input)) {
-    return input > 1_000_000_000_000 ? input : input * 1000;
-  }
-  if (typeof input === "string") {
-    const n = Number(input);
-    if (Number.isFinite(n)) return n > 1_000_000_000_000 ? n : n * 1000;
-    const parsed = Date.parse(input);
-    if (!Number.isNaN(parsed)) return parsed;
-  }
-  return 0;
-}
-
-function toIso(input: unknown): string {
-  const ms = toMillis(input);
-  if (!ms) return new Date(0).toISOString();
-  return new Date(ms).toISOString();
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -62,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     const payments: PaymentItem[] = rows.map((row) => ({
       id: row.event_id,
-      date: toIso(row.effective_at),
+      date: toIsoString(row.effective_at),
       type: row.payment_type,
       name: row.member_name?.trim() || "Unknown client",
       amount: Number(row.amount || 0),

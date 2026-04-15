@@ -32,10 +32,9 @@ import { Calendar } from '@/components/ui/calendar'; // shadcn/ui calendar compo
 import { cn } from '@/lib/utils'; // cn helper
 import { addCalendarMonths, toUnixSeconds } from '@/lib/subscription-dates';
 import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-method-ui';
+import type { EntityRef } from '@/lib/entities';
 
-type Member = { id: string; name: string };
-
-type SubscriptionFormData = {
+export type SubscriptionFormValues = {
   member_id: string;
   start_date: Date; // Using Date object for react-hook-form
   plan_months: number;
@@ -44,10 +43,17 @@ type SubscriptionFormData = {
   sessions_per_month?: number;
 };
 
+export type SubscriptionSubmitData = Omit<SubscriptionFormValues, 'start_date'> & {
+  start_date: number;
+};
+
+type SubscriptionFormInput = z.input<typeof subscriptionFormSchema>;
+type SubscriptionFormOutput = z.output<typeof subscriptionFormSchema>;
+
 type Props = {
-  members: Member[];
+  members: EntityRef[];
   preselectedMemberId?: string;
-  onSubmit: (data: SubscriptionFormData) => void;
+  onSubmit: (data: SubscriptionSubmitData) => void;
   onCancel: () => void;
   loading?: boolean;
 };
@@ -108,8 +114,8 @@ export default function SubscriptionForm({ members, preselectedMemberId, onSubmi
   const { lang } = useLang();
   const labels = { ...t[lang], ...formLabels[lang] };
 
-  const form = useForm<SubscriptionFormData>({
-    resolver: zodResolver(subscriptionFormSchema) as any,
+  const form = useForm<SubscriptionFormInput, undefined, SubscriptionFormOutput>({
+    resolver: zodResolver(subscriptionFormSchema),
     defaultValues: {
       member_id: preselectedMemberId || '',
       start_date: new Date(),
@@ -130,12 +136,12 @@ export default function SubscriptionForm({ members, preselectedMemberId, onSubmi
   }, [watchStartDate, watchPlanMonths]);
 
 
-  function handleSubmit(values: SubscriptionFormData) {
+  function handleSubmit(values: SubscriptionFormOutput) {
     const dataToSubmit = {
       ...values,
       start_date: toUnixSeconds(values.start_date),
     };
-    onSubmit(dataToSubmit as any);
+    onSubmit(dataToSubmit);
   }
 
   return (

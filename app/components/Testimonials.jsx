@@ -1,5 +1,4 @@
-// app/components/Testimonials.jsx
-import { Star } from 'lucide-react'; // Import Star icon
+import { Star } from 'lucide-react';
 
 export default function Testimonials() {
   return (
@@ -14,17 +13,15 @@ export default function Testimonials() {
           </p>
         </div>
 
-        {/* Testimonial Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Testimonial 1 */}
           <div className="card">
             <div className="flex items-center gap-1 mb-4">
               {[...Array(5)].map((_, i) => (
-                <Star key={i} className="w-5 h-5 text-primary fill-primary" /> // Use lucide-react Star and text-primary
+                <Star key={i} className="w-5 h-5 text-primary fill-primary" />
               ))}
             </div>
             <p className="font-sans text-muted-foreground mb-4">
-              "GymFlow transformed how we manage our gym. What used to take hours now takes minutes. Best decision we made for our business."
+              &ldquo;GymFlow transformed how we manage our gym. What used to take hours now takes minutes. Best decision we made for our business.&rdquo;
             </p>
             <div>
               <p className="font-sans font-bold text-foreground">Sarah Chen</p>
@@ -32,7 +29,6 @@ export default function Testimonials() {
             </div>
           </div>
 
-          {/* Testimonial 2 */}
           <div className="card">
             <div className="flex items-center gap-1 mb-4">
               {[...Array(5)].map((_, i) => (
@@ -40,7 +36,7 @@ export default function Testimonials() {
               ))}
             </div>
             <p className="font-sans text-muted-foreground mb-4">
-              "The privacy and security features convinced us. No vendor lock-in, no subscription fees. We own our data completely."
+              &ldquo;The privacy and security features convinced us. No vendor lock-in, no subscription fees. We own our data completely.&rdquo;
             </p>
             <div>
               <p className="font-sans font-bold text-foreground">Marcus Johnson</p>
@@ -48,7 +44,6 @@ export default function Testimonials() {
             </div>
           </div>
 
-          {/* Testimonial 3 */}
           <div className="card">
             <div className="flex items-center gap-1 mb-4">
               {[...Array(5)].map((_, i) => (
@@ -56,7 +51,7 @@ export default function Testimonials() {
               ))}
             </div>
             <p className="font-sans text-muted-foreground mb-4">
-              "The speed is incredible. 342 check-ins at peak hour with zero lag. Our team can't imagine going back to anything else."
+              &ldquo;The speed is incredible. 342 check-ins at peak hour with zero lag. Our team can&apos;t imagine going back to anything else.&rdquo;
             </p>
             <div>
               <p className="font-sans font-bold text-foreground">Emily Rodriguez</p>

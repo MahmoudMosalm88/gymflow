@@ -16,69 +16,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import type {
+  ImportExecuteResponse,
+  ImportMapping,
+  ImportPreviewResponse,
+  ImportPreviewRowResult,
+  ImportUploadResponse,
+} from '@/lib/imports';
 
-type UploadResponse = {
-  id: string;
-  file_name: string;
-  fileFormat: 'csv' | 'xlsx';
-  headers: string[];
-  totalRows: number;
-  sheetName: string | null;
-  status: string;
-};
-
-type MappingState = {
-  member_name: string;
-  phone: string;
-  gender?: string;
-  joined_at?: string;
-  date_of_birth?: string;
-  notes?: string;
-  card_code?: string;
-  subscription_start?: string;
-  subscription_end?: string;
-  plan_months?: string;
-  sessions_per_month?: string;
-  amount_paid?: string;
-};
-
-type PreviewIssue = {
-  severity: 'warning' | 'error' | 'duplicate';
-  field: string;
-  message: string;
-  code: string;
-};
-
-type PreviewRow = {
-  rowNumber: number;
-  rawRow: Record<string, string>;
-  normalizedRow: Record<string, unknown> | null;
-  status: 'valid' | 'warning' | 'invalid' | 'duplicate';
-  issues: PreviewIssue[];
-};
-
-type PreviewResponse = {
-  artifactId: string;
-  summary: {
-    totalRows: number;
-    validRows: number;
-    warningRows: number;
-    invalidRows: number;
-    duplicateRows: number;
-    estimatedMembersToCreate: number;
-    estimatedSubscriptionsToCreate: number;
-  };
-  rows: PreviewRow[];
-};
-
-type ExecuteResponse = {
-  jobId: string;
-  artifactId: string;
-  importedMembers: number;
-  importedSubscriptions: number;
-  skippedRows: number;
-  failedRows: number;
-};
+type MappingState = ImportMapping;
+type PreviewRow = ImportPreviewRowResult;
 
 type OnboardingChecklistKey =
   | 'reviewWarnings'
@@ -390,8 +337,8 @@ function setMappingFieldValue(current: MappingState, field: keyof MappingState, 
   } as MappingState;
 }
 
-function suggestMapping(headers: string[]): MappingState {
-  const aliases: Record<keyof MappingState, string[]> = {
+function suggestMapping(headers: string[]): ImportMapping {
+  const aliases: Record<keyof ImportMapping, string[]> = {
     member_name: ['name', 'member name', 'full name', 'client name'],
     phone: ['phone', 'mobile', 'whatsapp', 'phone number'],
     gender: ['gender', 'sex', 'type'],
@@ -407,7 +354,7 @@ function suggestMapping(headers: string[]): MappingState {
   };
 
   const byNormalized = new Map(headers.map((header) => [normalizeHeader(header), header]));
-  let mapping: MappingState = {
+  let mapping: ImportMapping = {
     member_name: '',
     phone: ''
   };
@@ -447,11 +394,11 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
   const [previewing, setPreviewing] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [savingOnboarding, setSavingOnboarding] = useState(false);
-  const [artifact, setArtifact] = useState<UploadResponse | null>(null);
-  const [mapping, setMapping] = useState<MappingState>({ member_name: '', phone: '' });
+  const [artifact, setArtifact] = useState<ImportUploadResponse | null>(null);
+  const [mapping, setMapping] = useState<ImportMapping>({ member_name: '', phone: '' });
   const [genderDefault, setGenderDefault] = useState<'male' | 'female'>('male');
-  const [preview, setPreview] = useState<PreviewResponse | null>(null);
-  const [execution, setExecution] = useState<ExecuteResponse | null>(null);
+  const [preview, setPreview] = useState<ImportPreviewResponse | null>(null);
+  const [execution, setExecution] = useState<ImportExecuteResponse | null>(null);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [checklist, setChecklist] = useState<Record<OnboardingChecklistKey, boolean>>({
     reviewWarnings: false,
@@ -511,7 +458,7 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await api.postFormData<UploadResponse>('/api/imports/upload', formData);
+      const res = await api.postFormData<ImportUploadResponse>('/api/imports/upload', formData);
       if (!res.success || !res.data) {
         toast.error(res.message || labels.uploadFirst);
         return;
@@ -537,7 +484,7 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
     setPreviewing(true);
     setExecution(null);
     try {
-      const res = await api.post<PreviewResponse>('/api/imports/preview', {
+      const res = await api.post<ImportPreviewResponse>('/api/imports/preview', {
         artifactId: artifact.id,
         mapping,
         defaults: {
@@ -566,7 +513,7 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
     setExecuting(true);
     setImportingStatus(labels.importProgress);
     try {
-      const res = await api.post<ExecuteResponse>('/api/imports/execute', {
+      const res = await api.post<ImportExecuteResponse>('/api/imports/execute', {
         artifactId: artifact.id,
         duplicate_mode: 'skip_duplicates',
         suppressImportedAutomations: true,

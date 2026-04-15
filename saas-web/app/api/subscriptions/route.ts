@@ -5,15 +5,10 @@ import { fail, ok, routeError } from "@/lib/http";
 import { subscriptionPatchSchema, subscriptionSchema } from "@/lib/validation";
 import { calculateSubscriptionEndDateUnix, getCurrentSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 import { deactivateExpiredSubscriptions } from "@/lib/subscription-status";
+import { toNullablePositiveInt } from "@/lib/coerce";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function toNullablePositiveInt(value: unknown) {
-  if (value === null || value === undefined || value === "") return null;
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
 
 async function ensureSubscriptionPaymentMethodColumn() {
   await query(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS payment_method TEXT`);

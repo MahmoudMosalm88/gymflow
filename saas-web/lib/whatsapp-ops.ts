@@ -140,10 +140,6 @@ const AVG_SEND_SECONDS = 14;
 const DEFAULT_QUEUE_LIMIT = 20;
 const DEFAULT_CAMPAIGN_LIMIT = 20;
 
-function toNumber(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
 function normalizeStatusValue(value: unknown) {
   const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   return {

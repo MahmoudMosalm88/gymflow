@@ -113,15 +113,16 @@ export default function DashboardPage() {
       } else {
         try {
           setOverview(await getCachedDashboardOverview());
-        } catch {
-          // Keep prior values on transient failures.
+        } catch (error) {
+          console.error('Failed to load cached dashboard overview', error);
         }
       }
-    } catch {
+    } catch (error) {
       try {
         setOverview(await getCachedDashboardOverview());
-      } catch {
-        // Keep prior values on transient failures.
+      } catch (cacheError) {
+        console.error('Failed to load dashboard overview', error);
+        console.error('Failed to load cached dashboard overview', cacheError);
       }
     } finally {
       setLoadingOverview(false);
@@ -141,9 +142,13 @@ export default function DashboardPage() {
       } else {
         try {
           setActivityLog((await getCachedRecentActivity(20)) as ActivityEntry[]);
-        } catch {}
+        } catch (error) {
+          console.error('Failed to load cached recent activity', error);
+        }
       }
-    } catch {}
+    } catch (error) {
+      console.error('Failed to load recent activity feed', error);
+    }
     finally {
       setActivityLoading(false);
     }
@@ -160,12 +165,17 @@ export default function DashboardPage() {
       } else {
         try {
           setHourlyBars(await getCachedTodayHourlyBars());
-        } catch {}
+        } catch (error) {
+          console.error('Failed to load cached hourly bars', error);
+        }
       }
     } catch {
       try {
         setHourlyBars(await getCachedTodayHourlyBars());
-      } catch {}
+      } catch (error) {
+        console.error('Failed to load hourly bars', error);
+        console.error('Failed to load cached hourly bars', error);
+      }
     }
     finally { setHourlyLoading(false); }
   }, []);

@@ -1,3 +1,5 @@
+import { toBoolean } from "@/lib/coerce";
+
 export type SystemLanguage = "en" | "ar";
 export type WhatsAppAutomationGroupId =
   | "operational"
@@ -407,19 +409,7 @@ export function parseReminderDays(value: unknown): number[] {
 }
 
 export function parseBooleanSetting(value: unknown, fallback = true): boolean {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (normalized === "true") return true;
-    if (normalized === "false") return false;
-  }
-  if (typeof value === "number") return value !== 0;
-  if (value && typeof value === "object") {
-    const rec = value as Record<string, unknown>;
-    if ("raw" in rec) return parseBooleanSetting(rec.raw, fallback);
-    if ("value" in rec) return parseBooleanSetting(rec.value, fallback);
-  }
-  return fallback;
+  return toBoolean(value, fallback);
 }
 
 export function parseTextSetting(value: unknown): string {

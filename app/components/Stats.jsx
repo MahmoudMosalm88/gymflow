@@ -1,4 +1,3 @@
-// app/components/Stats.jsx
 export default function Stats() {
   return (
     <section className="bg-background py-16 md:py-24 px-4 border-y border-border">

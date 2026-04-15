@@ -1,6 +1,6 @@
 import { query } from "@/lib/db";
 
-type TrainerPerformance = {
+export type TrainerPerformance = {
   trainer_id: string;
   trainer_name: string;
   sessions_completed: number;
@@ -12,7 +12,7 @@ type TrainerPerformance = {
   active_packages: number;
 };
 
-type PerformanceResult = {
+export type PerformanceResult = {
   summary: {
     totalSessions: number;
     totalCompleted: number;

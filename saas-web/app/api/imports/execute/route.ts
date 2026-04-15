@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { importExecuteSchema } from "@/lib/validation";
 import { toUnixSeconds } from "@/lib/subscription-dates";
+import type { ImportExecuteResponse } from "@/lib/imports";
 
 export const runtime = "nodejs";
 
@@ -278,7 +279,8 @@ export async function POST(request: NextRequest) {
       return result;
     });
 
-    return ok({ jobId, ...output }, { status: 201 });
+    const response: ImportExecuteResponse = { jobId, ...output };
+    return ok(response, { status: 201 });
   } catch (error) {
     try {
       const auth = await requireAuth(request);

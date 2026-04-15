@@ -9,25 +9,7 @@ import { toast } from 'sonner';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
-type NotificationItem = {
-  notification_id: string;
-  source: 'system' | 'broadcast';
-  type: string;
-  title: string;
-  body: string;
-  severity: 'info' | 'warning' | 'critical';
-  action_url: string | null;
-  created_at: string;
-  delivered_at: string;
-  read_at: string | null;
-};
-
-type NotificationsResponse = {
-  items: NotificationItem[];
-  hasMore: boolean;
-  nextCursor: string | null;
-};
+import type { NotificationListItem, NotificationListResponse } from '@/lib/notifications';
 
 // System notification i18n — renders in active language regardless of DB text
 const SYSTEM_NOTIF_I18N: Record<string, { en: { title: string; body: string }; ar: { title: string; body: string } }> = {
@@ -75,7 +57,7 @@ export default function NotificationsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
   const [markingId, setMarkingId] = useState<string | null>(null);
-  const [items, setItems] = useState<NotificationItem[]>([]);
+  const [items, setItems] = useState<NotificationListItem[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -84,7 +66,7 @@ export default function NotificationsPage() {
 
   // Group items by date
   const grouped = useMemo(() => {
-    const groups: { label: string; items: NotificationItem[] }[] = [];
+    const groups: { label: string; items: NotificationListItem[] }[] = [];
     let currentLabel = '';
     for (const item of items) {
       const label = getDateGroup(item.delivered_at, lang);
@@ -107,7 +89,7 @@ export default function NotificationsPage() {
     if (next && cursor) params.set('cursor', cursor);
 
     try {
-      const res = await api.get<NotificationsResponse>(`/api/notifications?${params.toString()}`);
+      const res = await api.get<NotificationListResponse>(`/api/notifications?${params.toString()}`);
       if (!res.success || !res.data) return;
       const incoming = Array.isArray(res.data.items) ? res.data.items : [];
       setItems((prev) => (next ? [...prev, ...incoming] : incoming));

@@ -12,51 +12,15 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+import type {
+  ImportExecuteResponse,
+  ImportMapping,
+  ImportPreviewResponse,
+  ImportPreviewSummary,
+  ImportUploadResponse,
+} from '@/lib/imports';
 
-type UploadResponse = {
-  id: string;
-  file_name: string;
-  fileFormat: 'csv' | 'xlsx';
-  headers: string[];
-  totalRows: number;
-  sheetName: string | null;
-  status: string;
-};
-
-type MappingState = {
-  member_name: string;
-  phone: string;
-  gender?: string;
-  joined_at?: string;
-  date_of_birth?: string;
-  notes?: string;
-  card_code?: string;
-  subscription_start?: string;
-  subscription_end?: string;
-  plan_months?: string;
-  sessions_per_month?: string;
-  amount_paid?: string;
-};
-
-type PreviewSummary = {
-  totalRows: number;
-  validRows: number;
-  warningRows: number;
-  invalidRows: number;
-  duplicateRows: number;
-  estimatedMembersToCreate: number;
-  estimatedSubscriptionsToCreate: number;
-};
-
-type ExecuteResponse = {
-  jobId: string;
-  artifactId: string;
-  importedMembers: number;
-  importedSubscriptions: number;
-  skippedRows: number;
-  failedRows: number;
-};
+type MappingState = ImportMapping;
 
 // ─── Field config ─────────────────────────────────────────────────────────────
 
@@ -267,8 +231,8 @@ export default function OnboardingWizard() {
   const [uploading, setUploading] = useState(false);
 
   // Data
-  const [artifact, setArtifact] = useState<UploadResponse | null>(null);
-  const [mapping, setMapping] = useState<MappingState>({ member_name: '', phone: '' });
+  const [artifact, setArtifact] = useState<ImportUploadResponse | null>(null);
+  const [mapping, setMapping] = useState<ImportMapping>({ member_name: '', phone: '' });
   const [genderDefault, setGenderDefault] = useState<'male' | 'female'>('male');
   const [dateFormat, setDateFormat] = useState<'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD'>('DD/MM/YYYY');
   const [sendWelcomeEmail, setSendWelcomeEmail] = useState(false);
@@ -276,11 +240,11 @@ export default function OnboardingWizard() {
 
   // Preview
   const [previewing, setPreviewing] = useState(false);
-  const [previewSummary, setPreviewSummary] = useState<PreviewSummary | null>(null);
+  const [previewSummary, setPreviewSummary] = useState<ImportPreviewSummary | null>(null);
 
   // Execute
   const [executing, setExecuting] = useState(false);
-  const [execution, setExecution] = useState<ExecuteResponse | null>(null);
+  const [execution, setExecution] = useState<ImportExecuteResponse | null>(null);
 
   // Confirm modal
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -317,7 +281,7 @@ export default function OnboardingWizard() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await api.postFormData<UploadResponse>('/api/imports/upload', formData);
+      const res = await api.postFormData<ImportUploadResponse>('/api/imports/upload', formData);
       if (!res.success || !res.data) {
         toast.error(res.message || L.errUploadFail);
         return;
@@ -338,7 +302,7 @@ export default function OnboardingWizard() {
     }
     setPreviewing(true);
     try {
-      const res = await api.post<{ artifactId: string; summary: PreviewSummary; rows: unknown[] }>('/api/imports/preview', {
+      const res = await api.post<ImportPreviewResponse>('/api/imports/preview', {
         artifactId: artifact.id,
         mapping,
         defaults: {
@@ -367,7 +331,7 @@ export default function OnboardingWizard() {
     setShowConfirmModal(false);
     setExecuting(true);
     try {
-      const res = await api.post<ExecuteResponse>('/api/imports/execute', {
+      const res = await api.post<ImportExecuteResponse>('/api/imports/execute', {
         artifactId: artifact.id,
         duplicate_mode: 'skip_duplicates',
         suppressImportedAutomations: true,

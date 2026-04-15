@@ -12,6 +12,14 @@ import { mkdirSync, rmSync } from "fs";
 import { randomUUID } from "crypto";
 import pino from "pino";
 import QRCode from "qrcode";
+import {
+  getBehaviorTemplateKey,
+  getTemplateKey,
+  normalizeSystemLanguage,
+  parseBooleanSetting,
+  renderWhatsappTemplate,
+  type SystemLanguage,
+} from "@/lib/whatsapp-automation";
 import { toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 
 type StatusState = "disconnected" | "connecting" | "connected";
@@ -26,7 +34,6 @@ type TenantSettingRow = {
   key: string;
   value: unknown;
 };
-type SystemLanguage = "en" | "ar";
 
 type TenantRuntime = {
   key: string;
@@ -153,20 +160,6 @@ function normalizeState(value: unknown): StatusState {
   return "disconnected";
 }
 
-function normalizeSystemLanguage(value: unknown, fallback: SystemLanguage = "en"): SystemLanguage {
-  if (value === "ar" || value === "en") return value;
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (normalized === "ar") return "ar";
-    if (normalized === "en") return "en";
-  }
-  return fallback;
-}
-
-function getTemplateKey(type: "renewal" | "welcome", lang: SystemLanguage) {
-  return `whatsapp_template_${type}_${lang}`;
-}
-
 function getPostExpiryTemplateKey(step: 0 | 3 | 7 | 14, lang: SystemLanguage) {
   return `whatsapp_template_post_expiry_day${step}_${lang}`;
 }
@@ -178,27 +171,9 @@ function getOnboardingTemplateKey(
   return `whatsapp_template_onboarding_${stage}_${lang}`;
 }
 
-function getBehaviorTemplateKey(
-  type: "habit_break" | "streak" | "freeze_ending",
-  lang: SystemLanguage
-) {
-  return `whatsapp_template_${type}_${lang}`;
-}
-
 function getSavedTemplate(settings: Record<string, unknown>, key: string, fallback: string) {
   const raw = settings[key];
   return typeof raw === "string" && raw.trim() ? raw : fallback;
-}
-
-function parseBooleanSetting(value: unknown, fallback = true) {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (normalized === "true") return true;
-    if (normalized === "false") return false;
-  }
-  if (typeof value === "number") return value !== 0;
-  return fallback;
 }
 
 function parseReminderDays(value: unknown): number[] {
@@ -217,13 +192,6 @@ function isStaffInvitePayload(payload: Record<string, unknown> | null | undefine
 
 function isStaffInvitesOnlyMode(settings: Record<string, unknown>) {
   return parseBooleanSetting(settings.whatsapp_staff_invites_only, false);
-}
-
-function renderTemplate(template: string, values: Record<string, string | number>) {
-  return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (_match, key: string) => {
-    const value = values[key];
-    return value === undefined || value === null ? "" : String(value);
-  });
 }
 
 function formatLocalizedDate(unixSeconds: number, lang: SystemLanguage) {
@@ -846,7 +814,7 @@ async function scheduleRenewalRemindersForTenant(organizationId: string, branchI
       }
     );
 
-    const message = renderTemplate(renewalTemplate, {
+    const message = renderWhatsappTemplate(renewalTemplate, {
       name: row.name || "Member",
       expiryDate,
       daysLeft,
@@ -977,7 +945,7 @@ async function schedulePostExpirySequencesForTenant(organizationId: string, bran
       defaultPostExpiryTemplates[systemLanguage][daysSinceExpiry as 0 | 3 | 7 | 14]
     );
     const expiryDate = formatLocalizedDate(Number(row.end_date), systemLanguage);
-    const message = renderTemplate(template, {
+    const message = renderWhatsappTemplate(template, {
       name: row.name || "Member",
       expiryDate,
       daysSinceExpiry,
@@ -1089,7 +1057,7 @@ async function scheduleOnboardingSequencesForTenant(organizationId: string, bran
           getOnboardingTemplateKey("first_visit", systemLanguage),
           defaultOnboardingTemplates[systemLanguage].first_visit
         );
-        const message = renderTemplate(template, { name: row.name || "Member" });
+        const message = renderWhatsappTemplate(template, { name: row.name || "Member" });
         await pool.query(
           `INSERT INTO message_queue (
               id, organization_id, branch_id, member_id, type, payload, status, attempts, scheduled_at
@@ -1131,7 +1099,7 @@ async function scheduleOnboardingSequencesForTenant(organizationId: string, bran
           getOnboardingTemplateKey("no_return_day7", systemLanguage),
           defaultOnboardingTemplates[systemLanguage].no_return_day7
         );
-        const message = renderTemplate(template, { name: row.name || "Member" });
+        const message = renderWhatsappTemplate(template, { name: row.name || "Member" });
         await pool.query(
           `INSERT INTO message_queue (
               id, organization_id, branch_id, member_id, type, payload, status, attempts, scheduled_at
@@ -1173,7 +1141,7 @@ async function scheduleOnboardingSequencesForTenant(organizationId: string, bran
           getOnboardingTemplateKey("low_engagement_day14", systemLanguage),
           defaultOnboardingTemplates[systemLanguage].low_engagement_day14
         );
-        const message = renderTemplate(template, { name: row.name || "Member" });
+        const message = renderWhatsappTemplate(template, { name: row.name || "Member" });
         await pool.query(
           `INSERT INTO message_queue (
               id, organization_id, branch_id, member_id, type, payload, status, attempts, scheduled_at
@@ -1463,7 +1431,7 @@ async function scheduleHabitBreakForTenant(organizationId: string, branchId: str
       getBehaviorTemplateKey("habit_break", systemLanguage),
       defaultBehaviorTemplates.habit_break[systemLanguage]
     );
-    const message = renderTemplate(template, {
+    const message = renderWhatsappTemplate(template, {
       name: row.name || "Member",
       daysAbsent: row.days_absent,
     });
@@ -1576,7 +1544,7 @@ async function scheduleStreakMessagesForTenant(organizationId: string, branchId:
       getBehaviorTemplateKey("streak", systemLanguage),
       defaultBehaviorTemplates.streak[systemLanguage]
     );
-    const message = renderTemplate(template, {
+    const message = renderWhatsappTemplate(template, {
       name: row.name || "Member",
       streakDays: row.streak_days,
     });
@@ -1664,7 +1632,7 @@ async function scheduleFreezeEndingRemindersForTenant(organizationId: string, br
       defaultBehaviorTemplates.freeze_ending[systemLanguage]
     );
     const resumeDate = formatLocalizedDate(Number(row.end_date), systemLanguage);
-    const message = renderTemplate(template, {
+    const message = renderWhatsappTemplate(template, {
       name: row.name || "Member",
       resumeDate,
     });

@@ -1116,7 +1116,7 @@ export default function LoginPage() {
 
             {/* ── Email form ── */}
             {method === "email" && (
-              <Form key={`email-form-${mode}`} {...(mode === "register" ? emailRegisterForm : emailLoginForm) as any}>
+              <Form key={`email-form-${mode}`} {...(mode === "register" ? emailRegisterForm : emailLoginForm)}>
                 <form
                   key={`email-form-inner-${mode}`}
                   onSubmit={mode === "register"
@@ -1251,12 +1251,12 @@ export default function LoginPage() {
                 {!otpSent ? (
                   /* Step 1: Enter phone */
                   <>
-                    <Form key={`phone-form-${mode}`} {...(mode === "register" ? phoneRegisterForm : phoneLoginForm) as any}>
+                    <Form key={`phone-form-${mode}`} {...(mode === "register" ? phoneRegisterForm : phoneLoginForm)}>
                       <form key={`phone-inner-${mode}`} onSubmit={e => e.preventDefault()} className="space-y-4">
                         <FormField
                           key={`phone-field-${mode}`}
-                          control={(mode === "register" ? phoneRegisterForm.control : phoneLoginForm.control) as any}
-                          name={(mode === "register" ? "phone" : "phone") as any}
+                          control={mode === "register" ? phoneRegisterForm.control : phoneLoginForm.control}
+                          name="phone"
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>{t.phone}</FormLabel>

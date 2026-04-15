@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { formatDate } from '@/lib/format';
 import { useLang } from '@/lib/i18n';
+import type { GuestInviteSummary } from '@/lib/guest-invites';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -48,21 +49,6 @@ const copy = {
   },
 } as const;
 
-type GuestInviteSummary = {
-  member: { id: string; name: string; phone: string | null; card_code: string | null };
-  allowance: number;
-  used: number;
-  remaining: number;
-  hasActiveCycle: boolean;
-  currentCycle: { id: number; startDate: number; endDate: number; planMonths: number; sessionsPerMonth: number | null } | null;
-  recentGuests: Array<{
-    id: string; code: string; guest_name: string; phone: string | null;
-    created_at: string; expires_at: string; used_at: string | null;
-    voided_at: string | null; converted_at: string | null;
-    converted_member_id: string | null; converted_member_name: string | null;
-  }>;
-};
-
 function getGuestStatus(row: GuestInviteSummary['recentGuests'][number], c: typeof copy[keyof typeof copy]) {
   if (row.voided_at) return { label: c.voided, cls: 'bg-muted text-muted-foreground border-border' };
   if (row.converted_at) return { label: c.converted, cls: 'bg-info/10 text-info border-info/30' };
@@ -83,7 +69,9 @@ export default function MemberGuestInvitesCard({ memberId }: { memberId: string 
     let cancelled = false;
     api.get<GuestInviteSummary>(`/api/members/${memberId}/guest-invites`)
       .then((res) => { if (!cancelled && res.success && res.data) setSummary(res.data); })
-      .catch(() => {})
+      .catch((error) => {
+        console.error(`Failed to load guest invites for member ${memberId}`, error);
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [memberId]);

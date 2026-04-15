@@ -28,7 +28,6 @@ export default function BlogListingPage() {
       }}
     >
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
-        {/* Header */}
         <div style={{ marginBottom: "3rem" }}>
           <a
             href="/"
@@ -56,7 +55,6 @@ export default function BlogListingPage() {
           </p>
         </div>
 
-        {/* English posts */}
         {enPosts.length > 0 && (
           <section style={{ marginBottom: "3rem" }}>
             <h2
@@ -117,7 +115,6 @@ export default function BlogListingPage() {
           </section>
         )}
 
-        {/* Arabic posts */}
         {arPosts.length > 0 && (
           <section dir="rtl" style={{ marginBottom: "3rem" }}>
             <h2

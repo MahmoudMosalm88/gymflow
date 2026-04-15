@@ -63,7 +63,8 @@ const schema = z.object({
   start_date_str: z.string().optional(),
 });
 
-type FormData = z.infer<typeof schema>;
+type FormInput = z.input<typeof schema>;
+type FormOutput = z.output<typeof schema>;
 
 function parseDateInput(value: string): Date {
   const [year, month, day] = value.split('-').map(Number);
@@ -78,8 +79,8 @@ export default function AddMemberModal({ open, onClose, onSuccess }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const form = useForm<FormData>({
-    resolver: zodResolver(schema) as any,
+  const form = useForm<FormInput, undefined, FormOutput>({
+    resolver: zodResolver(schema),
     defaultValues: {
       name: '',
       phone: '',
@@ -104,7 +105,7 @@ export default function AddMemberModal({ open, onClose, onSuccess }: Props) {
     onClose();
   };
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: FormOutput) => {
     setSubmitting(true);
     setError('');
 
@@ -139,8 +140,8 @@ export default function AddMemberModal({ open, onClose, onSuccess }: Props) {
 
       handleClose();
       onSuccess();
-    } catch (err: any) {
-      setError(err?.message || labels.error);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : labels.error);
     } finally {
       setSubmitting(false);
     }
@@ -298,8 +299,8 @@ export default function AddMemberModal({ open, onClose, onSuccess }: Props) {
                     type="number"
                     min={1}
                     placeholder="e.g. 12"
-                    value={field.value ?? ''}
-                    onChange={field.onChange}
+                    value={typeof field.value === 'number' ? field.value : ''}
+                    onChange={(e) => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
                   />
                 </FormControl>
                 <FormMessage />
@@ -315,8 +316,8 @@ export default function AddMemberModal({ open, onClose, onSuccess }: Props) {
                     type="number"
                     min={0}
                     placeholder="e.g. 500"
-                    value={field.value ?? ''}
-                    onChange={field.onChange}
+                    value={typeof field.value === 'number' ? field.value : ''}
+                    onChange={(e) => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
                   />
                 </FormControl>
                 <FormMessage />

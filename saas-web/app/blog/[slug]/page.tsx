@@ -4,12 +4,10 @@ import { notFound } from "next/navigation";
 import { getAllPosts, getPostBySlug } from "@/lib/blog/registry";
 import type { Section, BlogPost } from "@/lib/blog/types";
 
-// Generate static params for all blog posts
 export function generateStaticParams() {
   return getAllPosts().map((p) => ({ slug: p.slug }));
 }
 
-// Dynamic metadata per post
 export function generateMetadata({
   params,
 }: {
@@ -35,7 +33,6 @@ export function generateMetadata({
   };
 }
 
-// Render a content section
 function RenderSection({ section }: { section: Section }) {
   switch (section.type) {
     case "heading":
@@ -166,7 +163,6 @@ function RenderSection({ section }: { section: Section }) {
   }
 }
 
-// FAQ schema JSON-LD
 function FaqSchema({ faq }: { faq: { q: string; a: string }[] }) {
   const schema = {
     "@context": "https://schema.org",
@@ -185,7 +181,6 @@ function FaqSchema({ faq }: { faq: { q: string; a: string }[] }) {
   );
 }
 
-// Article schema
 function ArticleSchema({ post }: { post: BlogPost }) {
   const schema = {
     "@context": "https://schema.org",
@@ -237,7 +232,6 @@ export default function BlogPostPage({
       {post.faq && post.faq.length > 0 && <FaqSchema faq={post.faq} />}
 
       <article style={{ maxWidth: 720, margin: "0 auto" }}>
-        {/* Breadcrumb */}
         <div style={{ marginBottom: "2rem", fontSize: "0.875rem" }}>
           <a href="/" style={{ color: "#888", textDecoration: "none" }}>
             GymFlow
@@ -250,7 +244,6 @@ export default function BlogPostPage({
           <span style={{ color: "#e63946" }}>{post.category}</span>
         </div>
 
-        {/* Title */}
         <h1
           style={{
             fontSize: "clamp(1.75rem, 4vw, 2.75rem)",
@@ -262,7 +255,6 @@ export default function BlogPostPage({
           {post.title}
         </h1>
 
-        {/* Meta */}
         <div
           style={{
             display: "flex",
@@ -282,12 +274,10 @@ export default function BlogPostPage({
           </span>
         </div>
 
-        {/* Content sections */}
         {post.sections.map((section, i) => (
           <RenderSection key={i} section={section} />
         ))}
 
-        {/* FAQ section */}
         {post.faq && post.faq.length > 0 && (
           <div style={{ marginTop: "3rem" }}>
             <h2
@@ -332,7 +322,6 @@ export default function BlogPostPage({
           </div>
         )}
 
-        {/* Related posts */}
         {relatedPosts.length > 0 && (
           <div style={{ marginTop: "3rem" }}>
             <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "1rem" }}>
@@ -362,7 +351,6 @@ export default function BlogPostPage({
           </div>
         )}
 
-        {/* Bottom CTA */}
         <div
           style={{
             marginTop: "4rem",

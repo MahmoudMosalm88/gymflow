@@ -2,14 +2,7 @@
 
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
-type RechartStyles = {
-  gridStroke: string;
-  tooltipContent: { backgroundColor: string; border: string; borderRadius: number };
-  tooltipLabel: { color: string };
-  tooltipItem: { color: string };
-  legendItem: { color: string };
-};
+import type { ReportChartStyles } from './chart-types';
 
 type Labels = {
   denial_reasons: string;
@@ -23,7 +16,7 @@ type DenialReasonRow = {
 type DenialReasonsChartProps = {
   data: DenialReasonRow[];
   labels: Labels;
-  styles: RechartStyles;
+  styles: ReportChartStyles;
   colors: string[];
   lang?: string;
 };

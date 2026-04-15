@@ -6,46 +6,28 @@ import { useLang, t } from '@/lib/i18n';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import TrainerCard from './TrainerCard';
 import TrainerDetailSheet from './TrainerDetailSheet';
-
-type Trainer = {
-  id: string;
-  name: string;
-  phone?: string | null;
-  email?: string | null;
-  is_active: boolean;
-  gender?: string | null;
-  specialties?: string[];
-  certifications?: string[];
-  bio?: string | null;
-  photo_path?: string | null;
-  beginner_friendly?: boolean;
-  languages?: string[];
-};
-
-type TrainerStat = {
-  trainer_id: string;
-  active_clients: number;
-  sessions_this_month: number;
-};
+import type { TrainerProfileRow, TrainerRosterStatRow } from '@/lib/trainers';
 
 export default function TrainersTab() {
   const { lang } = useLang();
   const labels = t[lang];
-  const [trainers, setTrainers] = useState<Trainer[]>([]);
-  const [stats, setStats] = useState<TrainerStat[]>([]);
+  const [trainers, setTrainers] = useState<TrainerProfileRow[]>([]);
+  const [stats, setStats] = useState<TrainerRosterStatRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTrainer, setSelectedTrainer] = useState<Trainer | null>(null);
+  const [selectedTrainer, setSelectedTrainer] = useState<TrainerProfileRow | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      api.get<Trainer[]>('/api/trainers'),
-      api.get<TrainerStat[]>('/api/trainers/stats'),
+      api.get<TrainerProfileRow[]>('/api/trainers'),
+      api.get<TrainerRosterStatRow[]>('/api/trainers/stats'),
     ]).then(([trainersRes, statsRes]) => {
       if (cancelled) return;
       setTrainers(trainersRes.data ?? []);
       setStats(statsRes.data ?? []);
-    }).catch(() => {}).finally(() => {
+    }).catch((error) => {
+      console.error('Failed to load trainers tab data', error);
+    }).finally(() => {
       if (!cancelled) setLoading(false);
     });
     return () => { cancelled = true; };

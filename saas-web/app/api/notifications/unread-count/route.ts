@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
+import type { NotificationUnreadCountResponse } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,14 +21,16 @@ export async function GET(request: NextRequest) {
       [auth.organizationId, auth.branchId]
     );
 
-    return ok({ unread: Number(rows[0]?.count || 0) });
+    const response: NotificationUnreadCountResponse = { unread: Number(rows[0]?.count || 0) };
+    return ok(response);
   } catch (error) {
     const code =
       typeof error === "object" && error && "code" in error
         ? String((error as { code?: string }).code || "")
         : "";
     if (code === "42P01") {
-      return ok({ unread: 0 });
+      const response: NotificationUnreadCountResponse = { unread: 0 };
+      return ok(response);
     }
     return routeError(error);
   }

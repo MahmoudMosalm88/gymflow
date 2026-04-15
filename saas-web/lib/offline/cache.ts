@@ -8,40 +8,16 @@ import {
   type OfflineSettings,
   type OfflineSubscription,
 } from "./db";
+import { toFiniteNumber, toIsoString, toUnixSeconds } from "@/lib/coerce";
 
 export function nowUnix() {
   return Math.floor(Date.now() / 1000);
 }
 
-export function toUnixSeconds(input: unknown, fallback = 0): number {
-  if (typeof input === "number" && Number.isFinite(input)) {
-    return input > 1_000_000_000_000 ? Math.floor(input / 1000) : Math.floor(input);
-  }
-  if (typeof input === "string") {
-    const asNumber = Number(input);
-    if (Number.isFinite(asNumber)) {
-      return asNumber > 1_000_000_000_000 ? Math.floor(asNumber / 1000) : Math.floor(asNumber);
-    }
-    const parsed = Date.parse(input);
-    if (!Number.isNaN(parsed)) return Math.floor(parsed / 1000);
-  }
-  if (input instanceof Date) return Math.floor(input.getTime() / 1000);
-  return fallback;
-}
-
-export function toIsoString(input: unknown) {
-  const unix = toUnixSeconds(input);
-  if (!unix) return new Date(0).toISOString();
-  return new Date(unix * 1000).toISOString();
-}
+export { toIsoString, toUnixSeconds };
 
 export function asNumber(value: unknown, fallback = 0): number {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return fallback;
+  return toFiniteNumber(value, fallback);
 }
 
 export async function getAllMembers() {

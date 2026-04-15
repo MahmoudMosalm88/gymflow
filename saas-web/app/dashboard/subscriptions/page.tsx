@@ -11,6 +11,7 @@ import { saveSubscriptionCreate } from '@/lib/offline/actions';
 import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-method-ui';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import StatCard from '@/components/dashboard/StatCard';
+import type { SubscriptionSubmitData } from '@/components/dashboard/SubscriptionForm';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -43,6 +44,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import type { EntityRef } from '@/lib/entities';
 
 // The full subscription form is only needed when staff open the new-subscription dialog.
 const SubscriptionForm = dynamic(() => import('@/components/dashboard/SubscriptionForm'));
@@ -66,8 +68,8 @@ type Subscription = {
 };
 
 type SubscriptionStatus = 'active' | 'pending' | 'expired' | 'inactive';
+type StatusFilter = 'all' | 'active' | 'expiring' | 'frozen' | 'inactive';
 
-type Member = { id: string; name: string };
 type EditDraft = {
   id: number;
   start_date: string;
@@ -196,7 +198,7 @@ export default function SubscriptionsPage() {
 
   // State
   const [subs, setSubs] = useState<Subscription[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
+  const [members, setMembers] = useState<EntityRef[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersLoaded, setMembersLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -211,7 +213,7 @@ export default function SubscriptionsPage() {
 
   // Search + filter
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'expiring' | 'frozen' | 'inactive'>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showHistory, setShowHistory] = useState(false);
 
   // Confirm dialog for activate/deactivate
@@ -262,7 +264,7 @@ export default function SubscriptionsPage() {
     setMembersLoading(true);
     let loadedFromServer = false;
     try {
-      const res = await api.get<Member[]>('/api/members?q=');
+      const res = await api.get<EntityRef[]>('/api/members?q=');
       if (res.success && res.data) {
         setMembers(res.data);
         setMembersLoaded(true);
@@ -310,7 +312,7 @@ export default function SubscriptionsPage() {
   }, [shouldOpenNewFromQuery]);
 
   // Create subscription
-  async function handleCreate(data: any) {
+  async function handleCreate(data: SubscriptionSubmitData) {
     setSubmitting(true);
     setCreateError('');
     try {
@@ -486,7 +488,7 @@ export default function SubscriptionsPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm"
         />
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
           <SelectTrigger className="w-[160px]">
             <SelectValue />
           </SelectTrigger>

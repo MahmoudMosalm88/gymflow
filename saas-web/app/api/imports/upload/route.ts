@@ -4,6 +4,9 @@ import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { parseSpreadsheetArtifact } from "@/lib/imports";
+import type { ImportUploadResponse } from "@/lib/imports";
+
+type ImportUploadRow = Pick<ImportUploadResponse, "id" | "file_name" | "status" | "created_at">;
 
 export const runtime = "nodejs";
 
@@ -26,12 +29,7 @@ export async function POST(request: NextRequest) {
     const artifact = parseSpreadsheetArtifact(fileName, bytes);
     const artifactId = uuidv4();
 
-    const rows = await query<{
-      id: string;
-      file_name: string;
-      status: string;
-      created_at: string;
-    }>(
+    const rows = await query<ImportUploadRow>(
       `INSERT INTO import_artifacts (
           id, organization_id, branch_id, file_name, kind, file_format, payload, status
        ) VALUES (
@@ -48,13 +46,15 @@ export async function POST(request: NextRequest) {
       ]
     );
 
-    return ok({
+    const response: ImportUploadResponse = {
       ...rows[0],
       fileFormat: artifact.fileFormat,
       headers: artifact.headers,
       totalRows: artifact.totalRows,
       sheetName: artifact.sheetName
-    }, { status: 201 });
+    };
+
+    return ok(response, { status: 201 });
   } catch (error) {
     return routeError(error);
   }

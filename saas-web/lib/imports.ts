@@ -26,6 +26,17 @@ export type ImportMapping = {
   amount_paid?: string;
 };
 
+export type ImportUploadResponse = {
+  id: string;
+  file_name: string;
+  fileFormat: SpreadsheetFileFormat;
+  headers: string[];
+  totalRows: number;
+  sheetName: string | null;
+  status: string;
+  created_at: string;
+};
+
 export type ImportPreviewDefaults = {
   gender_default?: "male" | "female";
   duplicate_mode?: "skip_duplicates" | "new_only";
@@ -59,6 +70,21 @@ export type ImportPreviewSummary = {
   estimatedMembersToCreate: number;
   estimatedSubscriptionsToCreate: number;
   sampleIssues: ImportPreviewRowResult[];
+};
+
+export type ImportPreviewResponse = {
+  artifactId: string;
+  summary: ImportPreviewSummary;
+  rows: ImportPreviewRowResult[];
+};
+
+export type ImportExecuteResponse = {
+  jobId: string;
+  artifactId: string;
+  importedMembers: number;
+  importedSubscriptions: number;
+  skippedRows: number;
+  failedRows: number;
 };
 
 export type ExistingImportRefs = {

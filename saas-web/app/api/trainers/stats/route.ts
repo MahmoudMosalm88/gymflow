@@ -2,21 +2,16 @@ import { NextRequest } from "next/server";
 import { requireRoles } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { ok, routeError } from "@/lib/http";
+import type { TrainerRosterStatRow } from "@/lib/trainers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type TrainerStat = {
-  trainer_id: string;
-  active_clients: number;
-  sessions_this_month: number;
-};
 
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireRoles(request, ["owner", "manager", "staff"]);
 
-    const rows = await query<TrainerStat>(
+    const rows = await query<TrainerRosterStatRow>(
       `SELECT su.id AS trainer_id,
               COUNT(DISTINCT mta.member_id)::int AS active_clients,
               COUNT(DISTINCT ps.id) FILTER (

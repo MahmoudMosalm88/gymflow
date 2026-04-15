@@ -1,5 +1,6 @@
 import { query } from "@/lib/db";
 import { toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
+import { toFiniteNumber } from "@/lib/coerce";
 
 const DEFAULT_GUEST_INVITES_PER_CYCLE = 1;
 
@@ -58,9 +59,9 @@ export type GuestInviteSummary = {
 
 function parseAllowance(raw: unknown): number {
   if (raw == null) return DEFAULT_GUEST_INVITES_PER_CYCLE;
-  const numeric = typeof raw === "number" ? raw : Number(String(raw));
-  if (!Number.isFinite(numeric) || numeric < 0) return DEFAULT_GUEST_INVITES_PER_CYCLE;
-  return Math.floor(numeric);
+  const parsed = toFiniteNumber(raw, Number.NaN);
+  if (!Number.isFinite(parsed) || parsed < 0) return DEFAULT_GUEST_INVITES_PER_CYCLE;
+  return Math.floor(parsed);
 }
 
 async function getSettingValue(

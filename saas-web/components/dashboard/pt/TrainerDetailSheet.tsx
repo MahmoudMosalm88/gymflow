@@ -10,48 +10,15 @@ import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import StatCard from '@/components/dashboard/StatCard';
 import AvailabilityGrid from './AvailabilityGrid';
 import TrainerClientsList from './TrainerClientsList';
-
-type Trainer = {
-  id: string;
-  name: string;
-  phone?: string | null;
-  email?: string | null;
-  is_active: boolean;
-  gender?: string | null;
-  specialties?: string[];
-  certifications?: string[];
-  bio?: string | null;
-  photo_path?: string | null;
-  beginner_friendly?: boolean;
-  languages?: string[];
-};
-
-type AvailabilitySlot = {
-  weekday: number;
-  start_minute: number;
-  end_minute: number;
-  is_active: boolean;
-};
-
-type TrainerStats = {
-  sessions_completed: number;
-  sessions_no_show: number;
-  sessions_scheduled: number;
-  active_clients: number;
-  active_packages: number;
-  total_revenue: string;
-};
-
-type Client = {
-  id: string;
-  name: string;
-  phone?: string | null;
-  active_packages: number;
-  sessions_remaining: number;
-};
+import type { TrainerAvailabilitySlot } from '@/lib/pt';
+import type {
+  TrainerClientRow,
+  TrainerDetailStatsRow,
+  TrainerProfileRow,
+} from '@/lib/trainers';
 
 type Props = {
-  trainer: Trainer | null;
+  trainer: TrainerProfileRow | null;
   open: boolean;
   onClose: () => void;
 };
@@ -59,9 +26,9 @@ type Props = {
 export default function TrainerDetailSheet({ trainer, open, onClose }: Props) {
   const { lang } = useLang();
   const labels = t[lang];
-  const [stats, setStats] = useState<TrainerStats | null>(null);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
+  const [stats, setStats] = useState<TrainerDetailStatsRow | null>(null);
+  const [clients, setClients] = useState<TrainerClientRow[]>([]);
+  const [availability, setAvailability] = useState<TrainerAvailabilitySlot[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -75,15 +42,17 @@ export default function TrainerDetailSheet({ trainer, open, onClose }: Props) {
 
     let cancelled = false;
     Promise.all([
-      api.get<TrainerStats>(`/api/trainers/${trainer.id}/stats?days=30`),
-      api.get<Client[]>(`/api/trainers/${trainer.id}/clients`),
-      api.get<{ slots: AvailabilitySlot[] }>(`/api/trainers/${trainer.id}/availability`),
+      api.get<TrainerDetailStatsRow>(`/api/trainers/${trainer.id}/stats?days=30`),
+      api.get<TrainerClientRow[]>(`/api/trainers/${trainer.id}/clients`),
+      api.get<{ slots: TrainerAvailabilitySlot[] }>(`/api/trainers/${trainer.id}/availability`),
     ]).then(([statsRes, clientsRes, availRes]) => {
       if (cancelled) return;
       setStats(statsRes.data ?? null);
       setClients(clientsRes.data ?? []);
       setAvailability(availRes.data?.slots ?? []);
-    }).catch(() => {}).finally(() => {
+    }).catch((error) => {
+      console.error(`Failed to load trainer detail data for ${trainer.id}`, error);
+    }).finally(() => {
       if (!cancelled) setLoading(false);
     });
     return () => { cancelled = true; };

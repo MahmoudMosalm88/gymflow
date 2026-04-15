@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { ok, fail, routeError } from "@/lib/http";
+import type { TrainerClientRow } from "@/lib/trainers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       return fail("Access denied.", 403);
     }
 
-    const rows = await query(
+    const rows = await query<TrainerClientRow>(
       `SELECT m.id, m.name, m.phone, m.photo_path,
               mta.assigned_at::text,
               (SELECT COUNT(*)::int FROM pt_packages p

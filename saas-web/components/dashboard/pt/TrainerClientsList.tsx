@@ -1,17 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-
-type Client = {
-  id: string;
-  name: string;
-  phone?: string | null;
-  active_packages: number;
-  sessions_remaining: number;
-};
+import type { TrainerClientRow } from '@/lib/trainers';
 
 type Props = {
-  clients: Client[];
+  clients: TrainerClientRow[];
   lang: string;
 };
 

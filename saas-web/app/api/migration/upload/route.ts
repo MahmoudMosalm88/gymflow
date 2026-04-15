@@ -4,6 +4,9 @@ import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { ok, fail, routeError } from "@/lib/http";
 import { parseDesktopDbToArchive } from "@/lib/desktop-db-to-archive";
+import type { DesktopImportUploadResponse } from "@/lib/migration-contracts";
+
+type DesktopImportUploadRow = Pick<DesktopImportUploadResponse, "id" | "file_name" | "status" | "created_at">;
 
 export const runtime = "nodejs";
 
@@ -38,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     // Store the archive JSON in import_artifacts (same as before)
     const artifactId = uuidv4();
-    const rows = await query(
+    const rows = await query<DesktopImportUploadRow>(
       `INSERT INTO import_artifacts (
           id, organization_id, branch_id, file_name, payload, status
        ) VALUES (
@@ -48,7 +51,8 @@ export async function POST(request: NextRequest) {
       [artifactId, auth.organizationId, auth.branchId, fileName, JSON.stringify(archive)]
     );
 
-    return ok(rows[0], { status: 201 });
+    const response: DesktopImportUploadResponse = rows[0];
+    return ok(response, { status: 201 });
   } catch (error) {
     return routeError(error);
   }

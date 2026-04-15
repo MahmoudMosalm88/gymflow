@@ -8,29 +8,7 @@ import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import StatCard from '@/components/dashboard/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-type TrainerPerformance = {
-  trainer_id: string;
-  trainer_name: string;
-  sessions_completed: number;
-  sessions_no_show: number;
-  sessions_total: number;
-  no_show_rate: number;
-  revenue: number;
-  active_clients: number;
-  active_packages: number;
-};
-
-type PerformanceData = {
-  summary: {
-    totalSessions: number;
-    totalCompleted: number;
-    totalNoShow: number;
-    totalRevenue: number;
-    overallNoShowRate: number;
-  };
-  trainers: TrainerPerformance[];
-};
+import type { PerformanceResult } from '@/lib/pt-performance';
 
 const PERIOD_OPTIONS = [7, 14, 30, 60, 90];
 
@@ -38,16 +16,18 @@ export default function PerformanceTab() {
   const { lang } = useLang();
   const labels = t[lang];
   const [days, setDays] = useState(30);
-  const [data, setData] = useState<PerformanceData | null>(null);
+  const [data, setData] = useState<PerformanceResult | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    api.get<PerformanceData>(`/api/pt/performance?days=${days}`).then(res => {
+    api.get<PerformanceResult>(`/api/pt/performance?days=${days}`).then(res => {
       if (cancelled) return;
       setData(res.data ?? null);
-    }).catch(() => {}).finally(() => {
+    }).catch((error) => {
+      console.error(`Failed to load PT performance data for ${days} days`, error);
+    }).finally(() => {
       if (!cancelled) setLoading(false);
     });
     return () => { cancelled = true; };

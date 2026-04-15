@@ -4,24 +4,10 @@ import { query, withTransaction } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
 import { buildBranchArchive, countArchiveRows } from "@/lib/archive-engine";
+import { toBoolean, toFiniteNumber } from "@/lib/coerce";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function toBool(value: unknown, fallback = false) {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string") return value === "true";
-  return fallback;
-}
-
-function toNumber(value: unknown, fallback: number) {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return fallback;
-}
 
 function isWithinWindow(hour: number, start: number, end: number) {
   if (end === 24) return hour >= start;
@@ -49,10 +35,10 @@ export async function POST(request: NextRequest) {
     );
     const settings = Object.fromEntries(settingsRows.map((row) => [row.key, row.value]));
 
-    const enabled = toBool(settings.backup_auto_enabled, false);
-    const intervalHours = Math.max(1, Math.min(168, toNumber(settings.backup_auto_interval_hours, 24)));
-    const windowStart = Math.max(0, Math.min(23, Math.trunc(toNumber(settings.backup_auto_window_start, 0))));
-    const windowEnd = Math.max(1, Math.min(24, Math.trunc(toNumber(settings.backup_auto_window_end, 24))));
+    const enabled = toBoolean(settings.backup_auto_enabled, false);
+    const intervalHours = Math.max(1, Math.min(168, toFiniteNumber(settings.backup_auto_interval_hours, 24)));
+    const windowStart = Math.max(0, Math.min(23, Math.trunc(toFiniteNumber(settings.backup_auto_window_start, 0))));
+    const windowEnd = Math.max(1, Math.min(24, Math.trunc(toFiniteNumber(settings.backup_auto_window_end, 24))));
 
     if (!enabled) return ok({ ran: false, reason: "disabled" });
 

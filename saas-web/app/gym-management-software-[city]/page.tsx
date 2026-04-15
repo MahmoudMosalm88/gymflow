@@ -1,18 +1,12 @@
-// Server Component — one file renders all 5 city landing pages.
-// Route: /gym-management-software-cairo, /gym-management-software-dubai, etc.
-
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { locationPages, locationPageMap } from "@/lib/locations-data";
 
-// ─── Static params ────────────────────────────────────────────────────────────
-// Tell Next.js which city slugs exist at build time.
 export function generateStaticParams() {
   return locationPages.map((p) => ({ city: p.slug }));
 }
 
-// ─── Per-page metadata ────────────────────────────────────────────────────────
 export async function generateMetadata({
   params,
 }: {
@@ -40,7 +34,6 @@ export async function generateMetadata({
   };
 }
 
-// ─── JSON-LD structured data ──────────────────────────────────────────────────
 function JsonLd({ city }: { city: (typeof locationPages)[number] }) {
   const url = `https://gymflowsystem.com/gym-management-software-${city.slug}`;
 
@@ -98,7 +91,6 @@ function JsonLd({ city }: { city: (typeof locationPages)[number] }) {
   );
 }
 
-// ─── Feature list (shared across all pages, short labels) ────────────────────
 const features = [
   {
     icon: "⚡",
@@ -156,14 +148,12 @@ const features = [
   },
 ];
 
-// ─── Other city links shown at the bottom of every page ──────────────────────
 const otherCities = locationPages.map((p) => ({
   slug: p.slug,
   labelEn: `${p.cityEn}, ${p.countryEn}`,
   labelAr: `${p.cityAr}، ${p.countryAr}`,
 }));
 
-// ─── Page component ───────────────────────────────────────────────────────────
 export default async function CityPage({
   params,
 }: {
@@ -173,7 +163,6 @@ export default async function CityPage({
   const page = locationPageMap[city];
   if (!page) notFound();
 
-  // Inline style tokens — match the locked brutalist design system
   const bg = "#0a0a0a";
   const surface = "#141414";
   const surface2 = "#1e1e1e";
@@ -189,7 +178,6 @@ export default async function CityPage({
 
       <div style={{ background: bg, color: text, minHeight: "100vh", fontFamily: "inherit" }}>
 
-        {/* ── Minimal top nav ─────────────────────────────────────────────── */}
         <nav
           style={{
             borderBottom: `1px solid ${border}`,
@@ -232,7 +220,6 @@ export default async function CityPage({
           </div>
         </nav>
 
-        {/* ── Hero ────────────────────────────────────────────────────────── */}
         <section
           style={{
             borderBottom: `1px solid ${border}`,
@@ -241,7 +228,6 @@ export default async function CityPage({
             margin: "0 auto",
           }}
         >
-          {/* Breadcrumb label */}
           <p
             style={{
               color: accent,
@@ -270,7 +256,6 @@ export default async function CityPage({
             <span style={{ color: accent }}>in {page.cityEn}.</span>
           </h1>
 
-          {/* Arabic headline */}
           <h2
             dir="rtl"
             style={{
@@ -331,7 +316,6 @@ export default async function CityPage({
           </div>
         </section>
 
-        {/* ── Local market stats ───────────────────────────────────────────── */}
         <section
           style={{
             borderBottom: `1px solid ${border}`,
@@ -397,7 +381,6 @@ export default async function CityPage({
           </div>
         </section>
 
-        {/* ── Local insight ─────────────────────────────────────────────────── */}
         <section
           style={{
             borderBottom: `1px solid ${border}`,
@@ -426,7 +409,6 @@ export default async function CityPage({
               gap: 24,
             }}
           >
-            {/* English */}
             <div
               style={{
                 background: surface,
@@ -451,7 +433,6 @@ export default async function CityPage({
               </p>
             </div>
 
-            {/* Arabic */}
             <div
               dir="rtl"
               style={{
@@ -479,7 +460,6 @@ export default async function CityPage({
           </div>
         </section>
 
-        {/* ── Features grid ─────────────────────────────────────────────────── */}
         <section
           style={{
             borderBottom: `1px solid ${border}`,
@@ -547,7 +527,6 @@ export default async function CityPage({
                 <p style={{ fontSize: 13, color: muted, lineHeight: 1.6, margin: 0 }}>
                   {f.bodyEn}
                 </p>
-                {/* Arabic subtitle */}
                 <p
                   dir="rtl"
                   style={{
@@ -573,7 +552,6 @@ export default async function CityPage({
           </p>
         </section>
 
-        {/* ── FAQ ───────────────────────────────────────────────────────────── */}
         <section
           style={{
             borderBottom: `1px solid ${border}`,
@@ -629,7 +607,6 @@ export default async function CityPage({
                 <p style={{ fontSize: 14, color: muted, lineHeight: 1.7, margin: "0 0 16px" }}>
                   {item.a}
                 </p>
-                {/* Arabic version */}
                 <div
                   dir="rtl"
                   style={{
@@ -656,7 +633,6 @@ export default async function CityPage({
           </div>
         </section>
 
-        {/* ── CTA ───────────────────────────────────────────────────────────── */}
         <section
           style={{
             borderBottom: `1px solid ${border}`,
@@ -722,7 +698,6 @@ export default async function CityPage({
           </p>
         </section>
 
-        {/* ── Internal links to other city pages ────────────────────────────── */}
         <section
           style={{
             padding: "48px 24px",
@@ -766,7 +741,6 @@ export default async function CityPage({
           </div>
         </section>
 
-        {/* ── Minimal footer ────────────────────────────────────────────────── */}
         <footer
           style={{
             padding: "32px 24px",

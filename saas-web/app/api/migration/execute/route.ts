@@ -4,6 +4,7 @@ import { query, withTransaction } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { createSnapshotBackup, replaceBranchFromArchive } from "@/lib/archive-engine";
+import type { DesktopImportExecuteResponse } from "@/lib/migration-contracts";
 
 export const runtime = "nodejs";
 
@@ -178,14 +179,15 @@ export async function POST(request: NextRequest) {
       ]
     );
 
-    return ok({
+    const response: DesktopImportExecuteResponse = {
       jobId,
       status: "completed",
       artifactId,
       preImportBackupId: preImportSnapshot.backupId,
       preImportArtifactId: preImportSnapshot.artifactId,
       report: replay.report
-    });
+    };
+    return ok(response);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 

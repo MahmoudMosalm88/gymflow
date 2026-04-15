@@ -27,6 +27,9 @@ type MemberFormData = {
   address: string;
 };
 
+type MemberFormInput = z.input<typeof memberFormSchema>;
+type MemberFormOutput = z.output<typeof memberFormSchema>;
+
 // Zod schema for form validation
 const memberFormSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }),
@@ -53,8 +56,8 @@ export default function MemberForm({ initialData, onSubmit, onCancel, loading, h
   const { lang } = useLang();
   const labels = t[lang];
 
-  const form = useForm<MemberFormData>({
-    resolver: zodResolver(memberFormSchema) as any,
+  const form = useForm<MemberFormInput, undefined, MemberFormOutput>({
+    resolver: zodResolver(memberFormSchema),
     defaultValues: {
       name: initialData?.name || '',
       phone: initialData?.phone || '',
@@ -64,8 +67,14 @@ export default function MemberForm({ initialData, onSubmit, onCancel, loading, h
     },
   });
 
-  const handleSubmit = (values: MemberFormData) => {
-    onSubmit(values);
+  const handleSubmit = (values: MemberFormOutput) => {
+    onSubmit({
+      name: values.name,
+      phone: values.phone,
+      access_tier: values.access_tier,
+      card_code: values.card_code ?? '',
+      address: values.address ?? '',
+    });
   };
 
   return (

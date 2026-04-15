@@ -11,12 +11,15 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Terminal, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type {
+  DesktopImportExecuteResponse,
+  DesktopImportJobStatusResponse,
+  DesktopImportValidationResponse,
+} from '@/lib/migration-contracts';
 
-
-type UploadResult  = { id: string; file_name: string; status: string; created_at: string };
-type ValidateResult = { schemaVersion: string; members: number; subscriptions: number; isValid: boolean };
-type ExecuteResult  = { jobId: string; status: string; report: Record<string, unknown> };
-type StatusResult   = { id: string; type: string; status: string; payload: Record<string, unknown>; result: Record<string, unknown> | null; started_at: string; finished_at: string };
+type ValidateResult = DesktopImportValidationResponse;
+type ExecuteResult = DesktopImportExecuteResponse;
+type StatusResult = DesktopImportJobStatusResponse;
 
 function StepIndicator({ current }: { current: number }) {
   const { lang } = useLang();

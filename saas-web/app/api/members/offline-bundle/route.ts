@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
 import { ensurePaymentsTable } from "@/lib/income-events";
 import { getCurrentSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
+import { toFiniteNumber, toUnixSeconds } from "@/lib/coerce";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -83,24 +84,6 @@ type SettingRow = {
   key: string;
   value: unknown;
 };
-
-function toUnixSeconds(input: string | Date | number | null | undefined) {
-  if (typeof input === "number" && Number.isFinite(input)) {
-    return input > 1_000_000_000_000 ? Math.floor(input / 1000) : Math.floor(input);
-  }
-  if (!input) return 0;
-  const date = input instanceof Date ? input : new Date(input);
-  return Math.floor(date.getTime() / 1000);
-}
-
-function toNumber(input: unknown) {
-  if (typeof input === "number") return input;
-  if (typeof input === "string") {
-    const parsed = Number(input);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return 0;
-}
 
 function isMissingRelation(error: unknown, relation?: string) {
   const code =
@@ -334,7 +317,7 @@ export async function GET(request: NextRequest) {
       members,
       subscriptions: subscriptions.map((subscription) => ({
         ...subscription,
-        price_paid: subscription.price_paid == null ? null : toNumber(subscription.price_paid),
+        price_paid: subscription.price_paid == null ? null : toFiniteNumber(subscription.price_paid),
         payment_method: subscription.payment_method ?? null,
         created_at: toUnixSeconds(subscription.created_at)
       })),
@@ -344,7 +327,7 @@ export async function GET(request: NextRequest) {
       })),
       payments: payments.map((payment) => ({
         ...payment,
-        amount: toNumber(payment.amount),
+        amount: toFiniteNumber(payment.amount),
         payment_method: payment.payment_method ?? null,
         created_at: new Date(payment.created_at).toISOString()
       })),

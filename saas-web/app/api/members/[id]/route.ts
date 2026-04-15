@@ -3,20 +3,10 @@ import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { memberSchema } from "@/lib/validation";
+import { toNullableUnixSeconds } from "@/lib/coerce";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function toUnixSeconds(value: unknown) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return Math.floor(value);
-  }
-  if (typeof value === "string" && value.trim()) {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return Math.floor(parsed);
-  }
-  return null;
-}
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -62,7 +52,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const auth = await requireAuth(request);
     const body = await request.json();
     const payload = memberSchema.partial().parse(body);
-    const baseUpdatedAt = toUnixSeconds((body as { base_updated_at?: unknown })?.base_updated_at);
+    const baseUpdatedAt = toNullableUnixSeconds((body as { base_updated_at?: unknown })?.base_updated_at);
     const id = params.id;
     const requestedCardCode = (payload.card_code || "").trim();
 

@@ -1,27 +1,11 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
-
-type Trainer = {
-  id: string;
-  name: string;
-  phone?: string | null;
-  is_active: boolean;
-  gender?: string | null;
-  specialties?: string[];
-  certifications?: string[];
-  bio?: string | null;
-  photo_path?: string | null;
-};
-
-type TrainerStat = {
-  active_clients: number;
-  sessions_this_month: number;
-};
+import type { TrainerProfileRow, TrainerRosterStatRow } from '@/lib/trainers';
 
 type Props = {
-  trainer: Trainer;
-  stats?: TrainerStat;
+  trainer: TrainerProfileRow;
+  stats?: Pick<TrainerRosterStatRow, 'active_clients' | 'sessions_this_month'>;
   lang: string;
   onClick?: () => void;
 };

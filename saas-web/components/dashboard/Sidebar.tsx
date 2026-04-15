@@ -8,6 +8,7 @@ import GymFlowLogo from '@/components/GymFlowLogo';
 import { useAuth } from '@/lib/use-auth';
 import { getNavKeysForRole } from '@/lib/permissions';
 import { api } from '@/lib/api-client';
+import type { EntityRef } from '@/lib/entities';
 
 type Props = {
   open: boolean;
@@ -144,8 +145,6 @@ const navItems = [
   },
 ];
 
-type Branch = { id: string; name: string };
-
 export default function Sidebar({ open, onClose }: Props) {
   const pathname = usePathname();
   const { lang } = useLang();
@@ -153,16 +152,18 @@ export default function Sidebar({ open, onClose }: Props) {
   const visibleKeys = getNavKeysForRole(profile?.role || 'owner');
 
   // Branch switcher — only for owners with multiple branches
-  const [branches, setBranches] = useState<Branch[]>([]);
+  const [branches, setBranches] = useState<EntityRef[]>([]);
   const [branchOpen, setBranchOpen] = useState(false);
   const currentBranchId = typeof window !== 'undefined' ? localStorage.getItem('branch_id') : null;
   const currentBranch = branches.find(b => b.id === currentBranchId);
 
   useEffect(() => {
     if (profile?.role !== 'owner') return;
-    api.get<Branch[]>('/api/branches').then(res => {
+    api.get<EntityRef[]>('/api/branches').then(res => {
       if (res.data && res.data.length > 1) setBranches(res.data);
-    }).catch(() => {});
+    }).catch((error) => {
+      console.error('Failed to load branch switcher data', error);
+    });
   }, [profile?.role]);
 
   function switchBranch(branchId: string) {

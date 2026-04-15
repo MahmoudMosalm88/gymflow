@@ -9,6 +9,7 @@ import { formatDate, formatDateTime, daysUntil, formatCurrency, formatCurrencyCo
 import DataTable from '@/components/dashboard/DataTable';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import StatCard from '@/components/dashboard/StatCard';
+import { toFiniteNumber } from '@/lib/coerce';
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -65,7 +66,12 @@ function PinnedCard({ tabKey, lang, onNavigate, onUnpin }: { tabKey: TabKey; lan
       if (cancelled) return;
       if (res.success && res.data != null) setStat(statFetch.extract(res.data));
       setStatLoading(false);
-    }).catch(() => { if (!cancelled) setStatLoading(false); });
+    }).catch((error) => {
+      if (!cancelled) {
+        console.error(`Failed to load pinned stat for ${tabKey}`, error);
+        setStatLoading(false);
+      }
+    });
     return () => { cancelled = true; };
   }, [tabKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -260,7 +266,10 @@ export default function ReportsPage() {
     try {
       const stored = localStorage.getItem('gymflow_pinned_reports');
       return stored ? (JSON.parse(stored) as TabKey[]) : [];
-    } catch { return []; }
+    } catch (error) {
+      console.error('Failed to read pinned reports from localStorage', error);
+      return [];
+    }
   });
 
   const togglePin = useCallback((tabKey: TabKey) => {
@@ -268,7 +277,11 @@ export default function ReportsPage() {
       const next = prev.includes(tabKey)
         ? prev.filter(k => k !== tabKey)
         : prev.length < 4 ? [...prev, tabKey] : prev;
-      try { localStorage.setItem('gymflow_pinned_reports', JSON.stringify(next)); } catch {}
+      try {
+        localStorage.setItem('gymflow_pinned_reports', JSON.stringify(next));
+      } catch (error) {
+        console.error('Failed to persist pinned reports', error);
+      }
       return next;
     });
   }, []);
@@ -297,14 +310,7 @@ export default function ReportsPage() {
     if (lang === 'ar') return `${months} ${months === 1 ? 'شهر' : 'أشهر'}`;
     return `${months} month${months === 1 ? '' : 's'}`;
   };
-  const toNumber = (value: unknown, fallback = 0) => {
-    if (typeof value === 'number' && Number.isFinite(value)) return value;
-    if (typeof value === 'string') {
-      const parsed = Number(value);
-      if (Number.isFinite(parsed)) return parsed;
-    }
-    return fallback;
-  };
+  const toNumber = toFiniteNumber;
   const riskItems = Array.isArray(data?.items) ? data.items : Array.isArray(data?.rows) ? data.rows : [];
   const riskSummary = data?.summary ?? null;
 
@@ -327,7 +333,9 @@ export default function ReportsPage() {
         revenueSaved: savedRes.data?.summary?.revenueSaved ?? 0,
         denialCount: denialTotal,
       });
-    }).catch(() => {}).finally(() => { if (!cancelled) setHeroLoading(false); });
+    }).catch((error) => {
+      console.error('Failed to load reports hero stats', error);
+    }).finally(() => { if (!cancelled) setHeroLoading(false); });
     return () => { cancelled = true; };
   }, []);
 

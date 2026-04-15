@@ -2,13 +2,12 @@ import { NextRequest } from "next/server";
 import { requireRoles } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { ok, routeError } from "@/lib/http";
+import type { EntityRef } from "@/lib/entities";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type BranchRow = {
-  id: string;
-  name: string;
+type BranchRow = EntityRef & {
   timezone: string;
   currency: string;
   created_at: string;
