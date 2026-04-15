@@ -15,8 +15,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Loader2, ChevronDown } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DEFAULT_BEHAVIOR_TEMPLATES,
   DEFAULT_ONBOARDING_TEMPLATES,
@@ -382,7 +386,8 @@ function RangeSlider({
         max={max}
         value={isAny ? min : displayVal}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full accent-[#e63946] h-1.5 bg-[#2a2a2a] appearance-none cursor-pointer"
+        aria-label={lang === 'ar' ? labelAr : labelEn}
+        className="w-full accent-primary h-1.5 bg-input appearance-none cursor-pointer"
       />
       <div className="flex justify-between text-[10px] text-muted-foreground">
         <span>{min}</span>
@@ -444,10 +449,18 @@ export default function WhatsAppSystemPage() {
   const [lifecycleInfoOpen, setLifecycleInfoOpen] = useState(false);
   const [controlSavingId, setControlSavingId] = useState<string | null>(null);
   const [controlFeedback, setControlFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
+  const [auditOpen, setAuditOpen] = useState(false);
   const [sequences, setSequences] = useState<WhatsAppSequenceItem[]>([]);
   const [sequencesLoading, setSequencesLoading] = useState(true);
   const [stoppingSequenceKey, setStoppingSequenceKey] = useState<string | null>(null);
   const [sequenceFeedback, setSequenceFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
+
+  // ── Sheet / grid state ──
+  const [activeSheet, setActiveSheet] = useState<
+    'welcome' | 'renewal' | 'post_expiry' | 'onboarding' | 'behavior' | 'sequences' | null
+  >(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [templatesFetchError, setTemplatesFetchError] = useState(false);
 
   // ── Broadcast state ──
   const [broadcastFilters, setBroadcastFilters] = useState<BroadcastFilters>(DEFAULT_BROADCAST_FILTERS);
@@ -533,6 +546,7 @@ export default function WhatsAppSystemPage() {
 
   const fetchTemplates = useCallback(async () => {
     setTemplatesLoading(true);
+    setTemplatesFetchError(false);
     try {
       const res = await api.get<Record<string, unknown>>('/api/settings');
       if (res.success && res.data) {
@@ -558,6 +572,7 @@ export default function WhatsAppSystemPage() {
         setFreezeEndingEnabled(parseBooleanSetting(d.whatsapp_freeze_ending_enabled, false));
       }
     } catch (err) {
+      setTemplatesFetchError(true);
       setTemplateFeedback({ type: 'destructive', text: err instanceof Error ? err.message : 'Failed to load templates' });
     } finally {
       setTemplatesLoading(false);
@@ -615,6 +630,16 @@ export default function WhatsAppSystemPage() {
     }, 15000);
     return () => clearInterval(id);
   }, [fetchCampaigns, fetchQueue, fetchSequences, fetchStatus]);
+
+  // Close template editor sheet when save succeeds, then clear stale feedback
+  // so re-opening a sheet doesn't instantly close it again.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (templateFeedback?.type === 'success' && activeSheet !== null && activeSheet !== 'sequences') {
+      setActiveSheet(null);
+      setTemplateFeedback(null);
+    }
+  }, [templateFeedback]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -814,15 +839,18 @@ export default function WhatsAppSystemPage() {
       </div>
 
       {/* Internal tab nav */}
-      <div className="flex gap-0 border-b border-border overflow-x-auto">
+      <div role="tablist" aria-label={lang === 'ar' ? 'أقسام واتساب' : 'WhatsApp sections'} className="flex gap-0 border-b border-border overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            id={`tab-${tab.id}`}
+            role="tab"
+            aria-selected={activeTab === tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
             className={`px-5 py-3 text-sm font-semibold border-b-2 shrink-0 transition-colors ${
               activeTab === tab.id
-                ? 'border-[#e63946] text-[#e63946]'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -833,7 +861,7 @@ export default function WhatsAppSystemPage() {
 
       {/* ── Templates Tab ──────────────────────────────────────────────────── */}
       {activeTab === 'templates' && (
-        <div className="flex flex-col gap-6">
+        <div role="tabpanel" aria-labelledby={`tab-${activeTab}`} className="flex flex-col gap-6">
           {templatesLoading ? (
             <LoadingSpinner />
           ) : (
@@ -882,172 +910,6 @@ export default function WhatsAppSystemPage() {
                 </Alert>
               )}
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>{lang === 'ar' ? 'مركز تحكم الأتمتة' : 'Automation control center'}</CardTitle>
-                  <CardDescription>
-                    {lang === 'ar'
-                      ? 'الواجهة هنا هي مرجع التشغيل: ما الذي يمكن للمالك تفعيله الآن، ما الذي ما زال محجوباً، وما الذي يتحكم به النظام.'
-                      : 'This is the rollout control surface: what the owner can enable now, what is still blocked, and what stays system-owned.'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {compatibilityAudit && (
-                    <div className="border border-border px-4 py-3">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold">
-                            {lang === 'ar' ? 'توافق الفرع الحالي' : 'Current branch compatibility'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {lang === 'ar'
-                              ? 'التحقق يفحص الجداول والأعمدة المطلوبة لمسار واتساب.'
-                              : 'Audit checks the schema required for WhatsApp rollout and fail-open behavior.'}
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="border-border">
-                          {compatibilityStatusLabel(compatibilityAudit.currentBranchStatus, lang)}
-                        </Badge>
-                      </div>
-                      {compatibilityAudit.issues.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {compatibilityAudit.issues.map((issue) => (
-                            <Badge key={issue} variant="outline" className="border-warning/30 text-warning">
-                              {issue}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {!status?.lifecycleRuntimeGateEnabled && (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>{lang === 'ar' ? 'مسار الإطلاق مغلق' : 'Runtime rollout gate is off'}</AlertTitle>
-                      <AlertDescription>
-                        {lang === 'ar'
-                          ? 'يمكنك ضبط القوالب ومفاتيح الفرع، لكن العامل لن يرسل أتمتات دورة الحياة حتى يتم تفعيل WHATSAPP_LIFECYCLE_AUTOMATIONS_ENABLED.'
-                          : 'Templates and branch toggles can be configured, but the worker will not send lifecycle automations until WHATSAPP_LIFECYCLE_AUTOMATIONS_ENABLED is enabled.'}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  {controlFeedback && (
-                    <Alert variant={controlFeedback.type}>
-                      {controlFeedback.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                      <AlertTitle>{controlFeedback.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
-                      <AlertDescription>{controlFeedback.text}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  {WHATSAPP_AUTOMATION_GROUPS.map((group) => {
-                    const items = WHATSAPP_AUTOMATIONS.filter((item) => item.group === group.id);
-                    return (
-                      <div key={group.id} className="space-y-3">
-                        <div>
-                          <h3 className="text-sm font-semibold">{group.title[systemLanguage]}</h3>
-                          <p className="text-xs text-muted-foreground">{group.description[systemLanguage]}</p>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                          {items.map((item) => {
-                            const serverState = automationStateMap.get(item.id);
-                            const configured = serverState
-                              ? serverState.enabled
-                              : item.id === 'post_expiry'
-                                ? postExpiryEnabled
-                                : item.id === 'onboarding'
-                                  ? onboardingEnabled
-                                  : item.id === 'weekly_digest'
-                                    ? Boolean(status?.weeklyDigestReleaseEnabled)
-                                    : item.status === 'live';
-                            const activeCount = activeSequenceCounts[item.id] || 0;
-                            return (
-                              <div key={item.id} className="border border-border px-4 py-3 space-y-2">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="text-sm font-semibold">{item.title[systemLanguage]}</p>
-                                    <p className="text-xs text-muted-foreground">{item.description[systemLanguage]}</p>
-                                  </div>
-                                  <Badge
-                                    variant="outline"
-                                    className={item.status === 'live' ? 'border-success/30 text-success' : 'border-warning/30 text-warning'}
-                                  >
-                                    {getAutomationStatusLabel(item.status, systemLanguage)}
-                                  </Badge>
-                                </div>
-                                <div className="flex flex-wrap gap-2 text-xs">
-                                  <Badge variant="outline" className="border-border text-muted-foreground">
-                                    {configured
-                                      ? (lang === 'ar' ? 'مفعّل' : 'Enabled')
-                                      : (lang === 'ar' ? 'متوقف' : 'Off')}
-                                  </Badge>
-                                  <Badge variant="outline" className="border-border text-muted-foreground">
-                                    {item.controlMode === 'system'
-                                      ? (lang === 'ar' ? 'يتحكم به النظام' : 'System owned')
-                                      : item.ownerControlled
-                                      ? (lang === 'ar' ? 'يتحكم به المالك' : 'Owner controlled')
-                                      : (lang === 'ar' ? 'نظامي / يدوي' : 'System / manual')}
-                                  </Badge>
-                                  {item.editableTemplates ? (
-                                    <Badge variant="outline" className="border-border text-muted-foreground">
-                                      {lang === 'ar' ? 'قابل للتعديل الآن' : 'Editable now'}
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="border-border text-muted-foreground">
-                                      {lang === 'ar' ? 'مقفل حالياً' : 'Locked for now'}
-                                    </Badge>
-                                  )}
-                                  {(item.id === 'post_expiry' || item.id === 'onboarding') && (
-                                    <Badge variant="outline" className="border-border text-muted-foreground">
-                                      {lang === 'ar'
-                                        ? `${activeCount} متأثرون الآن`
-                                        : `${activeCount} active now`}
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="space-y-1 text-xs text-muted-foreground">
-                                  <p>{item.triggerSummary[systemLanguage]}</p>
-                                  <p>{item.stopSummary[systemLanguage]}</p>
-                                </div>
-                                {(item.id === 'post_expiry' || item.id === 'onboarding') && (
-                                  <div className="flex items-center justify-between gap-3 border border-border px-3 py-2">
-                                    <div>
-                                      <p className="text-sm font-medium">
-                                        {lang === 'ar' ? 'تمكين هذه الأتمتة' : 'Enable this automation'}
-                                      </p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {lang === 'ar'
-                                          ? 'الحفظ هنا لا يغير القوالب. القوالب تحفظ من الأسفل.'
-                                          : 'This only changes the branch toggle. Templates are saved separately below.'}
-                                      </p>
-                                    </div>
-                                    <label className="inline-flex items-center gap-2 text-sm">
-                                      <input
-                                        type="checkbox"
-                                        checked={configured}
-                                        disabled={controlSavingId === item.id}
-                                        onChange={(event) =>
-                                          void handleAutomationToggle(
-                                            item.id as 'post_expiry' | 'onboarding',
-                                            event.target.checked
-                                          )
-                                        }
-                                      />
-                                      <span>{configured ? (lang === 'ar' ? 'مفعّل' : 'On') : (lang === 'ar' ? 'متوقف' : 'Off')}</span>
-                                    </label>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-
               {/* Welcome Message */}
               <Card>
                 <CardHeader>
@@ -1068,7 +930,9 @@ export default function WhatsAppSystemPage() {
                         rows={3}
                         className="flex-1 resize-none"
                       />
-                      <p className="text-xs text-muted-foreground">Placeholders: {'{name}'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {lang === 'ar' ? 'المتغيرات: {name}' : 'Placeholders: {name}'}
+                      </p>
                     </div>
                     <WaPreview text={previewText(welcomeTemplate, 'welcome')} sampleName={sampleName} />
                   </div>
@@ -1125,67 +989,159 @@ export default function WhatsAppSystemPage() {
 
               <Separator />
 
-              {/* Lifecycle automations — collapsible banner */}
-              <button
-                type="button"
-                onClick={() => setLifecycleInfoOpen((v) => !v)}
-                className="w-full flex items-center justify-between gap-3 border border-border px-4 py-3 text-left hover:bg-white/5 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold">
-                    {lang === 'ar' ? 'أتمتة دورة حياة العضو' : 'Lifecycle automations'}
-                  </span>
-                  <Badge variant="outline" className="border-warning/40 bg-warning/10 text-warning text-xs">
-                    {lang === 'ar' ? 'الموجة الأولى جاهزة' : 'First wave ready'}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {lang === 'ar' ? 'ما بعد الانتهاء + التهيئة جاهزان، والباقي ما زال محجوباً' : 'Post-expiry + onboarding are ready; later waves stay blocked'}
-                  </span>
-                </div>
-                <svg
-                  width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"
-                  className={`shrink-0 transition-transform ${lifecycleInfoOpen ? 'rotate-180' : ''}`}
-                >
-                  <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-
-              {lifecycleInfoOpen && (
-                <div className="border border-border border-t-0 px-4 py-4 space-y-3 bg-[#1a1a1a]">
-                  <p className="text-sm text-muted-foreground">
-                    {lang === 'ar'
-                      ? 'الموجة الأولى فقط قابلة للتفعيل من مركز التحكم. الملخص الأسبوعي يبقى استثناءً مملوكاً للنظام، وبقية التنبيهات السلوكية تظل ظاهرة لكن محجوبة.'
-                      : 'Only the first wave is owner-toggleable in the control center. Weekly digest stays system-owned, and the later behavior automations remain visible but blocked.'}
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {[
-                      { titleEn: 'Post-expiry recovery', titleAr: 'استرجاع ما بعد الانتهاء', enabled: postExpiryEnabled },
-                      { titleEn: 'New member onboarding', titleAr: 'تهيئة العضو الجديد', enabled: onboardingEnabled },
-                      { titleEn: 'Habit-break nudge', titleAr: 'تنبيه انقطاع العادة', enabled: habitBreakEnabled },
-                      { titleEn: 'Streak encouragement', titleAr: 'تشجيع الاستمرارية', enabled: streaksEnabled },
-                      { titleEn: 'Freeze-ending reminder', titleAr: 'تذكير انتهاء التجميد', enabled: freezeEndingEnabled },
-                      { titleEn: 'Weekly digest', titleAr: 'الملخص الأسبوعي', enabled: Boolean(status?.weeklyDigestReleaseEnabled) },
-                    ].map((item) => (
-                      <div key={item.titleEn} className="flex items-center justify-between gap-2 border border-border px-3 py-2">
-                        <p className="text-xs font-medium">{lang === 'ar' ? item.titleAr : item.titleEn}</p>
-                        <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
-                          {item.titleEn === 'Weekly digest'
-                            ? item.enabled
-                              ? (lang === 'ar' ? 'مباشر كنظام' : 'Live as system release')
-                              : (lang === 'ar' ? 'محجوب كنظام' : 'Blocked system release')
-                            : item.enabled
-                              ? (lang === 'ar' ? 'مُعدّ' : 'Configured')
-                              : (lang === 'ar' ? 'محجوب' : 'Blocked')}
-                        </Badge>
-                      </div>
+              {/* Post-expiry templates — sub-tab picker */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle>{lang === 'ar' ? 'قوالب ما بعد انتهاء الاشتراك' : 'Post-expiry templates'}</CardTitle>
+                  <CardDescription className="text-xs">
+                    {lang === 'ar' ? 'التسلسل: يوم 0، 3، 7، 14. المتغيرات: {name}، {expiryDate}' : 'Sequence: Day 0, 3, 7, 14 · Variables: {name}, {expiryDate}'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Day picker */}
+                  <div className="flex gap-1 flex-wrap">
+                    {([
+                      { id: 'day0', labelEn: 'Day 0', labelAr: 'يوم 0' },
+                      { id: 'day3', labelEn: 'Day 3', labelAr: 'يوم 3' },
+                      { id: 'day7', labelEn: 'Day 7', labelAr: 'يوم 7' },
+                      { id: 'day14', labelEn: 'Day 14', labelAr: 'يوم 14' },
+                    ] as const).map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => setPostExpiryDay(d.id)}
+                        className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                          postExpiryDay === d.id
+                            ? 'bg-primary text-white border-primary'
+                            : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-input'
+                        }`}
+                      >
+                        {lang === 'ar' ? d.labelAr : d.labelEn}
+                      </button>
                     ))}
                   </div>
-                </div>
-              )}
+                  {/* Active day editor */}
+                  {(() => {
+                    const map = {
+                      day0: { value: postExpiryDay0, setValue: setPostExpiryDay0, defaultVal: defaultPostExpiry.day0 },
+                      day3: { value: postExpiryDay3, setValue: setPostExpiryDay3, defaultVal: defaultPostExpiry.day3 },
+                      day7: { value: postExpiryDay7, setValue: setPostExpiryDay7, defaultVal: defaultPostExpiry.day7 },
+                      day14: { value: postExpiryDay14, setValue: setPostExpiryDay14, defaultVal: defaultPostExpiry.day14 },
+                    };
+                    const active = map[postExpiryDay];
+                    const previewMsg = (active.value.trim() || active.defaultVal)
+                      .replace(/\{name\}/g, sampleName)
+                      .replace(/\{expiryDate\}/g, sampleExpiry);
+                    return (
+                      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+                        <Textarea value={active.value} onChange={(e) => active.setValue(e.target.value)} rows={3} className="resize-none" />
+                        <WaBubble text={previewMsg} />
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+
+              {/* Onboarding templates — sub-tab picker */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle>{lang === 'ar' ? 'قوالب تهيئة الأعضاء الجدد' : 'New member onboarding templates'}</CardTitle>
+                  <CardDescription className="text-xs">
+                    {lang === 'ar' ? 'الخطوات: أول زيارة · 7 أيام · 14 يوماً. المتغيرات: {name}' : 'Stages: first visit · 7 days · 14 days · Variable: {name}'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Step picker */}
+                  <div className="flex gap-1 flex-wrap">
+                    {([
+                      { id: 'firstVisit', labelEn: 'First visit', labelAr: 'أول زيارة' },
+                      { id: 'noReturn7', labelEn: 'No return · 7d', labelAr: 'عدم عودة · 7 أيام' },
+                      { id: 'lowEngagement14', labelEn: 'Low engagement · 14d', labelAr: 'تفاعل منخفض · 14 يوماً' },
+                    ] as const).map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setOnboardingStep(s.id)}
+                        className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                          onboardingStep === s.id
+                            ? 'bg-primary text-white border-primary'
+                            : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-input'
+                        }`}
+                      >
+                        {lang === 'ar' ? s.labelAr : s.labelEn}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Active step editor */}
+                  {(() => {
+                    const map = {
+                      firstVisit: { value: onboardingFirstVisit, setValue: setOnboardingFirstVisit, defaultVal: defaultOnboarding.firstVisit },
+                      noReturn7: { value: onboardingNoReturn7, setValue: setOnboardingNoReturn7, defaultVal: defaultOnboarding.noReturnDay7 },
+                      lowEngagement14: { value: onboardingLowEngagement14, setValue: setOnboardingLowEngagement14, defaultVal: defaultOnboarding.lowEngagementDay14 },
+                    };
+                    const active = map[onboardingStep];
+                    const previewMsg = (active.value.trim() || active.defaultVal).replace(/\{name\}/g, sampleName);
+                    return (
+                      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+                        <Textarea value={active.value} onChange={(e) => active.setValue(e.target.value)} rows={3} className="resize-none" />
+                        <WaBubble text={previewMsg} />
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
 
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">{lang === 'ar' ? 'التسلسلات النشطة' : 'Active sequences'}</CardTitle>
+                  <CardTitle>{lang === 'ar' ? 'قوالب الأتمتات السلوكية' : 'Behavior automation templates'}</CardTitle>
+                  <CardDescription className="text-xs">
+                    {lang === 'ar'
+                      ? 'ضمن النطاق لكنها مقفلة حتى الإطلاق. المتغيرات: {name}، {daysAbsent}، {streakDays}، {resumeDate}'
+                      : 'In scope but locked until release. Variables: {name}, {daysAbsent}, {streakDays}, {resumeDate}'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-1 flex-wrap">
+                    {([
+                      { id: 'habitBreak', labelEn: 'Habit break', labelAr: 'انقطاع العادة' },
+                      { id: 'streaks', labelEn: 'Streaks', labelAr: 'الاستمرارية' },
+                      { id: 'freezeEnding', labelEn: 'Freeze ending', labelAr: 'انتهاء التجميد' },
+                    ] as const).map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setBehaviorStep(s.id)}
+                        className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                          behaviorStep === s.id
+                            ? 'bg-primary text-white border-primary'
+                            : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-input'
+                        }`}
+                      >
+                        {lang === 'ar' ? s.labelAr : s.labelEn}
+                      </button>
+                    ))}
+                  </div>
+                  {(() => {
+                    const map = {
+                      habitBreak: { value: habitBreakTemplate, type: 'habit_break' as const },
+                      streaks: { value: streakTemplate, type: 'streaks' as const },
+                      freezeEnding: { value: freezeEndingTemplate, type: 'freeze_ending' as const },
+                    };
+                    const active = map[behaviorStep];
+                    return (
+                      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+                        <Textarea value={active.value} onChange={() => undefined} rows={3} className="resize-none" disabled />
+                        <WaBubble text={previewText(active.value, active.type)} />
+                      </div>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+
+              {/* Active sequences */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle>{lang === 'ar' ? 'التسلسلات النشطة' : 'Active sequences'}</CardTitle>
                   <CardDescription className="text-xs">
                     {lang === 'ar'
                       ? 'يمكنك رؤية الحالات الفعلية وإيقاف تسلسل بعينه لكل عضو.'
@@ -1204,7 +1160,9 @@ export default function WhatsAppSystemPage() {
                     <p className="text-sm text-muted-foreground">{labels.loading}</p>
                   ) : sequences.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                      {lang === 'ar' ? 'لا توجد تسلسلات مرئية حالياً.' : 'No visible lifecycle sequences right now.'}
+                      {lang === 'ar'
+                        ? 'لا توجد تسلسلات نشطة. ستظهر هنا عند دخول الأعضاء في مسار دورة الحياة.'
+                        : 'No active sequences. When members enter a lifecycle, their progress will appear here.'}
                     </p>
                   ) : (
                     <div className="space-y-2">
@@ -1247,164 +1205,253 @@ export default function WhatsAppSystemPage() {
                 </CardContent>
               </Card>
 
-              {/* Post-expiry templates — sub-tab picker */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">{lang === 'ar' ? 'قوالب ما بعد انتهاء الاشتراك' : 'Post-expiry templates'}</CardTitle>
-                  <CardDescription className="text-xs">
-                    {lang === 'ar' ? 'التسلسل: يوم 0، 3، 7، 14. المتغيرات: {name}، {expiryDate}' : 'Sequence: Day 0, 3, 7, 14 · Variables: {name}, {expiryDate}'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Day picker */}
-                  <div className="flex gap-1 flex-wrap">
-                    {([
-                      { id: 'day0', labelEn: 'Day 0', labelAr: 'يوم 0' },
-                      { id: 'day3', labelEn: 'Day 3', labelAr: 'يوم 3' },
-                      { id: 'day7', labelEn: 'Day 7', labelAr: 'يوم 7' },
-                      { id: 'day14', labelEn: 'Day 14', labelAr: 'يوم 14' },
-                    ] as const).map((d) => (
-                      <button
-                        key={d.id}
-                        type="button"
-                        onClick={() => setPostExpiryDay(d.id)}
-                        className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
-                          postExpiryDay === d.id
-                            ? 'bg-[#e63946] text-white border-[#e63946]'
-                            : 'bg-[#1e1e1e] text-[#8a8578] border-[#2a2a2a] hover:text-[#e8e4df] hover:border-[#3a3a3a]'
-                        }`}
-                      >
-                        {lang === 'ar' ? d.labelAr : d.labelEn}
-                      </button>
-                    ))}
-                  </div>
-                  {/* Active day editor */}
-                  {(() => {
-                    const map = {
-                      day0: { value: postExpiryDay0, setValue: setPostExpiryDay0, defaultVal: defaultPostExpiry.day0 },
-                      day3: { value: postExpiryDay3, setValue: setPostExpiryDay3, defaultVal: defaultPostExpiry.day3 },
-                      day7: { value: postExpiryDay7, setValue: setPostExpiryDay7, defaultVal: defaultPostExpiry.day7 },
-                      day14: { value: postExpiryDay14, setValue: setPostExpiryDay14, defaultVal: defaultPostExpiry.day14 },
-                    };
-                    const active = map[postExpiryDay];
-                    const previewMsg = (active.value.trim() || active.defaultVal)
-                      .replace(/\{name\}/g, sampleName)
-                      .replace(/\{expiryDate\}/g, sampleExpiry);
-                    return (
-                      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
-                        <Textarea value={active.value} onChange={(e) => active.setValue(e.target.value)} rows={3} className="resize-none" />
-                        <WaBubble text={previewMsg} />
-                      </div>
-                    );
-                  })()}
-                </CardContent>
-              </Card>
+              {/* Lifecycle automations — collapsible banner */}
+              <button
+                type="button"
+                aria-expanded={lifecycleInfoOpen}
+                aria-controls="lifecycle-info-panel"
+                onClick={() => setLifecycleInfoOpen((v) => !v)}
+                className="w-full flex items-center justify-between gap-3 border border-border px-4 py-3 text-start hover:bg-muted/5 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold">
+                    {lang === 'ar' ? 'أتمتة دورة حياة العضو' : 'Lifecycle automations'}
+                  </span>
+                  <Badge variant="outline" className="border-warning/40 bg-warning/10 text-warning text-xs">
+                    {lang === 'ar' ? 'الموجة الأولى جاهزة' : 'First wave ready'}
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {lang === 'ar' ? 'ما بعد الانتهاء + التهيئة جاهزان، والباقي ما زال محجوباً' : 'Post-expiry + onboarding are ready; later waves stay blocked'}
+                  </span>
+                </div>
+                <svg
+                  width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"
+                  className={`shrink-0 transition-transform ${lifecycleInfoOpen ? 'rotate-180' : ''}`}
+                >
+                  <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
 
-              {/* Onboarding templates — sub-tab picker */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">{lang === 'ar' ? 'قوالب تهيئة الأعضاء الجدد' : 'New member onboarding templates'}</CardTitle>
-                  <CardDescription className="text-xs">
-                    {lang === 'ar' ? 'الخطوات: أول زيارة · 7 أيام · 14 يوماً. المتغيرات: {name}' : 'Stages: first visit · 7 days · 14 days · Variable: {name}'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Step picker */}
-                  <div className="flex gap-1 flex-wrap">
-                    {([
-                      { id: 'firstVisit', labelEn: 'First visit', labelAr: 'أول زيارة' },
-                      { id: 'noReturn7', labelEn: 'No return · 7d', labelAr: 'عدم عودة · 7 أيام' },
-                      { id: 'lowEngagement14', labelEn: 'Low engagement · 14d', labelAr: 'تفاعل منخفض · 14 يوماً' },
-                    ] as const).map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => setOnboardingStep(s.id)}
-                        className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
-                          onboardingStep === s.id
-                            ? 'bg-[#e63946] text-white border-[#e63946]'
-                            : 'bg-[#1e1e1e] text-[#8a8578] border-[#2a2a2a] hover:text-[#e8e4df] hover:border-[#3a3a3a]'
-                        }`}
-                      >
-                        {lang === 'ar' ? s.labelAr : s.labelEn}
-                      </button>
-                    ))}
-                  </div>
-                  {/* Active step editor */}
-                  {(() => {
-                    const map = {
-                      firstVisit: { value: onboardingFirstVisit, setValue: setOnboardingFirstVisit, defaultVal: defaultOnboarding.firstVisit },
-                      noReturn7: { value: onboardingNoReturn7, setValue: setOnboardingNoReturn7, defaultVal: defaultOnboarding.noReturnDay7 },
-                      lowEngagement14: { value: onboardingLowEngagement14, setValue: setOnboardingLowEngagement14, defaultVal: defaultOnboarding.lowEngagementDay14 },
-                    };
-                    const active = map[onboardingStep];
-                    const previewMsg = (active.value.trim() || active.defaultVal).replace(/\{name\}/g, sampleName);
-                    return (
-                      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
-                        <Textarea value={active.value} onChange={(e) => active.setValue(e.target.value)} rows={3} className="resize-none" />
-                        <WaBubble text={previewMsg} />
-                      </div>
-                    );
-                  })()}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm">{lang === 'ar' ? 'قوالب الأتمتات السلوكية' : 'Behavior automation templates'}</CardTitle>
-                  <CardDescription className="text-xs">
+              {lifecycleInfoOpen && (
+                <div id="lifecycle-info-panel" className="border border-border border-t-0 px-4 py-4 space-y-3 bg-muted/10">
+                  <p className="text-sm text-muted-foreground">
                     {lang === 'ar'
-                      ? 'ضمن النطاق لكنها مقفلة حتى الإطلاق. المتغيرات: {name}، {daysAbsent}، {streakDays}، {resumeDate}'
-                      : 'In scope but locked until release. Variables: {name}, {daysAbsent}, {streakDays}, {resumeDate}'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex gap-1 flex-wrap">
-                    {([
-                      { id: 'habitBreak', labelEn: 'Habit break', labelAr: 'انقطاع العادة' },
-                      { id: 'streaks', labelEn: 'Streaks', labelAr: 'الاستمرارية' },
-                      { id: 'freezeEnding', labelEn: 'Freeze ending', labelAr: 'انتهاء التجميد' },
-                    ] as const).map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => setBehaviorStep(s.id)}
-                        className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
-                          behaviorStep === s.id
-                            ? 'bg-[#e63946] text-white border-[#e63946]'
-                            : 'bg-[#1e1e1e] text-[#8a8578] border-[#2a2a2a] hover:text-[#e8e4df] hover:border-[#3a3a3a]'
-                        }`}
-                      >
-                        {lang === 'ar' ? s.labelAr : s.labelEn}
-                      </button>
+                      ? 'الموجة الأولى فقط قابلة للتفعيل من مركز التحكم. الملخص الأسبوعي يبقى استثناءً مملوكاً للنظام، وبقية التنبيهات السلوكية تظل ظاهرة لكن محجوبة.'
+                      : 'Only the first wave is owner-toggleable in the control center. Weekly digest stays system-owned, and the later behavior automations remain visible but blocked.'}
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {[
+                      { titleEn: 'Post-expiry recovery', titleAr: 'استرجاع ما بعد الانتهاء', enabled: postExpiryEnabled },
+                      { titleEn: 'New member onboarding', titleAr: 'تهيئة العضو الجديد', enabled: onboardingEnabled },
+                      { titleEn: 'Habit-break nudge', titleAr: 'تنبيه انقطاع العادة', enabled: habitBreakEnabled },
+                      { titleEn: 'Streak encouragement', titleAr: 'تشجيع الاستمرارية', enabled: streaksEnabled },
+                      { titleEn: 'Freeze-ending reminder', titleAr: 'تذكير انتهاء التجميد', enabled: freezeEndingEnabled },
+                      { titleEn: 'Weekly digest', titleAr: 'الملخص الأسبوعي', enabled: Boolean(status?.weeklyDigestReleaseEnabled) },
+                    ].map((item) => (
+                      <div key={item.titleEn} className="flex items-center justify-between gap-2 border border-border px-3 py-2">
+                        <p className="text-xs font-medium">{lang === 'ar' ? item.titleAr : item.titleEn}</p>
+                        <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
+                          {item.titleEn === 'Weekly digest'
+                            ? item.enabled
+                              ? (lang === 'ar' ? 'مباشر كنظام' : 'Live as system release')
+                              : (lang === 'ar' ? 'محجوب كنظام' : 'Blocked system release')
+                            : item.enabled
+                              ? (lang === 'ar' ? 'مُعدّ' : 'Configured')
+                              : (lang === 'ar' ? 'محجوب' : 'Blocked')}
+                        </Badge>
+                      </div>
                     ))}
                   </div>
-                  {(() => {
-                    const map = {
-                      habitBreak: { value: habitBreakTemplate, type: 'habit_break' as const },
-                      streaks: { value: streakTemplate, type: 'streaks' as const },
-                      freezeEnding: { value: freezeEndingTemplate, type: 'freeze_ending' as const },
-                    };
-                    const active = map[behaviorStep];
+                </div>
+              )}
+
+              {/* Automation control center */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>{lang === 'ar' ? 'مركز تحكم الأتمتة' : 'Automation control center'}</CardTitle>
+                  <CardDescription>
+                    {lang === 'ar'
+                      ? 'تحكم في أي أتمتة مفعّلة، وأيها لا تزال قيد الإعداد من فريق GymFlow.'
+                      : 'Control which automations are live for your gym and which are still being set up by GymFlow.'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <button
+                    type="button"
+                    onClick={() => setAuditOpen((v) => !v)}
+                    className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={`transition-transform ${auditOpen ? 'rotate-180' : ''}`}><path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    {lang === 'ar' ? 'تفاصيل تقنية' : 'Advanced technical details'}
+                  </button>
+                  {auditOpen && compatibilityAudit && (
+                    <div className="border border-border px-4 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold">
+                            {lang === 'ar' ? 'توافق الفرع الحالي' : 'Current branch compatibility'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {lang === 'ar'
+                              ? 'التحقق يفحص الجداول والأعمدة المطلوبة لمسار واتساب.'
+                              : 'Audit checks the schema required for WhatsApp rollout and fail-open behavior.'}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="border-border">
+                          {compatibilityStatusLabel(compatibilityAudit.currentBranchStatus, lang)}
+                        </Badge>
+                      </div>
+                      {compatibilityAudit.issues.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {compatibilityAudit.issues.map((issue) => (
+                            <Badge key={issue} variant="outline" className="border-warning/30 text-warning">
+                              {issue}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!status?.lifecycleRuntimeGateEnabled && (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>{lang === 'ar' ? 'أتمتات دورة الحياة متوقفة' : 'Lifecycle automations paused'}</AlertTitle>
+                      <AlertDescription>
+                        {lang === 'ar'
+                          ? 'يمكنك ضبط القوالب وتفعيل الأتمتة أو إيقافها، لكن لن تُرسل رسائل دورة الحياة حتى يُفعّل فريق GymFlow هذه الميزة على مستوى النظام.'
+                          : 'You can configure templates and turn automations on or off below, but no lifecycle messages will be sent until GymFlow enables this feature system-wide.'}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {controlFeedback && (
+                    <Alert variant={controlFeedback.type}>
+                      {controlFeedback.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                      <AlertTitle>{controlFeedback.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+                      <AlertDescription>{controlFeedback.text}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {WHATSAPP_AUTOMATION_GROUPS.map((group) => {
+                    const items = WHATSAPP_AUTOMATIONS.filter((item) => item.group === group.id);
                     return (
-                      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
-                        <Textarea value={active.value} onChange={() => undefined} rows={3} className="resize-none" disabled />
-                        <WaBubble text={previewText(active.value, active.type)} />
+                      <div key={group.id} className="space-y-3">
+                        <div>
+                          <h3 className="text-sm font-semibold">{group.title[systemLanguage]}</h3>
+                          <p className="text-xs text-muted-foreground">{group.description[systemLanguage]}</p>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                          {items.map((item) => {
+                            const serverState = automationStateMap.get(item.id);
+                            const configured = serverState
+                              ? serverState.enabled
+                              : item.id === 'post_expiry'
+                                ? postExpiryEnabled
+                                : item.id === 'onboarding'
+                                  ? onboardingEnabled
+                                  : item.id === 'weekly_digest'
+                                    ? Boolean(status?.weeklyDigestReleaseEnabled)
+                                    : item.status === 'live';
+                            const activeCount = activeSequenceCounts[item.id] || 0;
+                            return (
+                              <div key={item.id} className="border border-border px-4 py-3 space-y-2">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-semibold">{item.title[systemLanguage]}</p>
+                                    <p className="text-xs text-muted-foreground">{item.description[systemLanguage]}</p>
+                                  </div>
+                                  <Badge
+                                    variant="outline"
+                                    className={item.status === 'live' ? 'border-success/30 text-success' : 'border-warning/30 text-warning'}
+                                  >
+                                    {getAutomationStatusLabel(item.status, systemLanguage)}
+                                  </Badge>
+                                </div>
+                                <div className="flex flex-wrap gap-2 text-xs">
+                                  <Badge variant="outline" className="border-border text-muted-foreground">
+                                    {configured
+                                      ? (lang === 'ar' ? 'مفعّل' : 'Enabled')
+                                      : (lang === 'ar' ? 'متوقف' : 'Off')}
+                                  </Badge>
+                                  <Badge variant="outline" className="border-border text-muted-foreground">
+                                    {item.controlMode === 'system'
+                                      ? (lang === 'ar' ? 'يتحكم به النظام' : 'Managed by GymFlow')
+                                      : item.ownerControlled
+                                      ? (lang === 'ar' ? 'يتحكم به المالك' : 'Owner controlled')
+                                      : (lang === 'ar' ? 'نظامي / يدوي' : 'System / manual')}
+                                  </Badge>
+                                  {item.editableTemplates ? (
+                                    <Badge variant="outline" className="border-border text-muted-foreground">
+                                      {lang === 'ar' ? 'قابل للتعديل الآن' : 'Editable now'}
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="border-border text-muted-foreground">
+                                      {lang === 'ar' ? 'قريباً' : 'Coming soon'}
+                                    </Badge>
+                                  )}
+                                  {(item.id === 'post_expiry' || item.id === 'onboarding') && (
+                                    <Badge variant="outline" className="border-border text-muted-foreground">
+                                      {lang === 'ar'
+                                        ? `${activeCount} متأثرون الآن`
+                                        : `${activeCount} active now`}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="space-y-1 text-xs text-muted-foreground">
+                                  <p>{item.triggerSummary[systemLanguage]}</p>
+                                  <p>{item.stopSummary[systemLanguage]}</p>
+                                </div>
+                                {(item.id === 'post_expiry' || item.id === 'onboarding') && (
+                                  <div className="flex items-center justify-between gap-3 border border-border px-3 py-2">
+                                    <div>
+                                      <p className="text-sm font-medium">
+                                        {lang === 'ar' ? 'تمكين هذه الأتمتة' : 'Enable this automation'}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {lang === 'ar'
+                                          ? 'هذا لا يغيّر نصوص الرسائل. القوالب تُحفظ من زر الحفظ في الأسفل.'
+                                          : 'This does not change your message text. Templates are saved separately using the Save button.'}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <Switch
+                                        id={`toggle-${item.id}`}
+                                        checked={configured}
+                                        disabled={controlSavingId === item.id}
+                                        onCheckedChange={(checked) =>
+                                          void handleAutomationToggle(
+                                            item.id as 'post_expiry' | 'onboarding',
+                                            checked
+                                          )
+                                        }
+                                        aria-label={configured ? (lang === 'ar' ? 'مفعّل' : 'Enabled') : (lang === 'ar' ? 'متوقف' : 'Off')}
+                                      />
+                                      <span className="text-sm text-muted-foreground">
+                                        {configured ? (lang === 'ar' ? 'مفعّل' : 'On') : (lang === 'ar' ? 'متوقف' : 'Off')}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     );
-                  })()}
+                  })}
                 </CardContent>
               </Card>
 
-              {/* Save */}
-              <div className="flex flex-wrap items-center gap-3">
+              {/* Sticky save bar */}
+              <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-sm sm:-mx-6 sm:px-6">
                 <Button onClick={handleTemplateSave} disabled={templatesSaving}>
                   {templatesSaving ? labels.saving : labels.save}
                 </Button>
                 <span className="text-xs text-muted-foreground">
                   {lang === 'ar'
                     ? 'حفظ القوالب لا يغيّر مفاتيح التشغيل في مركز التحكم.'
-                    : 'Saving templates does not change the control-center toggles.'}
+                    : 'Saving templates does not change the automation on/off toggles.'}
                 </span>
                 {templateFeedback && (
                   <span className={`text-sm ${templateFeedback.type === 'success' ? 'text-success' : 'text-destructive'}`}>
@@ -1419,7 +1466,7 @@ export default function WhatsAppSystemPage() {
 
       {/* ── Queue Tab ──────────────────────────────────────────────────────── */}
       {activeTab === 'queue' && (
-        <div className="flex flex-col gap-6">
+        <div role="tabpanel" aria-labelledby={`tab-${activeTab}`} className="flex flex-col gap-6">
           {/* Queue count cards */}
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {[
@@ -1428,14 +1475,14 @@ export default function WhatsAppSystemPage() {
               { label: lang === 'ar' ? 'تم الإرسال' : 'Sent', value: queueCounts.sent, status: 'sent' },
               { label: lang === 'ar' ? 'فشلت' : 'Failed', value: queueCounts.failed, status: 'failed' },
             ].map((metric) => (
-              <div key={metric.label} className="border border-border bg-card px-4 py-3">
+              <Card key={metric.label} className="px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm text-muted-foreground">{metric.label}</p>
                   <Badge variant="outline" className={statusBadgeClass(metric.status)}>
                     {metric.value}
                   </Badge>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
 
@@ -1447,10 +1494,10 @@ export default function WhatsAppSystemPage() {
               { labelEn: 'Last success', labelAr: 'آخر نجاح', value: status?.lastQueueSuccessAt ? formatDateTime(status.lastQueueSuccessAt, lang) : (lang === 'ar' ? 'لا يوجد' : 'None yet') },
               { labelEn: 'Last error', labelAr: 'آخر خطأ', value: status?.lastQueueError || (lang === 'ar' ? 'لا يوجد' : 'No errors'), isError: Boolean(status?.lastQueueError) },
             ].map((m) => (
-              <div key={m.labelEn} className="border border-border px-4 py-3">
+              <Card key={m.labelEn} className="px-4 py-3">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">{lang === 'ar' ? m.labelAr : m.labelEn}</p>
                 <p className={`mt-2 text-sm font-medium ${m.isError ? 'text-destructive' : ''}`}>{m.value}</p>
-              </div>
+              </Card>
             ))}
           </div>
 
@@ -1488,7 +1535,7 @@ export default function WhatsAppSystemPage() {
               <p className="text-sm text-muted-foreground">{labels.loading}</p>
             ) : queueData.items.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                {lang === 'ar' ? 'لا توجد رسائل في الطابور حالياً.' : 'No WhatsApp queue items right now.'}
+                {lang === 'ar' ? 'الطابور فارغ — تم تسليم جميع الرسائل المجدولة.' : 'Queue is clear — all scheduled messages have been delivered.'}
               </p>
             ) : (
               <div className="overflow-x-auto border border-border">
@@ -1529,7 +1576,7 @@ export default function WhatsAppSystemPage() {
                         <TableCell className="text-sm text-muted-foreground">
                           {formatDateTime(item.sent_at || item.scheduled_at, lang)}
                         </TableCell>
-                        <TableCell>{item.attempts}</TableCell>
+                        <TableCell className="tabular-nums">{item.attempts}</TableCell>
                         <TableCell className="max-w-[280px] text-sm text-muted-foreground">{item.last_error || '—'}</TableCell>
                         <TableCell className="text-end">
                           <Button
@@ -1553,7 +1600,7 @@ export default function WhatsAppSystemPage() {
 
       {/* ── Broadcast Tab ──────────────────────────────────────────────────── */}
       {activeTab === 'broadcast' && (
-        <div className="flex flex-col gap-6">
+        <div role="tabpanel" aria-labelledby={`tab-${activeTab}`} className="flex flex-col gap-6">
           <Card>
             <CardHeader>
               <CardTitle>{lang === 'ar' ? 'بث جماعي' : 'Broadcast composer'}</CardTitle>
@@ -1568,7 +1615,7 @@ export default function WhatsAppSystemPage() {
                 {/* Left: message */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="bc-title">{lang === 'ar' ? 'عنوان داخلي' : 'Internal title'}</Label>
+                    <Label htmlFor="bc-title">{lang === 'ar' ? 'عنوان داخلي (لا يراه الأعضاء)' : 'Internal title (not visible to members)'}</Label>
                     <Input
                       id="bc-title"
                       value={broadcastTitle}
@@ -1691,6 +1738,13 @@ export default function WhatsAppSystemPage() {
 
               {/* Actions */}
               <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => setBroadcastFilters(DEFAULT_BROADCAST_FILTERS)}
+                  disabled={broadcastSubmitting}
+                >
+                  {lang === 'ar' ? 'إعادة ضبط الفلاتر' : 'Reset filters'}
+                </Button>
                 <Button variant="outline" onClick={() => void handlePreviewBroadcast()} disabled={!canPreviewBroadcast}>
                   {previewLoading ? (lang === 'ar' ? 'جارٍ المعاينة...' : 'Previewing...') : (lang === 'ar' ? 'معاينة الاستهداف' : 'Preview audience')}
                 </Button>
@@ -1813,9 +1867,9 @@ export default function WhatsAppSystemPage() {
                             <TableCell>
                               <Badge variant="outline" className={statusBadgeClass(normalized)}>{normalized}</Badge>
                             </TableCell>
-                            <TableCell>{c.recipient_count}</TableCell>
-                            <TableCell>{c.sent_count}</TableCell>
-                            <TableCell>{c.failed_count}</TableCell>
+                            <TableCell className="tabular-nums">{c.recipient_count}</TableCell>
+                            <TableCell className="tabular-nums">{c.sent_count}</TableCell>
+                            <TableCell className="tabular-nums">{c.failed_count}</TableCell>
                             <TableCell className="text-sm text-muted-foreground">{formatDateTime(c.created_at, lang)}</TableCell>
                             <TableCell className="text-sm text-muted-foreground">{c.completed_at ? formatDateTime(c.completed_at, lang) : '—'}</TableCell>
                           </TableRow>
