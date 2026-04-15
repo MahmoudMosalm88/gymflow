@@ -60,3 +60,4 @@ saas-web/.env.local
 
 # Backup files
 *.backup
+.playwright-mcp/
