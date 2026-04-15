@@ -1,0 +1,88 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e7]: GF
+        - generic [ref=e8]: GymFlow
+      - navigation [ref=e9]:
+        - link "لوحة التحكم" [ref=e10] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e12]
+          - text: لوحة التحكم
+        - link "العملاء" [ref=e17] [cursor=pointer]:
+          - /url: /dashboard/members
+          - img [ref=e19]
+          - text: العملاء
+        - link "تذاكر الزوار" [ref=e24] [cursor=pointer]:
+          - /url: /dashboard/guest-passes
+          - img [ref=e26]
+          - text: تذاكر الزوار
+        - link "التدريب والفريق" [ref=e28] [cursor=pointer]:
+          - /url: /dashboard/pt
+          - img [ref=e30]
+          - text: التدريب والفريق
+        - link "الاشتراكات" [ref=e31] [cursor=pointer]:
+          - /url: /dashboard/subscriptions
+          - img [ref=e33]
+          - text: الاشتراكات
+        - link "التقارير" [ref=e35] [cursor=pointer]:
+          - /url: /dashboard/reports
+          - img [ref=e37]
+          - text: التقارير
+        - link "الإيرادات" [ref=e38] [cursor=pointer]:
+          - /url: /dashboard/income
+          - img [ref=e40]
+          - text: الإيرادات
+        - link "نظام واتساب" [ref=e42] [cursor=pointer]:
+          - /url: /dashboard/whatsapp
+          - img [ref=e44]
+          - text: نظام واتساب
+        - link "الإشعارات" [ref=e50] [cursor=pointer]:
+          - /url: /dashboard/notifications
+          - img [ref=e52]
+          - text: الإشعارات
+        - link "الإعدادات" [ref=e55] [cursor=pointer]:
+          - /url: /dashboard/settings
+          - img [ref=e57]
+          - text: الإعدادات
+        - link "الملف الشخصي" [ref=e60] [cursor=pointer]:
+          - /url: /dashboard/profile
+          - img [ref=e62]
+          - text: الملف الشخصي
+    - generic [ref=e65]:
+      - banner [ref=e66]:
+        - generic [ref=e67]:
+          - button "الإشعارات" [ref=e68] [cursor=pointer]:
+            - img
+          - link "G" [ref=e69] [cursor=pointer]:
+            - /url: /dashboard/profile
+            - generic [ref=e70]: G
+      - main [ref=e71]:
+        - generic [ref=e72]:
+          - generic [ref=e73]:
+            - heading "العملاء" [level=1] [ref=e74]
+            - button "إضافة عميل" [ref=e75] [cursor=pointer]:
+              - img
+              - text: إضافة عميل
+          - generic [ref=e76]:
+            - button "إجمالي الأعضاء 0" [ref=e77] [cursor=pointer]:
+              - generic [ref=e79]:
+                - paragraph [ref=e80]: إجمالي الأعضاء
+                - paragraph [ref=e82]: "0"
+            - button "نشط 0" [ref=e84] [cursor=pointer]:
+              - generic [ref=e86]:
+                - paragraph [ref=e87]: نشط
+                - paragraph [ref=e89]: "0"
+            - button "بدون اشتراك 0" [ref=e91] [cursor=pointer]:
+              - generic [ref=e93]:
+                - paragraph [ref=e94]: بدون اشتراك
+                - paragraph [ref=e96]: "0"
+          - generic [ref=e98]:
+            - textbox "بحث في العملاء..." [ref=e99]
+            - combobox [ref=e100] [cursor=pointer]:
+              - generic: كل الحالات
+              - img [ref=e101]
+            - combobox [ref=e103] [cursor=pointer]:
+              - generic: الكل
+              - img [ref=e104]

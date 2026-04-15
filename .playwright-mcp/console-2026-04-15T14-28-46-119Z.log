@@ -1,0 +1,599 @@
+[    3621ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[    4388ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    7125ms] [INFO] Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner. @ http://localhost:3000/dashboard/whatsapp:0
+[    7161ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    7288ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/onboarding/status:0
+[    7445ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    8290ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications/unread-count:0
+[    8294ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[    8297ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/status:0
+[    8299ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[    8302ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/members/offline-bundle:0
+[    8306ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/settings:0
+[    8571ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications/unread-count:0
+[    8573ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[    8576ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[    8578ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/branches:0
+[    8580ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/status:0
+[    8583ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[    8597ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[    8601ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/settings:0
+[    8602ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[    8603ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/members/offline-bundle:0
+[    8605ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[    8606ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications/unread-count:0
+[    8608ms] Error: Unauthorized
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:197:15)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[    8617ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/branches:0
+[    8617ms] [ERROR] Failed to load branch switcher data Error: Unauthorized
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:197:15) @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[    8620ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/status:0
+[    8624ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[    8625ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[    8625ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/settings:0
+[    8636ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[    8644ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[    8655ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/status:0
+[    8657ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications/unread-count:0
+[    8658ms] Error: Unauthorized
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:197:15)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[    8661ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[    8664ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/settings:0
+[    8670ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[    8681ms] [LOG] [Fast Refresh] done in 1236ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    8690ms] [INFO] Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner. @ http://localhost:3000/dashboard/whatsapp:0
+[    8692ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[    8700ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/settings:0
+[    8706ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[    8717ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/settings:0
+[    8992ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    9357ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:112
+[    9583ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[    9730ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/members/offline-bundle:0
+[    9758ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications/unread-count:0
+[    9767ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[    9770ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/status:0
+[    9774ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/settings:0
+[    9775ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[    9777ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[    9786ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[    9798ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/members/offline-bundle:0
+[    9799ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[    9801ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/status:0
+[    9802ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications/unread-count:0
+[    9806ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/settings:0
+[    9818ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[    9819ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/status:0
+[    9820ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[    9822ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[    9824ms] Error: Unauthorized
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:197:15)
+    at async Promise.all (index 1)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[    9824ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[    9828ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications/unread-count:0
+[    9839ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/settings:0
+[    9845ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[    9847ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/status:0
+[    9847ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[    9848ms] Error: Unauthorized
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:197:15)
+    at async Promise.all (index 1)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[    9851ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[    9856ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[    9868ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/notifications/unread-count:0
+[    9871ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/settings:0
+[    9877ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[    9877ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[    9881ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[    9886ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/settings:0
+[    9897ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/settings:0
+[   10617ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[   30538ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[   32440ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/members/offline-bundle:0
+[   32810ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/reports/overview:0
+[   33677ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/reports/overview:0
+[   34025ms] [INFO] Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner. @ http://localhost:3000/dashboard/whatsapp:0
+[   34127ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/api/onboarding/status:0
+[   60594ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[   60594ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[   60601ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[   60606ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/__nextjs_original-stack-frame?isServer=false&isEdgeServer=false&isAppDirectory=true&errorMessage=TypeError%3A+Failed+to+fetch&file=webpack-internal%3A%2F%2F%2F%28app-pages-browser%29%2F.%2Flib%2Fapi-client.ts&methodName=request&arguments=&lineNumber=170&column=21:0
+[   60606ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/__nextjs_original-stack-frame?isServer=false&isEdgeServer=false&isAppDirectory=true&errorMessage=TypeError%3A+Failed+to+fetch&file=webpack-internal%3A%2F%2F%2F%28app-pages-browser%29%2F.%2Fcomponents%2Fdashboard%2FNotificationBell.tsx&methodName=async+load&arguments=&lineNumber=67&column=41:0
+[   60606ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/__nextjs_original-stack-frame?isServer=false&isEdgeServer=false&isAppDirectory=true&errorMessage=TypeError%3A+Failed+to+fetch&file=webpack-internal%3A%2F%2F%2F%28app-pages-browser%29%2F.%2Flib%2Fapi-client.ts&methodName=request&arguments=&lineNumber=170&column=21:0
+[   60606ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/__nextjs_original-stack-frame?isServer=false&isEdgeServer=false&isAppDirectory=true&errorMessage=TypeError%3A+Failed+to+fetch&file=webpack-internal%3A%2F%2F%2F%28app-pages-browser%29%2F.%2Fcomponents%2Fdashboard%2FNotificationBell.tsx&methodName=async+load&arguments=&lineNumber=67&column=41:0
+[   63743ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[   63743ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[   63743ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[   63743ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[   78751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[   78751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[   78751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[   78751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[   90592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[   90597ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[   90594ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[   93750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[   93750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[   93750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[   93750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  108751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  108752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  108752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  108752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  120593ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  120593ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  120597ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  123749ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  123750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  123750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  123750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  138751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  138752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  138752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  138752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  150592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  150595ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  150593ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  153750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  153751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  153751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  153751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  168743ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  168743ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  168743ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  168743ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  180592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  180595ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  180594ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  183749ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  183749ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  183750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  183750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  198752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  198752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  198752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  198752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  210593ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  210600ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  210595ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  213750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  213750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  213750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  213750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  228750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  228750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  228750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  228750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  240591ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  240595ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  240592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  243750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  243750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  243751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  243751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  258750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  258750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  258750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  258750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  270592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  270595ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  270594ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  273747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  273749ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  273752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  273752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  288751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  288751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  288751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  288751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  300592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  300592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  300595ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  303750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  303750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  303750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  303751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  318750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  318750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  318751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  318751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  330589ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  330589ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  330589ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  333744ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  333744ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  333744ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  333744ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  348752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  348752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  348752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  348752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  360592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  360594ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  360593ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  363751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  363751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  363751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  363751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  378749ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  378750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  378750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  378750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  390592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  390596ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  390594ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  393751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  393751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  393752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  393752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  408750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  408751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  408751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  408751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  420591ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  420593ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  420592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  423752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  423752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  423752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  423752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  438745ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  438745ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  438745ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  438745ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  450590ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  450590ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  450591ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  453751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  453752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  453752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  453752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  468742ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  468742ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  468742ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  468742ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  480589ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  480590ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  480590ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  483744ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  483745ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  483745ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  483745ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  498746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  498746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  498746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  498746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  510591ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  510593ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  510592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  513747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  513747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  513747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  513747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  528745ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  528745ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  528745ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  528745ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  540590ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  540591ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  540590ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  543746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  543746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  543746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  543746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  558746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  558746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  558746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  558746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  570591ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  570591ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  570592ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  573752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  573752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  573752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  573752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  588752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  588752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  588752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  588752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  600596ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  600596ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  600597ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  603751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  603751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  603756ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  603756ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  618751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  618751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  618751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  618751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  630594ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  630598ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  630595ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  633746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  633746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  633746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  633746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  648750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  648750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  648750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  648750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  660594ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  660599ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  660595ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  663748ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  663750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  663750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  663751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  678750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  678756ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  678756ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  678756ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  690593ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  690593ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  690598ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  693750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  693750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  693750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  693750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  708751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  708751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  708751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  708751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  720594ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  720596ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  720594ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  723748ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  723750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  723755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  723756ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  738747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  738747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  738747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  738747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  750593ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  750595ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  750594ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  753749ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  753754ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  753754ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  753754ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  768748ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  768748ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  768748ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  768748ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  780596ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  780596ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  780597ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  783748ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  783751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  783757ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  783757ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  798752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  798752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  798757ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  798757ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  810593ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  810594ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  810594ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  813753ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  813753ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  813753ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  813753ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  828747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  828747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  828747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  828747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  840594ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  840596ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  840595ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  843750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  843753ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  843758ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  843758ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  858752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  858752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  858752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  858753ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  870592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  870592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  870593ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  873755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  873755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  873755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  873755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  888745ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  888745ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  888745ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  888745ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  900593ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  900594ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  900594ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  903746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  903747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  903748ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  903748ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  918752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  918752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  918752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  918752ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  930592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  930593ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  930593ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  933755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  933755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  933755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  933755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  948746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  948746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  948747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  948747ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  960592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  960592ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  960593ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  963746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  963746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  963746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  963746ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  978753ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  978754ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  978754ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[  978759ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  990599ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[  990603ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[  990601ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[  993755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[  993755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[  993755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[  993755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[ 1008751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[ 1008751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[ 1008751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[ 1008751ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[ 1020597ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[ 1020602ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[ 1020600ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[ 1023755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[ 1023755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[ 1023756ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[ 1023760ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[ 1038754ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[ 1038755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[ 1038755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[ 1038755ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[ 1050597ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[ 1050603ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[ 1050600ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[ 1053753ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[ 1053753ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[ 1053753ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[ 1053753ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[ 1068754ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[ 1068754ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[ 1068754ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[ 1068754ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0
+[ 1080596ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications/unread-count:0
+[ 1080598ms] TypeError: Failed to fetch
+    at request (webpack-internal:///(app-pages-browser)/./lib/api-client.ts:170:21)
+    at async Promise.all (index 0)
+    at async load (webpack-internal:///(app-pages-browser)/./components/dashboard/NotificationBell.tsx:67:41)
+[ 1080596ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/notifications?limit=5&status=all:0
+[ 1083744ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/queue?status=all&limit=12:0
+[ 1083744ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/campaigns?limit=10:0
+[ 1083744ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/status:0
+[ 1083744ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/api/whatsapp/sequences?limit=12:0

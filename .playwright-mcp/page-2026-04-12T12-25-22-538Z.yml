@@ -1,0 +1,115 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e7]: GF
+        - generic [ref=e8]: GymFlow
+      - navigation [ref=e9]:
+        - link "لوحة التحكم" [ref=e10] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e12]
+          - text: لوحة التحكم
+        - link "العملاء" [ref=e17] [cursor=pointer]:
+          - /url: /dashboard/members
+          - img [ref=e19]
+          - text: العملاء
+        - link "تذاكر الزوار" [ref=e24] [cursor=pointer]:
+          - /url: /dashboard/guest-passes
+          - img [ref=e26]
+          - text: تذاكر الزوار
+        - link "التدريب والفريق" [ref=e28] [cursor=pointer]:
+          - /url: /dashboard/pt
+          - img [ref=e30]
+          - text: التدريب والفريق
+        - link "الاشتراكات" [ref=e31] [cursor=pointer]:
+          - /url: /dashboard/subscriptions
+          - img [ref=e33]
+          - text: الاشتراكات
+        - link "التقارير" [ref=e35] [cursor=pointer]:
+          - /url: /dashboard/reports
+          - img [ref=e37]
+          - text: التقارير
+        - link "الإيرادات" [ref=e38] [cursor=pointer]:
+          - /url: /dashboard/income
+          - img [ref=e40]
+          - text: الإيرادات
+        - link "نظام واتساب" [ref=e42] [cursor=pointer]:
+          - /url: /dashboard/whatsapp
+          - img [ref=e44]
+          - text: نظام واتساب
+        - link "الإشعارات" [ref=e50] [cursor=pointer]:
+          - /url: /dashboard/notifications
+          - img [ref=e52]
+          - text: الإشعارات
+        - link "الإعدادات" [ref=e55] [cursor=pointer]:
+          - /url: /dashboard/settings
+          - img [ref=e57]
+          - text: الإعدادات
+        - link "الملف الشخصي" [ref=e60] [cursor=pointer]:
+          - /url: /dashboard/profile
+          - img [ref=e62]
+          - text: الملف الشخصي
+    - generic [ref=e65]:
+      - banner [ref=e66]:
+        - generic [ref=e67]:
+          - button "الإشعارات" [ref=e68] [cursor=pointer]:
+            - img
+          - link "G" [ref=e69] [cursor=pointer]:
+            - /url: /dashboard/profile
+            - generic [ref=e70]: G
+      - main [ref=e71]:
+        - generic [ref=e72]:
+          - heading "التقارير" [level=1] [ref=e73]
+          - generic [ref=e74]:
+            - button "كم سأخسر هذا الشهر؟ عرض ←" [ref=e75] [cursor=pointer]:
+              - generic [ref=e76]:
+                - paragraph [ref=e77]: كم سأخسر هذا الشهر؟
+                - generic [ref=e78]: عرض ←
+              - paragraph
+            - button "من توقّف عن الحضور؟ عرض ←" [ref=e80] [cursor=pointer]:
+              - generic [ref=e81]:
+                - paragraph [ref=e82]: من توقّف عن الحضور؟
+                - generic [ref=e83]: عرض ←
+              - paragraph
+            - button "من يُرفض عند البوابة؟ عرض ←" [ref=e85] [cursor=pointer]:
+              - generic [ref=e86]:
+                - paragraph [ref=e87]: من يُرفض عند البوابة؟
+                - generic [ref=e88]: عرض ←
+              - paragraph
+            - button "ماذا أنقذت التذكيرات؟ عرض ←" [ref=e90] [cursor=pointer]:
+              - generic [ref=e91]:
+                - paragraph [ref=e92]: ماذا أنقذت التذكيرات؟
+                - generic [ref=e93]: عرض ←
+              - paragraph
+          - tablist "فئات التقارير" [ref=e95]:
+            - generic [ref=e96]:
+              - img
+              - textbox "بحث في التقارير..." [ref=e97]
+            - tab "الإيراد" [selected] [ref=e98] [cursor=pointer]
+            - tab "الاحتفاظ" [ref=e99] [cursor=pointer]
+            - tab "التشغيل" [ref=e100] [cursor=pointer]
+            - tab "واتساب" [ref=e101] [cursor=pointer]
+            - tab "السجلات" [ref=e102] [cursor=pointer]
+          - generic [ref=e104]:
+            - tablist "تبويبات التقارير" [ref=e105]:
+              - generic [ref=e106]:
+                - tab "الإيراد المعرّض للخطر" [selected] [ref=e107] [cursor=pointer]
+                - button "تثبيت في الأعلى" [ref=e108] [cursor=pointer]:
+                  - img [ref=e109]
+              - generic [ref=e111]:
+                - tab "إيراد الخطط" [ref=e112] [cursor=pointer]
+                - button "تثبيت في الأعلى" [ref=e113] [cursor=pointer]:
+                  - img [ref=e114]
+              - generic [ref=e116]:
+                - tab "الإيراد المتوقع" [ref=e117] [cursor=pointer]
+                - button "تثبيت في الأعلى" [ref=e118] [cursor=pointer]:
+                  - img [ref=e119]
+              - generic [ref=e121]:
+                - tab "تجديد مقابل جديد" [ref=e122] [cursor=pointer]
+                - button "تثبيت في الأعلى" [ref=e123] [cursor=pointer]:
+                  - img [ref=e124]
+            - combobox [ref=e127] [cursor=pointer]:
+              - generic: 30 يوم
+              - img [ref=e128]
+          - paragraph [ref=e130]: الاشتراكات التي تنتهي قريباً دون تجديد — المبلغ الذي ستخسره هذا الشهر إذا لم تتحرك.

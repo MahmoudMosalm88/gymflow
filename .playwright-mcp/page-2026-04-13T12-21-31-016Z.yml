@@ -1,0 +1,159 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e7]: GF
+        - generic [ref=e8]: GymFlow
+      - navigation [ref=e9]:
+        - link "Dashboard" [ref=e10] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e12]
+          - text: Dashboard
+        - link "Clients" [ref=e17] [cursor=pointer]:
+          - /url: /dashboard/members
+          - img [ref=e19]
+          - text: Clients
+        - link "Guest Passes" [ref=e24] [cursor=pointer]:
+          - /url: /dashboard/guest-passes
+          - img [ref=e26]
+          - text: Guest Passes
+        - link "PT & Staff" [ref=e28] [cursor=pointer]:
+          - /url: /dashboard/pt
+          - img [ref=e30]
+          - text: PT & Staff
+        - link "Subscriptions" [ref=e31] [cursor=pointer]:
+          - /url: /dashboard/subscriptions
+          - img [ref=e33]
+          - text: Subscriptions
+        - link "Reports" [ref=e35] [cursor=pointer]:
+          - /url: /dashboard/reports
+          - img [ref=e37]
+          - text: Reports
+        - link "Income" [ref=e38] [cursor=pointer]:
+          - /url: /dashboard/income
+          - img [ref=e40]
+          - text: Income
+        - link "WhatsApp System" [ref=e42] [cursor=pointer]:
+          - /url: /dashboard/whatsapp
+          - img [ref=e44]
+          - text: WhatsApp System
+        - link "Notifications" [ref=e50] [cursor=pointer]:
+          - /url: /dashboard/notifications
+          - img [ref=e52]
+          - text: Notifications
+        - link "Settings" [ref=e55] [cursor=pointer]:
+          - /url: /dashboard/settings
+          - img [ref=e57]
+          - text: Settings
+        - link "Profile" [ref=e60] [cursor=pointer]:
+          - /url: /dashboard/profile
+          - img [ref=e62]
+          - text: Profile
+    - generic [ref=e65]:
+      - banner [ref=e66]:
+        - generic [ref=e67]:
+          - button "Notifications" [ref=e68] [cursor=pointer]:
+            - img
+          - link "G" [ref=e69] [cursor=pointer]:
+            - /url: /dashboard/profile
+            - generic [ref=e70]: G
+      - main [ref=e71]:
+        - generic [ref=e72]:
+          - generic [ref=e73]:
+            - generic [ref=e74]:
+              - heading "Move Your Gym Into GymFlow" [level=1] [ref=e75]
+              - generic [ref=e76]: Onboarding
+            - paragraph [ref=e77]: Choose your migration path, upload a spreadsheet, review exactly what will be created, then finish a controlled go-live checklist.
+          - generic [ref=e78]:
+            - generic [ref=e80]:
+              - generic [ref=e81]:
+                - paragraph [ref=e82]: "1"
+                - paragraph [ref=e83]: Source
+              - generic [ref=e84]: Done
+            - generic [ref=e86]:
+              - generic [ref=e87]:
+                - paragraph [ref=e88]: "2"
+                - paragraph [ref=e89]: Upload
+              - generic [ref=e90]: Active
+            - generic [ref=e92]:
+              - generic [ref=e93]:
+                - paragraph [ref=e94]: "3"
+                - paragraph [ref=e95]: Map Columns
+              - generic [ref=e96]: Active
+            - generic [ref=e98]:
+              - generic [ref=e99]:
+                - paragraph [ref=e100]: "4"
+                - paragraph [ref=e101]: Preview
+              - generic [ref=e102]: Active
+            - generic [ref=e104]:
+              - generic [ref=e105]:
+                - paragraph [ref=e106]: "5"
+                - paragraph [ref=e107]: Import
+              - generic [ref=e108]: Active
+            - generic [ref=e110]:
+              - generic [ref=e111]:
+                - paragraph [ref=e112]: "6"
+                - paragraph [ref=e113]: Go Live
+              - generic [ref=e114]: Active
+          - generic [ref=e115]:
+            - generic [ref=e116]:
+              - generic [ref=e117]: Choose how you want to start
+              - generic [ref=e118]: Spreadsheet import is the supported v1 migration path. Desktop backup import stays in Settings because it replaces branch data.
+            - generic [ref=e119]:
+              - button "Import from spreadsheet Bring in members and one active subscription per row from CSV or XLSX. Active" [ref=e120] [cursor=pointer]:
+                - generic [ref=e121]:
+                  - generic [ref=e122]:
+                    - img [ref=e123]
+                    - paragraph [ref=e126]: Import from spreadsheet
+                    - paragraph [ref=e127]: Bring in members and one active subscription per row from CSV or XLSX.
+                  - generic [ref=e128]: Active
+              - button "Move from GymFlow desktop backup Use the existing desktop backup import flow in Settings for full archive migration." [ref=e129] [cursor=pointer]:
+                - generic [ref=e131]:
+                  - img [ref=e132]
+                  - paragraph [ref=e135]: Move from GymFlow desktop backup
+                  - paragraph [ref=e136]: Use the existing desktop backup import flow in Settings for full archive migration.
+              - button "Start fresh Skip import and add your first members manually." [ref=e137] [cursor=pointer]:
+                - generic [ref=e139]:
+                  - img [ref=e140]
+                  - paragraph [ref=e145]: Start fresh
+                  - paragraph [ref=e146]: Skip import and add your first members manually.
+          - generic [ref=e147]:
+            - generic [ref=e148]:
+              - generic [ref=e149]: Upload spreadsheet
+              - generic [ref=e150]: "Supported files: CSV and XLSX. Imported legacy members are marked safely so onboarding automations do not fire on them."
+            - generic [ref=e151]:
+              - generic [ref=e152]:
+                - paragraph [ref=e153]: Use the template if your current list is messy. GymFlow will map the columns you provide and flag bad rows before anything is created.
+                - button "Download template" [ref=e154] [cursor=pointer]:
+                  - img
+                  - text: Download template
+              - generic [ref=e155]:
+                - button "Choose File" [ref=e156]
+                - button "Upload" [disabled]:
+                  - img
+                  - text: Upload
+          - generic [ref=e157]:
+            - generic [ref=e158]:
+              - generic [ref=e159]: Template columns
+              - generic [ref=e160]: These are the columns GymFlow understands in v1.
+            - generic [ref=e161]:
+              - generic [ref=e162]: member_name
+              - generic [ref=e163]: phone
+              - generic [ref=e164]: gender
+              - generic [ref=e165]: joined_at
+              - generic [ref=e166]: date_of_birth
+              - generic [ref=e167]: card_code
+              - generic [ref=e168]: subscription_start
+              - generic [ref=e169]: subscription_end
+              - generic [ref=e170]: plan_months
+              - generic [ref=e171]: sessions_per_month
+              - generic [ref=e172]: amount_paid
+              - generic [ref=e173]: notes
+          - generic [ref=e174]:
+            - generic [ref=e176]: Import safety rules
+            - generic [ref=e177]:
+              - paragraph [ref=e178]: 1. Legacy imported members are marked so onboarding automations do not send welcome sequences.
+              - paragraph [ref=e179]: 2. Imported active subscriptions can still receive future renewal reminders after import.
+              - paragraph [ref=e180]: 3. Duplicates are skipped by exact phone or card code match only.
+              - paragraph [ref=e181]: 4. Imported amount_paid is kept for context but not posted as new live revenue.

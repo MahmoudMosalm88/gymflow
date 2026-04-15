@@ -1,0 +1,341 @@
+- generic [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e7]: GF
+        - generic [ref=e8]: GymFlow
+      - navigation [ref=e9]:
+        - link "Dashboard" [ref=e10] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e12]
+          - text: Dashboard
+        - link "Clients" [ref=e17] [cursor=pointer]:
+          - /url: /dashboard/members
+          - img [ref=e19]
+          - text: Clients
+        - link "Guest Passes" [ref=e24] [cursor=pointer]:
+          - /url: /dashboard/guest-passes
+          - img [ref=e26]
+          - text: Guest Passes
+        - link "PT & Staff" [ref=e28] [cursor=pointer]:
+          - /url: /dashboard/pt
+          - img [ref=e30]
+          - text: PT & Staff
+        - link "Subscriptions" [ref=e31] [cursor=pointer]:
+          - /url: /dashboard/subscriptions
+          - img [ref=e33]
+          - text: Subscriptions
+        - link "Reports" [ref=e35] [cursor=pointer]:
+          - /url: /dashboard/reports
+          - img [ref=e37]
+          - text: Reports
+        - link "Income" [ref=e38] [cursor=pointer]:
+          - /url: /dashboard/income
+          - img [ref=e40]
+          - text: Income
+        - link "WhatsApp System" [active] [ref=e42] [cursor=pointer]:
+          - /url: /dashboard/whatsapp
+          - img [ref=e44]
+          - text: WhatsApp System
+        - link "Notifications" [ref=e50] [cursor=pointer]:
+          - /url: /dashboard/notifications
+          - img [ref=e52]
+          - text: Notifications
+        - link "Settings" [ref=e55] [cursor=pointer]:
+          - /url: /dashboard/settings
+          - img [ref=e57]
+          - text: Settings
+        - link "Profile" [ref=e60] [cursor=pointer]:
+          - /url: /dashboard/profile
+          - img [ref=e62]
+          - text: Profile
+    - generic [ref=e65]:
+      - banner [ref=e66]:
+        - generic [ref=e67]:
+          - button "Notifications" [ref=e68] [cursor=pointer]:
+            - img
+            - generic [ref=e111]: "3"
+          - link "G" [ref=e69] [cursor=pointer]:
+            - /url: /dashboard/profile
+            - generic [ref=e70]: G
+      - generic [ref=e112]:
+        - generic [ref=e113]:
+          - img "GymFlow logo" [ref=e114]
+          - paragraph [ref=e125]: Install GymFlow for faster access and offline check-ins.
+        - generic [ref=e126]:
+          - button "Install" [ref=e127] [cursor=pointer]
+          - button "Dismiss" [ref=e128] [cursor=pointer]
+      - main [ref=e71]:
+        - generic [ref=e129]:
+          - generic [ref=e130]:
+            - heading "WhatsApp System" [level=1] [ref=e131]
+            - paragraph [ref=e132]: Manage message templates, queue health, and broadcast campaigns.
+          - generic [ref=e133]:
+            - button "Templates" [ref=e134] [cursor=pointer]
+            - button "Queue" [ref=e135] [cursor=pointer]
+            - button "Broadcast" [ref=e136] [cursor=pointer]
+          - generic [ref=e137]:
+            - generic [ref=e138]:
+              - generic [ref=e139]:
+                - generic [ref=e140]: Automation control center
+                - generic [ref=e141]: All in-scope automations stay visible here. Blocked ones may already exist in the worker, but they stay rollout-gated by default until release.
+              - generic [ref=e142]:
+                - generic [ref=e143]:
+                  - generic [ref=e144]:
+                    - heading "Operational" [level=3] [ref=e145]
+                    - paragraph [ref=e146]: Live baseline messages that keep the gym running smoothly.
+                  - generic [ref=e147]:
+                    - generic [ref=e148]:
+                      - generic [ref=e149]:
+                        - generic [ref=e150]:
+                          - paragraph [ref=e151]: Welcome message
+                          - paragraph [ref=e152]: Sent when a new member is added. This is onboarding step 1 and stays live.
+                        - generic [ref=e153]: Live
+                      - generic [ref=e154]:
+                        - generic [ref=e155]: Configured
+                        - generic [ref=e156]: Owner controlled
+                        - generic [ref=e157]: Editable now
+                    - generic [ref=e158]:
+                      - generic [ref=e159]:
+                        - generic [ref=e160]:
+                          - paragraph [ref=e161]: Renewal reminders
+                          - paragraph [ref=e162]: "Locked GymFlow timing: 14, 7, and 3 days before expiry."
+                        - generic [ref=e163]: Live
+                      - generic [ref=e164]:
+                        - generic [ref=e165]: Configured
+                        - generic [ref=e166]: Owner controlled
+                        - generic [ref=e167]: Editable now
+                    - generic [ref=e168]:
+                      - generic [ref=e169]:
+                        - generic [ref=e170]:
+                          - paragraph [ref=e171]: QR send
+                          - paragraph [ref=e172]: Owner or staff triggered QR delivery for smoother check-in.
+                        - generic [ref=e173]: Live
+                      - generic [ref=e174]:
+                        - generic [ref=e175]: Configured
+                        - generic [ref=e176]: System / manual
+                        - generic [ref=e177]: Locked for now
+                    - generic [ref=e178]:
+                      - generic [ref=e179]:
+                        - generic [ref=e180]:
+                          - paragraph [ref=e181]: Broadcast campaigns
+                          - paragraph [ref=e182]: Manual campaigns stay available and count toward warnings.
+                        - generic [ref=e183]: Live
+                      - generic [ref=e184]:
+                        - generic [ref=e185]: Configured
+                        - generic [ref=e186]: System / manual
+                        - generic [ref=e187]: Locked for now
+                - generic [ref=e188]:
+                  - generic [ref=e189]:
+                    - heading "Recovery" [level=3] [ref=e190]
+                    - paragraph [ref=e191]: Revenue recovery sequences for memberships that expire without renewal.
+                  - generic [ref=e193]:
+                    - generic [ref=e194]:
+                      - generic [ref=e195]:
+                        - paragraph [ref=e196]: Post-expiry recovery
+                        - paragraph [ref=e197]: Day 0, 3, 7, and 14 recovery sequence. Implemented in the worker, but blocked by default until rollout.
+                      - generic [ref=e198]: Blocked
+                    - generic [ref=e199]:
+                      - generic [ref=e200]: "Off"
+                      - generic [ref=e201]: Owner controlled
+                      - generic [ref=e202]: Editable now
+                - generic [ref=e203]:
+                  - generic [ref=e204]:
+                    - heading "Onboarding" [level=3] [ref=e205]
+                    - paragraph [ref=e206]: Early retention messages that help new members build a habit.
+                  - generic [ref=e208]:
+                    - generic [ref=e209]:
+                      - generic [ref=e210]:
+                        - paragraph [ref=e211]: Early onboarding
+                        - paragraph [ref=e212]: Welcome is live; later onboarding steps are implemented in the worker but blocked by default until rollout.
+                      - generic [ref=e213]: Blocked
+                    - generic [ref=e214]:
+                      - generic [ref=e215]: "Off"
+                      - generic [ref=e216]: Owner controlled
+                      - generic [ref=e217]: Editable now
+                - generic [ref=e218]:
+                  - generic [ref=e219]:
+                    - heading "Behavior" [level=3] [ref=e220]
+                    - paragraph [ref=e221]: Future behavior-based nudges and consistency reinforcement.
+                  - generic [ref=e222]:
+                    - generic [ref=e223]:
+                      - generic [ref=e224]:
+                        - generic [ref=e225]:
+                          - paragraph [ref=e226]: Habit-break nudge
+                          - paragraph [ref=e227]: Behavior-based retention nudge. Implemented in the worker, but blocked by default until rollout.
+                        - generic [ref=e228]: Blocked
+                      - generic [ref=e229]:
+                        - generic [ref=e230]: "Off"
+                        - generic [ref=e231]: Owner controlled
+                        - generic [ref=e232]: Locked for now
+                    - generic [ref=e233]:
+                      - generic [ref=e234]:
+                        - generic [ref=e235]:
+                          - paragraph [ref=e236]: Streak encouragement
+                          - paragraph [ref=e237]: Milestone encouragement sequence. Implemented in the worker, but blocked by default until rollout.
+                        - generic [ref=e238]: Blocked
+                      - generic [ref=e239]:
+                        - generic [ref=e240]: "Off"
+                        - generic [ref=e241]: Owner controlled
+                        - generic [ref=e242]: Locked for now
+                    - generic [ref=e243]:
+                      - generic [ref=e244]:
+                        - generic [ref=e245]:
+                          - paragraph [ref=e246]: Freeze-ending reminder
+                          - paragraph [ref=e247]: Freeze return reminder. Implemented in the worker, but blocked by default until rollout.
+                        - generic [ref=e248]: Blocked
+                      - generic [ref=e249]:
+                        - generic [ref=e250]: "Off"
+                        - generic [ref=e251]: Owner controlled
+                        - generic [ref=e252]: Locked for now
+                - generic [ref=e253]:
+                  - generic [ref=e254]:
+                    - heading "Owner Ops" [level=3] [ref=e255]
+                    - paragraph [ref=e256]: Owner-facing operational summaries and controls.
+                  - generic [ref=e258]:
+                    - generic [ref=e259]:
+                      - generic [ref=e260]:
+                        - paragraph [ref=e261]: Weekly digest
+                        - paragraph [ref=e262]: Owner-facing summary. Implemented in the worker, but blocked by default until rollout.
+                      - generic [ref=e263]: Blocked
+                    - generic [ref=e264]:
+                      - generic [ref=e265]: "Off"
+                      - generic [ref=e266]: System / manual
+                      - generic [ref=e267]: Locked for now
+            - generic [ref=e268]:
+              - generic [ref=e269]:
+                - generic [ref=e270]: Welcome Message
+                - generic [ref=e271]: "Sent when a new member is added. Variables: {name}"
+              - generic [ref=e273]:
+                - generic [ref=e274]:
+                  - 'textbox "Hi {name}, welcome to GymFlow. Your account is ready." [ref=e275]'
+                  - paragraph [ref=e276]: "Placeholders: {name}"
+                - generic [ref=e277]:
+                  - paragraph [ref=e278]: PREVIEW
+                  - generic [ref=e279]:
+                    - generic [ref=e280]:
+                      - img [ref=e282]
+                      - generic [ref=e284]:
+                        - paragraph [ref=e285]: Ahmed
+                        - paragraph [ref=e286]: online
+                    - generic [ref=e289]:
+                      - paragraph [ref=e290]: Hi Ahmed, welcome to GymFlow. Your account is ready.
+                      - generic [ref=e291]: 10:30 AM
+                    - generic [ref=e292]:
+                      - generic [ref=e293]: Type a message
+                      - img [ref=e294]
+            - generic [ref=e296]:
+              - generic [ref=e297]:
+                - generic [ref=e298]: Renewal Reminder
+                - generic [ref=e299]: "Sent before subscription expiry. Variables: {name}, {expiryDate}, {daysLeft}"
+              - generic [ref=e301]:
+                - generic [ref=e302]:
+                  - 'textbox "Hi {name}, your subscription will expire on {expiryDate} ({daysLeft} days left). Please renew to keep access active." [ref=e303]'
+                  - generic [ref=e304]:
+                    - text: Send reminders before expiry
+                    - generic [ref=e305]: "Locked by GymFlow: 14, 7, 3"
+                - generic [ref=e306]:
+                  - paragraph [ref=e307]: PREVIEW
+                  - generic [ref=e308]:
+                    - generic [ref=e309]:
+                      - img [ref=e311]
+                      - generic [ref=e313]:
+                        - paragraph [ref=e314]: Ahmed
+                        - paragraph [ref=e315]: online
+                    - generic [ref=e318]:
+                      - paragraph [ref=e319]: Hi Ahmed, your subscription will expire on May 15, 2026 (7 days left). Please renew to keep access active.
+                      - generic [ref=e320]: 10:30 AM
+                    - generic [ref=e321]:
+                      - generic [ref=e322]: Type a message
+                      - img [ref=e323]
+            - button "Lifecycle automations First wave ready Later waves still locked" [ref=e325] [cursor=pointer]:
+              - generic [ref=e326]:
+                - generic [ref=e327]: Lifecycle automations
+                - generic [ref=e328]: First wave ready
+                - generic [ref=e329]: Later waves still locked
+              - img [ref=e330]
+            - generic [ref=e332]:
+              - generic [ref=e333]:
+                - generic [ref=e334]: Active sequences
+                - generic [ref=e335]: Recent post-expiry and onboarding sequences. Stop a member’s sequence manually when follow-up should end.
+              - generic [ref=e337]:
+                - generic [ref=e339]:
+                  - generic [ref=e340]:
+                    - generic [ref=e341]:
+                      - paragraph [ref=e342]: Expired QA 76842624
+                      - generic [ref=e343]: Onboarding
+                      - generic [ref=e344]: Pending
+                    - paragraph [ref=e345]: "011176842624"
+                    - paragraph [ref=e346]: Welcome queued · Apr 7, 2026, 05:47 PM
+                  - button "Stop sequence" [ref=e347] [cursor=pointer]
+                - generic [ref=e349]:
+                  - generic [ref=e350]:
+                    - generic [ref=e351]:
+                      - paragraph [ref=e352]: Local QA 76816893
+                      - generic [ref=e353]: Onboarding
+                      - generic [ref=e354]: Pending
+                    - paragraph [ref=e355]: "010976816893"
+                    - paragraph [ref=e356]: Welcome queued · Apr 7, 2026, 05:46 PM
+                  - button "Stop sequence" [ref=e357] [cursor=pointer]
+            - generic [ref=e358]:
+              - generic [ref=e359]:
+                - generic [ref=e360]: Post-expiry templates
+                - generic [ref=e361]: "Sequence: Day 0, 3, 7, 14 · Variables: {name}, {expiryDate}"
+              - generic [ref=e362]:
+                - generic [ref=e363]:
+                  - checkbox "Enable post-expiry recovery for this branch Sending still depends on the worker lifecycle gate being enabled in runtime." [ref=e364] [cursor=pointer]
+                  - generic [ref=e365]:
+                    - generic [ref=e366]: Enable post-expiry recovery for this branch
+                    - generic [ref=e367]: Sending still depends on the worker lifecycle gate being enabled in runtime.
+                - generic [ref=e368]:
+                  - button "Day 0" [ref=e369] [cursor=pointer]
+                  - button "Day 3" [ref=e370] [cursor=pointer]
+                  - button "Day 7" [ref=e371] [cursor=pointer]
+                  - button "Day 14" [ref=e372] [cursor=pointer]
+                - generic [ref=e373]:
+                  - textbox [ref=e374]: "Hi {name}, your membership expired on {expiryDate}. Reply or renew today to reactivate access."
+                  - generic [ref=e375]:
+                    - paragraph [ref=e376]: PREVIEW
+                    - generic [ref=e379]:
+                      - paragraph [ref=e380]: Hi Ahmed, your membership expired on May 15, 2026. Reply or renew today to reactivate access.
+                      - generic [ref=e381]: 10:30 AM
+            - generic [ref=e382]:
+              - generic [ref=e383]:
+                - generic [ref=e384]: New member onboarding templates
+                - generic [ref=e385]: "Stages: first visit · 7 days · 14 days · Variable: {name}"
+              - generic [ref=e386]:
+                - generic [ref=e387]:
+                  - checkbox "Enable early onboarding for this branch The baseline welcome stays separate; this controls the follow-up onboarding steps." [ref=e388] [cursor=pointer]
+                  - generic [ref=e389]:
+                    - generic [ref=e390]: Enable early onboarding for this branch
+                    - generic [ref=e391]: The baseline welcome stays separate; this controls the follow-up onboarding steps.
+                - generic [ref=e392]:
+                  - button "First visit" [ref=e393] [cursor=pointer]
+                  - button "No return · 7d" [ref=e394] [cursor=pointer]
+                  - button "Low engagement · 14d" [ref=e395] [cursor=pointer]
+                - generic [ref=e396]:
+                  - textbox [ref=e397]: "Great first visit, {name}. Keep the momentum going and book your next workout this week."
+                  - generic [ref=e398]:
+                    - paragraph [ref=e399]: PREVIEW
+                    - generic [ref=e402]:
+                      - paragraph [ref=e403]: Great first visit, Ahmed. Keep the momentum going and book your next workout this week.
+                      - generic [ref=e404]: 10:30 AM
+            - generic [ref=e405]:
+              - generic [ref=e406]:
+                - generic [ref=e407]: Behavior automation templates
+                - generic [ref=e408]: "In scope but locked until release. Variables: {name}, {daysAbsent}, {streakDays}, {resumeDate}"
+              - generic [ref=e409]:
+                - generic [ref=e410]:
+                  - button "Habit break" [ref=e411] [cursor=pointer]
+                  - button "Streaks" [ref=e412] [cursor=pointer]
+                  - button "Freeze ending" [ref=e413] [cursor=pointer]
+                - generic [ref=e414]:
+                  - textbox [disabled] [ref=e415]: "Hi {name}, we noticed you have not checked in for {daysAbsent} days after a strong start. Keep your momentum going and plan your next workout this week."
+                  - generic [ref=e416]:
+                    - paragraph [ref=e417]: PREVIEW
+                    - generic [ref=e420]:
+                      - paragraph [ref=e421]: Hi Ahmed, we noticed you have not checked in for 4 days after a strong start. Keep your momentum going and plan your next workout this week.
+                      - generic [ref=e422]: 10:30 AM
+            - button "Save" [ref=e424] [cursor=pointer]
+    - region "Notifications alt+T"

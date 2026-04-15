@@ -1,0 +1,394 @@
+- generic [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e3]:
+    - banner:
+      - generic [ref=e6]:
+        - text: menu
+        - link "Firebase" [ref=e8] [cursor=pointer]:
+          - /url: /
+          - img "Firebase" [ref=e10]
+        - generic [ref=e11]:
+          - navigation "Upper tabs" [ref=e14]:
+            - generic [ref=e15]:
+              - link "Build" [ref=e16] [cursor=pointer]:
+                - /url: https://firebase.google.com/products-build?authuser=0
+              - button "Dropdown menu for Build" [ref=e17] [cursor=pointer]: arrow_drop_down
+            - generic [ref=e18]:
+              - link "Run" [ref=e19] [cursor=pointer]:
+                - /url: https://firebase.google.com/products-run?authuser=0
+              - button "Dropdown menu for Run" [ref=e20] [cursor=pointer]: arrow_drop_down
+            - link "Solutions" [ref=e22] [cursor=pointer]:
+              - /url: https://firebase.google.com/solutions?authuser=0
+            - link "Pricing" [ref=e24] [cursor=pointer]:
+              - /url: https://firebase.google.com/pricing?authuser=0
+            - generic [ref=e25]:
+              - link "Docs" [ref=e26] [cursor=pointer]:
+                - /url: https://firebase.google.com/docs?authuser=0
+              - button "Dropdown menu for Docs" [ref=e27] [cursor=pointer]: arrow_drop_down
+            - generic [ref=e28]:
+              - link "Community" [ref=e29] [cursor=pointer]:
+                - /url: https://firebase.google.com/community?authuser=0
+              - button "Dropdown menu for Community" [ref=e30] [cursor=pointer]: arrow_drop_down
+            - link "Support" [ref=e32] [cursor=pointer]:
+              - /url: https://firebase.google.com/support?authuser=0
+            - text: arrow_drop_down
+          - generic [ref=e36]:
+            - combobox "Search" [ref=e37]
+            - img [ref=e39]
+            - generic [ref=e42]: /
+        - generic [ref=e43]:
+          - 'button "Appearance: Light theme" [ref=e245] [cursor=pointer]': light_mode
+          - text: light_mode dark_mode brightness_medium
+        - generic "Select your language preference." [ref=e45]:
+          - button "Language" [ref=e46] [cursor=pointer]:
+            - img
+            - generic [ref=e47]: Language
+            - img
+        - link "Blog" [ref=e48] [cursor=pointer]:
+          - /url: //firebase.blog
+        - link "Go to console" [ref=e49] [cursor=pointer]:
+          - /url: //console.firebase.google.com?authuser=0
+        - generic [ref=e51]:
+          - button "Open Google Developer Program dropdown" [ref=e248] [cursor=pointer]:
+            - img [ref=e249]
+          - 'button "Google Account: Mahmoud Mosalm (mahmoud88mesalm@gmail.com)" [ref=e57] [cursor=pointer]':
+            - img [ref=e59]
+    - text: filter_list close close arrow_forward arrow_forward arrow_forward arrow_forward arrow_forward chevron_left
+    - generic [ref=e60]:
+      - main [ref=e61]:
+        - generic [ref=e62]:
+          - generic:
+            - navigation "On this page"
+        - article [ref=e64]:
+          - button "Send feedback" [ref=e66] [cursor=pointer]
+          - heading "Contact Support" [level=1] [ref=e67]:
+            - text: Contact Support
+            - listbox "Bookmark collections drop down" [ref=e71] [cursor=pointer]:
+              - button "Open dropdown" [ref=e72]:
+                - generic:
+                  - generic [ref=e73]: bookmark_border
+                  - text: bookmark
+                - text: arrow_drop_down
+          - generic [ref=e75]:
+            - generic [ref=e77]:
+              - paragraph [ref=e78]: We can help you fix some billing and account issues, troubleshoot our services and SDKs, determine if services are working correctly, and understand the Firebase products.
+              - paragraph
+              - complementary [ref=e79]:
+                - strong [ref=e80]: "Note:"
+                - text: For Cloud Billing account creation issues (for example, accepted payment methods, troubleshooting error codes) use the
+                - link "Billing Troubleshooter form" [ref=e81] [cursor=pointer]:
+                  - /url: https://firebase.google.com/support/troubleshooter/billing/upgrade?authuser=0
+                - text: .
+              - paragraph
+              - paragraph [ref=e82]:
+                - text: Some questions are
+                - link "out of scope" [ref=e83] [cursor=pointer]:
+                  - /url: https://firebase.google.com/support/scope?authuser=0
+                - text: ", like helping you write or debug code, or consulting requests. If that's what you need, we recommend our awesome communities on"
+                - link "Stack Overflow" [ref=e84] [cursor=pointer]:
+                  - /url: https://stackoverflow.com/questions/tagged/firebase
+                - text: ","
+                - link "Slack" [ref=e85] [cursor=pointer]:
+                  - /url: https://firebase-community.slack.com/
+                - text: ", and"
+                - link "Google Groups" [ref=e86] [cursor=pointer]:
+                  - /url: https://groups.google.com/forum/?authuser=0#!forum/firebase-talk
+                - text: .
+              - paragraph [ref=e87]:
+                - text: You can also
+                - link "✦Ask Gemini in Firebase" [ref=e88] [cursor=pointer]:
+                  - /url: https://firebase.google.com/docs/ai-assistance/gemini-in-firebase/set-up-gemini?utm_id=gif_tt&utm_source=ts_contact&authuser=0
+                - text: .
+              - complementary [ref=e89]:
+                - text: warning
+                - strong [ref=e90]: "Important:"
+                - text: If you have a question related to
+                - strong [ref=e91]: Firebase Studio (including migration from Firebase Studio)
+                - text: ", please use"
+                - strong [ref=e92]:
+                  - link "the custom support form for Firebase Studio" [ref=e93] [cursor=pointer]:
+                    - /url: https://firebase.google.com/support/troubleshooter/studio/help?authuser=0
+                - text: to ensure you get the best support experience. If you have a question about
+                - strong [ref=e94]: integrating
+                - text: Firebase into Google AI Studio, please use
+                - strong [ref=e95]:
+                  - link "the custom support form for Google AI Studio" [ref=e96] [cursor=pointer]:
+                    - /url: https://firebase.google.com/support/troubleshooter/ai_studio?authuser=0
+                - text: .
+              - paragraph [ref=e97]: "If applicable, please type in or attach below:"
+              - list [ref=e98]:
+                - listitem [ref=e99]: Any screenshots
+                - listitem [ref=e100]: Error messages
+                - listitem [ref=e101]: Reproduction steps
+                - listitem [ref=e102]: Code that reproduces the problem
+                - listitem [ref=e103]: Firebase SDK used, including version
+                - listitem [ref=e104]:
+                  - link "Minimal reproduction of the issue" [ref=e105] [cursor=pointer]:
+                    - /url: https://stackoverflow.com/help/mcve
+              - complementary [ref=e106]:
+                - strong [ref=e107]: "Note:"
+                - generic [ref=e108]:
+                  - text: If you have a
+                  - link "paid GCP support plan" [ref=e109] [cursor=pointer]:
+                    - /url: //cloud.google.com/support/?authuser=0
+                  - text: ", your Firebase technical issues can now be submitted through the"
+                  - link "GCP support console" [ref=e110] [cursor=pointer]:
+                    - /url: //console.cloud.google.com/projectselector/support/cases?authuser=0
+                  - text: .
+                  - text: For technical questions and issues related to Google Analytics, Google Analytics 360, Google Ads, or Google Marketing Platform that are not specific to the Firebase SDKs or the Firebase console, see
+                  - link "Google Analytics and Firebase" [ref=e111] [cursor=pointer]:
+                    - /url: https://firebase.google.com/support/troubleshooter/analytics?authuser=0
+                  - text: .
+            - generic [ref=e112]:
+              - generic [ref=e113]:
+                - generic [ref=e114] [cursor=pointer]: First Name
+                - textbox "First Name" [ref=e115]:
+                  - /placeholder: Enter your first name
+                  - text: Mahmoud
+              - generic [ref=e116]:
+                - generic [ref=e117] [cursor=pointer]: Last Name
+                - textbox "Last Name" [ref=e118]:
+                  - /placeholder: Enter your last name
+                  - text: Mosalm
+              - generic [ref=e119]:
+                - generic [ref=e120] [cursor=pointer]: Category
+                - combobox "Category" [active] [ref=e121] [cursor=pointer]:
+                  - option "Select a category"
+                  - option "Account"
+                  - option "Billing"
+                  - option "Bug Report"
+                  - option "Feature Request"
+                  - option "Migration / Upgrade"
+                  - option "Outage / Downtime"
+                  - option "Troubleshooting" [selected]
+                  - option "Other"
+              - generic [ref=e122]:
+                - generic [ref=e123] [cursor=pointer]: Firebase Product
+                - combobox "Firebase Product" [ref=e124] [cursor=pointer]:
+                  - option "Select a product"
+                  - option "A/B Testing"
+                  - option "App Check"
+                  - option "App Distribution"
+                  - option "App Hosting"
+                  - option "Authentication"
+                  - option "Cloud Firestore"
+                  - option "Cloud Functions"
+                  - option "Cloud Messaging & Notifications (FCM)"
+                  - option "Cloud Storage"
+                  - option "Crashlytics"
+                  - option "Data Connect"
+                  - option "Dynamic Links"
+                  - option "Extensions"
+                  - option "Firebase AI Logic"
+                  - option "Firebase ML"
+                  - option "Firebase Studio"
+                  - option "Google AI Studio"
+                  - option "Gemini in Firebase"
+                  - option "Google Analytics"
+                  - option "Hosting"
+                  - option "In-App Messaging"
+                  - option "Performance Monitoring"
+                  - option "Personalization"
+                  - option "Firebase Phone Number Verification" [selected]
+                  - option "Realtime Database"
+                  - option "Remote Config"
+                  - option "Test Lab"
+                  - option "General Inquiry"
+              - generic [ref=e125]:
+                - generic [ref=e126] [cursor=pointer]: Language or Framework
+                - combobox "Language or Framework" [ref=e127] [cursor=pointer]:
+                  - option "Select a language or framework"
+                  - option "Angular"
+                  - option "BigQuery"
+                  - option "C#"
+                  - option "C++"
+                  - option "Cloud Platform"
+                  - option "Flutter"
+                  - option "Go"
+                  - option "Java"
+                  - option "JavaScript"
+                  - option "Kotlin"
+                  - option "Objective-C"
+                  - option "Python"
+                  - option "React"
+                  - option "Swift"
+                  - option "Typescript" [selected]
+                  - option "N/A"
+              - generic [ref=e128]:
+                - generic [ref=e129] [cursor=pointer]: Environment (optional)
+                - combobox "Environment (optional)" [ref=e130] [cursor=pointer]:
+                  - option "Environment" [selected]
+                  - 'option "Client: Android"'
+                  - 'option "Client: Flutter"'
+                  - 'option "Client: iOS"'
+                  - 'option "Client: IoT"'
+                  - 'option "Client: REST"'
+                  - 'option "Client: Unity"'
+                  - 'option "Client: Web"'
+                  - 'option "Client: Other"'
+                  - option "Command Line (CLI)"
+                  - option "Console UI"
+                  - option "Documentation"
+                  - option "Integrations"
+                  - option "N/A"
+                  - 'option "Server: Node.js"'
+                  - 'option "Server: Node.js V10"'
+                  - 'option "Server: Node.js V8"'
+                  - 'option "Server: REST"'
+                  - 'option "Server: Other"'
+              - generic [ref=e131]:
+                - generic [ref=e132] [cursor=pointer]: Project (optional)
+                - button "Select an option Select a project" [ref=e136] [cursor=pointer]:
+                  - text: Select a project
+                  - generic: arrow_drop_down
+              - generic [ref=e137]:
+                - generic [ref=e138] [cursor=pointer]: Urgency
+                - generic [ref=e139]:
+                  - radio "I think there is an unreported Firebase outage that makes it unusable" [ref=e140] [cursor=pointer]: radio_button_unchecked
+                  - text: I think there is an unreported Firebase outage that makes it unusable
+                - generic [ref=e141]:
+                  - radio "My live app is suddenly broken and is severely affecting my users" [ref=e142] [cursor=pointer]: radio_button_unchecked
+                  - text: My live app is suddenly broken and is severely affecting my users
+                - generic [ref=e143]:
+                  - radio "Firebase isn't working as I expected it to or I ran into a quota limit" [ref=e144] [cursor=pointer]: radio_button_unchecked
+                  - text: Firebase isn't working as I expected it to or I ran into a quota limit
+                - generic [ref=e145]:
+                  - radio "I have a minor bug, question, or feature request" [ref=e146] [cursor=pointer]: radio_button_unchecked
+                  - text: I have a minor bug, question, or feature request
+                - generic [ref=e147]:
+                  - radio "I have an account or billing issue I need help with" [ref=e148] [cursor=pointer]: radio_button_unchecked
+                  - text: I have an account or billing issue I need help with
+              - generic [ref=e149]:
+                - generic [ref=e150] [cursor=pointer]: Summary
+                - textbox "Summary" [ref=e151]:
+                  - /placeholder: Start typing
+                  - text: Firebase phone auth real SMS to Egypt fails with 503 Error code 39 on accounts:s
+              - generic [ref=e152]:
+                - generic [ref=e153] [cursor=pointer]: Description
+                - textbox "Description" [ref=e154]:
+                  - /placeholder: Start typing
+                  - text: "Project: gymflow-saas-260215-251\\nDomain: https://gymflowsystem.com\\nIssue: Firebase phone auth works for Firebase test numbers and a non-Egypt real-number path, but fails for Egyptian real numbers.\\n\\nExact failing endpoint:\\nPOST https://identitytoolkit.googleapis.com/v1/accounts:sendVerificationCode\\n\\nExact live response:\\nHTTP 503\\nBody: {\\\"error\\\":{\\\"code\\\":503,\\\"message\\\":\\\"Error code: 39\\\",\\\"errors\\\":[{\\\"message\\\":\\\"Error code: 39\\\",\\\"domain\\\":\\\"global\\\",\\\"reason\\\":\\\"backendError\\\"}]}}\\n\\nWhat we already fixed and verified on our side:\\n- Firebase web config now includes appId and messagingSenderId\\n- Authorized domains include gymflowsystem.com and www.gymflowsystem.com\\n- Phone auth is enabled\\n- reCAPTCHA scripts now load successfully on live\\n- Service worker no longer intercepts gstatic/google recaptcha assets\\n- Firebase test phone numbers work\\n- A non-Egypt phone path worked in the same live app flow\\n\\nWhat still fails:\\n- Real Egyptian phone numbers continue to fail on sendVerificationCode with 503 / Error code 39\\n\\nPlease confirm whether this is an upstream Firebase/Identity Platform SMS delivery/backend issue for Egypt and what remediation is required on the project/account side."
+              - generic [ref=e155]:
+                - generic [ref=e156] [cursor=pointer]: "Attach Files (allowed file types: .jpg .jpeg .json .gif .pdf .png .txt .xml)"
+                - button "Choose File" [ref=e157] [cursor=pointer]
+              - paragraph [ref=e159]: "By submitting this information, you give us permission to contact you. Do not use this form to transmit confidential, sensitive, or personally identifying information that belongs to you or third parties, including but not limited to: passwords, credit card numbers, and user data. Please understand that Google will not treat any information you submit - other than your account information - as confidential."
+              - generic [ref=e160]:
+                - button "Reset" [ref=e161] [cursor=pointer]
+                - button "Send" [ref=e162] [cursor=pointer]
+      - navigation "Footer links" [ref=e165]:
+        - list [ref=e166]:
+          - listitem [ref=e167]:
+            - heading "Learn" [level=3] [ref=e168]
+            - list [ref=e169]:
+              - listitem [ref=e170]:
+                - link "Developer guides" [ref=e171] [cursor=pointer]:
+                  - /url: /docs/
+              - listitem [ref=e172]:
+                - link "SDK & API reference" [ref=e173] [cursor=pointer]:
+                  - /url: /docs/reference/
+              - listitem [ref=e174]:
+                - link "Samples" [ref=e175] [cursor=pointer]:
+                  - /url: /docs/samples/
+              - listitem [ref=e176]:
+                - link "Libraries" [ref=e177] [cursor=pointer]:
+                  - /url: /docs/libraries/
+              - listitem [ref=e178]:
+                - link "GitHub" [ref=e179] [cursor=pointer]:
+                  - /url: //github.com/firebase/
+          - listitem [ref=e180]:
+            - heading "Stay connected" [level=3] [ref=e181]
+            - list [ref=e182]:
+              - listitem [ref=e183]:
+                - link "Check out the blog" [ref=e184] [cursor=pointer]:
+                  - /url: //firebase.blog
+              - listitem [ref=e185]:
+                - link "Find us on Reddit" [ref=e186] [cursor=pointer]:
+                  - /url: //www.reddit.com/r/Firebase
+              - listitem [ref=e187]:
+                - link "Follow on X" [ref=e188] [cursor=pointer]:
+                  - /url: //x.com/Firebase
+              - listitem [ref=e189]:
+                - link "Subscribe on YouTube" [ref=e190] [cursor=pointer]:
+                  - /url: //www.youtube.com/user/Firebase
+              - listitem [ref=e191]:
+                - link "Attend an event" [ref=e192] [cursor=pointer]:
+                  - /url: /community/events
+          - listitem [ref=e193]:
+            - heading "Support" [level=3] [ref=e194]
+            - list [ref=e195]:
+              - listitem [ref=e196]:
+                - link "Contact support" [ref=e197] [cursor=pointer]:
+                  - /url: /support/
+              - listitem [ref=e198]:
+                - link "Stack Overflow" [ref=e199] [cursor=pointer]:
+                  - /url: //stackoverflow.com/questions/tagged/firebase
+              - listitem [ref=e200]:
+                - link "Google group" [ref=e201] [cursor=pointer]:
+                  - /url: //groups.google.com/forum/#!forum/firebase-talk
+              - listitem [ref=e202]:
+                - link "Release notes" [ref=e203] [cursor=pointer]:
+                  - /url: /support/releases
+              - listitem [ref=e204]:
+                - link "Brand guidelines" [ref=e205] [cursor=pointer]:
+                  - /url: /brand-guidelines/
+              - listitem [ref=e206]:
+                - link "FAQs" [ref=e207] [cursor=pointer]:
+                  - /url: /support/faq/
+      - generic [ref=e209]:
+        - navigation "Other Google Developers websites" [ref=e210]:
+          - link "Google Developers" [ref=e211] [cursor=pointer]:
+            - /url: https://developers.google.com/?authuser=0
+            - img "Google Developers" [ref=e213]
+          - list [ref=e214]:
+            - listitem [ref=e215]:
+              - link "Android" [ref=e216] [cursor=pointer]:
+                - /url: //developer.android.com?authuser=0
+            - listitem [ref=e217]:
+              - link "Chrome" [ref=e218] [cursor=pointer]:
+                - /url: //developer.chrome.com/home?authuser=0
+            - listitem [ref=e219]:
+              - link "Firebase" [ref=e220] [cursor=pointer]:
+                - /url: //firebase.google.com?authuser=0
+            - listitem [ref=e221]:
+              - link "Google Cloud Platform" [ref=e222] [cursor=pointer]:
+                - /url: //cloud.google.com?authuser=0
+            - listitem [ref=e223]:
+              - link "All products" [ref=e224] [cursor=pointer]:
+                - /url: //developers.google.com/products/?authuser=0
+        - navigation "Utility links" [ref=e225]:
+          - list [ref=e226]:
+            - listitem [ref=e227]:
+              - link "Terms" [ref=e228] [cursor=pointer]:
+                - /url: https://firebase.google.com/terms/?authuser=0
+            - listitem [ref=e229]:
+              - text: "|"
+              - link "Privacy" [ref=e230] [cursor=pointer]:
+                - /url: //policies.google.com/privacy?authuser=0
+            - text: "|"
+          - generic "Select your language preference." [ref=e231]:
+            - button "Language" [ref=e232] [cursor=pointer]:
+              - img
+              - generic [ref=e233]: Language
+              - img
+      - generic [ref=e235]:
+        - toolbar "Side panel menu" [ref=e236]:
+          - button "Chat" [ref=e237] [cursor=pointer]:
+            - img [ref=e239]
+            - generic [ref=e242]: Chat
+        - generic [ref=e251]:
+          - generic [ref=e253]:
+            - heading "Ask about this page" [level=2] [ref=e254]
+            - generic [ref=e255]:
+              - button "Send feedback" [ref=e257] [cursor=pointer]: bug_report
+              - button "Fullscreen" [ref=e258] [cursor=pointer]: fullscreen
+              - button "Close" [ref=e259] [cursor=pointer]: close
+          - generic [ref=e261]:
+            - generic [ref=e262]:
+              - generic [ref=e263]:
+                - heading "Chat" [level=2] [ref=e264]
+                - heading "BETA" [level=3] [ref=e265]
+              - button "Reset chat" [disabled]: restart_alt
+            - generic [ref=e267]:
+              - paragraph [ref=e268]: A Google Developer Program account is required to access this feature.
+              - button "Create account" [ref=e269] [cursor=pointer]

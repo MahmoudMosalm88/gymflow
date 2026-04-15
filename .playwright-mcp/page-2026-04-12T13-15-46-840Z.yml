@@ -1,0 +1,88 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e7]: GF
+        - generic [ref=e8]: GymFlow
+      - navigation [ref=e9]:
+        - link "Dashboard" [ref=e10] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e12]
+          - text: Dashboard
+        - link "Clients" [ref=e17] [cursor=pointer]:
+          - /url: /dashboard/members
+          - img [ref=e19]
+          - text: Clients
+        - link "Guest Passes" [ref=e24] [cursor=pointer]:
+          - /url: /dashboard/guest-passes
+          - img [ref=e26]
+          - text: Guest Passes
+        - link "PT & Staff" [ref=e28] [cursor=pointer]:
+          - /url: /dashboard/pt
+          - img [ref=e30]
+          - text: PT & Staff
+        - link "Subscriptions" [ref=e31] [cursor=pointer]:
+          - /url: /dashboard/subscriptions
+          - img [ref=e33]
+          - text: Subscriptions
+        - link "Reports" [ref=e35] [cursor=pointer]:
+          - /url: /dashboard/reports
+          - img [ref=e37]
+          - text: Reports
+        - link "Income" [ref=e38] [cursor=pointer]:
+          - /url: /dashboard/income
+          - img [ref=e40]
+          - text: Income
+        - link "WhatsApp System" [ref=e42] [cursor=pointer]:
+          - /url: /dashboard/whatsapp
+          - img [ref=e44]
+          - text: WhatsApp System
+        - link "Notifications" [ref=e50] [cursor=pointer]:
+          - /url: /dashboard/notifications
+          - img [ref=e52]
+          - text: Notifications
+        - link "Settings" [ref=e55] [cursor=pointer]:
+          - /url: /dashboard/settings
+          - img [ref=e57]
+          - text: Settings
+        - link "Profile" [ref=e60] [cursor=pointer]:
+          - /url: /dashboard/profile
+          - img [ref=e62]
+          - text: Profile
+    - generic [ref=e65]:
+      - banner [ref=e66]:
+        - generic [ref=e67]:
+          - button "Notifications" [ref=e68] [cursor=pointer]:
+            - img
+          - link "G" [ref=e69] [cursor=pointer]:
+            - /url: /dashboard/profile
+            - generic [ref=e70]: G
+      - main [ref=e71]:
+        - generic [ref=e72]:
+          - generic [ref=e73]:
+            - heading "Clients" [level=1] [ref=e74]
+            - button "Add Client" [ref=e75] [cursor=pointer]:
+              - img
+              - text: Add Client
+          - generic [ref=e76]:
+            - button "Total Members 0" [ref=e77] [cursor=pointer]:
+              - generic [ref=e79]:
+                - paragraph [ref=e80]: Total Members
+                - paragraph [ref=e82]: "0"
+            - button "Active 0" [ref=e84] [cursor=pointer]:
+              - generic [ref=e86]:
+                - paragraph [ref=e87]: Active
+                - paragraph [ref=e89]: "0"
+            - button "No Subscription 0" [ref=e91] [cursor=pointer]:
+              - generic [ref=e93]:
+                - paragraph [ref=e94]: No Subscription
+                - paragraph [ref=e96]: "0"
+          - generic [ref=e98]:
+            - textbox "Search clients..." [ref=e99]
+            - combobox [ref=e100] [cursor=pointer]:
+              - generic: All Statuses
+              - img [ref=e101]
+            - combobox [ref=e103] [cursor=pointer]:
+              - generic: All
+              - img [ref=e104]

@@ -1,0 +1,115 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e7]: GF
+        - generic [ref=e8]: GymFlow
+      - navigation [ref=e9]:
+        - link "Dashboard" [ref=e10] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e12]
+          - text: Dashboard
+        - link "Clients" [ref=e17] [cursor=pointer]:
+          - /url: /dashboard/members
+          - img [ref=e19]
+          - text: Clients
+        - link "Guest Passes" [ref=e24] [cursor=pointer]:
+          - /url: /dashboard/guest-passes
+          - img [ref=e26]
+          - text: Guest Passes
+        - link "PT & Staff" [ref=e28] [cursor=pointer]:
+          - /url: /dashboard/pt
+          - img [ref=e30]
+          - text: PT & Staff
+        - link "Subscriptions" [ref=e31] [cursor=pointer]:
+          - /url: /dashboard/subscriptions
+          - img [ref=e33]
+          - text: Subscriptions
+        - link "Reports" [ref=e35] [cursor=pointer]:
+          - /url: /dashboard/reports
+          - img [ref=e37]
+          - text: Reports
+        - link "Income" [ref=e38] [cursor=pointer]:
+          - /url: /dashboard/income
+          - img [ref=e40]
+          - text: Income
+        - link "WhatsApp System" [ref=e42] [cursor=pointer]:
+          - /url: /dashboard/whatsapp
+          - img [ref=e44]
+          - text: WhatsApp System
+        - link "Notifications" [ref=e50] [cursor=pointer]:
+          - /url: /dashboard/notifications
+          - img [ref=e52]
+          - text: Notifications
+        - link "Settings" [ref=e55] [cursor=pointer]:
+          - /url: /dashboard/settings
+          - img [ref=e57]
+          - text: Settings
+        - link "Profile" [ref=e60] [cursor=pointer]:
+          - /url: /dashboard/profile
+          - img [ref=e62]
+          - text: Profile
+    - generic [ref=e65]:
+      - banner [ref=e66]:
+        - generic [ref=e67]:
+          - button "Notifications" [ref=e68] [cursor=pointer]:
+            - img
+          - link "G" [ref=e69] [cursor=pointer]:
+            - /url: /dashboard/profile
+            - generic [ref=e70]: G
+      - main [ref=e71]:
+        - generic [ref=e72]:
+          - heading "Reports" [level=1] [ref=e73]
+          - generic [ref=e74]:
+            - button "How much am I about to lose? View →" [ref=e75] [cursor=pointer]:
+              - generic [ref=e76]:
+                - paragraph [ref=e77]: How much am I about to lose?
+                - generic [ref=e78]: View →
+              - paragraph
+            - button "Who's gone quiet on me? View →" [ref=e80] [cursor=pointer]:
+              - generic [ref=e81]:
+                - paragraph [ref=e82]: Who's gone quiet on me?
+                - generic [ref=e83]: View →
+              - paragraph
+            - button "Who's being blocked at the door? View →" [ref=e85] [cursor=pointer]:
+              - generic [ref=e86]:
+                - paragraph [ref=e87]: Who's being blocked at the door?
+                - generic [ref=e88]: View →
+              - paragraph
+            - button "What did my reminders rescue? View →" [ref=e90] [cursor=pointer]:
+              - generic [ref=e91]:
+                - paragraph [ref=e92]: What did my reminders rescue?
+                - generic [ref=e93]: View →
+              - paragraph
+          - tablist "Report categories" [ref=e95]:
+            - generic [ref=e96]:
+              - img
+              - textbox "Search reports..." [ref=e97]
+            - tab "Revenue" [selected] [ref=e98] [cursor=pointer]
+            - tab "Retention" [ref=e99] [cursor=pointer]
+            - tab "Operations" [ref=e100] [cursor=pointer]
+            - tab "WhatsApp" [ref=e101] [cursor=pointer]
+            - tab "Logs" [ref=e102] [cursor=pointer]
+          - generic [ref=e104]:
+            - tablist "Report tabs" [ref=e105]:
+              - generic [ref=e106]:
+                - tab "Revenue At Risk" [selected] [ref=e107] [cursor=pointer]
+                - button "Pin to top" [ref=e108] [cursor=pointer]:
+                  - img [ref=e109]
+              - generic [ref=e111]:
+                - tab "Plan Revenue" [ref=e112] [cursor=pointer]
+                - button "Pin to top" [ref=e113] [cursor=pointer]:
+                  - img [ref=e114]
+              - generic [ref=e116]:
+                - tab "Expected Revenue" [ref=e117] [cursor=pointer]
+                - button "Pin to top" [ref=e118] [cursor=pointer]:
+                  - img [ref=e119]
+              - generic [ref=e121]:
+                - tab "Renewal vs New" [ref=e122] [cursor=pointer]
+                - button "Pin to top" [ref=e123] [cursor=pointer]:
+                  - img [ref=e124]
+            - combobox [ref=e127] [cursor=pointer]:
+              - generic: 30 days
+              - img [ref=e128]
+          - paragraph [ref=e130]: Shows subscriptions expiring soon with no renewal — the exact cash you stand to lose this month if you do nothing.

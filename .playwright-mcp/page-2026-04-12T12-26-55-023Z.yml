@@ -1,0 +1,205 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e4]:
+      - link "GymFlow home" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img "GymFlow logo" [ref=e6]
+        - generic [ref=e17]: GymFlow
+      - navigation "Navigation" [ref=e18]:
+        - link "Features" [ref=e19] [cursor=pointer]:
+          - /url: "#features"
+        - link "Blog" [ref=e20] [cursor=pointer]:
+          - /url: /blog
+        - link "FAQ" [ref=e21] [cursor=pointer]:
+          - /url: "#faq"
+      - generic [ref=e22]:
+        - group "Language" [ref=e23]:
+          - link "EN" [ref=e24] [cursor=pointer]:
+            - /url: /
+          - link "AR" [ref=e25] [cursor=pointer]:
+            - /url: /ar
+        - link "Get started free" [ref=e26] [cursor=pointer]:
+          - /url: /login
+    - generic [ref=e28]:
+      - generic [ref=e29]:
+        - paragraph [ref=e30]: GYM MANAGEMENT · REDEFINED
+        - heading "Run your gym without the admin headache." [level=1] [ref=e31]:
+          - text: Run your gym without the
+          - emphasis [ref=e32]: admin headache.
+        - paragraph [ref=e33]: "GymFlow automates memberships, check-ins, renewals, and reports — so you can focus on what matters: your clients."
+        - generic [ref=e34]:
+          - link "Start free" [ref=e35] [cursor=pointer]:
+            - /url: /login
+            - text: Start free
+            - img [ref=e36]
+          - link "Sign in" [ref=e38] [cursor=pointer]:
+            - /url: /login?mode=login
+        - paragraph [ref=e39]: No credit card required · Setup in 10 minutes
+      - button "Expand dashboard preview" [ref=e40] [cursor=pointer]:
+        - generic [ref=e46]: gymflowsystem.com/dashboard
+        - generic:
+          - img
+          - text: Click to expand
+    - generic [ref=e49]:
+      - generic [ref=e50]:
+        - paragraph [ref=e51]: THE PROBLEM
+        - heading "Running a gym shouldn't feel like a second full-time job." [level=2] [ref=e52]
+      - generic [ref=e53]:
+        - generic [ref=e54]:
+          - heading "Missed renewals bleed revenue" [level=3] [ref=e55]
+          - paragraph [ref=e56]: Clients lapse without reminders. You only notice when they're already gone — and so is their subscription fee.
+        - generic [ref=e57]:
+          - heading "Manual check-ins create queues" [level=3] [ref=e58]
+          - paragraph [ref=e59]: Hand-written logs and manual ID searches make your front desk a bottleneck every single morning.
+        - generic [ref=e60]:
+          - heading "You're flying blind" [level=3] [ref=e61]
+          - paragraph [ref=e62]: Spreadsheets don't show which plans are growing, which clients are at risk, or where your revenue is coming from.
+    - generic [ref=e64]:
+      - generic [ref=e65]:
+        - paragraph [ref=e66]: HOW IT WORKS
+        - heading "From setup to running — in one afternoon." [level=2] [ref=e67]
+      - generic [ref=e68]:
+        - generic [ref=e69]:
+          - generic [ref=e70]: "01"
+          - heading "Import or add your clients" [level=3] [ref=e71]
+          - paragraph [ref=e72]: Upload your existing client list or start fresh. GymFlow migrates your data quickly and securely.
+        - generic [ref=e73]:
+          - generic [ref=e74]: "02"
+          - heading "Configure plans & automations" [level=3] [ref=e75]
+          - paragraph [ref=e76]: Set your membership tiers, pricing, session quotas, and renewal reminders. Done once, runs forever.
+        - generic [ref=e77]:
+          - generic [ref=e78]: "03"
+          - heading "Manage from one dashboard" [level=3] [ref=e79]
+          - paragraph [ref=e80]: Check-ins, reports, renewals, and messages — all in one place. No more switching between tools.
+    - generic [ref=e82]:
+      - generic [ref=e83]:
+        - paragraph [ref=e84]: FEATURES
+        - heading "Everything your gym needs. Nothing it doesn't." [level=2] [ref=e85]
+      - generic [ref=e86]:
+        - generic [ref=e87]:
+          - img [ref=e90]
+          - heading "Smart Check-ins" [level=3] [ref=e95]
+          - paragraph [ref=e96]: QR code scanning with automatic access control. Expired members are denied instantly. Works offline — scans queue and sync when you're back online.
+          - generic [ref=e97]:
+            - img [ref=e98]
+            - text: Most used feature
+        - generic [ref=e100]:
+          - img [ref=e103]
+          - heading "WhatsApp Automation" [level=3] [ref=e105]
+          - paragraph [ref=e106]: Renewal reminders, payment recovery sequences, welcome messages, and broadcasts — all sent automatically via WhatsApp. Recover up to 30% of lapsed members.
+          - generic [ref=e107]:
+            - img [ref=e108]
+            - text: Revenue saver
+        - generic [ref=e110]:
+          - img [ref=e113]
+          - heading "Revenue & Risk Reports" [level=3] [ref=e115]
+          - paragraph [ref=e116]: See revenue at risk from expiring members, ghost members who pay but don't show up, and month-over-month income trends — in real EGP numbers.
+        - generic [ref=e117]:
+          - img [ref=e120]
+          - heading "PT & Staff Management" [level=3] [ref=e124]
+          - paragraph [ref=e125]: Trainer profiles, session tracking, package management, and staff roles — all from one hub.
+        - generic [ref=e126]:
+          - img [ref=e129]
+          - heading "Income Tracking" [level=3] [ref=e131]
+          - paragraph [ref=e132]: Monthly revenue breakdown with MoM deltas, PT revenue split, expected monthly income, and per-day earnings calendar.
+        - generic [ref=e133]:
+          - img [ref=e136]
+          - heading "Works Offline" [level=3] [ref=e138]
+          - paragraph [ref=e139]: Full offline mode for the front desk. Check-ins, member lookups, and actions queue locally and sync automatically when internet returns.
+    - generic [ref=e141]:
+      - generic [ref=e142]:
+        - paragraph [ref=e143]: SEE IT IN ACTION
+        - heading "A real look at the dashboard." [level=2] [ref=e144]
+      - generic [ref=e145]:
+        - button "Dashboard" [ref=e146] [cursor=pointer]
+        - button "Members" [ref=e147] [cursor=pointer]
+        - button "Reports" [ref=e148] [cursor=pointer]
+        - button "Income" [ref=e149] [cursor=pointer]
+        - button "Subscriptions" [ref=e150] [cursor=pointer]
+        - button "PT & Staff" [ref=e151] [cursor=pointer]
+      - generic [ref=e152]:
+        - generic [ref=e157]: gymflowsystem.com/dashboard
+        - img "Dashboard" [ref=e159]
+    - generic [ref=e161]:
+      - generic [ref=e162]:
+        - paragraph [ref=e163]: FAQ
+        - heading "Questions answered." [level=2] [ref=e164]
+      - list [ref=e165]:
+        - listitem [ref=e166]:
+          - button "How do I migrate my existing client data?" [ref=e167] [cursor=pointer]:
+            - generic [ref=e168]: How do I migrate my existing client data?
+            - img [ref=e169]
+        - listitem [ref=e171]:
+          - button "Does GymFlow work for multi-branch gyms?" [ref=e172] [cursor=pointer]:
+            - generic [ref=e173]: Does GymFlow work for multi-branch gyms?
+            - img [ref=e174]
+        - listitem [ref=e176]:
+          - button "What happens when a client's subscription expires?" [ref=e177] [cursor=pointer]:
+            - generic [ref=e178]: What happens when a client's subscription expires?
+            - img [ref=e179]
+        - listitem [ref=e181]:
+          - button "Is my clients' data secure?" [ref=e182] [cursor=pointer]:
+            - generic [ref=e183]: Is my clients' data secure?
+            - img [ref=e184]
+        - listitem [ref=e186]:
+          - button "Can I cancel anytime?" [ref=e187] [cursor=pointer]:
+            - generic [ref=e188]: Can I cancel anytime?
+            - img [ref=e189]
+    - generic [ref=e192]:
+      - heading "Ready to get your time back?" [level=2] [ref=e193]
+      - paragraph [ref=e194]: Join gym owners across the region who run their operations with GymFlow.
+      - generic [ref=e195]:
+        - link "Start free trial" [ref=e196] [cursor=pointer]:
+          - /url: /login
+          - text: Start free trial
+          - img [ref=e197]
+        - paragraph [ref=e199]: No credit card · Cancel anytime · Setup in 10 minutes
+    - generic [ref=e200]:
+      - generic [ref=e201]:
+        - generic [ref=e202]:
+          - generic [ref=e203]:
+            - img "GymFlow logo" [ref=e204]
+            - generic [ref=e215]: GymFlow
+          - paragraph [ref=e216]: Gym management, simplified.
+        - generic [ref=e217]:
+          - generic [ref=e218]:
+            - paragraph [ref=e219]: Product
+            - generic [ref=e220]:
+              - link "All Features" [ref=e221] [cursor=pointer]:
+                - /url: /features
+              - link "QR Check-in" [ref=e222] [cursor=pointer]:
+                - /url: /features/qr-check-in
+              - link "WhatsApp Notifications" [ref=e223] [cursor=pointer]:
+                - /url: /features/whatsapp-notifications
+              - link "Subscription Management" [ref=e224] [cursor=pointer]:
+                - /url: /features/subscription-management
+          - generic [ref=e225]:
+            - paragraph [ref=e226]: Resources
+            - generic [ref=e227]:
+              - link "Blog" [ref=e228] [cursor=pointer]:
+                - /url: /blog
+              - link "Solutions" [ref=e229] [cursor=pointer]:
+                - /url: /solutions
+              - link "Compare" [ref=e230] [cursor=pointer]:
+                - /url: /compare
+          - generic [ref=e231]:
+            - paragraph [ref=e232]: Locations
+            - generic [ref=e233]:
+              - link "Cairo" [ref=e234] [cursor=pointer]:
+                - /url: /gym-management-software-cairo
+              - link "Riyadh" [ref=e235] [cursor=pointer]:
+                - /url: /gym-management-software-riyadh
+              - link "Dubai" [ref=e236] [cursor=pointer]:
+                - /url: /gym-management-software-dubai
+              - link "Jeddah" [ref=e237] [cursor=pointer]:
+                - /url: /gym-management-software-jeddah
+              - link "Alexandria" [ref=e238] [cursor=pointer]:
+                - /url: /gym-management-software-alexandria
+      - generic [ref=e239]:
+        - paragraph [ref=e240]: © 2026 GymFlow. All rights reserved.
+        - generic [ref=e241]:
+          - link "Privacy Policy" [ref=e242] [cursor=pointer]:
+            - /url: /privacy-policy
+          - link "Terms of Service" [ref=e243] [cursor=pointer]:
+            - /url: /terms-of-service
+  - alert [ref=e244]

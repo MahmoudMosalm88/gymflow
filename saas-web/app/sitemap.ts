@@ -1,85 +1,75 @@
 import type { MetadataRoute } from "next";
+import { getAllPosts } from "@/lib/blog/registry";
+import { comparisons } from "@/lib/comparisons-data";
+import { solutions } from "@/lib/solutions-data";
 
 const BASE_URL = "https://gymflowsystem.com";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
 
+  const allPosts = getAllPosts();
+
   const staticPages: MetadataRoute.Sitemap = [
-    {
-      url: BASE_URL,
-      lastModified: now,
-      changeFrequency: "weekly",
-      priority: 1.0,
-    },
-    {
-      url: `${BASE_URL}/ar`,
-      lastModified: now,
-      changeFrequency: "weekly",
-      priority: 1.0,
-    },
-    {
-      url: `${BASE_URL}/privacy-policy`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.3,
-    },
-    {
-      url: `${BASE_URL}/terms-of-service`,
-      lastModified: now,
-      changeFrequency: "yearly",
-      priority: 0.3,
-    },
+    { url: BASE_URL, lastModified: now, changeFrequency: "weekly", priority: 1.0 },
+    { url: `${BASE_URL}/ar`, lastModified: now, changeFrequency: "weekly", priority: 1.0 },
+    { url: `${BASE_URL}/privacy-policy`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${BASE_URL}/terms-of-service`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${BASE_URL}/features`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE_URL}/solutions`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE_URL}/compare`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE_URL}/blog`, lastModified: now, changeFrequency: "weekly", priority: 0.6 },
   ];
 
-  // Only include slugs that have actual data/pages built
-  const features = [
+  const featurePages: MetadataRoute.Sitemap = [
     "qr-check-in",
     "whatsapp-notifications",
     "subscription-management",
-  ];
-
-  const featurePages: MetadataRoute.Sitemap = features.map((slug) => ({
+  ].map((slug) => ({
     url: `${BASE_URL}/features/${slug}`,
     lastModified: now,
     changeFrequency: "monthly" as const,
     priority: 0.8,
   }));
 
-  const cities = [
+  const cityPages: MetadataRoute.Sitemap = [
     "cairo", "alexandria", "riyadh", "jeddah", "dubai",
-  ];
-
-  const locationPages: MetadataRoute.Sitemap = cities.map((city) => ({
+    "new-cairo", "sixth-of-october", "dammam", "mecca",
+    "abu-dhabi", "kuwait-city", "doha", "amman", "khobar", "port-said",
+  ].map((city) => ({
     url: `${BASE_URL}/gym-management-software-${city}`,
-    lastModified: now,
-    changeFrequency: "monthly" as const,
-    priority: 0.7,
-  }));
-
-  const competitors = ["gym-engine", "gymista", "tamarran"];
-
-  const comparePages: MetadataRoute.Sitemap = competitors.map((comp) => ({
-    url: `${BASE_URL}/compare/gymflow-vs-${comp}`,
     lastModified: now,
     changeFrequency: "monthly" as const,
     priority: 0.8,
   }));
 
-  const useCases = ["womens-gym", "crossfit", "multi-branch"];
+  const comparePages: MetadataRoute.Sitemap = comparisons.map((c) => ({
+    url: `${BASE_URL}/compare/gymflow-vs-${c.slug}`,
+    lastModified: now,
+    changeFrequency: "monthly" as const,
+    priority: 0.8,
+  }));
 
-  const useCasePages: MetadataRoute.Sitemap = useCases.map((uc) => ({
-    url: `${BASE_URL}/solutions/${uc}`,
+  const solutionsPages: MetadataRoute.Sitemap = solutions.map((s) => ({
+    url: `${BASE_URL}/solutions/${s.slug}`,
     lastModified: now,
     changeFrequency: "monthly" as const,
     priority: 0.7,
   }));
 
+  const blogPages: MetadataRoute.Sitemap = allPosts.map((post) => ({
+    url: `${BASE_URL}/blog/${post.slug}`,
+    lastModified: now,
+    changeFrequency: "weekly" as const,
+    priority: 0.6,
+  }));
+
   return [
     ...staticPages,
     ...featurePages,
-    ...locationPages,
+    ...cityPages,
     ...comparePages,
-    ...useCasePages,
+    ...solutionsPages,
+    ...blogPages,
   ];
 }

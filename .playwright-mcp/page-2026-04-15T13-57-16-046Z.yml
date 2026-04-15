@@ -1,0 +1,129 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e7]: GF
+        - generic [ref=e8]: GymFlow
+      - navigation [ref=e9]:
+        - link "Dashboard" [ref=e10] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e12]
+          - text: Dashboard
+        - link "Clients" [ref=e17] [cursor=pointer]:
+          - /url: /dashboard/members
+          - img [ref=e19]
+          - text: Clients
+        - link "Guest Passes" [ref=e24] [cursor=pointer]:
+          - /url: /dashboard/guest-passes
+          - img [ref=e26]
+          - text: Guest Passes
+        - link "PT & Staff" [ref=e28] [cursor=pointer]:
+          - /url: /dashboard/pt
+          - img [ref=e30]
+          - text: PT & Staff
+        - link "Subscriptions" [ref=e31] [cursor=pointer]:
+          - /url: /dashboard/subscriptions
+          - img [ref=e33]
+          - text: Subscriptions
+        - link "Reports" [ref=e35] [cursor=pointer]:
+          - /url: /dashboard/reports
+          - img [ref=e37]
+          - text: Reports
+        - link "Income" [ref=e38] [cursor=pointer]:
+          - /url: /dashboard/income
+          - img [ref=e40]
+          - text: Income
+        - link "WhatsApp System" [ref=e42] [cursor=pointer]:
+          - /url: /dashboard/whatsapp
+          - img [ref=e44]
+          - text: WhatsApp System
+        - link "Notifications" [ref=e50] [cursor=pointer]:
+          - /url: /dashboard/notifications
+          - img [ref=e52]
+          - text: Notifications
+        - link "Settings" [ref=e55] [cursor=pointer]:
+          - /url: /dashboard/settings
+          - img [ref=e57]
+          - text: Settings
+        - link "Profile" [ref=e60] [cursor=pointer]:
+          - /url: /dashboard/profile
+          - img [ref=e62]
+          - text: Profile
+    - generic [ref=e65]:
+      - banner [ref=e66]:
+        - generic [ref=e67]:
+          - button "Notifications" [ref=e68] [cursor=pointer]:
+            - img
+          - link "G" [ref=e69] [cursor=pointer]:
+            - /url: /dashboard/profile
+            - generic [ref=e70]: G
+      - main [ref=e71]:
+        - generic [ref=e72]:
+          - generic [ref=e73]:
+            - heading "Move Your Gym Into GymFlow" [level=1] [ref=e75]
+            - paragraph [ref=e76]: Choose your migration path, upload a spreadsheet, review exactly what will be created, then finish a controlled go-live checklist.
+          - navigation "Setup progress" [ref=e77]:
+            - list [ref=e78]:
+              - 'listitem "Step 1 of 6: Source — completed" [ref=e79]':
+                - generic [ref=e80]:
+                  - img [ref=e83]
+                  - paragraph [ref=e87]: Source
+              - 'listitem "Step 2 of 6: Upload — current" [ref=e88]':
+                - generic [ref=e89]:
+                  - generic [ref=e92]: "2"
+                  - paragraph [ref=e94]: Upload
+              - 'listitem "Step 3 of 6: Match Columns" [ref=e95]':
+                - generic [ref=e96]:
+                  - generic [ref=e99]: "3"
+                  - paragraph [ref=e101]: Match Columns
+              - 'listitem "Step 4 of 6: Preview" [ref=e102]':
+                - generic [ref=e103]:
+                  - generic [ref=e106]: "4"
+                  - paragraph [ref=e108]: Preview
+              - 'listitem "Step 5 of 6: Import" [ref=e109]':
+                - generic [ref=e110]:
+                  - generic [ref=e113]: "5"
+                  - paragraph [ref=e115]: Import
+              - 'listitem "Step 6 of 6: Go Live" [ref=e116]':
+                - generic [ref=e117]:
+                  - generic [ref=e120]: "6"
+                  - paragraph [ref=e121]: Go Live
+          - generic [ref=e122]:
+            - generic [ref=e123]:
+              - generic [ref=e124]: Choose how you want to start
+              - generic [ref=e125]: Spreadsheet import is the supported v1 migration path. Desktop backup import stays in Settings because it replaces branch data.
+            - generic [ref=e126]:
+              - button "Import from spreadsheet Bring in members and one active subscription per row from CSV or XLSX. Active" [pressed] [ref=e127] [cursor=pointer]:
+                - generic [ref=e128]:
+                  - generic [ref=e129]:
+                    - img [ref=e130]
+                    - paragraph [ref=e133]: Import from spreadsheet
+                    - paragraph [ref=e134]: Bring in members and one active subscription per row from CSV or XLSX.
+                  - generic [ref=e135]: Active
+              - button "Move from GymFlow desktop backup Use the existing desktop backup import flow in Settings for full archive migration." [ref=e136] [cursor=pointer]:
+                - generic [ref=e138]:
+                  - img [ref=e139]
+                  - paragraph [ref=e142]: Move from GymFlow desktop backup
+                  - paragraph [ref=e143]: Use the existing desktop backup import flow in Settings for full archive migration.
+              - button "Start fresh Skip import and add your first members manually." [ref=e144] [cursor=pointer]:
+                - generic [ref=e146]:
+                  - img [ref=e147]
+                  - paragraph [ref=e152]: Start fresh
+                  - paragraph [ref=e153]: Skip import and add your first members manually.
+          - generic [ref=e154]:
+            - generic [ref=e155]:
+              - generic [ref=e156]: Upload spreadsheet
+              - generic [ref=e157]: "Supported files: CSV and XLSX. Imported legacy members are marked safely so onboarding automations do not fire on them."
+            - generic [ref=e158]:
+              - generic [ref=e159]:
+                - paragraph [ref=e160]: Use the template if your current list is messy. GymFlow will map the columns you provide and flag bad rows before anything is created.
+                - button "Download template" [ref=e161] [cursor=pointer]:
+                  - img
+                  - text: Download template
+              - paragraph [ref=e162]: Your existing members are safe — we'll only add what's new in your file.
+              - generic [ref=e163]:
+                - button "Choose File" [ref=e164]
+                - button "Upload" [disabled]:
+                  - img
+                  - text: Upload

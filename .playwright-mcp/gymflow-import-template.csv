@@ -1,0 +1,2 @@
+member_name,phone,gender,joined_at,date_of_birth,card_code,subscription_start,subscription_end,plan_months,sessions_per_month,amount_paid,notes
+Ahmed Ali,+201001234567,male,2026-04-01,1996-08-12,A-1001,2026-04-01,2026-05-01,1,12,500,Imported from previous spreadsheet

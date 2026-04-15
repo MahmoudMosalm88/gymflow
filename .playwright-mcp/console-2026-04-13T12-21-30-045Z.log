@@ -1,0 +1,117 @@
+[     275ms] [LOG] [Fast Refresh] done in 334ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[     294ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[     564ms] [LOG] [Fast Refresh] done in 271ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[     886ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[  896511ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  896794ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  896803ms] [LOG] [Fast Refresh] done in 10ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[  897015ms] [LOG] [Fast Refresh] done in 221ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[  897139ms] [INFO] Banner not shown: beforeinstallpromptevent.preventDefault() called. The page must call beforeinstallpromptevent.prompt() to show the banner. @ http://127.0.0.1:3000/dashboard/onboarding:0
+[ 1011646ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 1012327ms] [LOG] [Fast Refresh] done in 680ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 1017293ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 1017944ms] [LOG] [Fast Refresh] done in 650ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 1024026ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 1024162ms] [LOG] [Fast Refresh] done in 135ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 1054179ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 1054817ms] [LOG] [Fast Refresh] done in 638ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 1055219ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications/unread-count:0
+[ 1055220ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications?limit=5&status=all:0
+[ 1055224ms] Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+[ 1055283ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[ 1055498ms] [LOG] [Fast Refresh] done in 214ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[ 1055519ms] [ERROR] Refused to apply style from 'http://127.0.0.1:3000/_next/static/css/app/layout.css?v=1776083945292' because its MIME type ('text/html') is not a supported stylesheet MIME type, and strict MIME checking is enabled. @ http://127.0.0.1:3000/dashboard/onboarding:0
+[ 1055535ms] [ERROR] Refused to apply style from 'http://127.0.0.1:3000/_next/static/css/app/layout.css?v=1776083945292' because its MIME type ('text/html') is not a supported stylesheet MIME type, and strict MIME checking is enabled. @ http://127.0.0.1:3000/dashboard/onboarding:0
+[ 1055551ms] Event
+[ 1084175ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications/unread-count:0
+[ 1084176ms] Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+[ 1084179ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications?limit=5&status=all:0
+[ 1114174ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications/unread-count:0
+[ 1114174ms] Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+[ 1114177ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications?limit=5&status=all:0
+[ 1144185ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications/unread-count:0
+[ 1144185ms] Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+[ 1144188ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications?limit=5&status=all:0
+[ 1174179ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications/unread-count:0
+[ 1174179ms] Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+[ 1174183ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications?limit=5&status=all:0
+[ 1204177ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications/unread-count:0
+[ 1204177ms] Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+[ 1204180ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications?limit=5&status=all:0
+[ 1234177ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications/unread-count:0
+[ 1234177ms] Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+[ 1234181ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications?limit=5&status=all:0
+[ 1264177ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications/unread-count:0
+[ 1264178ms] Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+[ 1264180ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications?limit=5&status=all:0
+[ 1294175ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications/unread-count:0
+[ 1294175ms] Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+[ 1294178ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications?limit=5&status=all:0
+[ 1324181ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications/unread-count:0
+[ 1324181ms] Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+[ 1324185ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications?limit=5&status=all:0
+[ 1354181ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications/unread-count:0
+[ 1354182ms] Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+[ 1354185ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications?limit=5&status=all:0
+[ 1384177ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications/unread-count:0
+[ 1384177ms] Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+[ 1384181ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications?limit=5&status=all:0
+[ 1414177ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications/unread-count:0
+[ 1414177ms] Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+[ 1414181ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3000/api/notifications?limit=5&status=all:0
+[ 1430716ms] [ERROR] Refused to apply style from 'http://127.0.0.1:3000/_next/static/css/app/layout.css?v=1776084320706' because its MIME type ('text/html') is not a supported stylesheet MIME type, and strict MIME checking is enabled. @ http://127.0.0.1:3000/dashboard/onboarding:0
+[ 1430726ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/main-app.js?v=1776084320706:0
+[ 1430726ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/main-app.js?v=1776084320706' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/dashboard/onboarding:0
+[ 1430726ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app-pages-internals.js:0
+[ 1430726ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app-pages-internals.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/dashboard/onboarding:0
+[ 1430727ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app/dashboard/layout.js:0
+[ 1430727ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app/dashboard/layout.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/dashboard/onboarding:0
+[ 1430727ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app/dashboard/onboarding/page.js:0
+[ 1430727ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app/dashboard/onboarding/page.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/dashboard/onboarding:0
+[ 1430728ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app/layout.js:0
+[ 1430728ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app/layout.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/dashboard/onboarding:0
+[ 1430740ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app/not-found.js:0
+[ 1430740ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app/not-found.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/dashboard/onboarding:0
+[ 1430740ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app/error.js:0
+[ 1430740ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app/error.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/dashboard/onboarding:0
+[ 1432035ms] [ERROR] Refused to apply style from 'http://127.0.0.1:3000/_next/static/css/app/layout.css?v=1776084322036' because its MIME type ('text/html') is not a supported stylesheet MIME type, and strict MIME checking is enabled. @ http://127.0.0.1:3000/dashboard:0
+[ 1432042ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app-pages-internals.js:0
+[ 1432042ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app-pages-internals.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/dashboard:0
+[ 1432042ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/main-app.js?v=1776084322036:0
+[ 1432042ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/main-app.js?v=1776084322036' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/dashboard:0
+[ 1432042ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app/dashboard/layout.js:0
+[ 1432042ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app/dashboard/layout.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/dashboard:0
+[ 1432043ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app/layout.js:0
+[ 1432043ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app/layout.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/dashboard:0
+[ 1432043ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app/dashboard/page.js:0
+[ 1432043ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app/dashboard/page.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/dashboard:0
+[ 1432057ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app/error.js:0
+[ 1432058ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app/error.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/dashboard:0
+[ 1432058ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app/not-found.js:0
+[ 1432058ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app/not-found.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/dashboard:0
+[ 1432350ms] [ERROR] Refused to apply style from 'http://127.0.0.1:3000/_next/static/css/app/layout.css?v=1776084322345' because its MIME type ('text/html') is not a supported stylesheet MIME type, and strict MIME checking is enabled. @ http://127.0.0.1:3000/login:0
+[ 1432361ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app-pages-internals.js:0
+[ 1432361ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app-pages-internals.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/login:0
+[ 1432361ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/main-app.js?v=1776084322345:0
+[ 1432361ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/main-app.js?v=1776084322345' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/login:0
+[ 1432361ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app/(auth)/login/page.js:0
+[ 1432361ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app/(auth)/login/page.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/login:0
+[ 1432361ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app/layout.js:0
+[ 1432361ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app/layout.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/login:0
+[ 1432361ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app/error.js:0
+[ 1432361ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app/error.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/login:0
+[ 1432368ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:3000/_next/static/chunks/app/not-found.js:0
+[ 1432368ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3000/_next/static/chunks/app/not-found.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3000/login:0
+[ 1444649ms] [ERROR] Refused to apply style from 'http://localhost:3000/_next/static/css/app/layout.css?v=1776084334562' because its MIME type ('text/html') is not a supported stylesheet MIME type, and strict MIME checking is enabled. @ http://localhost:3000/:0
+[ 1444705ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/_next/static/chunks/main-app.js?v=1776084334562:0
+[ 1444705ms] [ERROR] Refused to execute script from 'http://localhost:3000/_next/static/chunks/main-app.js?v=1776084334562' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://localhost:3000/:35
+[ 1444705ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/_next/static/chunks/app-pages-internals.js:0
+[ 1444706ms] [ERROR] Refused to execute script from 'http://localhost:3000/_next/static/chunks/app-pages-internals.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://localhost:3000/:35
+[ 1444706ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/_next/static/chunks/app/layout.js:0
+[ 1444706ms] [ERROR] Refused to execute script from 'http://localhost:3000/_next/static/chunks/app/layout.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://localhost:3000/:35
+[ 1444706ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/_next/static/chunks/app/error.js:0
+[ 1444706ms] [ERROR] Refused to execute script from 'http://localhost:3000/_next/static/chunks/app/error.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://localhost:3000/:35
+[ 1444819ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/_next/static/chunks/app/not-found.js:0
+[ 1444819ms] [ERROR] Refused to execute script from 'http://localhost:3000/_next/static/chunks/app/not-found.js' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ http://localhost:3000/:0
+[ 1447994ms] [WARNING] The resource http://localhost:3000/_next/static/media/e4af272ccee01ff0-s.p.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0
+[ 4072934ms] [WARNING] The resource http://localhost:3000/_next/static/media/e4af272ccee01ff0-s.p.woff2 was preloaded using link preload but not used within a few seconds from the window's load event. Please make sure it has an appropriate `as` value and it is preloaded intentionally. @ http://localhost:3000/:0

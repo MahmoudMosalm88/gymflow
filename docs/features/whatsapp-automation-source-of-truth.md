@@ -491,6 +491,8 @@ These must be owner-controlled with explicit toggles:
 Weekly digest is the one owner-facing exception:
 - blocked today
 - always on after release when WhatsApp is connected
+- no owner toggle
+- release is controlled by GymFlow at the worker/runtime layer, not per-branch settings
 
 ---
 

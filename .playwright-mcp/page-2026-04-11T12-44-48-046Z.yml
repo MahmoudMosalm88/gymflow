@@ -1,0 +1,205 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e3]:
+    - banner:
+      - generic [ref=e6]:
+        - text: menu
+        - link "Firebase" [ref=e8] [cursor=pointer]:
+          - /url: /
+          - img "Firebase" [ref=e10]
+        - generic [ref=e11]:
+          - navigation "Upper tabs" [ref=e14]:
+            - generic [ref=e15]:
+              - link "Build" [ref=e16] [cursor=pointer]:
+                - /url: https://firebase.google.com/products-build?authuser=0
+              - button "Dropdown menu for Build" [ref=e17] [cursor=pointer]: arrow_drop_down
+            - generic [ref=e18]:
+              - link "Run" [ref=e19] [cursor=pointer]:
+                - /url: https://firebase.google.com/products-run?authuser=0
+              - button "Dropdown menu for Run" [ref=e20] [cursor=pointer]: arrow_drop_down
+            - link "Solutions" [ref=e22] [cursor=pointer]:
+              - /url: https://firebase.google.com/solutions?authuser=0
+            - link "Pricing" [ref=e24] [cursor=pointer]:
+              - /url: https://firebase.google.com/pricing?authuser=0
+            - generic [ref=e25]:
+              - link "Docs" [ref=e26] [cursor=pointer]:
+                - /url: https://firebase.google.com/docs?authuser=0
+              - button "Dropdown menu for Docs" [ref=e27] [cursor=pointer]: arrow_drop_down
+            - generic [ref=e28]:
+              - link "Community" [ref=e29] [cursor=pointer]:
+                - /url: https://firebase.google.com/community?authuser=0
+              - button "Dropdown menu for Community" [ref=e30] [cursor=pointer]: arrow_drop_down
+            - link "Support" [ref=e32] [cursor=pointer]:
+              - /url: https://firebase.google.com/support?authuser=0
+            - text: arrow_drop_down
+          - generic [ref=e36]:
+            - combobox "Search" [ref=e37]
+            - img [ref=e39]
+            - generic [ref=e42]: /
+        - generic [ref=e43]:
+          - 'button "Appearance: Light theme" [ref=e245] [cursor=pointer]': light_mode
+          - text: light_mode dark_mode brightness_medium
+        - generic "Select your language preference." [ref=e45]:
+          - button "Language" [ref=e46] [cursor=pointer]:
+            - img
+            - generic [ref=e47]: Language
+            - img
+        - link "Blog" [ref=e48] [cursor=pointer]:
+          - /url: //firebase.blog
+        - link "Go to console" [ref=e49] [cursor=pointer]:
+          - /url: //console.firebase.google.com?authuser=0
+        - generic [ref=e51]:
+          - button "Open Google Developer Program dropdown" [ref=e248] [cursor=pointer]:
+            - img [ref=e249]
+          - 'button "Google Account: Mahmoud Mosalm (mahmoud88mesalm@gmail.com)" [ref=e57] [cursor=pointer]':
+            - img [ref=e59]
+    - text: filter_list close close arrow_forward arrow_forward arrow_forward arrow_forward arrow_forward chevron_left
+    - generic [ref=e60]:
+      - main [ref=e61]:
+        - generic [ref=e62]:
+          - generic:
+            - navigation "On this page"
+        - article [ref=e64]:
+          - button "Send feedback" [ref=e66] [cursor=pointer]
+          - heading "Contact Support" [level=1] [ref=e67]:
+            - text: Contact Support
+            - listbox "Bookmark collections drop down" [ref=e71] [cursor=pointer]:
+              - button "Open dropdown" [ref=e72]:
+                - generic:
+                  - generic [ref=e73]: bookmark_border
+                  - text: bookmark
+                - text: arrow_drop_down
+          - generic [ref=e75]:
+            - text: warning arrow_drop_down radio_button_unchecked radio_button_unchecked radio_button_checked radio_button_unchecked radio_button_unchecked
+            - generic [ref=e270]:
+              - paragraph
+              - 'heading "Request Sent Copy link to this section: Request Sent" [level=2] [ref=e271]':
+                - heading "Request Sent" [level=2] [ref=e272]
+                - 'button "Copy link to this section: Request Sent" [ref=e273] [cursor=pointer]': link
+              - generic [ref=e274]:
+                - paragraph [ref=e275]:
+                  - text: Thanks for reaching out! Your request has been submitted and we'll reach out to you soon.
+                  - text: We’ll usually respond within 2 business days (Monday-Friday, 9am-5pm Pacific Time), but we might get delayed if there are a high number of requests.
+                  - text: For Firebase outages, look for updates on the
+                  - link "status dashboard" [ref=e276] [cursor=pointer]:
+                    - /url: https://status.firebase.google.com/?authuser=0
+                  - text: . If an outage isn't yet listed, we’ll respond within 4 hours.
+                - paragraph [ref=e277]: We'll be in touch soon!
+              - paragraph
+      - navigation "Footer links" [ref=e165]:
+        - list [ref=e166]:
+          - listitem [ref=e167]:
+            - heading "Learn" [level=3] [ref=e168]
+            - list [ref=e169]:
+              - listitem [ref=e170]:
+                - link "Developer guides" [ref=e171] [cursor=pointer]:
+                  - /url: /docs/
+              - listitem [ref=e172]:
+                - link "SDK & API reference" [ref=e173] [cursor=pointer]:
+                  - /url: /docs/reference/
+              - listitem [ref=e174]:
+                - link "Samples" [ref=e175] [cursor=pointer]:
+                  - /url: /docs/samples/
+              - listitem [ref=e176]:
+                - link "Libraries" [ref=e177] [cursor=pointer]:
+                  - /url: /docs/libraries/
+              - listitem [ref=e178]:
+                - link "GitHub" [ref=e179] [cursor=pointer]:
+                  - /url: //github.com/firebase/
+          - listitem [ref=e180]:
+            - heading "Stay connected" [level=3] [ref=e181]
+            - list [ref=e182]:
+              - listitem [ref=e183]:
+                - link "Check out the blog" [ref=e184] [cursor=pointer]:
+                  - /url: //firebase.blog
+              - listitem [ref=e185]:
+                - link "Find us on Reddit" [ref=e186] [cursor=pointer]:
+                  - /url: //www.reddit.com/r/Firebase
+              - listitem [ref=e187]:
+                - link "Follow on X" [ref=e188] [cursor=pointer]:
+                  - /url: //x.com/Firebase
+              - listitem [ref=e189]:
+                - link "Subscribe on YouTube" [ref=e190] [cursor=pointer]:
+                  - /url: //www.youtube.com/user/Firebase
+              - listitem [ref=e191]:
+                - link "Attend an event" [ref=e192] [cursor=pointer]:
+                  - /url: /community/events
+          - listitem [ref=e193]:
+            - heading "Support" [level=3] [ref=e194]
+            - list [ref=e195]:
+              - listitem [ref=e196]:
+                - link "Contact support" [ref=e197] [cursor=pointer]:
+                  - /url: /support/
+              - listitem [ref=e198]:
+                - link "Stack Overflow" [ref=e199] [cursor=pointer]:
+                  - /url: //stackoverflow.com/questions/tagged/firebase
+              - listitem [ref=e200]:
+                - link "Google group" [ref=e201] [cursor=pointer]:
+                  - /url: //groups.google.com/forum/#!forum/firebase-talk
+              - listitem [ref=e202]:
+                - link "Release notes" [ref=e203] [cursor=pointer]:
+                  - /url: /support/releases
+              - listitem [ref=e204]:
+                - link "Brand guidelines" [ref=e205] [cursor=pointer]:
+                  - /url: /brand-guidelines/
+              - listitem [ref=e206]:
+                - link "FAQs" [ref=e207] [cursor=pointer]:
+                  - /url: /support/faq/
+      - generic [ref=e209]:
+        - navigation "Other Google Developers websites" [ref=e210]:
+          - link "Google Developers" [ref=e211] [cursor=pointer]:
+            - /url: https://developers.google.com/?authuser=0
+            - img "Google Developers" [ref=e213]
+          - list [ref=e214]:
+            - listitem [ref=e215]:
+              - link "Android" [ref=e216] [cursor=pointer]:
+                - /url: //developer.android.com?authuser=0
+            - listitem [ref=e217]:
+              - link "Chrome" [ref=e218] [cursor=pointer]:
+                - /url: //developer.chrome.com/home?authuser=0
+            - listitem [ref=e219]:
+              - link "Firebase" [ref=e220] [cursor=pointer]:
+                - /url: //firebase.google.com?authuser=0
+            - listitem [ref=e221]:
+              - link "Google Cloud Platform" [ref=e222] [cursor=pointer]:
+                - /url: //cloud.google.com?authuser=0
+            - listitem [ref=e223]:
+              - link "All products" [ref=e224] [cursor=pointer]:
+                - /url: //developers.google.com/products/?authuser=0
+        - navigation "Utility links" [ref=e225]:
+          - list [ref=e226]:
+            - listitem [ref=e227]:
+              - link "Terms" [ref=e228] [cursor=pointer]:
+                - /url: https://firebase.google.com/terms/?authuser=0
+            - listitem [ref=e229]:
+              - text: "|"
+              - link "Privacy" [ref=e230] [cursor=pointer]:
+                - /url: //policies.google.com/privacy?authuser=0
+            - text: "|"
+          - generic "Select your language preference." [ref=e231]:
+            - button "Language" [ref=e232] [cursor=pointer]:
+              - img
+              - generic [ref=e233]: Language
+              - img
+      - generic [ref=e235]:
+        - toolbar "Side panel menu" [ref=e236]:
+          - button "Chat" [ref=e237] [cursor=pointer]:
+            - img [ref=e239]
+            - generic [ref=e242]: Chat
+        - generic [ref=e251]:
+          - generic [ref=e253]:
+            - heading "Ask about this page" [level=2] [ref=e254]
+            - generic [ref=e255]:
+              - button "Send feedback" [ref=e257] [cursor=pointer]: bug_report
+              - button "Fullscreen" [ref=e258] [cursor=pointer]: fullscreen
+              - button "Close" [ref=e259] [cursor=pointer]: close
+          - generic [ref=e261]:
+            - generic [ref=e262]:
+              - generic [ref=e263]:
+                - heading "Chat" [level=2] [ref=e264]
+                - heading "BETA" [level=3] [ref=e265]
+              - button "Reset chat" [disabled]: restart_alt
+            - generic [ref=e267]:
+              - paragraph [ref=e268]: A Google Developer Program account is required to access this feature.
+              - button "Create account" [ref=e269] [cursor=pointer]
