@@ -2,6 +2,8 @@ import type { MetadataRoute } from "next";
 import { getAllPosts } from "@/lib/blog/registry";
 import { comparisons } from "@/lib/comparisons-data";
 import { solutions } from "@/lib/solutions-data";
+import { locationPageMap } from "@/lib/locations-data";
+import type { LocationPage } from "@/lib/locations-data";
 
 const BASE_URL = "https://gymflowsystem.com";
 
@@ -32,12 +34,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }));
 
-  const cityPages: MetadataRoute.Sitemap = [
-    "cairo", "alexandria", "riyadh", "jeddah", "dubai",
-    "new-cairo", "sixth-of-october", "dammam", "mecca",
-    "abu-dhabi", "kuwait-city", "doha", "amman", "khobar", "port-said",
-  ].map((city) => ({
-    url: `${BASE_URL}/gym-management-software-${city}`,
+  const cityPages: MetadataRoute.Sitemap = (Object.values(locationPageMap) as LocationPage[]).map((loc) => ({
+    url: `${BASE_URL}/gym-management-software-${loc.slug}`,
     lastModified: now,
     changeFrequency: "monthly" as const,
     priority: 0.8,
