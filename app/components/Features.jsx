@@ -1,4 +1,3 @@
-// app/components/Features.jsx
 export default function Features() {
   return (
     <section id="features" className="bg-background py-16 md:py-24 px-4">
@@ -8,13 +7,11 @@ export default function Features() {
             Why Gym Owners Love GymFlow
           </h2>
           <p className="font-sans text-lg text-muted-foreground max-w-2xl mx-auto">
-            Purpose-built for fitness professionals who demand speed, privacy, and simplicity
+            Purpose-built for fitness teams that need reliable operations, visibility, and growth tools in one place
           </p>
         </div>
 
-        {/* Feature Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Feature Card 1 */}
           <div className="card group">
             <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">
               📊
@@ -27,7 +24,6 @@ export default function Features() {
             </p>
           </div>
 
-          {/* Feature Card 2 */}
           <div className="card group">
             <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">
               👥
@@ -40,7 +36,6 @@ export default function Features() {
             </p>
           </div>
 
-          {/* Feature Card 3 */}
           <div className="card group">
             <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">
               📈
@@ -53,33 +48,30 @@ export default function Features() {
             </p>
           </div>
 
-          {/* Feature Card 4 */}
           <div className="card group">
             <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">
               ⚡
             </div>
             <h3 className="font-sans font-bold text-xl text-foreground mb-3">
-              Lightning Performance
+              Real-Time Operations
             </h3>
             <p className="font-sans text-muted-foreground">
-              Handles 1000+ active members with zero lag. Optimized for peak hours and bulk operations.
+              Keep front-desk check-ins, renewals, and staff workflows moving with a system built for busy gyms.
             </p>
           </div>
 
-          {/* Feature Card 5 */}
           <div className="card group">
             <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">
               🔒
             </div>
             <h3 className="font-sans font-bold text-xl text-foreground mb-3">
-              Privacy-First Design
+              Cloud Access
             </h3>
             <p className="font-sans text-muted-foreground">
-              100% local storage. Zero cloud sync. Your data never leaves your computer. Complete control.
+              Run GymFlow from anywhere with branch-aware access, centralized records, and no desktop install dependency.
             </p>
           </div>
 
-          {/* Feature Card 6 */}
           <div className="card group">
             <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">
               🎨

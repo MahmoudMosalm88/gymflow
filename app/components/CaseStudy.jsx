@@ -1,12 +1,10 @@
-// app/components/CaseStudy.jsx
-import { Check } from 'lucide-react'; // Import Check icon
+import { Check } from 'lucide-react';
 
 export default function CaseStudy() {
   return (
     <section className="bg-background py-16 md:py-24 px-4">
       <div className="max-w-6xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          {/* Left Content */}
           <div>
             <h2 className="font-sans font-bold text-4xl sm:text-5xl text-foreground mb-6">
               Built for Growth
@@ -18,7 +16,7 @@ export default function CaseStudy() {
               <div className="flex gap-4">
                 <div className="flex-shrink-0">
                   <div className="flex items-center justify-center h-12 w-12 rounded-md bg-primary text-primary-foreground">
-                    <Check className="h-6 w-6" /> {/* Use lucide-react Check */}
+                    <Check className="h-6 w-6" />
                   </div>
                 </div>
                 <div>
@@ -29,41 +27,40 @@ export default function CaseStudy() {
               <div className="flex gap-4">
                 <div className="flex-shrink-0">
                   <div className="flex items-center justify-center h-12 w-12 rounded-md bg-primary text-primary-foreground">
-                    <Check className="h-6 w-6" /> {/* Use lucide-react Check */}
+                    <Check className="h-6 w-6" />
                   </div>
                 </div>
                 <div>
                   <h3 className="font-sans font-bold text-foreground">Zero Downtime</h3>
-                  <p className="font-sans text-sm text-muted-foreground mt-1">No cloud dependency means no service outages, ever</p>
+                  <p className="font-sans text-sm text-muted-foreground mt-1">Keep front-desk operations, renewals, and communication aligned across your team</p>
                 </div>
               </div>
               <div className="flex gap-4">
                 <div className="flex-shrink-0">
                   <div className="flex items-center justify-center h-12 w-12 rounded-md bg-primary text-primary-foreground">
-                    <Check className="h-6 w-6" /> {/* Use lucide-react Check */}
+                    <Check className="h-6 w-6" />
                   </div>
                 </div>
                 <div>
                   <h3 className="font-sans font-bold text-foreground">Full Control</h3>
-                  <p className="font-sans text-sm text-muted-foreground mt-1">Own your data completely. Export anytime, never locked in</p>
+                  <p className="font-sans text-sm text-muted-foreground mt-1">Run members, billing, and reporting from one platform instead of disconnected tools</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right Side - Stats */}
           <div className="space-y-6">
             <div className="card">
-              <p className="font-sans font-bold text-4xl text-primary mb-2">+300%</p> {/* Use text-primary */}
+              <p className="font-sans font-bold text-4xl text-primary mb-2">+300%</p>
               <p className="font-sans text-muted-foreground">Average productivity increase in check-in management</p>
             </div>
             <div className="card">
-              <p className="font-sans font-bold text-4xl text-accent mb-2">$0</p> {/* Use text-accent */}
-              <p className="font-sans text-muted-foreground">Annual licensing costs. Free forever, always.</p>
+              <p className="font-sans font-bold text-4xl text-accent mb-2">24/7</p>
+              <p className="font-sans text-muted-foreground">Access for owners and staff from any supported device.</p>
             </div>
             <div className="card">
-              <p className="font-sans font-bold text-4xl text-primary mb-2">2 min</p> {/* Use text-primary */}
-              <p className="font-sans text-muted-foreground">Setup time. Download, install, run. No configuration.</p>
+              <p className="font-sans font-bold text-4xl text-primary mb-2">1 system</p>
+              <p className="font-sans text-muted-foreground">Check-ins, members, subscriptions, and reports in one workflow.</p>
             </div>
           </div>
         </div>

@@ -2,9 +2,8 @@
 
 ## Project Structure & Module Organization
 This repository is a monorepo with three active apps:
-- `src/` + `resources/`: Electron desktop app (React UI + Electron main/preload).
 - `saas-web/`: Next.js 14 SaaS app (App Router, API routes, PostgreSQL/Firebase integrations).
-- `app/`: marketing/landing site assets and pages.
+- `app/`: root marketing/landing site assets and pages.
 
 Supporting folders:
 - `docs/`: project memory, audits, deployment notes.
@@ -14,12 +13,10 @@ Supporting folders:
 ## Build, Test, and Development Commands
 Run commands from the matching app root.
 
-Desktop (repo root):
-- `npm run dev` — start Electron + Vite dev flow.
-- `npm run build` — production desktop build output.
-- `npm run test` / `npm run test:run` — Vitest tests.
-- `npm run lint` — ESLint for `.ts/.tsx`.
-- `npm run typecheck` — TypeScript no-emit check.
+Landing site (repo root):
+- `npm run dev` — run the root Next.js marketing site locally.
+- `npm run build` / `npm run start` — production build/start for the landing site.
+- `npm run lint` — ESLint for `.js/.jsx`.
 
 SaaS (`saas-web/`):
 - `npm run dev` — run Next.js locally.
@@ -38,10 +35,9 @@ Worker (`saas-web/worker/whatsapp-vm/`):
 - Run lint/typecheck before pushing.
 
 ## Testing Guidelines
-- Desktop uses Vitest (`vitest.config.ts`).
-- Test files: `*.test.ts` (or colocated equivalents).
 - Minimum expectation: changed logic should have regression coverage or a reproducible manual test note in PR.
 - For SaaS critical flows (auth/scanner/import), validate locally with `npm run build` + smoke checks.
+- For landing changes, validate with `npm run build` at the repo root.
 
 ## Commit & Pull Request Guidelines
 - Follow Conventional Commit style seen in history: `fix(...)`, `feat(...)`, `docs:`, `chore(...)`.
@@ -57,7 +53,7 @@ Worker (`saas-web/worker/whatsapp-vm/`):
 ## Deployment Workflow
 - Do not run manual production deployments from local terminal.
 - Deployment must happen through the configured CI/CD trigger on push to `main`.
-- Before pushing, confirm build health locally (`saas-web`: `npm run build`, desktop: `npm run typecheck` + tests as needed).
+- Before pushing, confirm build health locally (`saas-web`: `npm run build`, root landing site: `npm run build`).
 - If a live issue is urgent, push the fix first, then verify trigger/build/revision status.
 
 ## Communication Rule
@@ -67,4 +63,4 @@ Worker (`saas-web/worker/whatsapp-vm/`):
 
 ## Security & Configuration Tips
 - Never commit secrets. Use `.env.local` files and cloud secret managers.
-- Treat generated artifacts (`dist/`, packaged binaries) as build outputs unless explicitly required.
+- Treat generated artifacts as build outputs unless explicitly required.

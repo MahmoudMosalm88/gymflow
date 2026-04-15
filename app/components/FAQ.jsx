@@ -1,4 +1,3 @@
-// app/components/FAQ.jsx
 export default function FAQ() {
   return (
     <section className="bg-background py-16 md:py-24 px-4">
@@ -10,37 +9,33 @@ export default function FAQ() {
         </div>
 
         <div className="space-y-4">
-          {/* FAQ 1 */}
           <div className="card">
             <h3 className="font-sans font-bold text-lg text-foreground mb-3">
-              Is GymFlow really free forever?
+              Does GymFlow require a desktop installation?
             </h3>
             <p className="font-sans text-muted-foreground">
-              Yes. GymFlow is completely free, forever. No hidden fees, no premium tiers, no credit card required. We believe gym management software should be accessible to everyone.
+              No. GymFlow is now a cloud-based product, so your team can access the system from the web without maintaining a desktop runtime.
             </p>
           </div>
 
-          {/* FAQ 2 */}
           <div className="card">
             <h3 className="font-sans font-bold text-lg text-foreground mb-3">
               Where is my data stored?
             </h3>
             <p className="font-sans text-muted-foreground">
-              Your data stays 100% on your computer in local storage. We never access, store, or transmit your data to the cloud. You have complete control and privacy.
+              GymFlow stores your operational data in the cloud so authorized staff can access current member, billing, and attendance information from any supported device.
             </p>
           </div>
 
-          {/* FAQ 3 */}
           <div className="card">
             <h3 className="font-sans font-bold text-lg text-foreground mb-3">
               How many members can I manage?
             </h3>
             <p className="font-sans text-muted-foreground">
-              GymFlow handles unlimited members. It's optimized for performance even with 10,000+ members and 50+ daily check-ins per member.
+              GymFlow handles unlimited members. It&apos;s optimized for performance even with 10,000+ members and 50+ daily check-ins per member.
             </p>
           </div>
 
-          {/* FAQ 4 */}
           <div className="card">
             <h3 className="font-sans font-bold text-lg text-foreground mb-3">
               Can I export my data?
@@ -50,23 +45,21 @@ export default function FAQ() {
             </p>
           </div>
 
-          {/* FAQ 5 */}
           <div className="card">
             <h3 className="font-sans font-bold text-lg text-foreground mb-3">
-              Is GymFlow open source?
+              Can I migrate from an older GymFlow desktop backup?
             </h3>
             <p className="font-sans text-muted-foreground">
-              Yes. GymFlow is open source. Inspect the code, contribute improvements, or self-host. Full transparency, full control.
+              Yes. The SaaS product still includes migration tooling for importing historical GymFlow desktop data into the current platform.
             </p>
           </div>
 
-          {/* FAQ 6 */}
           <div className="card">
             <h3 className="font-sans font-bold text-lg text-foreground mb-3">
               What about updates and support?
             </h3>
             <p className="font-sans text-muted-foreground">
-              We release regular updates with new features and improvements. Community support is available, and we're building a comprehensive help center.
+              We release regular updates with new features and improvements. Community support is available, and we&apos;re building a comprehensive help center.
             </p>
           </div>
         </div>

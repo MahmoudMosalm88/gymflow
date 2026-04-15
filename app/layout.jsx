@@ -1,37 +1,33 @@
 import './globals.css'
-import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic } from 'next/font/google' // Import both fonts
+import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic } from 'next/font/google'
 
 import { ThemeProvider } from './components/theme-provider'
 import { LanguageProvider } from './components/language-provider'
 
-// Define IBM Plex Sans (Latin)
 const ibmPlexSans = IBM_Plex_Sans({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700'], // Common weights for UI
-  variable: '--font-sans', // Use CSS variable for Tailwind
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-sans',
   display: 'swap',
 })
 
-// Define IBM Plex Sans Arabic (Arabic)
 const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
   subsets: ['arabic'],
-  weight: ['300', '400', '500', '600', '700'], // Common weights for UI
-  variable: '--font-arabic', // Use CSS variable for Tailwind
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-arabic',
   display: 'swap',
 })
 
 export const metadata = {
-  title: 'GymFlow - Gym Attendance Made Simple',
-  description: 'Free desktop app for gym owners',
+  title: 'GymFlow - Gym Management for Modern Fitness Teams',
+  description: 'Cloud-based gym management software with check-ins, billing, reports, and WhatsApp automation.',
 }
 
 export default function RootLayout({ children }) {
   return (
     <html
-      // lang="en" // LanguageProvider will manage this
-      // dir="ltr" // LanguageProvider will manage this
       className={`${ibmPlexSans.variable} ${ibmPlexSansArabic.variable}`}
-      suppressHydrationWarning // Recommended for next-themes
+      suppressHydrationWarning
     >
       <body>
         <ThemeProvider

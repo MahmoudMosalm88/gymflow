@@ -1,8 +1,6 @@
-// app/components/CTA.jsx
-import { Download } from 'lucide-react'; // Import Download icon
-import { cn } from '../lib/utils'; // Assuming cn utility is available in root lib
+import { ArrowRight } from 'lucide-react';
 
-export default function CTA({ downloads }) {
+export default function CTA({ primaryCta, secondaryCta }) {
   return (
     <section className="bg-gradient-primary-br text-primary-foreground py-20 md:py-32 px-4">
       <div className="max-w-4xl mx-auto text-center">
@@ -10,26 +8,25 @@ export default function CTA({ downloads }) {
           Ready to Transform Your Gym Management?
         </h2>
         <p className="font-sans text-xl text-primary-foreground/90 mb-12 max-w-2xl mx-auto leading-relaxed">
-          Join thousands of gym owners using GymFlow. Download today—it's free, forever. No signup required. Your data is always yours.
+          Run your gym from one cloud platform built for check-ins, subscriptions, reporting, and member communication.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <a
-            href={downloads.mac}
+            href={primaryCta.href}
             className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-sans font-bold py-4 px-8 rounded-lg transition duration-200 shadow-lg hover:shadow-xl inline-flex items-center justify-center gap-2 text-lg"
           >
-            <Download className={cn("w-6 h-6", { "scale-x-[-1]": document.documentElement.dir === 'rtl' })} />
-            Download for Mac
+            {primaryCta.label}
+            <ArrowRight className="w-6 h-6" />
           </a>
           <a
-            href={downloads.win}
-            className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-sans font-bold py-4 px-8 rounded-lg transition duration-200 shadow-lg hover:shadow-xl inline-flex items-center justify-center gap-2 text-lg"
+            href={secondaryCta.href}
+            className="border border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/10 font-sans font-bold py-4 px-8 rounded-lg transition duration-200 inline-flex items-center justify-center gap-2 text-lg"
           >
-            <Download className={cn("w-6 h-6", { "scale-x-[-1]": document.documentElement.dir === 'rtl' })} />
-            Download for Windows
+            {secondaryCta.label}
           </a>
         </div>
         <p className="font-sans text-primary-foreground/80 text-sm mt-8">
-          ✓ Free forever • ✓ No signup • ✓ Open source • ✓ Your data stays private
+          ✓ Cloud-based • ✓ Multi-branch ready • ✓ Member and billing workflows in one place
         </p>
       </div>
     </section>

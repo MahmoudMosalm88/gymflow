@@ -3,7 +3,7 @@ const react = require("eslint-plugin-react");
 
 module.exports = [
   {
-    ignores: [".backups/**", "dist/**", "out/**", "node_modules/**"],
+    ignores: [".backups/**", ".next/**", "dist/**", "out/**", "node_modules/**", "saas-web/**"],
   },
   {
     settings: {

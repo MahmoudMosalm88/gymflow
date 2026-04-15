@@ -1,12 +1,11 @@
 import Link from 'next/link';
-import { Github, Twitter } from 'lucide-react'; // Import Lucide icons
+import { Github, Twitter } from 'lucide-react';
 
 export default function Footer() {
   return (
     <footer className="bg-background border-t border-border py-16 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
-          {/* Brand Column */}
           <div>
             <Link href="/" className="flex items-center gap-2 mb-4">
               <div className="inline-flex items-center justify-center w-8 h-8 bg-gradient-primary rounded-lg">
@@ -17,11 +16,10 @@ export default function Footer() {
               </span>
             </Link>
             <p className="font-sans text-muted-foreground text-sm">
-              The free, open-source desktop app for gym owners. Manage members, track attendance, and grow your fitness business.
+              Cloud-based gym management software for attendance, memberships, subscriptions, reports, and WhatsApp workflows.
             </p>
           </div>
 
-          {/* Product Column */}
           <div>
             <h3 className="font-sans font-bold text-foreground mb-4">
               Product
@@ -38,14 +36,13 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="#download" className="font-sans text-muted-foreground hover:text-primary text-sm transition-colors">
-                  Downloads
+                <Link href="#get-started" className="font-sans text-muted-foreground hover:text-primary text-sm transition-colors">
+                  Get Started
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Community Column */}
           <div>
             <h3 className="font-sans font-bold text-foreground mb-4">
               Community
@@ -53,7 +50,7 @@ export default function Footer() {
             <ul className="space-y-2">
               <li>
                 <a href="https://github.com/MahmoudMosalm88/gymflow" target="_blank" rel="noopener noreferrer" className="font-sans text-muted-foreground hover:text-primary text-sm transition-colors">
-                  <Github className="inline-block h-4 w-4 mr-1" /> {/* Lucide Icon */}
+                  <Github className="inline-block h-4 w-4 mr-1" />
                   GitHub
                 </a>
               </li>
@@ -70,7 +67,6 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Legal Column */}
           <div>
             <h3 className="font-sans font-bold text-foreground mb-4">
               Legal
@@ -95,17 +91,16 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Footer Bottom */}
         <div className="border-t border-border dark:border-slate-800 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="font-sans text-muted-foreground text-sm">
             © 2026 GymFlow. Open source, MIT licensed. Made for fitness professionals.
           </p>
           <div className="flex gap-6">
             <a href="https://github.com/MahmoudMosalm88/gymflow" target="_blank" rel="noopener noreferrer" title="GitHub" className="text-muted-foreground hover:text-primary transition-colors">
-              <Github className="w-5 h-5" /> {/* Lucide Icon */}
+            <Github className="w-5 h-5" />
             </a>
             <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" title="Twitter/X" className="text-muted-foreground hover:text-primary transition-colors">
-              <Twitter className="w-5 h-5" /> {/* Lucide Icon */}
+            <Twitter className="w-5 h-5" />
             </a>
           </div>
         </div>
