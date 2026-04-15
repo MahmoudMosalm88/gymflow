@@ -28,7 +28,6 @@ import {
   getAutomationWarningLabel,
   getTemplateKey,
   parseBooleanSetting,
-  getReminderDaysLabel,
   WHATSAPP_AUTOMATION_GROUPS,
   WHATSAPP_AUTOMATIONS,
 } from '@/lib/whatsapp-automation';
@@ -180,6 +179,8 @@ type WhatsAppCampaign = {
 type WhatsAppCampaignsResponse = {
   items: WhatsAppCampaign[];
 };
+
+const REMINDER_OPTIONS = [1, 3, 7];
 
 const DEFAULT_BROADCAST_FILTERS: BroadcastFilters = {
   search: '',
@@ -436,6 +437,7 @@ export default function WhatsAppSystemPage() {
   const [habitBreakEnabled, setHabitBreakEnabled] = useState(false);
   const [streaksEnabled, setStreaksEnabled] = useState(false);
   const [freezeEndingEnabled, setFreezeEndingEnabled] = useState(false);
+  const [reminderDays, setReminderDays] = useState(DEFAULT_REMINDER_DAYS);
   const [postExpiryDay, setPostExpiryDay] = useState<'day0' | 'day3' | 'day7' | 'day14'>('day0');
   const [onboardingStep, setOnboardingStep] = useState<'firstVisit' | 'noReturn7' | 'lowEngagement14'>('firstVisit');
   const [behaviorStep, setBehaviorStep] = useState<'habitBreak' | 'streaks' | 'freezeEnding'>('habitBreak');
@@ -491,6 +493,12 @@ export default function WhatsAppSystemPage() {
   const warningSummary = status?.warningSummary;
   const automationStateMap = new Map((status?.automationStates ?? []).map((item) => [item.id, item]));
   const compatibilityAudit = status?.compatibilityAudit;
+  const selectedReminderDays = new Set(
+    reminderDays
+      .split(',')
+      .map((chunk) => Number.parseInt(chunk.trim(), 10))
+      .filter((value) => Number.isInteger(value))
+  );
   const activeSequenceCounts = sequences.reduce<Record<string, number>>((acc, item) => {
     if (!isActiveSequenceStatus(item.status)) return acc;
     acc[item.automationId] = (acc[item.automationId] || 0) + 1;
@@ -532,6 +540,7 @@ export default function WhatsAppSystemPage() {
         const str = (v: unknown, fallback: string) => (typeof v === 'string' && v.trim() ? v : fallback);
         setWelcomeTemplate(str(d[getTemplateKey('welcome', systemLanguage)] ?? d.whatsapp_template_welcome, defaultWelcomeTemplate));
         setRenewalTemplate(str(d[getTemplateKey('renewal', systemLanguage)] ?? d.whatsapp_template_renewal, defaultRenewalTemplate));
+        setReminderDays(str(d.whatsapp_reminder_days, DEFAULT_REMINDER_DAYS));
         setPostExpiryDay0(str(d[`whatsapp_template_post_expiry_day0_${systemLanguage}`], defaultPostExpiry.day0));
         setPostExpiryDay3(str(d[`whatsapp_template_post_expiry_day3_${systemLanguage}`], defaultPostExpiry.day3));
         setPostExpiryDay7(str(d[`whatsapp_template_post_expiry_day7_${systemLanguage}`], defaultPostExpiry.day7));
@@ -613,6 +622,9 @@ export default function WhatsAppSystemPage() {
     setTemplatesSaving(true);
     setTemplateFeedback(null);
     try {
+      if (selectedReminderDays.size === 0) {
+        throw new Error(lang === 'ar' ? 'يجب اختيار يوم تذكير واحد على الأقل.' : 'Select at least one reminder day.');
+      }
       const values: Record<string, string | boolean> = {
         [getTemplateKey('welcome', systemLanguage)]: welcomeTemplate.trim() || defaultWelcomeTemplate,
         [getTemplateKey('renewal', systemLanguage)]: renewalTemplate.trim() || defaultRenewalTemplate,
@@ -626,7 +638,7 @@ export default function WhatsAppSystemPage() {
           onboardingNoReturn7.trim() || defaultOnboarding.noReturnDay7,
         [`whatsapp_template_onboarding_low_engagement_day14_${systemLanguage}`]:
           onboardingLowEngagement14.trim() || defaultOnboarding.lowEngagementDay14,
-        whatsapp_reminder_days: DEFAULT_REMINDER_DAYS,
+        whatsapp_reminder_days: Array.from(selectedReminderDays).sort((a, b) => b - a).join(','),
         system_language: systemLanguage,
       };
       if (systemLanguage === 'en') {
@@ -641,6 +653,24 @@ export default function WhatsAppSystemPage() {
     } finally {
       setTemplatesSaving(false);
     }
+  };
+
+  const toggleReminderDay = (day: number) => {
+    const next = new Set(selectedReminderDays);
+    if (next.has(day)) {
+      if (next.size === 1) {
+        setTemplateFeedback({
+          type: 'destructive',
+          text: lang === 'ar' ? 'يجب اختيار يوم تذكير واحد على الأقل.' : 'You must keep at least one reminder day selected.',
+        });
+        return;
+      }
+      next.delete(day);
+    } else {
+      next.add(day);
+    }
+    setTemplateFeedback(null);
+    setReminderDays(Array.from(next).sort((a, b) => b - a).join(','));
   };
 
   const handleAutomationToggle = async (
@@ -1067,8 +1097,24 @@ export default function WhatsAppSystemPage() {
                       />
                       <div className="space-y-2">
                         <Label>{labels.reminder_days_label}</Label>
-                        <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
-                          {getReminderDaysLabel(systemLanguage)}
+                        <div className="flex flex-wrap gap-2">
+                          {REMINDER_OPTIONS.map((day) => {
+                            const active = selectedReminderDays.has(day);
+                            return (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => toggleReminderDay(day)}
+                                className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                                  active
+                                    ? 'bg-[#e63946] text-white border-[#e63946]'
+                                    : 'bg-[#1e1e1e] text-[#8a8578] border-[#2a2a2a] hover:text-[#e8e4df] hover:border-[#3a3a3a]'
+                                }`}
+                              >
+                                {lang === 'ar' ? `قبل ${day} يوم` : `${day} day${day === 1 ? '' : 's'} before`}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>

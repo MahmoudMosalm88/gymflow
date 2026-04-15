@@ -54,8 +54,7 @@ export type WhatsAppAutomationDefinition = {
   settingKey?: string;
 };
 
-export const DEFAULT_REMINDER_DAYS = "14,7,3";
-export const LOCKED_RENEWAL_REMINDER_DAYS = [14, 7, 3] as const;
+export const DEFAULT_REMINDER_DAYS = "7,3,1";
 export const WARNING_WINDOW_HOURS = 72;
 export const WARNING_WINDOW_DAYS = 7;
 export const WARNING_MEMBER_MESSAGE_THRESHOLD_SHORT = 3;
@@ -454,15 +453,6 @@ export function isAutomationLocked(id: WhatsAppAutomationId) {
   return definition?.status !== "live";
 }
 
-export function getLockedReminderDays() {
-  return [...LOCKED_RENEWAL_REMINDER_DAYS];
-}
-
-export function getReminderDaysLabel(lang: SystemLanguage) {
-  const days = LOCKED_RENEWAL_REMINDER_DAYS.join(", ");
-  return lang === "ar" ? `ثابتة من GymFlow: ${days}` : `Locked by GymFlow: ${days}`;
-}
-
 export function classifyAutomationSource(type: string, sequenceKind?: string | null): WhatsAppAutomationId | "manual" {
   if (sequenceKind === "post_expiry") return "post_expiry";
   if (sequenceKind?.startsWith("onboarding_")) return "onboarding";
@@ -509,7 +499,7 @@ export function parseReminderDays(value: unknown): number[] {
     .filter((n) => Number.isInteger(n) && n > 0 && n <= 60);
 
   const unique = Array.from(new Set(parsed)).sort((a, b) => b - a);
-  return unique.length > 0 ? unique : [...LOCKED_RENEWAL_REMINDER_DAYS];
+  return unique.length > 0 ? unique : [7, 3, 1];
 }
 
 export function parseBooleanSetting(value: unknown, fallback = true): boolean {
