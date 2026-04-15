@@ -5,6 +5,7 @@ import { fail, ok, routeError } from "@/lib/http";
 import { ensurePaymentsTable, incomeEventsCte } from "@/lib/income-events";
 import { getCairoDayStartUnix } from "@/lib/cairo-time";
 import { toFiniteNumber } from "@/lib/coerce";
+import { toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -1519,14 +1520,39 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           completed_three_visits_14d: number;
           no_return_members: number;
         }>(
-          `WITH recent_members AS (
+          `WITH subscription_anchor AS (
+             SELECT s.member_id,
+                    MIN(s.start_date) FILTER (
+                      WHERE s.is_active = true
+                        AND s.start_date <= $3
+                        AND s.end_date > $3
+                    )::bigint AS active_start_sec
+               FROM subscriptions s
+              WHERE s.organization_id = $1
+                AND s.branch_id = $2
+              GROUP BY s.member_id
+           ),
+           eligible_members AS (
              SELECT m.id AS member_id,
-                    EXTRACT(EPOCH FROM m.created_at)::bigint AS joined_at
+                    CASE
+                      WHEN COALESCE(m.is_legacy_import, false) = true
+                        THEN COALESCE(EXTRACT(EPOCH FROM m.joined_at)::bigint, sa.active_start_sec)
+                      ELSE COALESCE(EXTRACT(EPOCH FROM m.joined_at)::bigint, EXTRACT(EPOCH FROM m.created_at)::bigint)
+                    END AS joined_at
                FROM members m
+               LEFT JOIN subscription_anchor sa ON sa.member_id = m.id
               WHERE m.organization_id = $1
                 AND m.branch_id = $2
                 AND m.deleted_at IS NULL
-                AND EXTRACT(EPOCH FROM m.created_at)::bigint >= $3
+                AND m.phone IS NOT NULL
+                AND COALESCE(m.whatsapp_do_not_contact, false) = false
+           ),
+           recent_members AS (
+             SELECT em.member_id,
+                    em.joined_at
+               FROM eligible_members em
+              WHERE em.joined_at IS NOT NULL
+                AND em.joined_at >= $4
            ),
            activity AS (
              SELECT rm.member_id,
@@ -1545,7 +1571,12 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
              COUNT(*) FILTER (WHERE visits_14d >= 3)::int AS completed_three_visits_14d,
              COUNT(*) FILTER (WHERE first_visit IS NOT NULL AND visits_14d <= 1)::int AS no_return_members
            FROM activity`,
-          [auth.organizationId, auth.branchId, rangeStart]
+          [
+            auth.organizationId,
+            auth.branchId,
+            toSubscriptionAccessReferenceUnix(now),
+            rangeStart,
+          ]
         ),
         query<{
           sequence_kind: string;

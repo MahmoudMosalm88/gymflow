@@ -22,85 +22,76 @@ export async function getOwnerOnboardingStatus(
   organizationId: string,
   branchId: string
 ): Promise<OwnerOnboardingStatus> {
-  const [settingsRows, membersRows, subscriptionsRows, logsRows, guestRows, paymentsRows, artifactsRows] =
-    await Promise.all([
-      query<SettingRow>(
-        `SELECT key, value
-           FROM settings
-          WHERE organization_id = $1
-            AND branch_id = $2
-            AND key IN ('onboarding_completed', 'onboarding_mode')`,
-        [organizationId, branchId]
-      ),
-      query<{ exists: boolean }>(
-        `SELECT EXISTS(
-           SELECT 1
-             FROM members
-            WHERE organization_id = $1
-              AND branch_id = $2
-              AND deleted_at IS NULL
-         ) AS exists`,
-        [organizationId, branchId]
-      ),
-      query<{ exists: boolean }>(
-        `SELECT EXISTS(
-           SELECT 1
-             FROM subscriptions
-            WHERE organization_id = $1
-              AND branch_id = $2
-         ) AS exists`,
-        [organizationId, branchId]
-      ),
-      query<{ exists: boolean }>(
-        `SELECT EXISTS(
-           SELECT 1
-             FROM logs
-            WHERE organization_id = $1
-              AND branch_id = $2
-         ) AS exists`,
-        [organizationId, branchId]
-      ),
-      query<{ exists: boolean }>(
-        `SELECT EXISTS(
-           SELECT 1
-             FROM guest_passes
-            WHERE organization_id = $1
-              AND branch_id = $2
-         ) AS exists`,
-        [organizationId, branchId]
-      ),
-      query<{ exists: boolean }>(
-        `SELECT EXISTS(
-           SELECT 1
-             FROM payments
-            WHERE organization_id = $1
-              AND branch_id = $2
-         ) AS exists`,
-        [organizationId, branchId]
-      ),
-      query<{ exists: boolean }>(
-        `SELECT EXISTS(
-           SELECT 1
-             FROM import_artifacts
-            WHERE organization_id = $1
-              AND branch_id = $2
-         ) AS exists`,
-        [organizationId, branchId]
-      )
-    ]);
+  const rows = await query<{
+    onboarding_completed: unknown;
+    has_members: boolean;
+    has_subscriptions: boolean;
+    has_logs: boolean;
+    has_guest_passes: boolean;
+    has_payments: boolean;
+    has_import_artifacts: boolean;
+  }>(
+    `SELECT
+        (
+          SELECT value
+            FROM settings
+           WHERE organization_id = $1
+             AND branch_id = $2
+             AND key = 'onboarding_completed'
+           LIMIT 1
+        ) AS onboarding_completed,
+        EXISTS(
+          SELECT 1
+            FROM members
+           WHERE organization_id = $1
+             AND branch_id = $2
+             AND deleted_at IS NULL
+        ) AS has_members,
+        EXISTS(
+          SELECT 1
+            FROM subscriptions
+           WHERE organization_id = $1
+             AND branch_id = $2
+        ) AS has_subscriptions,
+        EXISTS(
+          SELECT 1
+            FROM logs
+           WHERE organization_id = $1
+             AND branch_id = $2
+        ) AS has_logs,
+        EXISTS(
+          SELECT 1
+            FROM guest_passes
+           WHERE organization_id = $1
+             AND branch_id = $2
+        ) AS has_guest_passes,
+        EXISTS(
+          SELECT 1
+            FROM payments
+           WHERE organization_id = $1
+             AND branch_id = $2
+        ) AS has_payments,
+        EXISTS(
+          SELECT 1
+            FROM import_artifacts
+           WHERE organization_id = $1
+             AND branch_id = $2
+        ) AS has_import_artifacts`,
+    [organizationId, branchId]
+  );
 
-  const onboardingCompleted =
-    readBooleanSetting(settingsRows.find((row) => row.key === 'onboarding_completed')?.value) === true;
+  const summary = rows[0];
+  const onboardingCompleted = readBooleanSetting(summary?.onboarding_completed) === true;
 
   const hasMeaningfulData = [
-    membersRows[0]?.exists,
-    subscriptionsRows[0]?.exists,
-    logsRows[0]?.exists,
-    guestRows[0]?.exists,
-    paymentsRows[0]?.exists
+    summary?.has_members,
+    summary?.has_subscriptions,
+    summary?.has_logs,
+    summary?.has_guest_passes,
+    summary?.has_payments
   ].some(Boolean);
 
-  const hasPendingImport = Boolean(artifactsRows[0]?.exists);
+  const hasPendingImport = Boolean(summary?.has_import_artifacts);
   const shouldRedirect = !onboardingCompleted && (hasPendingImport || !hasMeaningfulData);
 
   return {

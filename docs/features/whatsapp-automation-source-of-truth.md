@@ -494,6 +494,19 @@ Weekly digest is the one owner-facing exception:
 - no owner toggle
 - release is controlled by GymFlow at the worker/runtime layer, not per-branch settings
 
+### Runtime release gates
+Operational rollout is controlled in the worker environment:
+- `WHATSAPP_LIFECYCLE_AUTOMATIONS_ENABLED`
+  - opens the first-wave lifecycle lane
+  - owner toggles alone do not send anything until this is on
+- `WHATSAPP_WEEKLY_DIGESTS_ENABLED`
+  - opens the weekly digest release lane
+  - this remains system-owned with no branch toggle
+
+Current rollout note:
+- the first real customer pilot is Sarhan Gym
+- other branches may be prepared or used for QA, but they are not part of the real-user pilot
+
 ---
 
 ## Frequency / Spam Protection Rules

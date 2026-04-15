@@ -15,10 +15,15 @@ import QRCode from "qrcode";
 import {
   getBehaviorTemplateKey,
   getTemplateKey,
+  isManualStopActive,
   normalizeSystemLanguage,
+  parseManualStopRecords,
   parseBooleanSetting,
   renderWhatsappTemplate,
+  WHATSAPP_SEQUENCE_MANUAL_STOPS_KEY,
   type SystemLanguage,
+  type WhatsAppManualStopRecord,
+  type WhatsAppSequenceControlAutomationId,
 } from "@/lib/whatsapp-automation";
 import { toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 
@@ -49,6 +54,23 @@ type TenantRuntime = {
   queueProcessing: boolean;
 };
 
+type WorkerSchemaState = {
+  hasSettings: boolean;
+  hasSettingsValue: boolean;
+  hasMessageQueue: boolean;
+  hasMessageQueuePayload: boolean;
+  hasMessageQueueStatus: boolean;
+  hasMessageQueueLastError: boolean;
+  hasMessageQueueScheduledAt: boolean;
+  hasWhatsappCampaigns: boolean;
+  hasMembersWhatsappDoNotContact: boolean;
+};
+
+type LifecycleEligibilityResult = {
+  eligible: boolean;
+  reason?: "stopped_manual" | "stopped_not_eligible" | "stopped_renewed" | "stopped_goal_met";
+};
+
 const databaseUrl = process.env.DATABASE_URL;
 const pollMs = Number(process.env.WORKER_POLL_MS || 5000);
 const connCheckMs = Number(process.env.CONN_CHECK_MS || 3000);
@@ -60,12 +82,14 @@ const port = Number(process.env.PORT || 8080);
 const workerBatchLimit = Math.max(1, Number(process.env.WORKER_BATCH_LIMIT || 5));
 const minSendIntervalMs = Math.max(0, Number(process.env.WHATSAPP_MIN_SEND_INTERVAL_MS || 12000));
 const sendJitterMs = Math.max(0, Number(process.env.WHATSAPP_SEND_JITTER_MS || 4000));
+const databasePoolMax = Math.max(1, Number(process.env.DATABASE_POOL_MAX || 4));
 const lifecycleAutomationsEnabled = process.env.WHATSAPP_LIFECYCLE_AUTOMATIONS_ENABLED === "true";
+const weeklyDigestsEnabled = process.env.WHATSAPP_WEEKLY_DIGESTS_ENABLED === "true";
 
 if (!databaseUrl) throw new Error("DATABASE_URL is required");
 mkdirSync(authBasePath, { recursive: true });
 
-const pool = new Pool({ connectionString: databaseUrl });
+const pool = new Pool({ connectionString: databaseUrl, max: databasePoolMax });
 const runtimes = new Map<string, TenantRuntime>();
 const reminderDefaultDays = [7, 3, 1];
 const postExpirySteps = [0, 3, 7, 14] as const;
@@ -114,6 +138,19 @@ const defaultBehaviorTemplates = {
   },
 } as const;
 const streakMilestones = [3, 7, 14, 21, 30, 50, 100] as const;
+const emptyWorkerSchemaState: WorkerSchemaState = {
+  hasSettings: false,
+  hasSettingsValue: false,
+  hasMessageQueue: false,
+  hasMessageQueuePayload: false,
+  hasMessageQueueStatus: false,
+  hasMessageQueueLastError: false,
+  hasMessageQueueScheduledAt: false,
+  hasWhatsappCampaigns: false,
+  hasMembersWhatsappDoNotContact: false,
+};
+let workerSchemaStateCache = emptyWorkerSchemaState;
+let workerSchemaStateFetchedAt = 0;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -160,6 +197,14 @@ function normalizeState(value: unknown): StatusState {
   return "disconnected";
 }
 
+function isSchemaDrift(error: unknown) {
+  const code =
+    typeof error === "object" && error && "code" in error
+      ? String((error as { code?: string }).code || "")
+      : "";
+  return code === "42P01" || code === "42703";
+}
+
 function getPostExpiryTemplateKey(step: 0 | 3 | 7 | 14, lang: SystemLanguage) {
   return `whatsapp_template_post_expiry_day${step}_${lang}`;
 }
@@ -174,6 +219,104 @@ function getOnboardingTemplateKey(
 function getSavedTemplate(settings: Record<string, unknown>, key: string, fallback: string) {
   const raw = settings[key];
   return typeof raw === "string" && raw.trim() ? raw : fallback;
+}
+
+async function getWorkerSchemaState(force = false): Promise<WorkerSchemaState> {
+  const now = Date.now();
+  if (!force && now - workerSchemaStateFetchedAt < 30000) {
+    return workerSchemaStateCache;
+  }
+
+  try {
+    const result = await pool.query<{
+      has_settings: boolean;
+      has_settings_value: boolean;
+      has_message_queue: boolean;
+      has_message_queue_payload: boolean;
+      has_message_queue_status: boolean;
+      has_message_queue_last_error: boolean;
+      has_message_queue_scheduled_at: boolean;
+      has_whatsapp_campaigns: boolean;
+      has_members_whatsapp_do_not_contact: boolean;
+    }>(
+      `SELECT
+          to_regclass('public.settings') IS NOT NULL AS has_settings,
+          EXISTS(
+            SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = 'settings' AND column_name = 'value'
+          ) AS has_settings_value,
+          to_regclass('public.message_queue') IS NOT NULL AS has_message_queue,
+          EXISTS(
+            SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = 'message_queue' AND column_name = 'payload'
+          ) AS has_message_queue_payload,
+          EXISTS(
+            SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = 'message_queue' AND column_name = 'status'
+          ) AS has_message_queue_status,
+          EXISTS(
+            SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = 'message_queue' AND column_name = 'last_error'
+          ) AS has_message_queue_last_error,
+          EXISTS(
+            SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = 'message_queue' AND column_name = 'scheduled_at'
+          ) AS has_message_queue_scheduled_at,
+          to_regclass('public.whatsapp_campaigns') IS NOT NULL AS has_whatsapp_campaigns,
+          EXISTS(
+            SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = 'members' AND column_name = 'whatsapp_do_not_contact'
+          ) AS has_members_whatsapp_do_not_contact`
+    );
+
+    const row = result.rows[0];
+    workerSchemaStateCache = row
+      ? {
+          hasSettings: row.has_settings,
+          hasSettingsValue: row.has_settings_value,
+          hasMessageQueue: row.has_message_queue,
+          hasMessageQueuePayload: row.has_message_queue_payload,
+          hasMessageQueueStatus: row.has_message_queue_status,
+          hasMessageQueueLastError: row.has_message_queue_last_error,
+          hasMessageQueueScheduledAt: row.has_message_queue_scheduled_at,
+          hasWhatsappCampaigns: row.has_whatsapp_campaigns,
+          hasMembersWhatsappDoNotContact: row.has_members_whatsapp_do_not_contact,
+        }
+      : emptyWorkerSchemaState;
+  } catch (error) {
+    if (!isSchemaDrift(error)) throw error;
+    workerSchemaStateCache = emptyWorkerSchemaState;
+  }
+
+  workerSchemaStateFetchedAt = now;
+  return workerSchemaStateCache;
+}
+
+function getLifecycleSequenceAutomationId(
+  sequenceKind: unknown
+): WhatsAppSequenceControlAutomationId | null {
+  if (sequenceKind === "post_expiry") return "post_expiry";
+  if (
+    sequenceKind === "onboarding_first_visit" ||
+    sequenceKind === "onboarding_no_return_day7" ||
+    sequenceKind === "onboarding_low_engagement_day14"
+  ) {
+    return "onboarding";
+  }
+  return null;
+}
+
+function getLifecycleSequenceScope(
+  automationId: WhatsAppSequenceControlAutomationId,
+  payload: Record<string, unknown> | null | undefined
+) {
+  if (automationId !== "post_expiry") return null;
+  const raw = typeof payload?.subscription_id === "string" ? payload.subscription_id.trim() : "";
+  return raw.length > 0 ? raw : null;
+}
+
+async function loadManualStopsFromSettings(settings: Record<string, unknown>) {
+  return parseManualStopRecords(settings[WHATSAPP_SEQUENCE_MANUAL_STOPS_KEY]);
 }
 
 function parseReminderDays(value: unknown): number[] {
@@ -230,54 +373,74 @@ async function writeStatus(
   branchId: string,
   value: Record<string, unknown>
 ) {
-  await pool.query(
-    `INSERT INTO settings (organization_id, branch_id, key, value)
-     VALUES ($1, $2, 'whatsapp_status', $3::jsonb)
-     ON CONFLICT (organization_id, branch_id, key)
-     DO UPDATE SET value = COALESCE(settings.value, '{}'::jsonb) || EXCLUDED.value, updated_at = NOW()`,
-    [organizationId, branchId, JSON.stringify(value)]
-  );
+  const schema = await getWorkerSchemaState();
+  if (!schema.hasSettings || !schema.hasSettingsValue) return;
+  try {
+    await pool.query(
+      `INSERT INTO settings (organization_id, branch_id, key, value)
+       VALUES ($1, $2, 'whatsapp_status', $3::jsonb)
+       ON CONFLICT (organization_id, branch_id, key)
+       DO UPDATE SET value = COALESCE(settings.value, '{}'::jsonb) || EXCLUDED.value, updated_at = NOW()`,
+      [organizationId, branchId, JSON.stringify(value)]
+    );
+  } catch (error) {
+    if (!isSchemaDrift(error)) throw error;
+  }
 }
 
 async function refreshCampaignStatus(client: PoolClient, campaignId: string | null | undefined) {
   if (!campaignId) return;
+  const schema = await getWorkerSchemaState();
+  if (!schema.hasWhatsappCampaigns || !schema.hasMessageQueue || !schema.hasMessageQueueStatus) return;
 
-  await client.query(
-    `WITH stats AS (
-        SELECT COUNT(*)::int AS recipient_count,
-               COUNT(*) FILTER (WHERE status = 'sent')::int AS sent_count,
-               COUNT(*) FILTER (WHERE status = 'failed')::int AS failed_count,
-               COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_count,
-               COUNT(*) FILTER (WHERE status = 'processing')::int AS processing_count
-          FROM message_queue
-         WHERE campaign_id = $1
-      )
-      UPDATE whatsapp_campaigns wc
-         SET recipient_count = stats.recipient_count,
-             sent_count = stats.sent_count,
-             failed_count = stats.failed_count,
-             status = CASE
-               WHEN stats.processing_count > 0 THEN 'running'
-               WHEN stats.pending_count > 0 THEN 'queued'
-               WHEN stats.recipient_count > 0 AND stats.failed_count = stats.recipient_count THEN 'failed'
-               ELSE 'completed'
-             END,
-             completed_at = CASE
-               WHEN stats.pending_count = 0 AND stats.processing_count = 0 THEN NOW()
-               ELSE NULL
-             END
-        FROM stats
-       WHERE wc.id = $1`,
-    [campaignId]
-  );
+  try {
+    await client.query(
+      `WITH stats AS (
+          SELECT COUNT(*)::int AS recipient_count,
+                 COUNT(*) FILTER (WHERE status = 'sent')::int AS sent_count,
+                 COUNT(*) FILTER (WHERE status = 'failed')::int AS failed_count,
+                 COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_count,
+                 COUNT(*) FILTER (WHERE status = 'processing')::int AS processing_count
+            FROM message_queue
+           WHERE campaign_id = $1
+        )
+        UPDATE whatsapp_campaigns wc
+           SET recipient_count = stats.recipient_count,
+               sent_count = stats.sent_count,
+               failed_count = stats.failed_count,
+               status = CASE
+                 WHEN stats.processing_count > 0 THEN 'running'
+                 WHEN stats.pending_count > 0 THEN 'queued'
+                 WHEN stats.recipient_count > 0 AND stats.failed_count = stats.recipient_count THEN 'failed'
+                 ELSE 'completed'
+               END,
+               completed_at = CASE
+                 WHEN stats.pending_count = 0 AND stats.processing_count = 0 THEN NOW()
+                 ELSE NULL
+               END
+          FROM stats
+         WHERE wc.id = $1`,
+      [campaignId]
+    );
+  } catch (error) {
+    if (!isSchemaDrift(error)) throw error;
+  }
 }
 
 async function listTenantStatuses() {
-  const res = await pool.query<TenantStatusRow>(
-    `SELECT organization_id, branch_id, value
-       FROM settings
-      WHERE key = 'whatsapp_status'`
-  );
+  const schema = await getWorkerSchemaState();
+  if (!schema.hasSettings || !schema.hasSettingsValue) return [];
+  let res;
+  try {
+    res = await pool.query<TenantStatusRow>(
+      `SELECT organization_id, branch_id, value
+         FROM settings
+        WHERE key = 'whatsapp_status'`
+    );
+  } catch (error) {
+    if (isSchemaDrift(error)) return [];
+    throw error;
+  }
 
   return res.rows.map((row) => {
     const value =
@@ -294,15 +457,25 @@ async function listTenantStatuses() {
 }
 
 async function listQueuedTenants() {
-  const res = await pool.query<{ organization_id: string; branch_id: string }>(
-    `SELECT DISTINCT organization_id, branch_id
-       FROM message_queue
-      WHERE scheduled_at <= NOW()
-        AND (
-          status = 'pending'
-          OR (status = 'failed' AND attempts < 3)
-        )`
-  );
+  const schema = await getWorkerSchemaState();
+  if (!schema.hasMessageQueue || !schema.hasMessageQueueStatus || !schema.hasMessageQueueScheduledAt) {
+    return [];
+  }
+  let res;
+  try {
+    res = await pool.query<{ organization_id: string; branch_id: string }>(
+      `SELECT DISTINCT organization_id, branch_id
+         FROM message_queue
+        WHERE scheduled_at <= NOW()
+          AND (
+            status = 'pending'
+            OR (status = 'failed' AND attempts < 3)
+          )`
+    );
+  } catch (error) {
+    if (isSchemaDrift(error)) return [];
+    throw error;
+  }
 
   return res.rows.map((row) => ({
     organizationId: row.organization_id,
@@ -311,55 +484,63 @@ async function listQueuedTenants() {
 }
 
 async function readTenantSettings(organizationId: string, branchId: string) {
-  const rows = await pool.query<TenantSettingRow>(
-    `SELECT key, value
-       FROM settings
-      WHERE organization_id = $1
-        AND branch_id = $2
-        AND key = ANY($3::text[])`,
-    [
-      organizationId,
-      branchId,
+  const schema = await getWorkerSchemaState();
+  if (!schema.hasSettings || !schema.hasSettingsValue) return {};
+  let rows;
+  try {
+    rows = await pool.query<TenantSettingRow>(
+      `SELECT key, value
+         FROM settings
+        WHERE organization_id = $1
+          AND branch_id = $2
+          AND key = ANY($3::text[])`,
       [
-        "whatsapp_automation_enabled",
-        "system_language",
-        "whatsapp_template_renewal",
-        "whatsapp_template_renewal_en",
-        "whatsapp_template_renewal_ar",
-        "whatsapp_reminder_days",
-        "whatsapp_staff_invites_only",
-        "whatsapp_post_expiry_enabled",
-        "whatsapp_onboarding_enabled",
-        "whatsapp_weekly_digest_enabled",
-        "whatsapp_habit_break_enabled",
-        "whatsapp_streaks_enabled",
-        "whatsapp_freeze_ending_enabled",
-        "whatsapp_template_post_expiry_day0_en",
-        "whatsapp_template_post_expiry_day3_en",
-        "whatsapp_template_post_expiry_day7_en",
-        "whatsapp_template_post_expiry_day14_en",
-        "whatsapp_template_post_expiry_day0_ar",
-        "whatsapp_template_post_expiry_day3_ar",
-        "whatsapp_template_post_expiry_day7_ar",
-        "whatsapp_template_post_expiry_day14_ar",
-        "whatsapp_template_onboarding_first_visit_en",
-        "whatsapp_template_onboarding_no_return_day7_en",
-        "whatsapp_template_onboarding_low_engagement_day14_en",
-        "whatsapp_template_onboarding_first_visit_ar",
-        "whatsapp_template_onboarding_no_return_day7_ar",
-        "whatsapp_template_onboarding_low_engagement_day14_ar",
-        "whatsapp_template_habit_break_en",
-        "whatsapp_template_habit_break_ar",
-        "whatsapp_template_streak_en",
-        "whatsapp_template_streak_ar",
-        "whatsapp_template_freeze_ending_en",
-        "whatsapp_template_freeze_ending_ar",
-        "pt_reminder_hours_before",
-        "pt_expiry_warning_days",
-        "pt_low_balance_threshold_sessions",
-      ],
-    ]
-  );
+        organizationId,
+        branchId,
+        [
+          "whatsapp_automation_enabled",
+          "system_language",
+          "whatsapp_template_renewal",
+          "whatsapp_template_renewal_en",
+          "whatsapp_template_renewal_ar",
+          "whatsapp_reminder_days",
+          "whatsapp_staff_invites_only",
+          "whatsapp_post_expiry_enabled",
+          "whatsapp_onboarding_enabled",
+          "whatsapp_habit_break_enabled",
+          "whatsapp_streaks_enabled",
+          "whatsapp_freeze_ending_enabled",
+          "whatsapp_template_post_expiry_day0_en",
+          "whatsapp_template_post_expiry_day3_en",
+          "whatsapp_template_post_expiry_day7_en",
+          "whatsapp_template_post_expiry_day14_en",
+          "whatsapp_template_post_expiry_day0_ar",
+          "whatsapp_template_post_expiry_day3_ar",
+          "whatsapp_template_post_expiry_day7_ar",
+          "whatsapp_template_post_expiry_day14_ar",
+          "whatsapp_template_onboarding_first_visit_en",
+          "whatsapp_template_onboarding_no_return_day7_en",
+          "whatsapp_template_onboarding_low_engagement_day14_en",
+          "whatsapp_template_onboarding_first_visit_ar",
+          "whatsapp_template_onboarding_no_return_day7_ar",
+          "whatsapp_template_onboarding_low_engagement_day14_ar",
+          "whatsapp_template_habit_break_en",
+          "whatsapp_template_habit_break_ar",
+          "whatsapp_template_streak_en",
+          "whatsapp_template_streak_ar",
+          "whatsapp_template_freeze_ending_en",
+          "whatsapp_template_freeze_ending_ar",
+          WHATSAPP_SEQUENCE_MANUAL_STOPS_KEY,
+          "pt_reminder_hours_before",
+          "pt_expiry_warning_days",
+          "pt_low_balance_threshold_sessions",
+        ],
+      ]
+    );
+  } catch (error) {
+    if (isSchemaDrift(error)) return {};
+    throw error;
+  }
 
   return Object.fromEntries(rows.rows.map((row) => [row.key, row.value])) as Record<string, unknown>;
 }
@@ -367,6 +548,165 @@ async function readTenantSettings(organizationId: string, branchId: string) {
 function isLifecycleFlagEnabled(settings: Record<string, unknown>, key: string) {
   if (!lifecycleAutomationsEnabled) return false;
   return parseBooleanSetting(settings[key], false);
+}
+
+async function markQueueStopped(
+  client: PoolClient,
+  queueId: string,
+  campaignId: string | null | undefined,
+  reason: NonNullable<LifecycleEligibilityResult["reason"]>
+) {
+  await client.query(
+    `UPDATE message_queue
+        SET status = 'failed',
+            attempts = GREATEST(attempts, 3),
+            last_error = $2
+      WHERE id = $1`,
+    [queueId, reason]
+  );
+  await refreshCampaignStatus(client, campaignId);
+}
+
+async function evaluatePostExpirySequenceEligibility(
+  client: PoolClient,
+  runtime: TenantRuntime,
+  memberId: string,
+  subscriptionId: string | null,
+  memberDoNotContact: boolean
+): Promise<LifecycleEligibilityResult> {
+  if (memberDoNotContact || !subscriptionId) {
+    return { eligible: false, reason: "stopped_not_eligible" };
+  }
+
+  const result = await client.query<{
+    deleted: boolean;
+    do_not_contact: boolean;
+    renewed_exists: boolean;
+    active_exists: boolean;
+  }>(
+    `SELECT EXISTS(
+         SELECT 1
+           FROM members m
+          WHERE m.id = $3
+            AND m.organization_id = $1
+            AND m.branch_id = $2
+            AND m.deleted_at IS NOT NULL
+       ) AS deleted,
+       EXISTS(
+         SELECT 1
+           FROM members m
+          WHERE m.id = $3
+            AND m.organization_id = $1
+            AND m.branch_id = $2
+            AND COALESCE(m.whatsapp_do_not_contact, false) = true
+       ) AS do_not_contact,
+       EXISTS(
+         SELECT 1
+           FROM subscriptions s
+          WHERE s.organization_id = $1
+            AND s.branch_id = $2
+            AND s.member_id = $3
+            AND s.renewed_from_subscription_id = $4::int
+       ) AS renewed_exists,
+       EXISTS(
+         SELECT 1
+           FROM subscriptions s
+          WHERE s.organization_id = $1
+            AND s.branch_id = $2
+            AND s.member_id = $3
+            AND s.is_active = true
+            AND s.start_date <= $5
+            AND s.end_date > $5
+       ) AS active_exists`,
+    [
+      runtime.organizationId,
+      runtime.branchId,
+      memberId,
+      Number(subscriptionId),
+      toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000)),
+    ]
+  );
+
+  const row = result.rows[0];
+  if (!row || row.deleted || row.do_not_contact) {
+    return { eligible: false, reason: "stopped_not_eligible" };
+  }
+  if (row.renewed_exists || row.active_exists) {
+    return { eligible: false, reason: "stopped_renewed" };
+  }
+  return { eligible: true };
+}
+
+async function evaluateOnboardingSequenceEligibility(
+  client: PoolClient,
+  runtime: TenantRuntime,
+  memberId: string,
+  sequenceKind: string,
+  memberDoNotContact: boolean
+): Promise<LifecycleEligibilityResult> {
+  if (memberDoNotContact) return { eligible: false, reason: "stopped_not_eligible" };
+
+  const result = await client.query<{
+    deleted: boolean;
+    do_not_contact: boolean;
+    has_active_subscription: boolean;
+    visits_14d: number;
+  }>(
+    `WITH active_subscription AS (
+       SELECT 1
+         FROM subscriptions s
+        WHERE s.organization_id = $1
+          AND s.branch_id = $2
+          AND s.member_id = $3
+          AND s.is_active = true
+          AND s.start_date <= $4
+          AND s.end_date > $4
+        LIMIT 1
+     ),
+     activity AS (
+       SELECT COUNT(*) FILTER (WHERE l.status = 'success' AND l.timestamp >= $4 - (14 * 86400))::int AS visits_14d
+         FROM logs l
+        WHERE l.organization_id = $1
+          AND l.branch_id = $2
+          AND l.member_id = $3
+     )
+     SELECT EXISTS(
+              SELECT 1
+                FROM members m
+               WHERE m.id = $3
+                 AND m.organization_id = $1
+                 AND m.branch_id = $2
+                 AND m.deleted_at IS NOT NULL
+            ) AS deleted,
+            EXISTS(
+              SELECT 1
+                FROM members m
+               WHERE m.id = $3
+                 AND m.organization_id = $1
+                 AND m.branch_id = $2
+                 AND COALESCE(m.whatsapp_do_not_contact, false) = true
+            ) AS do_not_contact,
+            EXISTS(SELECT 1 FROM active_subscription) AS has_active_subscription,
+            COALESCE((SELECT visits_14d FROM activity), 0)::int AS visits_14d`,
+    [
+      runtime.organizationId,
+      runtime.branchId,
+      memberId,
+      toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000)),
+    ]
+  );
+
+  const row = result.rows[0];
+  if (!row || row.deleted || row.do_not_contact || !row.has_active_subscription) {
+    return { eligible: false, reason: "stopped_not_eligible" };
+  }
+  if (sequenceKind === "onboarding_no_return_day7" && row.visits_14d > 1) {
+    return { eligible: false, reason: "stopped_goal_met" };
+  }
+  if (sequenceKind === "onboarding_low_engagement_day14" && row.visits_14d >= 3) {
+    return { eligible: false, reason: "stopped_goal_met" };
+  }
+  return { eligible: true };
 }
 
 let cachedVersion: [number, number, number] | undefined;
@@ -547,6 +887,15 @@ async function connectionManagerLoop() {
 async function processTenantQueue(runtime: TenantRuntime) {
   if (!dryRun && (!runtime.sock || !runtime.isReady)) return;
   if (runtime.queueProcessing) return;
+  const schema = await getWorkerSchemaState();
+  if (
+    !schema.hasMessageQueue ||
+    !schema.hasMessageQueueStatus ||
+    !schema.hasMessageQueuePayload ||
+    !schema.hasMessageQueueScheduledAt
+  ) {
+    return;
+  }
 
   runtime.queueProcessing = true;
   const queueRunAt = new Date().toISOString();
@@ -558,6 +907,7 @@ async function processTenantQueue(runtime: TenantRuntime) {
   try {
     const settings = await readTenantSettings(runtime.organizationId, runtime.branchId);
     const staffInvitesOnlyMode = isStaffInvitesOnlyMode(settings);
+    const manualStops = await loadManualStopsFromSettings(settings);
     client = await pool.connect();
     await client.query("BEGIN");
 
@@ -615,6 +965,55 @@ async function processTenantQueue(runtime: TenantRuntime) {
 
       try {
         const payload = row.payload as Record<string, unknown> | null;
+        const lifecycleAutomationId = getLifecycleSequenceAutomationId(payload?.sequence_kind);
+        if (lifecycleAutomationId) {
+          const lifecycleScope = getLifecycleSequenceScope(lifecycleAutomationId, payload);
+          const lifecycleEnabled =
+            lifecycleAutomationId === "post_expiry"
+              ? isLifecycleFlagEnabled(settings, "whatsapp_post_expiry_enabled")
+              : isLifecycleFlagEnabled(settings, "whatsapp_onboarding_enabled");
+
+          if (!lifecycleEnabled) {
+            await markQueueStopped(client, row.id, row.campaign_id, "stopped_not_eligible");
+            continue;
+          }
+
+          if (
+            row.member_id &&
+            isManualStopActive(manualStops, {
+              memberId: row.member_id,
+              automationId: lifecycleAutomationId,
+              scope: lifecycleScope,
+            })
+          ) {
+            await markQueueStopped(client, row.id, row.campaign_id, "stopped_manual");
+            continue;
+          }
+
+          if (row.member_id) {
+            const eligibility =
+              lifecycleAutomationId === "post_expiry"
+                ? await evaluatePostExpirySequenceEligibility(
+                    client,
+                    runtime,
+                    row.member_id,
+                    lifecycleScope,
+                    Boolean(row.member_whatsapp_do_not_contact)
+                  )
+                : await evaluateOnboardingSequenceEligibility(
+                    client,
+                    runtime,
+                    row.member_id,
+                    String(payload?.sequence_kind || ""),
+                    Boolean(row.member_whatsapp_do_not_contact)
+                  );
+            if (!eligibility.eligible && eligibility.reason) {
+              await markQueueStopped(client, row.id, row.campaign_id, eligibility.reason);
+              continue;
+            }
+          }
+        }
+
         if (staffInvitesOnlyMode && !(row.type === "manual" && isStaffInvitePayload(payload))) {
           await client.query(
             `UPDATE message_queue
@@ -856,12 +1255,17 @@ async function scheduleRenewalReminders() {
 }
 
 async function schedulePostExpirySequencesForTenant(organizationId: string, branchId: string) {
+  const schema = await getWorkerSchemaState();
+  if (!schema.hasMessageQueue || !schema.hasMessageQueuePayload || !schema.hasMembersWhatsappDoNotContact) {
+    return;
+  }
   const settings = await readTenantSettings(organizationId, branchId);
   const automationEnabled = parseBooleanSetting(settings.whatsapp_automation_enabled, true);
   if (!automationEnabled || isStaffInvitesOnlyMode(settings)) return;
   if (!isLifecycleFlagEnabled(settings, "whatsapp_post_expiry_enabled")) return;
 
   const systemLanguage = normalizeSystemLanguage(settings.system_language, "en");
+  const manualStops = await loadManualStopsFromSettings(settings);
   const rows = await pool.query<{
     subscription_id: number;
     member_id: string;
@@ -893,6 +1297,19 @@ async function schedulePostExpirySequencesForTenant(organizationId: string, bran
         AND m.branch_id = $2
       WHERE m.deleted_at IS NULL
         AND m.phone IS NOT NULL
+        AND COALESCE(m.whatsapp_do_not_contact, false) = false
+        AND NOT (
+          COALESCE((
+            SELECT s.is_legacy_import
+              FROM subscriptions s
+             WHERE s.id = le.subscription_id
+          ), false) = true
+          AND COALESCE((
+            SELECT EXTRACT(EPOCH FROM s.created_at)::bigint
+              FROM subscriptions s
+             WHERE s.id = le.subscription_id
+          ), 0) > le.end_date
+        )
         AND NOT EXISTS (
           SELECT 1
             FROM subscriptions s
@@ -923,6 +1340,15 @@ async function schedulePostExpirySequencesForTenant(organizationId: string, bran
   for (const row of rows.rows) {
     const daysSinceExpiry = Math.floor((nowSec - Number(row.end_date)) / 86400);
     if (!postExpirySteps.includes(daysSinceExpiry as (typeof postExpirySteps)[number])) continue;
+    if (
+      isManualStopActive(manualStops, {
+        memberId: row.member_id,
+        automationId: "post_expiry",
+        scope: String(row.subscription_id),
+      })
+    ) {
+      continue;
+    }
 
     const exists = await pool.query(
       `SELECT 1
@@ -981,12 +1407,16 @@ async function schedulePostExpirySequencesForTenant(organizationId: string, bran
 }
 
 async function scheduleOnboardingSequencesForTenant(organizationId: string, branchId: string) {
+  const schema = await getWorkerSchemaState();
+  if (!schema.hasMessageQueue || !schema.hasMessageQueuePayload) return;
   const settings = await readTenantSettings(organizationId, branchId);
   const automationEnabled = parseBooleanSetting(settings.whatsapp_automation_enabled, true);
   if (!automationEnabled || isStaffInvitesOnlyMode(settings)) return;
   if (!isLifecycleFlagEnabled(settings, "whatsapp_onboarding_enabled")) return;
 
   const systemLanguage = normalizeSystemLanguage(settings.system_language, "en");
+  const manualStops = await loadManualStopsFromSettings(settings);
+  const nowSec = toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000));
   const rows = await pool.query<{
     member_id: string;
     name: string;
@@ -997,25 +1427,51 @@ async function scheduleOnboardingSequencesForTenant(organizationId: string, bran
     total_visits_14d: number;
     total_visits_7d: number;
   }>(
-    `WITH recent_members AS (
+    `WITH subscription_anchor AS (
+       SELECT s.member_id,
+              MIN(s.start_date) FILTER (
+                WHERE s.is_active = true
+                  AND s.start_date <= $3
+                  AND s.end_date > $3
+              )::bigint AS active_start_sec
+         FROM subscriptions s
+        WHERE s.organization_id = $1
+          AND s.branch_id = $2
+        GROUP BY s.member_id
+     ),
+     eligible_members AS (
        SELECT m.id AS member_id,
               m.name,
               m.phone,
-              m.created_at,
-              EXTRACT(EPOCH FROM m.created_at)::bigint AS joined_sec
+              CASE
+                WHEN COALESCE(m.is_legacy_import, false) = true
+                  THEN COALESCE(EXTRACT(EPOCH FROM m.joined_at)::bigint, sa.active_start_sec)
+                ELSE COALESCE(EXTRACT(EPOCH FROM m.joined_at)::bigint, EXTRACT(EPOCH FROM m.created_at)::bigint)
+              END AS joined_sec
          FROM members m
+         LEFT JOIN subscription_anchor sa ON sa.member_id = m.id
         WHERE m.organization_id = $1
           AND m.branch_id = $2
           AND m.deleted_at IS NULL
           AND m.phone IS NOT NULL
-          AND m.created_at >= NOW() - interval '14 day'
+          AND COALESCE(m.whatsapp_do_not_contact, false) = false
+     ),
+     recent_members AS (
+       SELECT em.member_id,
+              em.name,
+              em.phone,
+              em.joined_sec
+         FROM eligible_members em
+        WHERE em.joined_sec IS NOT NULL
+          AND em.joined_sec >= $4
      ),
      activity AS (
        SELECT l.member_id,
-              MIN(l.timestamp) FILTER (WHERE l.status = 'success') AS first_visit,
-              COUNT(*) FILTER (WHERE l.status = 'success' AND l.timestamp >= EXTRACT(EPOCH FROM NOW() - interval '14 day'))::int AS total_visits_14d,
-              COUNT(*) FILTER (WHERE l.status = 'success' AND l.timestamp >= EXTRACT(EPOCH FROM NOW() - interval '7 day'))::int AS total_visits_7d
+              MIN(l.timestamp) FILTER (WHERE l.status = 'success' AND l.timestamp >= rm.joined_sec) AS first_visit,
+              COUNT(*) FILTER (WHERE l.status = 'success' AND l.timestamp >= rm.joined_sec AND l.timestamp < rm.joined_sec + 14 * 86400)::int AS total_visits_14d,
+              COUNT(*) FILTER (WHERE l.status = 'success' AND l.timestamp >= GREATEST(rm.joined_sec, $3 - 7 * 86400))::int AS total_visits_7d
          FROM logs l
+         JOIN recent_members rm ON rm.member_id = l.member_id
         WHERE l.organization_id = $1
           AND l.branch_id = $2
           AND l.member_id IS NOT NULL
@@ -1024,23 +1480,29 @@ async function scheduleOnboardingSequencesForTenant(organizationId: string, bran
      SELECT rm.member_id,
             rm.name,
             rm.phone,
-            rm.created_at::text AS joined_at,
+            to_timestamp(rm.joined_sec)::text AS joined_at,
             rm.joined_sec,
             a.first_visit,
             COALESCE(a.total_visits_14d, 0)::int AS total_visits_14d,
             COALESCE(a.total_visits_7d, 0)::int AS total_visits_7d
        FROM recent_members rm
        LEFT JOIN activity a ON a.member_id = rm.member_id`,
-    [organizationId, branchId]
+    [organizationId, branchId, nowSec, nowSec - 14 * 86400]
   );
 
-  const nowSec = Math.floor(Date.now() / 1000);
   for (const row of rows.rows) {
     if (!row.phone) continue;
     const joinedDays = Math.floor((nowSec - Number(row.joined_sec)) / 86400);
     const firstVisit = row.first_visit == null ? null : Number(row.first_visit);
 
-    if (firstVisit) {
+    if (
+      firstVisit &&
+      !isManualStopActive(manualStops, {
+        memberId: row.member_id,
+        automationId: "onboarding",
+        scope: null,
+      })
+    ) {
       const exists = await pool.query(
         `SELECT 1
            FROM message_queue
@@ -1082,7 +1544,15 @@ async function scheduleOnboardingSequencesForTenant(organizationId: string, bran
       }
     }
 
-    if (joinedDays >= 7 && row.total_visits_14d <= 1) {
+    if (
+      joinedDays >= 7 &&
+      row.total_visits_14d <= 1 &&
+      !isManualStopActive(manualStops, {
+        memberId: row.member_id,
+        automationId: "onboarding",
+        scope: null,
+      })
+    ) {
       const exists = await pool.query(
         `SELECT 1
            FROM message_queue
@@ -1124,7 +1594,15 @@ async function scheduleOnboardingSequencesForTenant(organizationId: string, bran
       }
     }
 
-    if (joinedDays >= 14 && row.total_visits_14d < 3) {
+    if (
+      joinedDays >= 14 &&
+      row.total_visits_14d < 3 &&
+      !isManualStopActive(manualStops, {
+        memberId: row.member_id,
+        automationId: "onboarding",
+        scope: null,
+      })
+    ) {
       const exists = await pool.query(
         `SELECT 1
            FROM message_queue
@@ -1169,10 +1647,12 @@ async function scheduleOnboardingSequencesForTenant(organizationId: string, bran
 }
 
 async function scheduleWeeklyDigestForTenant(organizationId: string, branchId: string) {
+  const schema = await getWorkerSchemaState();
+  if (!schema.hasMessageQueue || !schema.hasMessageQueuePayload) return;
   const settings = await readTenantSettings(organizationId, branchId);
   const automationEnabled = parseBooleanSetting(settings.whatsapp_automation_enabled, true);
   if (!automationEnabled || isStaffInvitesOnlyMode(settings)) return;
-  if (!isLifecycleFlagEnabled(settings, "whatsapp_weekly_digest_enabled")) return;
+  if (!lifecycleAutomationsEnabled || !weeklyDigestsEnabled) return;
 
   const now = new Date();
   const dayOfWeek = now.getUTCDay();

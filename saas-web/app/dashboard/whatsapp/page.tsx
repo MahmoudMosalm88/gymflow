@@ -79,6 +79,48 @@ type WhatsAppStatus = {
     ownerControlled: boolean;
     status: 'live' | 'blocked' | 'planned';
   }>;
+  lifecycleRuntimeGateEnabled?: boolean;
+  weeklyDigestReleaseEnabled?: boolean;
+  weeklyDigestMode?: 'blocked_system_owned' | 'live_system_owned';
+  compatibilityAudit?: {
+    currentBranchId: string;
+    currentBranchStatus: 'compatible' | 'needs_migration' | 'needs_manual_cleanup';
+    lifecycleRuntimeGateEnabled: boolean;
+    weeklyDigestReleaseEnabled: boolean;
+    weeklyDigestMode: 'blocked_system_owned' | 'live_system_owned';
+    issues: string[];
+    branches: Array<{
+      branchId: string;
+      branchName: string;
+      status: 'compatible' | 'needs_migration' | 'needs_manual_cleanup';
+      issues: string[];
+      current: boolean;
+    }>;
+  };
+};
+
+type WhatsAppSequenceItem = {
+  automationId: 'post_expiry' | 'onboarding';
+  memberId: string;
+  memberName?: string | null;
+  memberPhone?: string | null;
+  scope?: string | null;
+  sequenceKind: string;
+  status:
+    | 'pending'
+    | 'processing'
+    | 'sent'
+    | 'failed'
+    | 'stopped_manual'
+    | 'stopped_not_eligible'
+    | 'stopped_renewed'
+    | 'stopped_goal_met';
+  latestEventAt: string;
+  canStop: boolean;
+};
+
+type WhatsAppSequencesResponse = {
+  items: WhatsAppSequenceItem[];
 };
 
 type WhatsAppQueueItem = {
@@ -179,8 +221,47 @@ function statusBadgeClass(status: string) {
   if (status === 'completed' || status === 'sent') return 'bg-success/10 text-success border-success/30';
   if (status === 'running' || status === 'processing' || status === 'queued' || status === 'pending')
     return 'bg-warning/10 text-warning border-warning/30';
+  if (
+    status === 'stopped_manual' ||
+    status === 'stopped_not_eligible' ||
+    status === 'stopped_renewed' ||
+    status === 'stopped_goal_met'
+  ) {
+    return 'bg-muted/10 text-muted-foreground border-border';
+  }
   if (status === 'failed') return 'bg-destructive/10 text-destructive border-destructive/30';
   return 'bg-muted/10 text-muted-foreground border-border';
+}
+
+function compatibilityStatusLabel(
+  status: 'compatible' | 'needs_migration' | 'needs_manual_cleanup',
+  lang: 'en' | 'ar'
+) {
+  if (status === 'compatible') return lang === 'ar' ? 'متوافق' : 'Compatible';
+  if (status === 'needs_migration') return lang === 'ar' ? 'يحتاج ترحيل' : 'Needs migration';
+  return lang === 'ar' ? 'يحتاج تنظيف يدوي' : 'Needs manual cleanup';
+}
+
+function sequenceStatusLabel(status: WhatsAppSequenceItem['status'], lang: 'en' | 'ar') {
+  const labels = {
+    pending: { en: 'Pending', ar: 'قيد الانتظار' },
+    processing: { en: 'Processing', ar: 'قيد المعالجة' },
+    sent: { en: 'Sent', ar: 'تم الإرسال' },
+    failed: { en: 'Failed', ar: 'فشل' },
+    stopped_manual: { en: 'Stopped manually', ar: 'أوقف يدوياً' },
+    stopped_not_eligible: { en: 'Stopped: not eligible', ar: 'أوقف: غير مؤهل' },
+    stopped_renewed: { en: 'Stopped: renewed', ar: 'أوقف: تم التجديد' },
+    stopped_goal_met: { en: 'Stopped: goal met', ar: 'أوقف: تحقق الهدف' },
+  } as const;
+  return labels[status][lang];
+}
+
+function isActiveSequenceStatus(status: WhatsAppSequenceItem['status']) {
+  return (
+    status === 'pending' ||
+    status === 'processing' ||
+    status === 'sent'
+  );
 }
 
 function typeLabel(type: WhatsAppQueueItem['type'], lang: 'en' | 'ar') {
@@ -352,7 +433,6 @@ export default function WhatsAppSystemPage() {
   const [freezeEndingTemplate, setFreezeEndingTemplate] = useState<string>(defaultBehavior.freezeEnding);
   const [postExpiryEnabled, setPostExpiryEnabled] = useState(false);
   const [onboardingEnabled, setOnboardingEnabled] = useState(false);
-  const [weeklyDigestEnabled, setWeeklyDigestEnabled] = useState(false);
   const [habitBreakEnabled, setHabitBreakEnabled] = useState(false);
   const [streaksEnabled, setStreaksEnabled] = useState(false);
   const [freezeEndingEnabled, setFreezeEndingEnabled] = useState(false);
@@ -360,6 +440,12 @@ export default function WhatsAppSystemPage() {
   const [onboardingStep, setOnboardingStep] = useState<'firstVisit' | 'noReturn7' | 'lowEngagement14'>('firstVisit');
   const [behaviorStep, setBehaviorStep] = useState<'habitBreak' | 'streaks' | 'freezeEnding'>('habitBreak');
   const [lifecycleInfoOpen, setLifecycleInfoOpen] = useState(false);
+  const [controlSavingId, setControlSavingId] = useState<string | null>(null);
+  const [controlFeedback, setControlFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
+  const [sequences, setSequences] = useState<WhatsAppSequenceItem[]>([]);
+  const [sequencesLoading, setSequencesLoading] = useState(true);
+  const [stoppingSequenceKey, setStoppingSequenceKey] = useState<string | null>(null);
+  const [sequenceFeedback, setSequenceFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
 
   // ── Broadcast state ──
   const [broadcastFilters, setBroadcastFilters] = useState<BroadcastFilters>(DEFAULT_BROADCAST_FILTERS);
@@ -404,6 +490,12 @@ export default function WhatsAppSystemPage() {
   const canPreviewBroadcast = Boolean(broadcastMessage.trim()) && !previewLoading && !broadcastSubmitting;
   const warningSummary = status?.warningSummary;
   const automationStateMap = new Map((status?.automationStates ?? []).map((item) => [item.id, item]));
+  const compatibilityAudit = status?.compatibilityAudit;
+  const activeSequenceCounts = sequences.reduce<Record<string, number>>((acc, item) => {
+    if (!isActiveSequenceStatus(item.status)) return acc;
+    acc[item.automationId] = (acc[item.automationId] || 0) + 1;
+    return acc;
+  }, {});
 
   const buildBroadcastPayload = useCallback(() => ({
     title: broadcastTitle.trim() || (lang === 'ar' ? 'رسالة جماعية' : 'Broadcast'),
@@ -452,7 +544,6 @@ export default function WhatsAppSystemPage() {
         setFreezeEndingTemplate(str(d[`whatsapp_template_freeze_ending_${systemLanguage}`], defaultBehavior.freezeEnding));
         setPostExpiryEnabled(parseBooleanSetting(d.whatsapp_post_expiry_enabled, false));
         setOnboardingEnabled(parseBooleanSetting(d.whatsapp_onboarding_enabled, false));
-        setWeeklyDigestEnabled(parseBooleanSetting(d.whatsapp_weekly_digest_enabled, false));
         setHabitBreakEnabled(parseBooleanSetting(d.whatsapp_habit_break_enabled, false));
         setStreaksEnabled(parseBooleanSetting(d.whatsapp_streaks_enabled, false));
         setFreezeEndingEnabled(parseBooleanSetting(d.whatsapp_freeze_ending_enabled, false));
@@ -484,19 +575,37 @@ export default function WhatsAppSystemPage() {
     }
   }, []);
 
+  const fetchSequences = useCallback(async () => {
+    setSequencesLoading(true);
+    try {
+      const res = await api.get<WhatsAppSequencesResponse>('/api/whatsapp/sequences?limit=12');
+      if (res.success && res.data?.items) {
+        setSequences(res.data.items);
+      } else {
+        setSequences([]);
+      }
+    } catch {
+      setSequences([]);
+    } finally {
+      setSequencesLoading(false);
+    }
+  }, []);
+
   useEffect(() => { fetchStatus(); }, [fetchStatus]);
   useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
   useEffect(() => { fetchQueue(); }, [fetchQueue]);
   useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
+  useEffect(() => { fetchSequences(); }, [fetchSequences]);
 
   useEffect(() => {
     const id = setInterval(() => {
       void fetchQueue();
       void fetchCampaigns();
       void fetchStatus();
+      void fetchSequences();
     }, 15000);
     return () => clearInterval(id);
-  }, [fetchCampaigns, fetchQueue, fetchStatus]);
+  }, [fetchCampaigns, fetchQueue, fetchSequences, fetchStatus]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -507,6 +616,16 @@ export default function WhatsAppSystemPage() {
       const values: Record<string, string | boolean> = {
         [getTemplateKey('welcome', systemLanguage)]: welcomeTemplate.trim() || defaultWelcomeTemplate,
         [getTemplateKey('renewal', systemLanguage)]: renewalTemplate.trim() || defaultRenewalTemplate,
+        [`whatsapp_template_post_expiry_day0_${systemLanguage}`]: postExpiryDay0.trim() || defaultPostExpiry.day0,
+        [`whatsapp_template_post_expiry_day3_${systemLanguage}`]: postExpiryDay3.trim() || defaultPostExpiry.day3,
+        [`whatsapp_template_post_expiry_day7_${systemLanguage}`]: postExpiryDay7.trim() || defaultPostExpiry.day7,
+        [`whatsapp_template_post_expiry_day14_${systemLanguage}`]: postExpiryDay14.trim() || defaultPostExpiry.day14,
+        [`whatsapp_template_onboarding_first_visit_${systemLanguage}`]:
+          onboardingFirstVisit.trim() || defaultOnboarding.firstVisit,
+        [`whatsapp_template_onboarding_no_return_day7_${systemLanguage}`]:
+          onboardingNoReturn7.trim() || defaultOnboarding.noReturnDay7,
+        [`whatsapp_template_onboarding_low_engagement_day14_${systemLanguage}`]:
+          onboardingLowEngagement14.trim() || defaultOnboarding.lowEngagementDay14,
         whatsapp_reminder_days: DEFAULT_REMINDER_DAYS,
         system_language: systemLanguage,
       };
@@ -521,6 +640,65 @@ export default function WhatsAppSystemPage() {
       setTemplateFeedback({ type: 'destructive', text: err instanceof Error ? err.message : labels.failed_to_save });
     } finally {
       setTemplatesSaving(false);
+    }
+  };
+
+  const handleAutomationToggle = async (
+    automationId: 'post_expiry' | 'onboarding',
+    enabled: boolean
+  ) => {
+    const settingKey =
+      automationId === 'post_expiry' ? 'whatsapp_post_expiry_enabled' : 'whatsapp_onboarding_enabled';
+    setControlSavingId(automationId);
+    setControlFeedback(null);
+    try {
+      const res = await api.put('/api/settings', {
+        values: { [settingKey]: enabled },
+      });
+      if (!res.success) throw new Error(res.message ?? 'Failed to update automation state');
+      if (automationId === 'post_expiry') setPostExpiryEnabled(enabled);
+      else setOnboardingEnabled(enabled);
+      setControlFeedback({
+        type: 'success',
+        text:
+          lang === 'ar'
+            ? 'تم تحديث حالة الأتمتة.'
+            : 'Automation state updated.',
+      });
+      await Promise.all([fetchStatus(), fetchSequences()]);
+    } catch (err) {
+      setControlFeedback({
+        type: 'destructive',
+        text: err instanceof Error ? err.message : 'Failed to update automation state.',
+      });
+    } finally {
+      setControlSavingId(null);
+    }
+  };
+
+  const handleStopSequence = async (item: WhatsAppSequenceItem) => {
+    const sequenceKey = `${item.automationId}:${item.memberId}:${item.scope || ''}`;
+    setStoppingSequenceKey(sequenceKey);
+    setSequenceFeedback(null);
+    try {
+      const res = await api.post('/api/whatsapp/sequences', {
+        memberId: item.memberId,
+        automationId: item.automationId,
+        scope: item.scope ?? null,
+      });
+      if (!res.success) throw new Error(res.message ?? 'Failed to stop sequence');
+      setSequenceFeedback({
+        type: 'success',
+        text: lang === 'ar' ? 'تم إيقاف التسلسل.' : 'Sequence stopped.',
+      });
+      await Promise.all([fetchSequences(), fetchStatus(), fetchQueue()]);
+    } catch (err) {
+      setSequenceFeedback({
+        type: 'destructive',
+        text: err instanceof Error ? err.message : 'Failed to stop sequence.',
+      });
+    } finally {
+      setStoppingSequenceKey(null);
     }
   };
 
@@ -679,11 +857,60 @@ export default function WhatsAppSystemPage() {
                   <CardTitle>{lang === 'ar' ? 'مركز تحكم الأتمتة' : 'Automation control center'}</CardTitle>
                   <CardDescription>
                     {lang === 'ar'
-                      ? 'كل الأتمتات ضمن النطاق ظاهرة هنا. المحجوب منها قد يكون منفذاً في العامل لكنه يبقى محجوباً افتراضياً حتى الإطلاق الرسمي.'
-                      : 'All in-scope automations stay visible here. Blocked ones may already exist in the worker, but they stay rollout-gated by default until release.'}
+                      ? 'الواجهة هنا هي مرجع التشغيل: ما الذي يمكن للمالك تفعيله الآن، ما الذي ما زال محجوباً، وما الذي يتحكم به النظام.'
+                      : 'This is the rollout control surface: what the owner can enable now, what is still blocked, and what stays system-owned.'}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {compatibilityAudit && (
+                    <div className="border border-border px-4 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold">
+                            {lang === 'ar' ? 'توافق الفرع الحالي' : 'Current branch compatibility'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {lang === 'ar'
+                              ? 'التحقق يفحص الجداول والأعمدة المطلوبة لمسار واتساب.'
+                              : 'Audit checks the schema required for WhatsApp rollout and fail-open behavior.'}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="border-border">
+                          {compatibilityStatusLabel(compatibilityAudit.currentBranchStatus, lang)}
+                        </Badge>
+                      </div>
+                      {compatibilityAudit.issues.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {compatibilityAudit.issues.map((issue) => (
+                            <Badge key={issue} variant="outline" className="border-warning/30 text-warning">
+                              {issue}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!status?.lifecycleRuntimeGateEnabled && (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>{lang === 'ar' ? 'مسار الإطلاق مغلق' : 'Runtime rollout gate is off'}</AlertTitle>
+                      <AlertDescription>
+                        {lang === 'ar'
+                          ? 'يمكنك ضبط القوالب ومفاتيح الفرع، لكن العامل لن يرسل أتمتات دورة الحياة حتى يتم تفعيل WHATSAPP_LIFECYCLE_AUTOMATIONS_ENABLED.'
+                          : 'Templates and branch toggles can be configured, but the worker will not send lifecycle automations until WHATSAPP_LIFECYCLE_AUTOMATIONS_ENABLED is enabled.'}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {controlFeedback && (
+                    <Alert variant={controlFeedback.type}>
+                      {controlFeedback.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                      <AlertTitle>{controlFeedback.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+                      <AlertDescription>{controlFeedback.text}</AlertDescription>
+                    </Alert>
+                  )}
+
                   {WHATSAPP_AUTOMATION_GROUPS.map((group) => {
                     const items = WHATSAPP_AUTOMATIONS.filter((item) => item.group === group.id);
                     return (
@@ -702,8 +929,9 @@ export default function WhatsAppSystemPage() {
                                 : item.id === 'onboarding'
                                   ? onboardingEnabled
                                   : item.id === 'weekly_digest'
-                                    ? weeklyDigestEnabled
+                                    ? Boolean(status?.weeklyDigestReleaseEnabled)
                                     : item.status === 'live';
+                            const activeCount = activeSequenceCounts[item.id] || 0;
                             return (
                               <div key={item.id} className="border border-border px-4 py-3 space-y-2">
                                 <div className="flex items-start justify-between gap-3">
@@ -721,11 +949,13 @@ export default function WhatsAppSystemPage() {
                                 <div className="flex flex-wrap gap-2 text-xs">
                                   <Badge variant="outline" className="border-border text-muted-foreground">
                                     {configured
-                                      ? (lang === 'ar' ? 'مُعدّ' : 'Configured')
-                                      : (lang === 'ar' ? 'غير مفعّل' : 'Off')}
+                                      ? (lang === 'ar' ? 'مفعّل' : 'Enabled')
+                                      : (lang === 'ar' ? 'متوقف' : 'Off')}
                                   </Badge>
                                   <Badge variant="outline" className="border-border text-muted-foreground">
-                                    {item.ownerControlled
+                                    {item.controlMode === 'system'
+                                      ? (lang === 'ar' ? 'يتحكم به النظام' : 'System owned')
+                                      : item.ownerControlled
                                       ? (lang === 'ar' ? 'يتحكم به المالك' : 'Owner controlled')
                                       : (lang === 'ar' ? 'نظامي / يدوي' : 'System / manual')}
                                   </Badge>
@@ -738,7 +968,46 @@ export default function WhatsAppSystemPage() {
                                       {lang === 'ar' ? 'مقفل حالياً' : 'Locked for now'}
                                     </Badge>
                                   )}
+                                  {(item.id === 'post_expiry' || item.id === 'onboarding') && (
+                                    <Badge variant="outline" className="border-border text-muted-foreground">
+                                      {lang === 'ar'
+                                        ? `${activeCount} متأثرون الآن`
+                                        : `${activeCount} active now`}
+                                    </Badge>
+                                  )}
                                 </div>
+                                <div className="space-y-1 text-xs text-muted-foreground">
+                                  <p>{item.triggerSummary[systemLanguage]}</p>
+                                  <p>{item.stopSummary[systemLanguage]}</p>
+                                </div>
+                                {(item.id === 'post_expiry' || item.id === 'onboarding') && (
+                                  <div className="flex items-center justify-between gap-3 border border-border px-3 py-2">
+                                    <div>
+                                      <p className="text-sm font-medium">
+                                        {lang === 'ar' ? 'تمكين هذه الأتمتة' : 'Enable this automation'}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {lang === 'ar'
+                                          ? 'الحفظ هنا لا يغير القوالب. القوالب تحفظ من الأسفل.'
+                                          : 'This only changes the branch toggle. Templates are saved separately below.'}
+                                      </p>
+                                    </div>
+                                    <label className="inline-flex items-center gap-2 text-sm">
+                                      <input
+                                        type="checkbox"
+                                        checked={configured}
+                                        disabled={controlSavingId === item.id}
+                                        onChange={(event) =>
+                                          void handleAutomationToggle(
+                                            item.id as 'post_expiry' | 'onboarding',
+                                            event.target.checked
+                                          )
+                                        }
+                                      />
+                                      <span>{configured ? (lang === 'ar' ? 'مفعّل' : 'On') : (lang === 'ar' ? 'متوقف' : 'Off')}</span>
+                                    </label>
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
@@ -821,10 +1090,10 @@ export default function WhatsAppSystemPage() {
                     {lang === 'ar' ? 'أتمتة دورة حياة العضو' : 'Lifecycle automations'}
                   </span>
                   <Badge variant="outline" className="border-warning/40 bg-warning/10 text-warning text-xs">
-                    {lang === 'ar' ? 'قادمًا قريباً' : 'Coming soon'}
+                    {lang === 'ar' ? 'الموجة الأولى جاهزة' : 'First wave ready'}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {lang === 'ar' ? 'ظاهرة لكنها مقفلة' : 'Visible but locked'}
+                    {lang === 'ar' ? 'ما بعد الانتهاء + التهيئة جاهزان، والباقي ما زال محجوباً' : 'Post-expiry + onboarding are ready; later waves stay blocked'}
                   </span>
                 </div>
                 <svg
@@ -839,8 +1108,8 @@ export default function WhatsAppSystemPage() {
                 <div className="border border-border border-t-0 px-4 py-4 space-y-3 bg-[#1a1a1a]">
                   <p className="text-sm text-muted-foreground">
                     {lang === 'ar'
-                      ? 'هذه الرسائل تبقى مرئية لفهم ما هو جاهز تقنياً وما هو محجوب على مستوى الإطلاق. العرض هنا للمتابعة فقط وليس لتفعيلها من هذه الواجهة.'
-                      : 'These automations stay visible so owners can see what is technically implemented versus rollout-gated. This section is read-only and does not activate them from this UI.'}
+                      ? 'الموجة الأولى فقط قابلة للتفعيل من مركز التحكم. الملخص الأسبوعي يبقى استثناءً مملوكاً للنظام، وبقية التنبيهات السلوكية تظل ظاهرة لكن محجوبة.'
+                      : 'Only the first wave is owner-toggleable in the control center. Weekly digest stays system-owned, and the later behavior automations remain visible but blocked.'}
                   </p>
                   <div className="grid gap-2 sm:grid-cols-3">
                     {[
@@ -849,18 +1118,88 @@ export default function WhatsAppSystemPage() {
                       { titleEn: 'Habit-break nudge', titleAr: 'تنبيه انقطاع العادة', enabled: habitBreakEnabled },
                       { titleEn: 'Streak encouragement', titleAr: 'تشجيع الاستمرارية', enabled: streaksEnabled },
                       { titleEn: 'Freeze-ending reminder', titleAr: 'تذكير انتهاء التجميد', enabled: freezeEndingEnabled },
-                      { titleEn: 'Weekly digest', titleAr: 'الملخص الأسبوعي', enabled: weeklyDigestEnabled },
+                      { titleEn: 'Weekly digest', titleAr: 'الملخص الأسبوعي', enabled: Boolean(status?.weeklyDigestReleaseEnabled) },
                     ].map((item) => (
                       <div key={item.titleEn} className="flex items-center justify-between gap-2 border border-border px-3 py-2">
                         <p className="text-xs font-medium">{lang === 'ar' ? item.titleAr : item.titleEn}</p>
                         <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
-                          {item.enabled ? (lang === 'ar' ? 'مُعدّ لكن محجوب' : 'Configured but blocked') : (lang === 'ar' ? 'محجوب' : 'Blocked')}
+                          {item.titleEn === 'Weekly digest'
+                            ? item.enabled
+                              ? (lang === 'ar' ? 'مباشر كنظام' : 'Live as system release')
+                              : (lang === 'ar' ? 'محجوب كنظام' : 'Blocked system release')
+                            : item.enabled
+                              ? (lang === 'ar' ? 'مُعدّ' : 'Configured')
+                              : (lang === 'ar' ? 'محجوب' : 'Blocked')}
                         </Badge>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">{lang === 'ar' ? 'التسلسلات النشطة' : 'Active sequences'}</CardTitle>
+                  <CardDescription className="text-xs">
+                    {lang === 'ar'
+                      ? 'يمكنك رؤية الحالات الفعلية وإيقاف تسلسل بعينه لكل عضو.'
+                      : 'Review the current lifecycle sequences and stop an individual sequence when needed.'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {sequenceFeedback && (
+                    <Alert variant={sequenceFeedback.type}>
+                      {sequenceFeedback.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                      <AlertTitle>{sequenceFeedback.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+                      <AlertDescription>{sequenceFeedback.text}</AlertDescription>
+                    </Alert>
+                  )}
+                  {sequencesLoading ? (
+                    <p className="text-sm text-muted-foreground">{labels.loading}</p>
+                  ) : sequences.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      {lang === 'ar' ? 'لا توجد تسلسلات مرئية حالياً.' : 'No visible lifecycle sequences right now.'}
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {sequences.map((item) => {
+                        const sequenceKey = `${item.automationId}:${item.memberId}:${item.scope || ''}`;
+                        return (
+                          <div key={sequenceKey} className="flex flex-col gap-3 border border-border px-3 py-3 md:flex-row md:items-center md:justify-between">
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-medium">{item.memberName || (lang === 'ar' ? 'بدون اسم' : 'Unnamed')}</p>
+                                <Badge variant="outline" className="border-border text-muted-foreground">
+                                  {item.automationId === 'post_expiry'
+                                    ? (lang === 'ar' ? 'ما بعد الانتهاء' : 'Post-expiry')
+                                    : (lang === 'ar' ? 'تهيئة' : 'Onboarding')}
+                                </Badge>
+                                <Badge variant="outline" className={statusBadgeClass(item.status)}>
+                                  {sequenceStatusLabel(item.status, lang)}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {item.memberPhone || '—'} · {formatDateTime(item.latestEventAt, lang)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">{item.sequenceKind}</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={!item.canStop || stoppingSequenceKey === sequenceKey}
+                              onClick={() => void handleStopSequence(item)}
+                            >
+                              {stoppingSequenceKey === sequenceKey
+                                ? (lang === 'ar' ? 'جارٍ الإيقاف...' : 'Stopping...')
+                                : (lang === 'ar' ? 'إيقاف التسلسل' : 'Stop sequence')}
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
               {/* Post-expiry templates — sub-tab picker */}
               <Card>
@@ -907,7 +1246,7 @@ export default function WhatsAppSystemPage() {
                       .replace(/\{expiryDate\}/g, sampleExpiry);
                     return (
                       <div className="grid gap-4 lg:grid-cols-2 items-stretch">
-                        <Textarea value={active.value} onChange={(e) => active.setValue(e.target.value)} rows={3} className="resize-none" disabled />
+                        <Textarea value={active.value} onChange={(e) => active.setValue(e.target.value)} rows={3} className="resize-none" />
                         <WaBubble text={previewMsg} />
                       </div>
                     );
@@ -956,7 +1295,7 @@ export default function WhatsAppSystemPage() {
                     const previewMsg = (active.value.trim() || active.defaultVal).replace(/\{name\}/g, sampleName);
                     return (
                       <div className="grid gap-4 lg:grid-cols-2 items-stretch">
-                        <Textarea value={active.value} onChange={(e) => active.setValue(e.target.value)} rows={3} className="resize-none" disabled />
+                        <Textarea value={active.value} onChange={(e) => active.setValue(e.target.value)} rows={3} className="resize-none" />
                         <WaBubble text={previewMsg} />
                       </div>
                     );
@@ -1016,6 +1355,11 @@ export default function WhatsAppSystemPage() {
                 <Button onClick={handleTemplateSave} disabled={templatesSaving}>
                   {templatesSaving ? labels.saving : labels.save}
                 </Button>
+                <span className="text-xs text-muted-foreground">
+                  {lang === 'ar'
+                    ? 'حفظ القوالب لا يغيّر مفاتيح التشغيل في مركز التحكم.'
+                    : 'Saving templates does not change the control-center toggles.'}
+                </span>
                 {templateFeedback && (
                   <span className={`text-sm ${templateFeedback.type === 'success' ? 'text-success' : 'text-destructive'}`}>
                     {templateFeedback.text}

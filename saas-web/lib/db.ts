@@ -5,6 +5,8 @@ declare global {
   var __gymflowPool: Pool | undefined;
 }
 
+export type Queryable = Pick<Pool, "query"> | Pick<PoolClient, "query">;
+
 function buildPool() {
   // Cloud SQL Proxy (unix socket or localhost TCP): SSL handled by proxy tunnel.
   // Otherwise: use strict SSL in production, feature-flagged SSL in development.
@@ -23,12 +25,10 @@ function buildPool() {
     ? false
     : (env.NODE_ENV === "production" ? true : featureFlags.useDatabaseSsl);
 
-  const poolMax = env.NODE_ENV === "production" ? 4 : 12;
-
   return new Pool({
     connectionString: env.DATABASE_URL,
     ssl: useSSL ? { rejectUnauthorized: true } : undefined,
-    max: poolMax,
+    max: env.DATABASE_POOL_MAX,
     idleTimeoutMillis: 30000
   });
 }
@@ -44,6 +44,15 @@ export async function query<T = Record<string, unknown>>(text: string, values: u
   return result.rows as T[];
 }
 
+export async function queryWith<T = Record<string, unknown>>(
+  source: Queryable,
+  text: string,
+  values: unknown[] = []
+) {
+  const result = await source.query(text, values);
+  return result.rows as T[];
+}
+
 export async function withTransaction<T>(executor: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await pool.connect();
   try {
@@ -54,6 +63,15 @@ export async function withTransaction<T>(executor: (client: PoolClient) => Promi
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function withClient<T>(executor: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await pool.connect();
+  try {
+    return await executor(client);
   } finally {
     client.release();
   }

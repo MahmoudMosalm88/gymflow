@@ -1,6 +1,7 @@
 import { PoolClient } from "pg";
 import { randomUUID } from "crypto";
 import { query, withTransaction } from "@/lib/db";
+import { env } from "@/lib/env";
 import { toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 import {
   WHATSAPP_AUTOMATIONS,
@@ -10,6 +11,7 @@ import {
   WARNING_WINDOW_DAYS,
   WARNING_WINDOW_HOURS,
   classifyAutomationSource,
+  parseManualStopRecords,
   parseBooleanSetting,
 } from "@/lib/whatsapp-automation";
 
@@ -62,6 +64,26 @@ export type WhatsAppAutomationControlState = {
   locked: boolean;
   ownerControlled: boolean;
   status: "live" | "blocked" | "planned";
+};
+
+export type WhatsAppCompatibilityState = "compatible" | "needs_migration" | "needs_manual_cleanup";
+
+export type WhatsAppBranchCompatibility = {
+  branchId: string;
+  branchName: string;
+  status: WhatsAppCompatibilityState;
+  issues: string[];
+  current: boolean;
+};
+
+export type WhatsAppCompatibilityAudit = {
+  currentBranchId: string;
+  currentBranchStatus: WhatsAppCompatibilityState;
+  lifecycleRuntimeGateEnabled: boolean;
+  weeklyDigestReleaseEnabled: boolean;
+  weeklyDigestMode: "blocked_system_owned" | "live_system_owned";
+  issues: string[];
+  branches: WhatsAppBranchCompatibility[];
 };
 
 export type QueueItem = {
@@ -136,9 +158,53 @@ type SettingRow = {
   value: unknown;
 };
 
+type WhatsAppSchemaStateRow = {
+  has_settings: boolean;
+  has_message_queue: boolean;
+  has_notifications: boolean;
+  has_whatsapp_campaigns: boolean;
+  has_settings_value: boolean;
+  has_message_queue_payload: boolean;
+  has_message_queue_status: boolean;
+  has_message_queue_last_error: boolean;
+  has_message_queue_scheduled_at: boolean;
+  has_message_queue_sent_at: boolean;
+  has_members_whatsapp_do_not_contact: boolean;
+  has_members_joined_at: boolean;
+  has_members_is_legacy_import: boolean;
+  has_subscriptions_is_legacy_import: boolean;
+  has_subscriptions_renewed_from_subscription_id: boolean;
+};
+
+type BranchRow = {
+  branch_id: string;
+  branch_name: string;
+};
+
+type BranchSettingAuditRow = {
+  branch_id: string;
+  branch_name: string;
+  key: string | null;
+  value: unknown;
+};
+
 const AVG_SEND_SECONDS = 14;
 const DEFAULT_QUEUE_LIMIT = 20;
 const DEFAULT_CAMPAIGN_LIMIT = 20;
+const lifecycleRuntimeGateEnabled = env.WHATSAPP_LIFECYCLE_AUTOMATIONS_ENABLED === "true";
+const weeklyDigestReleaseEnabled = env.WHATSAPP_WEEKLY_DIGESTS_ENABLED === "true";
+
+function isSchemaDrift(error: unknown) {
+  const code =
+    typeof error === "object" && error && "code" in error
+      ? String((error as { code?: string }).code || "")
+      : "";
+  return code === "42P01" || code === "42703";
+}
+
+function emptyQueueCounts(): QueueCounts {
+  return { pending: 0, processing: 0, sent: 0, failed: 0 };
+}
 
 function normalizeStatusValue(value: unknown) {
   const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -163,7 +229,10 @@ export async function getWhatsAppStatusWithQueue(organizationId: string, branchI
           AND key = 'whatsapp_status'
         LIMIT 1`,
       [organizationId, branchId]
-    ),
+    ).catch((error) => {
+      if (!isSchemaDrift(error)) throw error;
+      return [] as StatusRow[];
+    }),
     getQueueCounts(organizationId, branchId),
     getWhatsAppWarningSummary(organizationId, branchId),
     getWhatsAppAutomationStates(organizationId, branchId),
@@ -182,6 +251,249 @@ export async function getWhatsAppStatusWithQueue(organizationId: string, branchI
     lastQueueError: raw.lastQueueError,
     warningSummary,
     automationStates,
+    lifecycleRuntimeGateEnabled,
+    weeklyDigestReleaseEnabled,
+    weeklyDigestMode: weeklyDigestReleaseEnabled ? "live_system_owned" : "blocked_system_owned",
+  };
+}
+
+export async function getWhatsAppCompatibilityAudit(
+  organizationId: string,
+  currentBranchId: string,
+  ownerId?: string | null
+): Promise<WhatsAppCompatibilityAudit> {
+  let schemaState: WhatsAppSchemaStateRow | null = null;
+
+  try {
+    const rows = await query<WhatsAppSchemaStateRow>(
+      `SELECT
+          to_regclass('public.settings') IS NOT NULL AS has_settings,
+          to_regclass('public.message_queue') IS NOT NULL AS has_message_queue,
+          to_regclass('public.notifications') IS NOT NULL AS has_notifications,
+          to_regclass('public.whatsapp_campaigns') IS NOT NULL AS has_whatsapp_campaigns,
+          EXISTS(
+            SELECT 1
+              FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'settings'
+               AND column_name = 'value'
+          ) AS has_settings_value,
+          EXISTS(
+            SELECT 1
+              FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'message_queue'
+               AND column_name = 'payload'
+          ) AS has_message_queue_payload,
+          EXISTS(
+            SELECT 1
+              FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'message_queue'
+               AND column_name = 'status'
+          ) AS has_message_queue_status,
+          EXISTS(
+            SELECT 1
+              FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'message_queue'
+               AND column_name = 'last_error'
+          ) AS has_message_queue_last_error,
+          EXISTS(
+            SELECT 1
+              FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'message_queue'
+               AND column_name = 'scheduled_at'
+          ) AS has_message_queue_scheduled_at,
+          EXISTS(
+            SELECT 1
+              FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'message_queue'
+               AND column_name = 'sent_at'
+          ) AS has_message_queue_sent_at,
+          EXISTS(
+            SELECT 1
+              FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'members'
+               AND column_name = 'whatsapp_do_not_contact'
+          ) AS has_members_whatsapp_do_not_contact,
+          EXISTS(
+            SELECT 1
+              FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'members'
+               AND column_name = 'joined_at'
+          ) AS has_members_joined_at,
+          EXISTS(
+            SELECT 1
+              FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'members'
+               AND column_name = 'is_legacy_import'
+          ) AS has_members_is_legacy_import,
+          EXISTS(
+            SELECT 1
+              FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'subscriptions'
+               AND column_name = 'is_legacy_import'
+          ) AS has_subscriptions_is_legacy_import,
+          EXISTS(
+            SELECT 1
+              FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'subscriptions'
+               AND column_name = 'renewed_from_subscription_id'
+          ) AS has_subscriptions_renewed_from_subscription_id`,
+      []
+    );
+    schemaState = rows[0] || null;
+  } catch (error) {
+    if (!isSchemaDrift(error)) throw error;
+  }
+
+  const globalIssues: string[] = [];
+  if (!schemaState?.has_settings) globalIssues.push("Missing relation: settings");
+  if (!schemaState?.has_message_queue) globalIssues.push("Missing relation: message_queue");
+  if (!schemaState?.has_notifications) globalIssues.push("Missing relation: notifications");
+  if (schemaState?.has_settings && !schemaState.has_settings_value) globalIssues.push("Missing column: settings.value");
+  if (schemaState?.has_message_queue && !schemaState.has_message_queue_payload) globalIssues.push("Missing column: message_queue.payload");
+  if (schemaState?.has_message_queue && !schemaState.has_message_queue_status) globalIssues.push("Missing column: message_queue.status");
+  if (schemaState?.has_message_queue && !schemaState.has_message_queue_last_error) globalIssues.push("Missing column: message_queue.last_error");
+  if (schemaState?.has_message_queue && !schemaState.has_message_queue_scheduled_at) globalIssues.push("Missing column: message_queue.scheduled_at");
+  if (schemaState?.has_message_queue && !schemaState.has_message_queue_sent_at) globalIssues.push("Missing column: message_queue.sent_at");
+  if (schemaState?.has_members_whatsapp_do_not_contact === false) globalIssues.push("Missing column: members.whatsapp_do_not_contact");
+  if (schemaState?.has_members_joined_at === false) globalIssues.push("Missing column: members.joined_at");
+  if (schemaState?.has_members_is_legacy_import === false) globalIssues.push("Missing column: members.is_legacy_import");
+  if (schemaState?.has_subscriptions_is_legacy_import === false) globalIssues.push("Missing column: subscriptions.is_legacy_import");
+  if (schemaState?.has_subscriptions_renewed_from_subscription_id === false) {
+    globalIssues.push("Missing column: subscriptions.renewed_from_subscription_id");
+  }
+
+  let branches: BranchRow[] = [];
+  if (ownerId) {
+    branches = await query<BranchRow>(
+      `SELECT b.id AS branch_id, b.name AS branch_name
+         FROM branches b
+         JOIN owner_branch_access oba ON oba.branch_id = b.id
+        WHERE b.organization_id = $1
+          AND oba.owner_id = $2
+        ORDER BY b.created_at ASC`,
+      [organizationId, ownerId]
+    );
+  } else {
+    branches = [{ branch_id: currentBranchId, branch_name: "Current branch" }];
+  }
+
+  let branchSettingsRows: BranchSettingAuditRow[] = [];
+  if (schemaState?.has_settings && ownerId) {
+    branchSettingsRows = await query<BranchSettingAuditRow>(
+      `SELECT b.id AS branch_id,
+              b.name AS branch_name,
+              s.key,
+              s.value
+         FROM branches b
+         JOIN owner_branch_access oba ON oba.branch_id = b.id
+         LEFT JOIN settings s
+           ON s.organization_id = b.organization_id
+          AND s.branch_id = b.id
+          AND s.key = ANY($3::text[])
+        WHERE b.organization_id = $1
+          AND oba.owner_id = $2
+        ORDER BY b.created_at ASC`,
+      [
+        organizationId,
+        ownerId,
+        [
+          "whatsapp_post_expiry_enabled",
+          "whatsapp_onboarding_enabled",
+          "whatsapp_habit_break_enabled",
+          "whatsapp_streaks_enabled",
+          "whatsapp_freeze_ending_enabled",
+          "whatsapp_status",
+          "whatsapp_sequence_manual_stops",
+        ],
+      ]
+    ).catch((error) => {
+      if (!isSchemaDrift(error)) throw error;
+      return [] as BranchSettingAuditRow[];
+    });
+  }
+
+  const byBranch = new Map<string, BranchSettingAuditRow[]>();
+  for (const row of branchSettingsRows) {
+    const existing = byBranch.get(row.branch_id) || [];
+    existing.push(row);
+    byBranch.set(row.branch_id, existing);
+  }
+
+  const branchAudit = branches.map<WhatsAppBranchCompatibility>((branch) => {
+    if (globalIssues.length > 0) {
+      return {
+        branchId: branch.branch_id,
+        branchName: branch.branch_name,
+        status: "needs_migration",
+        issues: [...globalIssues],
+        current: branch.branch_id === currentBranchId,
+      };
+    }
+
+    const issues: string[] = [];
+    const rows = byBranch.get(branch.branch_id) || [];
+    for (const row of rows) {
+      if (!row.key) continue;
+      if (
+        row.key !== "whatsapp_status" &&
+        row.key !== "whatsapp_sequence_manual_stops" &&
+        typeof row.value !== "boolean" &&
+        typeof row.value !== "string"
+      ) {
+        issues.push(`Invalid boolean setting shape: ${row.key}`);
+      }
+      if (
+        typeof row.value === "string" &&
+        row.key !== "whatsapp_status" &&
+        row.key !== "whatsapp_sequence_manual_stops" &&
+        row.value !== "true" &&
+        row.value !== "false"
+      ) {
+        issues.push(`Invalid boolean setting value: ${row.key}`);
+      }
+      if (row.key === "whatsapp_sequence_manual_stops") {
+        const parsed = parseManualStopRecords(row.value);
+        const rawLooksEmpty =
+          row.value == null ||
+          (Array.isArray(row.value) && row.value.length === 0);
+        if (parsed.length === 0 && !rawLooksEmpty) {
+          issues.push("Invalid manual stop data");
+        }
+      }
+    }
+
+    return {
+      branchId: branch.branch_id,
+      branchName: branch.branch_name,
+      status: issues.length > 0 ? "needs_manual_cleanup" : "compatible",
+      issues,
+      current: branch.branch_id === currentBranchId,
+    };
+  });
+
+  const currentBranchStatus =
+    branchAudit.find((item) => item.current)?.status ??
+    (globalIssues.length > 0 ? "needs_migration" : "compatible");
+
+  return {
+    currentBranchId,
+    currentBranchStatus,
+    lifecycleRuntimeGateEnabled,
+    weeklyDigestReleaseEnabled,
+    weeklyDigestMode: weeklyDigestReleaseEnabled ? "live_system_owned" : "blocked_system_owned",
+    issues: globalIssues,
+    branches: branchAudit,
   };
 }
 
@@ -190,19 +502,28 @@ export async function getWhatsAppAutomationStates(
   branchId: string
 ): Promise<WhatsAppAutomationControlState[]> {
   const settingKeys = WHATSAPP_AUTOMATIONS.map((item) => item.settingKey).filter(Boolean) as string[];
-  if (settingKeys.length === 0) return [];
-  const rows = await query<SettingRow>(
-    `SELECT key, value
-       FROM settings
-      WHERE organization_id = $1
-        AND branch_id = $2
-        AND key = ANY($3::text[])`,
-    [organizationId, branchId, settingKeys]
-  );
+  let rows: SettingRow[] = [];
+  if (settingKeys.length > 0) {
+    rows = await query<SettingRow>(
+      `SELECT key, value
+         FROM settings
+        WHERE organization_id = $1
+          AND branch_id = $2
+          AND key = ANY($3::text[])`,
+      [organizationId, branchId, settingKeys]
+    ).catch((error) => {
+      if (!isSchemaDrift(error)) throw error;
+      return [] as SettingRow[];
+    });
+  }
   const settings = Object.fromEntries(rows.map((row) => [row.key, row.value]));
   return WHATSAPP_AUTOMATIONS.map((item) => ({
     id: item.id,
-    enabled: item.settingKey ? parseBooleanSetting(settings[item.settingKey], false) : item.status === "live",
+    enabled: item.settingKey
+      ? parseBooleanSetting(settings[item.settingKey], false)
+      : item.id === "weekly_digest"
+        ? weeklyDigestReleaseEnabled
+        : item.status === "live",
     locked: item.status !== "live",
     ownerControlled: item.ownerControlled,
     status: item.status,
@@ -239,7 +560,10 @@ export async function getWhatsAppWarningSummary(
        FROM recent_messages
       GROUP BY member_id, member_name, member_phone, type, sequence_kind`,
     [organizationId, branchId]
-  );
+  ).catch((error) => {
+    if (!isSchemaDrift(error)) throw error;
+    return [] as WarningRow[];
+  });
 
   const byMember = new Map<
     string,
@@ -331,9 +655,12 @@ export async function getQueueCounts(organizationId: string, branchId: string): 
         AND branch_id = $2
       GROUP BY status`,
     [organizationId, branchId]
-  );
+  ).catch((error) => {
+    if (!isSchemaDrift(error)) throw error;
+    return [] as Array<{ status: QueueStatus; count: string }>;
+  });
 
-  const counts: QueueCounts = { pending: 0, processing: 0, sent: 0, failed: 0 };
+  const counts = emptyQueueCounts();
   for (const row of rows) {
     counts[row.status] = Number(row.count || 0);
   }
@@ -380,7 +707,10 @@ export async function getQueueItems(
         COALESCE(mq.sent_at, mq.scheduled_at) DESC
       LIMIT ${limit}`,
     params
-  );
+  ).catch((error) => {
+    if (!isSchemaDrift(error)) throw error;
+    return [] as QueueItem[];
+  });
 
   return {
     items,
@@ -739,5 +1069,8 @@ export async function getCampaignItems(
        ORDER BY wc.created_at DESC
        LIMIT ${safeLimit}`,
     [organizationId, branchId]
-  );
+  ).catch((error) => {
+    if (!isSchemaDrift(error)) throw error;
+    return [] as CampaignItem[];
+  });
 }

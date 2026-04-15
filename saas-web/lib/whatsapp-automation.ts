@@ -19,6 +19,18 @@ export type WhatsAppAutomationId =
   | "freeze_ending"
   | "weekly_digest";
 export type WhatsAppAutomationState = "live" | "blocked" | "planned";
+export type WhatsAppSequenceControlAutomationId = "post_expiry" | "onboarding";
+
+export type WhatsAppManualStopRecord = {
+  memberId: string;
+  automationId: WhatsAppSequenceControlAutomationId;
+  scope?: string | null;
+  stoppedAt: string;
+  stoppedBy?: string | null;
+  reason?: string | null;
+};
+
+export const WHATSAPP_SEQUENCE_MANUAL_STOPS_KEY = "whatsapp_sequence_manual_stops";
 
 export type WhatsAppAutomationGroup = {
   id: WhatsAppAutomationGroupId;
@@ -31,11 +43,14 @@ export type WhatsAppAutomationDefinition = {
   group: WhatsAppAutomationGroupId;
   title: Record<SystemLanguage, string>;
   description: Record<SystemLanguage, string>;
+  triggerSummary: Record<SystemLanguage, string>;
+  stopSummary: Record<SystemLanguage, string>;
   status: WhatsAppAutomationState;
   ownerControlled: boolean;
   editableTemplates: boolean;
   warningEligible: boolean;
   warningLabel: Record<SystemLanguage, string>;
+  controlMode?: "owner" | "system";
   settingKey?: string;
 };
 
@@ -165,11 +180,20 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomationDefinition[] = [
       en: "Sent when a new member is added. This is onboarding step 1 and stays live.",
       ar: "ترسل عند إضافة عضو جديد. هذه هي الخطوة الأولى من التهيئة وتبقى مفعلة.",
     },
+    triggerSummary: {
+      en: "Triggers when a new member is added.",
+      ar: "تعمل عند إضافة عضو جديد.",
+    },
+    stopSummary: {
+      en: "Stops only if WhatsApp delivery is not allowed for that member.",
+      ar: "تتوقف فقط إذا لم يعد مسموحاً بإرسال واتساب لهذا العضو.",
+    },
     status: "live",
     ownerControlled: true,
     editableTemplates: true,
     warningEligible: true,
     warningLabel: { en: "Welcome", ar: "ترحيب" },
+    controlMode: "owner",
   },
   {
     id: "renewal",
@@ -179,11 +203,20 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomationDefinition[] = [
       en: "Locked GymFlow timing: 14, 7, and 3 days before expiry.",
       ar: "توقيت ثابت من GymFlow: قبل الانتهاء بـ 14 و7 و3 أيام.",
     },
+    triggerSummary: {
+      en: "Triggers 14, 7, and 3 days before active subscription expiry.",
+      ar: "تعمل قبل انتهاء الاشتراك النشط بـ 14 و7 و3 أيام.",
+    },
+    stopSummary: {
+      en: "Stops if the member renews, becomes inactive, or WhatsApp is not allowed.",
+      ar: "تتوقف إذا جدد العضو أو أصبح غير مؤهل أو لم يعد واتساب مسموحاً له.",
+    },
     status: "live",
     ownerControlled: true,
     editableTemplates: true,
     warningEligible: true,
     warningLabel: { en: "Renewal", ar: "تجديد" },
+    controlMode: "owner",
   },
   {
     id: "qr_code",
@@ -193,11 +226,20 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomationDefinition[] = [
       en: "Owner or staff triggered QR delivery for smoother check-in.",
       ar: "إرسال QR يدوياً من المالك أو الموظف لتسهيل الدخول.",
     },
+    triggerSummary: {
+      en: "Manual send from the dashboard or staff action.",
+      ar: "إرسال يدوي من اللوحة أو من الموظف.",
+    },
+    stopSummary: {
+      en: "No sequence state. Each send is one-off.",
+      ar: "لا يوجد تسلسل. كل إرسال مستقل.",
+    },
     status: "live",
     ownerControlled: false,
     editableTemplates: false,
     warningEligible: true,
     warningLabel: { en: "QR", ar: "QR" },
+    controlMode: "system",
   },
   {
     id: "broadcast",
@@ -207,11 +249,20 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomationDefinition[] = [
       en: "Manual campaigns stay available and count toward warnings.",
       ar: "الحملات اليدوية تظل متاحة وتُحتسب ضمن التحذيرات.",
     },
+    triggerSummary: {
+      en: "Manual broadcast campaign selected by the owner.",
+      ar: "حملة بث يختارها المالك يدوياً.",
+    },
+    stopSummary: {
+      en: "Stops per campaign when the queue finishes or the campaign is cancelled.",
+      ar: "تتوقف لكل حملة عند انتهاء الطابور أو إلغاء الحملة.",
+    },
     status: "live",
     ownerControlled: false,
     editableTemplates: false,
     warningEligible: true,
     warningLabel: { en: "Broadcast", ar: "بث جماعي" },
+    controlMode: "system",
   },
   {
     id: "post_expiry",
@@ -221,11 +272,20 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomationDefinition[] = [
       en: "Day 0, 3, 7, and 14 recovery sequence. Implemented in the worker, but blocked by default until rollout.",
       ar: "تسلسل استرجاع في يوم 0 و3 و7 و14. منفذ داخل العامل لكنه محجوب افتراضياً حتى الإطلاق.",
     },
+    triggerSummary: {
+      en: "Triggers only after a natural expiry with no renewal or active replacement cycle.",
+      ar: "تعمل فقط بعد انتهاء طبيعي بدون تجديد أو دورة بديلة نشطة.",
+    },
+    stopSummary: {
+      en: "Stops on renewal, lost eligibility, do-not-contact, or manual stop.",
+      ar: "تتوقف عند التجديد أو فقدان الأهلية أو عدم الاتصال أو الإيقاف اليدوي.",
+    },
     status: "blocked",
     ownerControlled: true,
-    editableTemplates: false,
+    editableTemplates: true,
     warningEligible: true,
     warningLabel: { en: "Post-expiry", ar: "ما بعد الانتهاء" },
+    controlMode: "owner",
     settingKey: "whatsapp_post_expiry_enabled",
   },
   {
@@ -236,11 +296,20 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomationDefinition[] = [
       en: "Welcome is live; later onboarding steps are implemented in the worker but blocked by default until rollout.",
       ar: "رسالة الترحيب مفعلة؛ بقية خطوات التهيئة منفذة داخل العامل لكنها محجوبة افتراضياً حتى الإطلاق.",
     },
+    triggerSummary: {
+      en: "Triggers for real new joins and qualifying recent imported joins with early attendance signals.",
+      ar: "تعمل للأعضاء الجدد فعلاً وللحالات المستوردة الحديثة التي تثبت مؤشرات تهيئة مبكرة.",
+    },
+    stopSummary: {
+      en: "Stops when the member no longer qualifies, meets the step goal, or is stopped manually.",
+      ar: "تتوقف عندما لا يعود العضو مؤهلاً أو يحقق هدف الخطوة أو يتم إيقافه يدوياً.",
+    },
     status: "blocked",
     ownerControlled: true,
-    editableTemplates: false,
+    editableTemplates: true,
     warningEligible: true,
     warningLabel: { en: "Onboarding", ar: "تهيئة" },
+    controlMode: "owner",
     settingKey: "whatsapp_onboarding_enabled",
   },
   {
@@ -251,11 +320,20 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomationDefinition[] = [
       en: "Behavior-based retention nudge. Implemented in the worker, but blocked by default until rollout.",
       ar: "تنبيه احتفاظ سلوكي. منفذ داخل العامل لكنه محجوب افتراضياً حتى الإطلاق.",
     },
+    triggerSummary: {
+      en: "Will trigger after a good attendance pattern breaks.",
+      ar: "ستعمل بعد انقطاع عادة حضور جيدة.",
+    },
+    stopSummary: {
+      en: "Will stop when attendance recovers or the member becomes ineligible.",
+      ar: "ستتوقف عندما يعود الحضور أو يفقد العضو الأهلية.",
+    },
     status: "blocked",
     ownerControlled: true,
     editableTemplates: false,
     warningEligible: true,
     warningLabel: { en: "Habit-break", ar: "انقطاع العادة" },
+    controlMode: "owner",
     settingKey: "whatsapp_habit_break_enabled",
   },
   {
@@ -266,11 +344,20 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomationDefinition[] = [
       en: "Milestone encouragement sequence. Implemented in the worker, but blocked by default until rollout.",
       ar: "تسلسل تشجيع للإنجازات. منفذ داخل العامل لكنه محجوب افتراضياً حتى الإطلاق.",
     },
+    triggerSummary: {
+      en: "Will trigger when a member reaches a configured attendance streak.",
+      ar: "ستعمل عندما يصل العضو إلى سلسلة حضور محددة.",
+    },
+    stopSummary: {
+      en: "No ongoing sequence. Each streak milestone is a one-off send.",
+      ar: "لا يوجد تسلسل مستمر. كل إنجاز سلسلة هو إرسال مستقل.",
+    },
     status: "blocked",
     ownerControlled: true,
     editableTemplates: false,
     warningEligible: true,
     warningLabel: { en: "Streaks", ar: "الاستمرارية" },
+    controlMode: "owner",
     settingKey: "whatsapp_streaks_enabled",
   },
   {
@@ -281,11 +368,20 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomationDefinition[] = [
       en: "Freeze return reminder. Implemented in the worker, but blocked by default until rollout.",
       ar: "تذكير بعودة العضو بعد التجميد. منفذ داخل العامل لكنه محجوب افتراضياً حتى الإطلاق.",
     },
+    triggerSummary: {
+      en: "Will trigger shortly before an active freeze ends.",
+      ar: "ستعمل قبل انتهاء التجميد النشط بوقت قصير.",
+    },
+    stopSummary: {
+      en: "Stops when the member renews activity, becomes inactive, or the reminder is no longer relevant.",
+      ar: "تتوقف عندما يستعيد العضو نشاطه أو يصبح غير مؤهل أو لا تعود الرسالة ذات صلة.",
+    },
     status: "blocked",
     ownerControlled: true,
     editableTemplates: false,
     warningEligible: true,
     warningLabel: { en: "Freeze ending", ar: "انتهاء التجميد" },
+    controlMode: "owner",
     settingKey: "whatsapp_freeze_ending_enabled",
   },
   {
@@ -296,12 +392,20 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomationDefinition[] = [
       en: "Owner-facing summary. Implemented in the worker, but blocked by default until rollout.",
       ar: "ملخص موجّه للمالك. منفذ داخل العامل لكنه محجوب افتراضياً حتى الإطلاق.",
     },
+    triggerSummary: {
+      en: "System-owned weekly summary for connected branches after release.",
+      ar: "ملخص أسبوعي يملكه النظام للفروع المتصلة بعد الإطلاق.",
+    },
+    stopSummary: {
+      en: "No owner toggle. GymFlow enables it globally when the release lane is opened.",
+      ar: "لا يوجد مفتاح للمالك. تقوم GymFlow بتفعيله عالمياً عند فتح مسار الإطلاق.",
+    },
     status: "blocked",
     ownerControlled: false,
     editableTemplates: false,
     warningEligible: false,
     warningLabel: { en: "Weekly digest", ar: "الملخص الأسبوعي" },
-    settingKey: "whatsapp_weekly_digest_enabled",
+    controlMode: "system",
   },
 ];
 
@@ -420,4 +524,81 @@ export function parseTextSetting(value: unknown): string {
     if (typeof rec.value === "string") return rec.value.trim();
   }
   return "";
+}
+
+function normalizeManualStopScope(scope: string | null | undefined) {
+  const trimmed = typeof scope === "string" ? scope.trim() : "";
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function isManualStopRecord(value: unknown): value is WhatsAppManualStopRecord {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.memberId === "string" &&
+    (row.automationId === "post_expiry" || row.automationId === "onboarding") &&
+    typeof row.stoppedAt === "string"
+  );
+}
+
+export function parseManualStopRecords(value: unknown): WhatsAppManualStopRecord[] {
+  const input =
+    typeof value === "string"
+      ? (() => {
+          try {
+            return JSON.parse(value) as unknown;
+          } catch {
+            return null;
+          }
+        })()
+      : value;
+
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter(isManualStopRecord)
+    .map((record) => ({
+      memberId: record.memberId,
+      automationId: record.automationId,
+      scope: normalizeManualStopScope(record.scope),
+      stoppedAt: record.stoppedAt,
+      stoppedBy: typeof record.stoppedBy === "string" ? record.stoppedBy : null,
+      reason: typeof record.reason === "string" ? record.reason : null,
+    }));
+}
+
+export function upsertManualStopRecord(
+  records: WhatsAppManualStopRecord[],
+  nextRecord: WhatsAppManualStopRecord
+) {
+  const normalizedNext = {
+    ...nextRecord,
+    scope: normalizeManualStopScope(nextRecord.scope),
+  };
+  const filtered = records.filter(
+    (record) =>
+      !(
+        record.memberId === normalizedNext.memberId &&
+        record.automationId === normalizedNext.automationId &&
+        normalizeManualStopScope(record.scope) === normalizedNext.scope
+      )
+  );
+  filtered.push(normalizedNext);
+  return filtered.sort((a, b) => a.stoppedAt.localeCompare(b.stoppedAt));
+}
+
+export function isManualStopActive(
+  records: WhatsAppManualStopRecord[],
+  target: {
+    memberId: string;
+    automationId: WhatsAppSequenceControlAutomationId;
+    scope?: string | null;
+  }
+) {
+  const normalizedScope = normalizeManualStopScope(target.scope);
+  return records.some(
+    (record) =>
+      record.memberId === target.memberId &&
+      record.automationId === target.automationId &&
+      normalizeManualStopScope(record.scope) === normalizedScope
+  );
 }

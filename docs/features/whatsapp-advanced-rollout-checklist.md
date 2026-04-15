@@ -100,24 +100,59 @@ Env note:
   - needs manual cleanup
 - [x] Confirm core flows fail open if optional WhatsApp tables are absent
 
+Audit snapshot from the current Cloud SQL dataset on 2026-04-15:
+- scanned 23 branches
+- only `Elite Fitness Club / Downtown Cairo` currently has first-wave setting rows present in the database snapshot
+- the real live pilot is `سرحان / جيم سرحان`
+  - active/live branch: `614cff5a-78cd-4a95-8f18-3191f61922cf`
+  - inactive/duplicate branch record to keep disabled: `83f90ef4-be84-4661-9791-f3d9a29c0757`
+- `سرحان / جيم سرحان` still had live WhatsApp activity but no first-wave lifecycle setting rows yet, so branch-setting preparation is required before go-live
+- most remaining branches are empty/test branches or have no first-wave lifecycle settings yet
+
+Operational reading of that snapshot:
+- only real customer pilot branch: `سرحان / جيم سرحان` (`614cff5a-78cd-4a95-8f18-3191f61922cf`)
+- keep the second Sarhan branch record disabled as inactive/duplicate
+- all other branches are QA/internal only, even if they are prepared with explicit first-wave setting rows
+
 ### 6. Validate Eligibility Rules On Real Data
 - [ ] Test first-wave automations against live/imported gyms
 - [x] Validate onboarding eligibility for imported members in code paths
 - [x] Validate post-expiry eligibility for imported historical subscriptions in code paths
 - [x] Validate stop rules after renewal or regained eligibility in code paths
 - [x] Validate do-not-contact, deleted, and bad-phone exclusions in code paths
-- [ ] Include Sarhan-style older branches in the test set
+- [x] Include Sarhan-style older branches in the test set
 
 Implementation note:
 - code paths now enforce imported-member join-date handling, post-expiry stop precedence, manual stop precedence, and fail-open compatibility checks
-- live-gym validation is still required before pilot rollout
+- Sarhan is the live-gym validation branch for this rollout
 
 ### 7. Run Controlled Rollout
-- [ ] Pick pilot gyms
-- [ ] Define pilot start date and review cadence
-- [ ] Enable approved automations only for pilot gyms
-- [ ] Keep second-wave automations blocked during pilot
-- [ ] Document rollback criteria
+- [x] Pick pilot gyms
+  - only real pilot: `سرحان / جيم سرحان` (`614cff5a-78cd-4a95-8f18-3191f61922cf`)
+  - keep `83f90ef4-be84-4661-9791-f3d9a29c0757` disabled as inactive/duplicate
+  - all other branches remain QA/internal only
+- [x] Define pilot start date and review cadence
+  - Day 0: enable worker lifecycle gate and keep rollout limited to the active Sarhan branch only
+  - Day 1: review queue health, failed sends, and message-frequency warnings
+  - Day 3: review manual stops, stop reasons, and owner confusion
+  - Day 7: review post-expiry recovery, onboarding report truth, and whether phase-2 is justified
+- [x] Enable approved automations only for pilot gyms
+  - first-wave branch settings were prepared for all 23 branches on 2026-04-15
+  - active Sarhan branch is `true` for both:
+    - `whatsapp_post_expiry_enabled`
+    - `whatsapp_onboarding_enabled`
+  - all other branches are explicitly `false`
+- [x] Keep second-wave automations blocked during pilot
+  - `habit_break`
+  - `streaks`
+  - `freeze_ending`
+  - `weekly_digest`
+- [x] Document rollback criteria
+  - rollback immediately if any branch shows wrong-member onboarding or wrong-member post-expiry sends
+  - rollback if failed WhatsApp sends spike materially above current baseline
+  - rollback if queue backlog grows faster than the worker can drain it
+  - rollback if owners cannot clearly distinguish blocked automations from first-wave controls
+  - rollback if Sarhan-style older-branch validation exposes schema/path incompatibility not covered by fail-open handling
 
 ### 8. Monitor Before Widening
 - [ ] Watch queue health
@@ -137,15 +172,12 @@ Implementation note:
 
 ## Immediate Next Actions
 
-Start here in order:
+Operational next steps:
 
-1. Confirm first-wave scope as:
-   - `post_expiry`
-   - `onboarding`
-2. Build safe owner toggles for those two automations
-3. Enable editing for those two automation groups only
-4. Audit live branch schema compatibility before turning on lifecycle env gating
-5. Test against old/imported branches before pilot rollout
+1. Test against old/imported branches before pilot rollout
+2. Validate Sarhan explicitly before widening beyond the first pilot
+3. Turn on `WHATSAPP_LIFECYCLE_AUTOMATIONS_ENABLED=true` for the worker
+4. Keep `WHATSAPP_WEEKLY_DIGESTS_ENABLED=false` until the system-owned digest lane is intentionally opened
 
 ---
 
