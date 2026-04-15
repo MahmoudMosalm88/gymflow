@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatDateTime } from '@/lib/format';
-import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -446,7 +445,6 @@ export default function WhatsAppSystemPage() {
   const [postExpiryDay, setPostExpiryDay] = useState<'day0' | 'day3' | 'day7' | 'day14'>('day0');
   const [onboardingStep, setOnboardingStep] = useState<'firstVisit' | 'noReturn7' | 'lowEngagement14'>('firstVisit');
   const [behaviorStep, setBehaviorStep] = useState<'habitBreak' | 'streaks' | 'freezeEnding'>('habitBreak');
-  const [lifecycleInfoOpen, setLifecycleInfoOpen] = useState(false);
   const [controlSavingId, setControlSavingId] = useState<string | null>(null);
   const [controlFeedback, setControlFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
   const [auditOpen, setAuditOpen] = useState(false);
@@ -862,10 +860,57 @@ export default function WhatsAppSystemPage() {
       {/* ── Templates Tab ──────────────────────────────────────────────────── */}
       {activeTab === 'templates' && (
         <div role="tabpanel" aria-labelledby={`tab-${activeTab}`} className="flex flex-col gap-6">
-          {templatesLoading ? (
-            <LoadingSpinner />
-          ) : (
+
+          {/* ── Loading: real master card with disabled switch + skeleton subtext + 6 skeleton cards ── */}
+          {templatesLoading && (
+            <div className="flex flex-col gap-6">
+              {/* Real master card — heading visible, switch disabled, subtext skeletonized */}
+              <Card>
+                <CardContent className="p-5 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {lang === 'ar' ? 'أتمتة دورة الحياة' : 'Lifecycle Automations'}
+                    </p>
+                    <Skeleton className="h-3 w-48 mt-1" />
+                  </div>
+                  <Switch disabled aria-label={lang === 'ar' ? 'حالة أتمتة دورة الحياة' : 'Lifecycle automations status'} />
+                </CardContent>
+              </Card>
+              {/* 6-card grid skeleton */}
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground" aria-live="polite">
+                {lang === 'ar' ? 'جارٍ تحميل الأتمتة…' : 'Loading automations…'}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="border border-border p-4 flex flex-col gap-3">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-48" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Error state ── */}
+          {!templatesLoading && templatesFetchError && (
+            <Card>
+              <CardContent className="p-5 flex items-center gap-3">
+                <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                <p className="text-sm text-muted-foreground flex-1">
+                  {lang === 'ar' ? 'تعذّر تحميل الأتمتة.' : 'Could not load automations.'}
+                </p>
+                <Button variant="ghost" size="sm" onClick={() => void fetchTemplates()}>
+                  {lang === 'ar' ? 'إعادة المحاولة' : 'Retry'}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── Loaded state ── */}
+          {!templatesLoading && !templatesFetchError && (
             <>
+              {/* Frequency warning alert */}
               {warningSummary && warningSummary.affectedMembers > 0 && (
                 <Alert variant={warningSummary.warningActive ? 'destructive' : 'default'}>
                   <AlertCircle className="h-4 w-4" />
@@ -910,555 +955,747 @@ export default function WhatsAppSystemPage() {
                 </Alert>
               )}
 
-              {/* Welcome Message */}
+              {/* ── Master Toggle Card ── */}
               <Card>
-                <CardHeader>
-                  <CardTitle>{labels.welcome_message_template}</CardTitle>
-                  <CardDescription>
-                    {lang === 'ar'
-                      ? 'ترسل عند تسجيل عضو جديد. المتغيرات: {name}'
-                      : 'Sent when a new member is added. Variables: {name}'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 lg:grid-cols-2 items-stretch">
-                    <div className="flex flex-col gap-2">
-                      <Textarea
-                        value={welcomeTemplate}
-                        onChange={(e) => setWelcomeTemplate(e.target.value)}
-                        placeholder={defaultWelcomeTemplate}
-                        rows={3}
-                        className="flex-1 resize-none"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        {lang === 'ar' ? 'المتغيرات: {name}' : 'Placeholders: {name}'}
+                <CardContent className="p-5 space-y-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        {lang === 'ar' ? 'أتمتة دورة الحياة' : 'Lifecycle Automations'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {lang === 'ar'
+                          ? 'إرسال رسائل تلقائية عند المحطات المهمة للأعضاء'
+                          : 'Automatically send messages when members hit key moments'}
                       </p>
                     </div>
-                    <WaPreview text={previewText(welcomeTemplate, 'welcome')} sampleName={sampleName} />
+                    <Switch
+                      checked={Boolean(status?.lifecycleRuntimeGateEnabled)}
+                      disabled
+                      aria-label={lang === 'ar' ? 'حالة أتمتة دورة الحياة' : 'Lifecycle automations status'}
+                    />
                   </div>
+
+                  {!status?.lifecycleRuntimeGateEnabled && (
+                    <p className="text-xs text-muted-foreground border border-border px-3 py-2">
+                      {lang === 'ar'
+                        ? 'يمكنك ضبط القوالب وتفعيل الأتمتة أو إيقافها، لكن لن تُرسل رسائل دورة الحياة حتى يُفعّل فريق GymFlow هذه الميزة.'
+                        : 'You can configure templates and turn automations on or off, but no lifecycle messages will be sent until GymFlow enables this feature.'}
+                    </p>
+                  )}
+
+                  <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+                    <CollapsibleTrigger asChild>
+                      <button
+                        type="button"
+                        aria-controls="advanced-settings-content"
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <ChevronDown
+                          className={`h-3 w-3 transition-transform ${advancedOpen ? 'rotate-180' : ''}`}
+                        />
+                        {lang === 'ar' ? 'إعدادات متقدمة' : 'Advanced settings'}
+                      </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent id="advanced-settings-content" className="mt-3">
+                      <button
+                        type="button"
+                        onClick={() => setAuditOpen((v) => !v)}
+                        className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors mb-3"
+                      >
+                        <ChevronDown className={`h-3 w-3 transition-transform ${auditOpen ? 'rotate-180' : ''}`} />
+                        {lang === 'ar' ? 'تفاصيل تقنية' : 'Advanced technical details'}
+                      </button>
+                      {auditOpen && compatibilityAudit && (
+                        <div className="border border-border px-4 py-3 mb-3">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold">
+                                {lang === 'ar' ? 'توافق الفرع الحالي' : 'Current branch compatibility'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {lang === 'ar'
+                                  ? 'التحقق يفحص الجداول والأعمدة المطلوبة لمسار واتساب.'
+                                  : 'Audit checks the schema required for WhatsApp rollout and fail-open behavior.'}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="border-border">
+                              {compatibilityStatusLabel(compatibilityAudit.currentBranchStatus, lang)}
+                            </Badge>
+                          </div>
+                          {compatibilityAudit.issues.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {compatibilityAudit.issues.map((issue) => (
+                                <Badge key={issue} variant="outline" className="border-warning/30 text-warning">
+                                  {issue}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        {[
+                          { titleEn: 'Post-expiry recovery', titleAr: 'استرجاع ما بعد الانتهاء', enabled: postExpiryEnabled },
+                          { titleEn: 'New member onboarding', titleAr: 'تهيئة العضو الجديد', enabled: onboardingEnabled },
+                          { titleEn: 'Habit-break nudge', titleAr: 'تنبيه انقطاع العادة', enabled: habitBreakEnabled },
+                          { titleEn: 'Streak encouragement', titleAr: 'تشجيع الاستمرارية', enabled: streaksEnabled },
+                          { titleEn: 'Freeze-ending reminder', titleAr: 'تذكير انتهاء التجميد', enabled: freezeEndingEnabled },
+                          { titleEn: 'Weekly digest', titleAr: 'الملخص الأسبوعي', enabled: Boolean(status?.weeklyDigestReleaseEnabled) },
+                        ].map((item) => (
+                          <div key={item.titleEn} className="flex items-center justify-between gap-2 border border-border px-3 py-2">
+                            <p className="text-xs font-medium">{lang === 'ar' ? item.titleAr : item.titleEn}</p>
+                            <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
+                              {item.titleEn === 'Weekly digest'
+                                ? item.enabled
+                                  ? (lang === 'ar' ? 'مباشر كنظام' : 'Live as system release')
+                                  : (lang === 'ar' ? 'محجوب كنظام' : 'Blocked system release')
+                                : item.enabled
+                                  ? (lang === 'ar' ? 'مُعدّ' : 'Configured')
+                                  : (lang === 'ar' ? 'محجوب' : 'Blocked')}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+
+                      {controlFeedback && (
+                        <Alert variant={controlFeedback.type} className="mt-3">
+                          {controlFeedback.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                          <AlertTitle>{controlFeedback.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+                          <AlertDescription>{controlFeedback.text}</AlertDescription>
+                        </Alert>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
                 </CardContent>
               </Card>
 
-              {/* Renewal Reminder */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>{labels.renewal_reminder_template}</CardTitle>
-                  <CardDescription>
-                    {lang === 'ar'
-                      ? 'ترسل قبل انتهاء الاشتراك. المتغيرات: {name}، {expiryDate}، {daysLeft}'
-                      : 'Sent before subscription expiry. Variables: {name}, {expiryDate}, {daysLeft}'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 lg:grid-cols-2 items-stretch">
-                    <div className="flex flex-col gap-4">
-                      <Textarea
-                        value={renewalTemplate}
-                        onChange={(e) => setRenewalTemplate(e.target.value)}
-                        placeholder={defaultRenewalTemplate}
-                        rows={3}
-                        className="resize-none"
-                      />
-                      <div className="space-y-2">
-                        <Label>{labels.reminder_days_label}</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {REMINDER_OPTIONS.map((day) => {
-                            const active = selectedReminderDays.has(day);
-                            return (
+              {/* ── Automation Grid label ── */}
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground -mb-2">
+                {lang === 'ar' ? 'الأتمتة' : 'Automations'}
+              </p>
+
+              {/* ── Automation Grid ── */}
+              <div
+                role="list"
+                className={`grid grid-cols-1 sm:grid-cols-2 gap-4 transition-opacity ${
+                  !status?.lifecycleRuntimeGateEnabled ? 'opacity-60' : ''
+                }`}
+              >
+                {/* ── Welcome card ── */}
+                <div
+                  role="listitem"
+                  aria-label={lang === 'ar' ? 'أتمتة الترحيب' : 'Welcome automation'}
+                  className="border border-border border-s-[3px] border-s-success p-4 flex flex-col gap-3 bg-card"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        {lang === 'ar' ? 'رسالة الترحيب' : 'Welcome'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {lang === 'ar' ? 'ترسل عند بدء العضوية' : 'Sent when a membership starts'}
+                      </p>
+                    </div>
+                    <Switch checked disabled aria-label={lang === 'ar' ? 'مفعّل دائماً' : 'Always on'} />
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    {welcomeTemplate.trim().length > 0 ? (
+                      <span className="text-xs text-success">
+                        ● {lang === 'ar' ? 'مفعّل · 1 رسالة' : 'Enabled · 1 message'}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        ○ {lang === 'ar' ? 'الرسالة فارغة' : 'Message not set'}
+                      </span>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs h-7 px-2"
+                      onClick={() => { setTemplateFeedback(null); setActiveSheet('welcome'); }}
+                    >
+                      {lang === 'ar' ? 'تعديل' : 'Edit'} →
+                    </Button>
+                  </div>
+                </div>
+
+                {/* ── Renewal card ── */}
+                <div
+                  role="listitem"
+                  aria-label={lang === 'ar' ? 'أتمتة التجديد' : 'Renewal automation'}
+                  className="border border-border border-s-[3px] border-s-success p-4 flex flex-col gap-3 bg-card"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        {lang === 'ar' ? 'تذكير التجديد' : 'Renewal Reminder'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {lang === 'ar' ? 'أيام التذكير المخصصة' : 'Custom reminder days'}
+                      </p>
+                    </div>
+                    <Switch checked disabled aria-label={lang === 'ar' ? 'مفعّل دائماً' : 'Always on'} />
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    {renewalTemplate.trim().length > 0 && selectedReminderDays.size > 0 ? (
+                      <span className="text-xs text-success">
+                        ● {lang === 'ar'
+                          ? `مفعّل · ${selectedReminderDays.size} يوم تذكير`
+                          : `Enabled · ${selectedReminderDays.size} reminder day(s)`}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        ○ {lang === 'ar' ? 'معطّل' : 'Disabled'}
+                      </span>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs h-7 px-2"
+                      onClick={() => { setTemplateFeedback(null); setActiveSheet('renewal'); }}
+                    >
+                      {lang === 'ar' ? 'تعديل' : 'Edit'} →
+                    </Button>
+                  </div>
+                </div>
+
+                {/* ── Post-expiry card ── */}
+                {(() => {
+                  const dayCount = [postExpiryDay0, postExpiryDay3, postExpiryDay7, postExpiryDay14].filter(
+                    (t) => t.trim().length > 0
+                  ).length;
+                  const totalDays = 4;
+                  const isEnabled = postExpiryEnabled;
+                  const isPartial = isEnabled && dayCount > 0 && dayCount < totalDays;
+                  const isFullEnabled = isEnabled && dayCount === totalDays;
+                  const borderColor = isFullEnabled
+                    ? 'border-s-success'
+                    : isPartial
+                    ? 'border-s-warning'
+                    : 'border-s-border';
+                  return (
+                    <div
+                      role="listitem"
+                      aria-label={lang === 'ar' ? 'أتمتة ما بعد الانتهاء' : 'Post-expiry automation'}
+                      className={`border border-border border-s-[3px] ${borderColor} p-4 flex flex-col gap-3 bg-card`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {lang === 'ar' ? 'استرجاع ما بعد الانتهاء' : 'Post-Expiry Recovery'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {lang === 'ar' ? 'إعادة استهداف الأعضاء المنتهية عضويتهم' : 'Re-engage lapsed members'}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={isEnabled}
+                          disabled={controlSavingId === 'post_expiry' || !status?.lifecycleRuntimeGateEnabled}
+                          onCheckedChange={(checked) => void handleAutomationToggle('post_expiry', checked)}
+                          aria-label={isEnabled ? (lang === 'ar' ? 'مفعّل' : 'Enabled') : (lang === 'ar' ? 'معطّل' : 'Disabled')}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        {!isEnabled ? (
+                          <span className="text-xs text-muted-foreground">○ {lang === 'ar' ? 'معطّل' : 'Disabled'}</span>
+                        ) : isPartial ? (
+                          <span className="text-xs text-warning">
+                            ⚠ {lang === 'ar' ? `جزئي · ${dayCount} من ${totalDays} أيام` : `Partial · ${dayCount} of ${totalDays} days set`}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-success">
+                            ● {lang === 'ar' ? `مفعّل · ${dayCount} رسائل` : `Enabled · ${dayCount} messages`}
+                          </span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => { setTemplateFeedback(null); setActiveSheet('post_expiry'); }}
+                        >
+                          {lang === 'ar' ? 'تعديل' : 'Edit'} →
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ── Onboarding card ── */}
+                {(() => {
+                  const messages = [onboardingFirstVisit, onboardingNoReturn7, onboardingLowEngagement14];
+                  const dayCount = messages.filter((t) => t.trim().length > 0).length;
+                  const totalDays = 3;
+                  const isEnabled = onboardingEnabled;
+                  const isPartial = isEnabled && dayCount > 0 && dayCount < totalDays;
+                  const isFullEnabled = isEnabled && dayCount === totalDays;
+                  const borderColor = isFullEnabled
+                    ? 'border-s-success'
+                    : isPartial
+                    ? 'border-s-warning'
+                    : 'border-s-border';
+                  return (
+                    <div
+                      role="listitem"
+                      aria-label={lang === 'ar' ? 'أتمتة التهيئة' : 'Onboarding automation'}
+                      className={`border border-border border-s-[3px] ${borderColor} p-4 flex flex-col gap-3 bg-card`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {lang === 'ar' ? 'تهيئة العضو الجديد' : 'Onboarding'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {lang === 'ar' ? 'إرشادات الأسبوع الأول للأعضاء الجدد' : 'First week guidance for new members'}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={isEnabled}
+                          disabled={controlSavingId === 'onboarding' || !status?.lifecycleRuntimeGateEnabled}
+                          onCheckedChange={(checked) => void handleAutomationToggle('onboarding', checked)}
+                          aria-label={isEnabled ? (lang === 'ar' ? 'مفعّل' : 'Enabled') : (lang === 'ar' ? 'معطّل' : 'Disabled')}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        {!isEnabled ? (
+                          <span className="text-xs text-muted-foreground">○ {lang === 'ar' ? 'معطّل' : 'Disabled'}</span>
+                        ) : isPartial ? (
+                          <span className="text-xs text-warning">
+                            ⚠ {lang === 'ar' ? `جزئي · ${dayCount} من ${totalDays} أيام` : `Partial · ${dayCount} of ${totalDays} days set`}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-success">
+                            ● {lang === 'ar' ? `مفعّل · ${dayCount} رسائل` : `Enabled · ${dayCount} messages`}
+                          </span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => { setTemplateFeedback(null); setActiveSheet('onboarding'); }}
+                        >
+                          {lang === 'ar' ? 'تعديل' : 'Edit'} →
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ── Behavior card (locked — coming soon) ── */}
+                <div
+                  role="listitem"
+                  aria-label={lang === 'ar' ? 'أتمتة العادات والاستمرارية' : 'Habit & Streaks automation'}
+                  className="border border-border border-s-[3px] border-s-border p-4 flex flex-col gap-3 bg-card opacity-70"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-muted-foreground">
+                        {lang === 'ar' ? 'العادات والاستمرارية' : 'Habit & Streaks'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {lang === 'ar' ? 'تحفيز الحضور المنتظم' : 'Motivate regular attendance'}
+                      </p>
+                    </div>
+                    <Switch checked={false} disabled aria-label={lang === 'ar' ? 'معطّل' : 'Disabled'} />
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {lang === 'ar' ? 'قريباً' : 'Coming soon'}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs h-7 px-2"
+                      onClick={() => { setTemplateFeedback(null); setActiveSheet('behavior'); }}
+                    >
+                      {lang === 'ar' ? 'تعديل' : 'Edit'} →
+                    </Button>
+                  </div>
+                </div>
+
+                {/* ── Active Sequences card (view-only) ── */}
+                {(() => {
+                  const activeCount = sequences.filter((s) => isActiveSequenceStatus(s.status)).length;
+                  return (
+                    <div
+                      role="listitem"
+                      aria-label={lang === 'ar' ? 'التسلسلات النشطة' : 'Active sequences'}
+                      className={`border border-border border-s-[3px] ${activeCount > 0 ? 'border-s-success' : 'border-s-border'} p-4 flex flex-col gap-3 bg-card`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {lang === 'ar' ? 'التسلسلات النشطة' : 'Active Sequences'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {lang === 'ar' ? 'الأعضاء في تسلسل حالياً' : 'Members currently in a sequence'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        {activeCount > 0 ? (
+                          <span className="text-xs text-success">
+                            ● {lang === 'ar' ? `${activeCount} تسلسل نشط` : `${activeCount} active sequence(s)`}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            ○ {lang === 'ar' ? 'لا توجد تسلسلات نشطة' : 'No active sequences'}
+                          </span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => { setTemplateFeedback(null); setActiveSheet('sequences'); }}
+                        >
+                          {lang === 'ar' ? 'عرض' : 'View'} →
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Template feedback */}
+              {templateFeedback && (
+                <p className={`text-sm ${templateFeedback.type === 'success' ? 'text-success' : 'text-destructive'}`}>
+                  {templateFeedback.text}
+                </p>
+              )}
+
+              {/* ── Template Editor Sheet ── */}
+              <Sheet
+                open={activeSheet !== null && activeSheet !== 'sequences'}
+                onOpenChange={(open) => { if (!open) setActiveSheet(null); }}
+              >
+                <SheetContent
+                  side={lang === 'ar' ? 'left' : 'right'}
+                  className="w-full sm:w-[600px] sm:max-w-[600px] flex flex-col p-0"
+                >
+                  <SheetHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
+                    <SheetTitle>
+                      {activeSheet === 'welcome' && (lang === 'ar' ? 'تعديل: رسالة الترحيب' : 'Edit: Welcome')}
+                      {activeSheet === 'renewal' && (lang === 'ar' ? 'تعديل: تذكير التجديد' : 'Edit: Renewal Reminder')}
+                      {activeSheet === 'post_expiry' && (lang === 'ar' ? 'تعديل: استرجاع ما بعد الانتهاء' : 'Edit: Post-Expiry Recovery')}
+                      {activeSheet === 'onboarding' && (lang === 'ar' ? 'تعديل: تهيئة العضو' : 'Edit: Onboarding')}
+                      {activeSheet === 'behavior' && (lang === 'ar' ? 'تعديل: العادات والاستمرارية' : 'Edit: Habit & Streaks')}
+                    </SheetTitle>
+                    <SheetDescription>
+                      {activeSheet === 'welcome' && (lang === 'ar' ? 'ترسل عند تسجيل عضو جديد. المتغيرات: {name}' : 'Sent when a new member is added. Variables: {name}')}
+                      {activeSheet === 'renewal' && (lang === 'ar' ? 'المتغيرات: {name}، {expiryDate}، {daysLeft}' : 'Variables: {name}, {expiryDate}, {daysLeft}')}
+                      {activeSheet === 'post_expiry' && (lang === 'ar' ? 'المتغيرات: {name}، {expiryDate}' : 'Variables: {name}, {expiryDate}')}
+                      {activeSheet === 'onboarding' && (lang === 'ar' ? 'المتغيرات: {name}' : 'Variables: {name}')}
+                      {activeSheet === 'behavior' && (lang === 'ar' ? 'المتغيرات: {name}، {daysAbsent}، {streakDays}، {resumeDate}' : 'Variables: {name}, {daysAbsent}, {streakDays}, {resumeDate}')}
+                    </SheetDescription>
+                  </SheetHeader>
+
+                  <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                    {/* Welcome editor */}
+                    {activeSheet === 'welcome' && (
+                      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+                        <Textarea
+                          value={welcomeTemplate}
+                          onChange={(e) => setWelcomeTemplate(e.target.value)}
+                          rows={6}
+                          className="resize-none"
+                          placeholder={lang === 'ar' ? 'المتغيرات: {name}' : 'Placeholders: {name}'}
+                        />
+                        <WaPreview text={previewText(welcomeTemplate, 'welcome')} sampleName={sampleName} />
+                      </div>
+                    )}
+
+                    {/* Renewal editor */}
+                    {activeSheet === 'renewal' && (
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-sm">
+                            {lang === 'ar' ? 'أيام التذكير قبل الانتهاء' : 'Reminder days before expiry'}
+                          </Label>
+                          <div className="flex gap-2 flex-wrap">
+                            {REMINDER_OPTIONS.map((day) => (
                               <button
                                 key={day}
                                 type="button"
                                 onClick={() => toggleReminderDay(day)}
                                 className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
-                                  active
-                                    ? 'bg-[#e63946] text-white border-[#e63946]'
-                                    : 'bg-[#1e1e1e] text-[#8a8578] border-[#2a2a2a] hover:text-[#e8e4df] hover:border-[#3a3a3a]'
+                                  selectedReminderDays.has(day)
+                                    ? 'bg-primary text-white border-primary'
+                                    : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-input'
                                 }`}
                               >
-                                {lang === 'ar' ? `قبل ${day} يوم` : `${day} day${day === 1 ? '' : 's'} before`}
+                                {lang === 'ar' ? `يوم ${day}` : `Day ${day}`}
                               </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                    <WaPreview text={previewText(renewalTemplate, 'renewal')} sampleName={sampleName} />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Separator />
-
-              {/* Post-expiry templates — sub-tab picker */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle>{lang === 'ar' ? 'قوالب ما بعد انتهاء الاشتراك' : 'Post-expiry templates'}</CardTitle>
-                  <CardDescription className="text-xs">
-                    {lang === 'ar' ? 'التسلسل: يوم 0، 3، 7، 14. المتغيرات: {name}، {expiryDate}' : 'Sequence: Day 0, 3, 7, 14 · Variables: {name}, {expiryDate}'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Day picker */}
-                  <div className="flex gap-1 flex-wrap">
-                    {([
-                      { id: 'day0', labelEn: 'Day 0', labelAr: 'يوم 0' },
-                      { id: 'day3', labelEn: 'Day 3', labelAr: 'يوم 3' },
-                      { id: 'day7', labelEn: 'Day 7', labelAr: 'يوم 7' },
-                      { id: 'day14', labelEn: 'Day 14', labelAr: 'يوم 14' },
-                    ] as const).map((d) => (
-                      <button
-                        key={d.id}
-                        type="button"
-                        onClick={() => setPostExpiryDay(d.id)}
-                        className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
-                          postExpiryDay === d.id
-                            ? 'bg-primary text-white border-primary'
-                            : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-input'
-                        }`}
-                      >
-                        {lang === 'ar' ? d.labelAr : d.labelEn}
-                      </button>
-                    ))}
-                  </div>
-                  {/* Active day editor */}
-                  {(() => {
-                    const map = {
-                      day0: { value: postExpiryDay0, setValue: setPostExpiryDay0, defaultVal: defaultPostExpiry.day0 },
-                      day3: { value: postExpiryDay3, setValue: setPostExpiryDay3, defaultVal: defaultPostExpiry.day3 },
-                      day7: { value: postExpiryDay7, setValue: setPostExpiryDay7, defaultVal: defaultPostExpiry.day7 },
-                      day14: { value: postExpiryDay14, setValue: setPostExpiryDay14, defaultVal: defaultPostExpiry.day14 },
-                    };
-                    const active = map[postExpiryDay];
-                    const previewMsg = (active.value.trim() || active.defaultVal)
-                      .replace(/\{name\}/g, sampleName)
-                      .replace(/\{expiryDate\}/g, sampleExpiry);
-                    return (
-                      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
-                        <Textarea value={active.value} onChange={(e) => active.setValue(e.target.value)} rows={3} className="resize-none" />
-                        <WaBubble text={previewMsg} />
-                      </div>
-                    );
-                  })()}
-                </CardContent>
-              </Card>
-
-              {/* Onboarding templates — sub-tab picker */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle>{lang === 'ar' ? 'قوالب تهيئة الأعضاء الجدد' : 'New member onboarding templates'}</CardTitle>
-                  <CardDescription className="text-xs">
-                    {lang === 'ar' ? 'الخطوات: أول زيارة · 7 أيام · 14 يوماً. المتغيرات: {name}' : 'Stages: first visit · 7 days · 14 days · Variable: {name}'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Step picker */}
-                  <div className="flex gap-1 flex-wrap">
-                    {([
-                      { id: 'firstVisit', labelEn: 'First visit', labelAr: 'أول زيارة' },
-                      { id: 'noReturn7', labelEn: 'No return · 7d', labelAr: 'عدم عودة · 7 أيام' },
-                      { id: 'lowEngagement14', labelEn: 'Low engagement · 14d', labelAr: 'تفاعل منخفض · 14 يوماً' },
-                    ] as const).map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => setOnboardingStep(s.id)}
-                        className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
-                          onboardingStep === s.id
-                            ? 'bg-primary text-white border-primary'
-                            : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-input'
-                        }`}
-                      >
-                        {lang === 'ar' ? s.labelAr : s.labelEn}
-                      </button>
-                    ))}
-                  </div>
-                  {/* Active step editor */}
-                  {(() => {
-                    const map = {
-                      firstVisit: { value: onboardingFirstVisit, setValue: setOnboardingFirstVisit, defaultVal: defaultOnboarding.firstVisit },
-                      noReturn7: { value: onboardingNoReturn7, setValue: setOnboardingNoReturn7, defaultVal: defaultOnboarding.noReturnDay7 },
-                      lowEngagement14: { value: onboardingLowEngagement14, setValue: setOnboardingLowEngagement14, defaultVal: defaultOnboarding.lowEngagementDay14 },
-                    };
-                    const active = map[onboardingStep];
-                    const previewMsg = (active.value.trim() || active.defaultVal).replace(/\{name\}/g, sampleName);
-                    return (
-                      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
-                        <Textarea value={active.value} onChange={(e) => active.setValue(e.target.value)} rows={3} className="resize-none" />
-                        <WaBubble text={previewMsg} />
-                      </div>
-                    );
-                  })()}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle>{lang === 'ar' ? 'قوالب الأتمتات السلوكية' : 'Behavior automation templates'}</CardTitle>
-                  <CardDescription className="text-xs">
-                    {lang === 'ar'
-                      ? 'ضمن النطاق لكنها مقفلة حتى الإطلاق. المتغيرات: {name}، {daysAbsent}، {streakDays}، {resumeDate}'
-                      : 'In scope but locked until release. Variables: {name}, {daysAbsent}, {streakDays}, {resumeDate}'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex gap-1 flex-wrap">
-                    {([
-                      { id: 'habitBreak', labelEn: 'Habit break', labelAr: 'انقطاع العادة' },
-                      { id: 'streaks', labelEn: 'Streaks', labelAr: 'الاستمرارية' },
-                      { id: 'freezeEnding', labelEn: 'Freeze ending', labelAr: 'انتهاء التجميد' },
-                    ] as const).map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => setBehaviorStep(s.id)}
-                        className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
-                          behaviorStep === s.id
-                            ? 'bg-primary text-white border-primary'
-                            : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-input'
-                        }`}
-                      >
-                        {lang === 'ar' ? s.labelAr : s.labelEn}
-                      </button>
-                    ))}
-                  </div>
-                  {(() => {
-                    const map = {
-                      habitBreak: { value: habitBreakTemplate, type: 'habit_break' as const },
-                      streaks: { value: streakTemplate, type: 'streaks' as const },
-                      freezeEnding: { value: freezeEndingTemplate, type: 'freeze_ending' as const },
-                    };
-                    const active = map[behaviorStep];
-                    return (
-                      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
-                        <Textarea value={active.value} onChange={() => undefined} rows={3} className="resize-none" disabled />
-                        <WaBubble text={previewText(active.value, active.type)} />
-                      </div>
-                    );
-                  })()}
-                </CardContent>
-              </Card>
-
-              {/* Active sequences */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle>{lang === 'ar' ? 'التسلسلات النشطة' : 'Active sequences'}</CardTitle>
-                  <CardDescription className="text-xs">
-                    {lang === 'ar'
-                      ? 'يمكنك رؤية الحالات الفعلية وإيقاف تسلسل بعينه لكل عضو.'
-                      : 'Review the current lifecycle sequences and stop an individual sequence when needed.'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {sequenceFeedback && (
-                    <Alert variant={sequenceFeedback.type}>
-                      {sequenceFeedback.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                      <AlertTitle>{sequenceFeedback.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
-                      <AlertDescription>{sequenceFeedback.text}</AlertDescription>
-                    </Alert>
-                  )}
-                  {sequencesLoading ? (
-                    <p className="text-sm text-muted-foreground">{labels.loading}</p>
-                  ) : sequences.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      {lang === 'ar'
-                        ? 'لا توجد تسلسلات نشطة. ستظهر هنا عند دخول الأعضاء في مسار دورة الحياة.'
-                        : 'No active sequences. When members enter a lifecycle, their progress will appear here.'}
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {sequences.map((item) => {
-                        const sequenceKey = `${item.automationId}:${item.memberId}:${item.scope || ''}`;
-                        return (
-                          <div key={sequenceKey} className="flex flex-col gap-3 border border-border px-3 py-3 md:flex-row md:items-center md:justify-between">
-                            <div className="space-y-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-sm font-medium">{item.memberName || (lang === 'ar' ? 'بدون اسم' : 'Unnamed')}</p>
-                                <Badge variant="outline" className="border-border text-muted-foreground">
-                                  {item.automationId === 'post_expiry'
-                                    ? (lang === 'ar' ? 'ما بعد الانتهاء' : 'Post-expiry')
-                                    : (lang === 'ar' ? 'تهيئة' : 'Onboarding')}
-                                </Badge>
-                                <Badge variant="outline" className={statusBadgeClass(item.status)}>
-                                  {sequenceStatusLabel(item.status, lang)}
-                                </Badge>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                {item.memberPhone || '—'} · {formatDateTime(item.latestEventAt, lang)}
-                              </p>
-                              <p className="text-xs text-muted-foreground">{item.sequenceKind}</p>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={!item.canStop || stoppingSequenceKey === sequenceKey}
-                              onClick={() => void handleStopSequence(item)}
-                            >
-                              {stoppingSequenceKey === sequenceKey
-                                ? (lang === 'ar' ? 'جارٍ الإيقاف...' : 'Stopping...')
-                                : (lang === 'ar' ? 'إيقاف التسلسل' : 'Stop sequence')}
-                            </Button>
+                            ))}
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Lifecycle automations — collapsible banner */}
-              <button
-                type="button"
-                aria-expanded={lifecycleInfoOpen}
-                aria-controls="lifecycle-info-panel"
-                onClick={() => setLifecycleInfoOpen((v) => !v)}
-                className="w-full flex items-center justify-between gap-3 border border-border px-4 py-3 text-start hover:bg-muted/5 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold">
-                    {lang === 'ar' ? 'أتمتة دورة حياة العضو' : 'Lifecycle automations'}
-                  </span>
-                  <Badge variant="outline" className="border-warning/40 bg-warning/10 text-warning text-xs">
-                    {lang === 'ar' ? 'الموجة الأولى جاهزة' : 'First wave ready'}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {lang === 'ar' ? 'ما بعد الانتهاء + التهيئة جاهزان، والباقي ما زال محجوباً' : 'Post-expiry + onboarding are ready; later waves stay blocked'}
-                  </span>
-                </div>
-                <svg
-                  width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"
-                  className={`shrink-0 transition-transform ${lifecycleInfoOpen ? 'rotate-180' : ''}`}
-                >
-                  <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-
-              {lifecycleInfoOpen && (
-                <div id="lifecycle-info-panel" className="border border-border border-t-0 px-4 py-4 space-y-3 bg-muted/10">
-                  <p className="text-sm text-muted-foreground">
-                    {lang === 'ar'
-                      ? 'الموجة الأولى فقط قابلة للتفعيل من مركز التحكم. الملخص الأسبوعي يبقى استثناءً مملوكاً للنظام، وبقية التنبيهات السلوكية تظل ظاهرة لكن محجوبة.'
-                      : 'Only the first wave is owner-toggleable in the control center. Weekly digest stays system-owned, and the later behavior automations remain visible but blocked.'}
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {[
-                      { titleEn: 'Post-expiry recovery', titleAr: 'استرجاع ما بعد الانتهاء', enabled: postExpiryEnabled },
-                      { titleEn: 'New member onboarding', titleAr: 'تهيئة العضو الجديد', enabled: onboardingEnabled },
-                      { titleEn: 'Habit-break nudge', titleAr: 'تنبيه انقطاع العادة', enabled: habitBreakEnabled },
-                      { titleEn: 'Streak encouragement', titleAr: 'تشجيع الاستمرارية', enabled: streaksEnabled },
-                      { titleEn: 'Freeze-ending reminder', titleAr: 'تذكير انتهاء التجميد', enabled: freezeEndingEnabled },
-                      { titleEn: 'Weekly digest', titleAr: 'الملخص الأسبوعي', enabled: Boolean(status?.weeklyDigestReleaseEnabled) },
-                    ].map((item) => (
-                      <div key={item.titleEn} className="flex items-center justify-between gap-2 border border-border px-3 py-2">
-                        <p className="text-xs font-medium">{lang === 'ar' ? item.titleAr : item.titleEn}</p>
-                        <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
-                          {item.titleEn === 'Weekly digest'
-                            ? item.enabled
-                              ? (lang === 'ar' ? 'مباشر كنظام' : 'Live as system release')
-                              : (lang === 'ar' ? 'محجوب كنظام' : 'Blocked system release')
-                            : item.enabled
-                              ? (lang === 'ar' ? 'مُعدّ' : 'Configured')
-                              : (lang === 'ar' ? 'محجوب' : 'Blocked')}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Automation control center */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>{lang === 'ar' ? 'مركز تحكم الأتمتة' : 'Automation control center'}</CardTitle>
-                  <CardDescription>
-                    {lang === 'ar'
-                      ? 'تحكم في أي أتمتة مفعّلة، وأيها لا تزال قيد الإعداد من فريق GymFlow.'
-                      : 'Control which automations are live for your gym and which are still being set up by GymFlow.'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <button
-                    type="button"
-                    onClick={() => setAuditOpen((v) => !v)}
-                    className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={`transition-transform ${auditOpen ? 'rotate-180' : ''}`}><path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    {lang === 'ar' ? 'تفاصيل تقنية' : 'Advanced technical details'}
-                  </button>
-                  {auditOpen && compatibilityAudit && (
-                    <div className="border border-border px-4 py-3">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold">
-                            {lang === 'ar' ? 'توافق الفرع الحالي' : 'Current branch compatibility'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {lang === 'ar'
-                              ? 'التحقق يفحص الجداول والأعمدة المطلوبة لمسار واتساب.'
-                              : 'Audit checks the schema required for WhatsApp rollout and fail-open behavior.'}
-                          </p>
                         </div>
-                        <Badge variant="outline" className="border-border">
-                          {compatibilityStatusLabel(compatibilityAudit.currentBranchStatus, lang)}
-                        </Badge>
+                        <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+                          <Textarea
+                            value={renewalTemplate}
+                            onChange={(e) => setRenewalTemplate(e.target.value)}
+                            rows={6}
+                            className="resize-none"
+                            placeholder={lang === 'ar' ? 'المتغيرات: {name}، {expiryDate}، {daysLeft}' : 'Placeholders: {name}, {expiryDate}, {daysLeft}'}
+                          />
+                          <WaPreview text={previewText(renewalTemplate, 'renewal')} sampleName={sampleName} />
+                        </div>
                       </div>
-                      {compatibilityAudit.issues.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {compatibilityAudit.issues.map((issue) => (
-                            <Badge key={issue} variant="outline" className="border-warning/30 text-warning">
-                              {issue}
-                            </Badge>
+                    )}
+
+                    {/* Post-expiry editor */}
+                    {activeSheet === 'post_expiry' && (
+                      <div className="space-y-4">
+                        <div className="flex gap-1 flex-wrap">
+                          {([
+                            { id: 'day0', labelEn: 'Day 0', labelAr: 'يوم 0' },
+                            { id: 'day3', labelEn: 'Day 3', labelAr: 'يوم 3' },
+                            { id: 'day7', labelEn: 'Day 7', labelAr: 'يوم 7' },
+                            { id: 'day14', labelEn: 'Day 14', labelAr: 'يوم 14' },
+                          ] as const).map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => setPostExpiryDay(s.id)}
+                              className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                                postExpiryDay === s.id
+                                  ? 'bg-primary text-white border-primary'
+                                  : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-input'
+                              }`}
+                            >
+                              {lang === 'ar' ? s.labelAr : s.labelEn}
+                            </button>
                           ))}
                         </div>
-                      )}
-                    </div>
-                  )}
-
-                  {!status?.lifecycleRuntimeGateEnabled && (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>{lang === 'ar' ? 'أتمتات دورة الحياة متوقفة' : 'Lifecycle automations paused'}</AlertTitle>
-                      <AlertDescription>
-                        {lang === 'ar'
-                          ? 'يمكنك ضبط القوالب وتفعيل الأتمتة أو إيقافها، لكن لن تُرسل رسائل دورة الحياة حتى يُفعّل فريق GymFlow هذه الميزة على مستوى النظام.'
-                          : 'You can configure templates and turn automations on or off below, but no lifecycle messages will be sent until GymFlow enables this feature system-wide.'}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  {controlFeedback && (
-                    <Alert variant={controlFeedback.type}>
-                      {controlFeedback.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
-                      <AlertTitle>{controlFeedback.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
-                      <AlertDescription>{controlFeedback.text}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  {WHATSAPP_AUTOMATION_GROUPS.map((group) => {
-                    const items = WHATSAPP_AUTOMATIONS.filter((item) => item.group === group.id);
-                    return (
-                      <div key={group.id} className="space-y-3">
-                        <div>
-                          <h3 className="text-sm font-semibold">{group.title[systemLanguage]}</h3>
-                          <p className="text-xs text-muted-foreground">{group.description[systemLanguage]}</p>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                          {items.map((item) => {
-                            const serverState = automationStateMap.get(item.id);
-                            const configured = serverState
-                              ? serverState.enabled
-                              : item.id === 'post_expiry'
-                                ? postExpiryEnabled
-                                : item.id === 'onboarding'
-                                  ? onboardingEnabled
-                                  : item.id === 'weekly_digest'
-                                    ? Boolean(status?.weeklyDigestReleaseEnabled)
-                                    : item.status === 'live';
-                            const activeCount = activeSequenceCounts[item.id] || 0;
-                            return (
-                              <div key={item.id} className="border border-border px-4 py-3 space-y-2">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="text-sm font-semibold">{item.title[systemLanguage]}</p>
-                                    <p className="text-xs text-muted-foreground">{item.description[systemLanguage]}</p>
-                                  </div>
-                                  <Badge
-                                    variant="outline"
-                                    className={item.status === 'live' ? 'border-success/30 text-success' : 'border-warning/30 text-warning'}
-                                  >
-                                    {getAutomationStatusLabel(item.status, systemLanguage)}
-                                  </Badge>
-                                </div>
-                                <div className="flex flex-wrap gap-2 text-xs">
-                                  <Badge variant="outline" className="border-border text-muted-foreground">
-                                    {configured
-                                      ? (lang === 'ar' ? 'مفعّل' : 'Enabled')
-                                      : (lang === 'ar' ? 'متوقف' : 'Off')}
-                                  </Badge>
-                                  <Badge variant="outline" className="border-border text-muted-foreground">
-                                    {item.controlMode === 'system'
-                                      ? (lang === 'ar' ? 'يتحكم به النظام' : 'Managed by GymFlow')
-                                      : item.ownerControlled
-                                      ? (lang === 'ar' ? 'يتحكم به المالك' : 'Owner controlled')
-                                      : (lang === 'ar' ? 'نظامي / يدوي' : 'System / manual')}
-                                  </Badge>
-                                  {item.editableTemplates ? (
-                                    <Badge variant="outline" className="border-border text-muted-foreground">
-                                      {lang === 'ar' ? 'قابل للتعديل الآن' : 'Editable now'}
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="border-border text-muted-foreground">
-                                      {lang === 'ar' ? 'قريباً' : 'Coming soon'}
-                                    </Badge>
-                                  )}
-                                  {(item.id === 'post_expiry' || item.id === 'onboarding') && (
-                                    <Badge variant="outline" className="border-border text-muted-foreground">
-                                      {lang === 'ar'
-                                        ? `${activeCount} متأثرون الآن`
-                                        : `${activeCount} active now`}
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="space-y-1 text-xs text-muted-foreground">
-                                  <p>{item.triggerSummary[systemLanguage]}</p>
-                                  <p>{item.stopSummary[systemLanguage]}</p>
-                                </div>
-                                {(item.id === 'post_expiry' || item.id === 'onboarding') && (
-                                  <div className="flex items-center justify-between gap-3 border border-border px-3 py-2">
-                                    <div>
-                                      <p className="text-sm font-medium">
-                                        {lang === 'ar' ? 'تمكين هذه الأتمتة' : 'Enable this automation'}
-                                      </p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {lang === 'ar'
-                                          ? 'هذا لا يغيّر نصوص الرسائل. القوالب تُحفظ من زر الحفظ في الأسفل.'
-                                          : 'This does not change your message text. Templates are saved separately using the Save button.'}
-                                      </p>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                      <Switch
-                                        id={`toggle-${item.id}`}
-                                        checked={configured}
-                                        disabled={controlSavingId === item.id}
-                                        onCheckedChange={(checked) =>
-                                          void handleAutomationToggle(
-                                            item.id as 'post_expiry' | 'onboarding',
-                                            checked
-                                          )
-                                        }
-                                        aria-label={configured ? (lang === 'ar' ? 'مفعّل' : 'Enabled') : (lang === 'ar' ? 'متوقف' : 'Off')}
-                                      />
-                                      <span className="text-sm text-muted-foreground">
-                                        {configured ? (lang === 'ar' ? 'مفعّل' : 'On') : (lang === 'ar' ? 'متوقف' : 'Off')}
-                                      </span>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
+                        {(() => {
+                          const map = {
+                            day0: { value: postExpiryDay0, setValue: setPostExpiryDay0 },
+                            day3: { value: postExpiryDay3, setValue: setPostExpiryDay3 },
+                            day7: { value: postExpiryDay7, setValue: setPostExpiryDay7 },
+                            day14: { value: postExpiryDay14, setValue: setPostExpiryDay14 },
+                          };
+                          const active = map[postExpiryDay];
+                          return (
+                            <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+                              <Textarea
+                                value={active.value}
+                                onChange={(e) => active.setValue(e.target.value)}
+                                rows={6}
+                                className="resize-none"
+                                placeholder={lang === 'ar' ? 'المتغيرات: {name}، {expiryDate}' : 'Placeholders: {name}, {expiryDate}'}
+                              />
+                              <WaPreview text={previewText(active.value, 'post_expiry')} sampleName={sampleName} />
+                            </div>
+                          );
+                        })()}
                       </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
+                    )}
 
-              {/* Sticky save bar */}
-              <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-sm sm:-mx-6 sm:px-6">
-                <Button onClick={handleTemplateSave} disabled={templatesSaving}>
-                  {templatesSaving ? labels.saving : labels.save}
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  {lang === 'ar'
-                    ? 'حفظ القوالب لا يغيّر مفاتيح التشغيل في مركز التحكم.'
-                    : 'Saving templates does not change the automation on/off toggles.'}
-                </span>
-                {templateFeedback && (
-                  <span className={`text-sm ${templateFeedback.type === 'success' ? 'text-success' : 'text-destructive'}`}>
-                    {templateFeedback.text}
-                  </span>
-                )}
-              </div>
+                    {/* Onboarding editor */}
+                    {activeSheet === 'onboarding' && (
+                      <div className="space-y-4">
+                        <div className="flex gap-1 flex-wrap">
+                          {([
+                            { id: 'firstVisit', labelEn: 'First visit', labelAr: 'أول زيارة' },
+                            { id: 'noReturn7', labelEn: 'No return day 7', labelAr: 'غياب يوم 7' },
+                            { id: 'lowEngagement14', labelEn: 'Low engagement day 14', labelAr: 'مشاركة منخفضة يوم 14' },
+                          ] as const).map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => setOnboardingStep(s.id)}
+                              className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                                onboardingStep === s.id
+                                  ? 'bg-primary text-white border-primary'
+                                  : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-input'
+                              }`}
+                            >
+                              {lang === 'ar' ? s.labelAr : s.labelEn}
+                            </button>
+                          ))}
+                        </div>
+                        {(() => {
+                          const map = {
+                            firstVisit: { value: onboardingFirstVisit, setValue: setOnboardingFirstVisit },
+                            noReturn7: { value: onboardingNoReturn7, setValue: setOnboardingNoReturn7 },
+                            lowEngagement14: { value: onboardingLowEngagement14, setValue: setOnboardingLowEngagement14 },
+                          };
+                          const active = map[onboardingStep];
+                          return (
+                            <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+                              <Textarea
+                                value={active.value}
+                                onChange={(e) => active.setValue(e.target.value)}
+                                rows={6}
+                                className="resize-none"
+                                placeholder={lang === 'ar' ? 'المتغيرات: {name}' : 'Placeholders: {name}'}
+                              />
+                              <WaPreview text={previewText(active.value, 'onboarding')} sampleName={sampleName} />
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    {/* Behavior editor — read-only */}
+                    {activeSheet === 'behavior' && (
+                      <div className="space-y-4">
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>{lang === 'ar' ? 'قريباً' : 'Coming soon'}</AlertTitle>
+                          <AlertDescription>
+                            {lang === 'ar'
+                              ? 'هذه الأتمتات ضمن النطاق لكنها مقفلة حتى الإطلاق.'
+                              : 'These automations are in scope but locked until release.'}
+                          </AlertDescription>
+                        </Alert>
+                        <div className="flex gap-1 flex-wrap">
+                          {([
+                            { id: 'habitBreak', labelEn: 'Habit break', labelAr: 'انقطاع العادة' },
+                            { id: 'streaks', labelEn: 'Streaks', labelAr: 'الاستمرارية' },
+                            { id: 'freezeEnding', labelEn: 'Freeze ending', labelAr: 'انتهاء التجميد' },
+                          ] as const).map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => setBehaviorStep(s.id)}
+                              className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                                behaviorStep === s.id
+                                  ? 'bg-primary text-white border-primary'
+                                  : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-input'
+                              }`}
+                            >
+                              {lang === 'ar' ? s.labelAr : s.labelEn}
+                            </button>
+                          ))}
+                        </div>
+                        {(() => {
+                          const map = {
+                            habitBreak: { value: habitBreakTemplate, type: 'habit_break' as const },
+                            streaks: { value: streakTemplate, type: 'streaks' as const },
+                            freezeEnding: { value: freezeEndingTemplate, type: 'freeze_ending' as const },
+                          };
+                          const active = map[behaviorStep];
+                          return (
+                            <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+                              <Textarea value={active.value} onChange={() => undefined} rows={6} className="resize-none" disabled />
+                              <WaPreview text={previewText(active.value, active.type)} sampleName={sampleName} />
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer: Save/Discard for editable sheets */}
+                  {activeSheet !== 'behavior' && (
+                    <SheetFooter className="px-6 py-4 border-t border-border shrink-0 flex gap-2 sm:justify-end">
+                      <Button
+                        variant="ghost"
+                        onClick={() => setActiveSheet(null)}
+                        disabled={templatesSaving}
+                      >
+                        {lang === 'ar' ? 'تجاهل' : 'Discard'}
+                      </Button>
+                      <Button
+                        onClick={() => void handleTemplateSave()}
+                        disabled={templatesSaving}
+                      >
+                        {templatesSaving ? (
+                          <><Loader2 className="h-4 w-4 animate-spin me-2" />{lang === 'ar' ? 'جارٍ الحفظ...' : 'Saving...'}</>
+                        ) : (
+                          lang === 'ar' ? 'حفظ' : 'Save'
+                        )}
+                      </Button>
+                    </SheetFooter>
+                  )}
+                  {/* Footer: Close-only for behavior (read-only) */}
+                  {activeSheet === 'behavior' && (
+                    <SheetFooter className="px-6 py-4 border-t border-border shrink-0 flex gap-2 sm:justify-end">
+                      <Button variant="ghost" onClick={() => setActiveSheet(null)}>
+                        {lang === 'ar' ? 'إغلاق' : 'Close'}
+                      </Button>
+                    </SheetFooter>
+                  )}
+                </SheetContent>
+              </Sheet>
+
+              {/* ── Sequences View Sheet ── */}
+              <Sheet
+                open={activeSheet === 'sequences'}
+                onOpenChange={(open) => { if (!open) setActiveSheet(null); }}
+              >
+                <SheetContent
+                  side={lang === 'ar' ? 'left' : 'right'}
+                  className="w-full sm:w-[700px] sm:max-w-[700px] flex flex-col p-0"
+                >
+                  <SheetHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
+                    <SheetTitle>{lang === 'ar' ? 'التسلسلات النشطة' : 'Active Sequences'}</SheetTitle>
+                    <SheetDescription>
+                      {lang === 'ar'
+                        ? 'يمكنك رؤية الحالات الفعلية وإيقاف تسلسل بعينه لكل عضو.'
+                        : 'Review the current lifecycle sequences and stop an individual sequence when needed.'}
+                    </SheetDescription>
+                  </SheetHeader>
+                  <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                    {sequenceFeedback && (
+                      <Alert variant={sequenceFeedback.type}>
+                        {sequenceFeedback.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                        <AlertTitle>{sequenceFeedback.type === 'success' ? labels.success_title : labels.error_title}</AlertTitle>
+                        <AlertDescription>{sequenceFeedback.text}</AlertDescription>
+                      </Alert>
+                    )}
+                    {sequences.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">
+                        {lang === 'ar'
+                          ? 'لا توجد تسلسلات نشطة. ستظهر هنا عند دخول الأعضاء في مسار دورة الحياة.'
+                          : 'No active sequences. When members enter a lifecycle, their progress will appear here.'}
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {sequences.map((item) => {
+                          const sequenceKey = `${item.automationId}:${item.memberId}:${item.scope || ''}`;
+                          return (
+                            <div key={sequenceKey} className="flex flex-col gap-3 border border-border px-3 py-3 md:flex-row md:items-center md:justify-between">
+                              <div className="space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm font-medium">{item.memberName || (lang === 'ar' ? 'بدون اسم' : 'Unnamed')}</p>
+                                  <Badge variant="outline" className="border-border text-muted-foreground">
+                                    {item.automationId === 'post_expiry'
+                                      ? (lang === 'ar' ? 'ما بعد الانتهاء' : 'Post-expiry')
+                                      : (lang === 'ar' ? 'تهيئة' : 'Onboarding')}
+                                  </Badge>
+                                  <Badge variant="outline" className={statusBadgeClass(item.status)}>
+                                    {sequenceStatusLabel(item.status, lang)}
+                                  </Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {item.memberPhone || '—'} · {formatDateTime(item.latestEventAt, lang)}
+                                </p>
+                                <p className="text-xs text-muted-foreground">{item.sequenceKind}</p>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={!item.canStop || stoppingSequenceKey === sequenceKey}
+                                onClick={() => void handleStopSequence(item)}
+                              >
+                                {stoppingSequenceKey === sequenceKey
+                                  ? (lang === 'ar' ? 'جارٍ الإيقاف...' : 'Stopping...')
+                                  : (lang === 'ar' ? 'إيقاف التسلسل' : 'Stop sequence')}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <SheetFooter className="px-6 py-4 border-t border-border shrink-0 sm:justify-end">
+                    <Button variant="ghost" onClick={() => setActiveSheet(null)}>
+                      {lang === 'ar' ? 'إغلاق' : 'Close'}
+                    </Button>
+                  </SheetFooter>
+                </SheetContent>
+              </Sheet>
             </>
           )}
         </div>
