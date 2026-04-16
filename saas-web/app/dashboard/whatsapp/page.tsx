@@ -27,12 +27,9 @@ import {
   DEFAULT_REMINDER_DAYS,
   getDefaultRenewalTemplate,
   getDefaultWelcomeTemplate,
-  getAutomationStatusLabel,
   getAutomationWarningLabel,
   getTemplateKey,
   parseBooleanSetting,
-  WHATSAPP_AUTOMATION_GROUPS,
-  WHATSAPP_AUTOMATIONS,
 } from '@/lib/whatsapp-automation';
 
 export const dynamic = 'force-dynamic';
@@ -165,6 +162,22 @@ type BroadcastPreview = {
   estimatedMinutes?: number | null;
   filterSummary?: string[];
   recipients?: Array<{ id: string; name: string; phone?: string | null }>;
+};
+
+type TemplateEditorState = {
+  welcomeTemplate: string;
+  renewalTemplate: string;
+  postExpiryDay0: string;
+  postExpiryDay3: string;
+  postExpiryDay7: string;
+  postExpiryDay14: string;
+  onboardingFirstVisit: string;
+  onboardingNoReturn7: string;
+  onboardingLowEngagement14: string;
+  habitBreakTemplate: string;
+  streakTemplate: string;
+  freezeEndingTemplate: string;
+  reminderDays: string;
 };
 
 type WhatsAppCampaign = {
@@ -441,6 +454,7 @@ export default function WhatsAppSystemPage() {
   const [habitBreakEnabled, setHabitBreakEnabled] = useState(false);
   const [streaksEnabled, setStreaksEnabled] = useState(false);
   const [freezeEndingEnabled, setFreezeEndingEnabled] = useState(false);
+  const [automationEnabled, setAutomationEnabled] = useState(true);
   const [reminderDays, setReminderDays] = useState(DEFAULT_REMINDER_DAYS);
   const [postExpiryDay, setPostExpiryDay] = useState<'day0' | 'day3' | 'day7' | 'day14'>('day0');
   const [onboardingStep, setOnboardingStep] = useState<'firstVisit' | 'noReturn7' | 'lowEngagement14'>('firstVisit');
@@ -459,6 +473,21 @@ export default function WhatsAppSystemPage() {
   >(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [templatesFetchError, setTemplatesFetchError] = useState(false);
+  const [savedTemplateState, setSavedTemplateState] = useState<TemplateEditorState>({
+    welcomeTemplate: defaultWelcomeTemplate,
+    renewalTemplate: defaultRenewalTemplate,
+    postExpiryDay0: defaultPostExpiry.day0,
+    postExpiryDay3: defaultPostExpiry.day3,
+    postExpiryDay7: defaultPostExpiry.day7,
+    postExpiryDay14: defaultPostExpiry.day14,
+    onboardingFirstVisit: defaultOnboarding.firstVisit,
+    onboardingNoReturn7: defaultOnboarding.noReturnDay7,
+    onboardingLowEngagement14: defaultOnboarding.lowEngagementDay14,
+    habitBreakTemplate: defaultBehavior.habitBreak,
+    streakTemplate: defaultBehavior.streaks,
+    freezeEndingTemplate: defaultBehavior.freezeEnding,
+    reminderDays: DEFAULT_REMINDER_DAYS,
+  });
 
   // ── Broadcast state ──
   const [broadcastFilters, setBroadcastFilters] = useState<BroadcastFilters>(DEFAULT_BROADCAST_FILTERS);
@@ -502,7 +531,6 @@ export default function WhatsAppSystemPage() {
   const queueCounts = pickQueueCounts(status?.queue ?? queueData.counts);
   const canPreviewBroadcast = Boolean(broadcastMessage.trim()) && !previewLoading && !broadcastSubmitting;
   const warningSummary = status?.warningSummary;
-  const automationStateMap = new Map((status?.automationStates ?? []).map((item) => [item.id, item]));
   const compatibilityAudit = status?.compatibilityAudit;
   const selectedReminderDays = new Set(
     reminderDays
@@ -515,6 +543,52 @@ export default function WhatsAppSystemPage() {
     acc[item.automationId] = (acc[item.automationId] || 0) + 1;
     return acc;
   }, {});
+
+  const applyTemplateState = useCallback((next: TemplateEditorState) => {
+    setWelcomeTemplate(next.welcomeTemplate);
+    setRenewalTemplate(next.renewalTemplate);
+    setPostExpiryDay0(next.postExpiryDay0);
+    setPostExpiryDay3(next.postExpiryDay3);
+    setPostExpiryDay7(next.postExpiryDay7);
+    setPostExpiryDay14(next.postExpiryDay14);
+    setOnboardingFirstVisit(next.onboardingFirstVisit);
+    setOnboardingNoReturn7(next.onboardingNoReturn7);
+    setOnboardingLowEngagement14(next.onboardingLowEngagement14);
+    setHabitBreakTemplate(next.habitBreakTemplate);
+    setStreakTemplate(next.streakTemplate);
+    setFreezeEndingTemplate(next.freezeEndingTemplate);
+    setReminderDays(next.reminderDays);
+  }, []);
+
+  const captureCurrentTemplateState = useCallback((): TemplateEditorState => ({
+    welcomeTemplate,
+    renewalTemplate,
+    postExpiryDay0,
+    postExpiryDay3,
+    postExpiryDay7,
+    postExpiryDay14,
+    onboardingFirstVisit,
+    onboardingNoReturn7,
+    onboardingLowEngagement14,
+    habitBreakTemplate,
+    streakTemplate,
+    freezeEndingTemplate,
+    reminderDays,
+  }), [
+    freezeEndingTemplate,
+    habitBreakTemplate,
+    onboardingFirstVisit,
+    onboardingLowEngagement14,
+    onboardingNoReturn7,
+    postExpiryDay0,
+    postExpiryDay14,
+    postExpiryDay3,
+    postExpiryDay7,
+    reminderDays,
+    renewalTemplate,
+    streakTemplate,
+    welcomeTemplate,
+  ]);
 
   const buildBroadcastPayload = useCallback(() => ({
     title: broadcastTitle.trim() || (lang === 'ar' ? 'رسالة جماعية' : 'Broadcast'),
@@ -550,24 +624,29 @@ export default function WhatsAppSystemPage() {
       if (res.success && res.data) {
         const d = res.data;
         const str = (v: unknown, fallback: string) => (typeof v === 'string' && v.trim() ? v : fallback);
-        setWelcomeTemplate(str(d[getTemplateKey('welcome', systemLanguage)] ?? d.whatsapp_template_welcome, defaultWelcomeTemplate));
-        setRenewalTemplate(str(d[getTemplateKey('renewal', systemLanguage)] ?? d.whatsapp_template_renewal, defaultRenewalTemplate));
-        setReminderDays(str(d.whatsapp_reminder_days, DEFAULT_REMINDER_DAYS));
-        setPostExpiryDay0(str(d[`whatsapp_template_post_expiry_day0_${systemLanguage}`], defaultPostExpiry.day0));
-        setPostExpiryDay3(str(d[`whatsapp_template_post_expiry_day3_${systemLanguage}`], defaultPostExpiry.day3));
-        setPostExpiryDay7(str(d[`whatsapp_template_post_expiry_day7_${systemLanguage}`], defaultPostExpiry.day7));
-        setPostExpiryDay14(str(d[`whatsapp_template_post_expiry_day14_${systemLanguage}`], defaultPostExpiry.day14));
-        setOnboardingFirstVisit(str(d[`whatsapp_template_onboarding_first_visit_${systemLanguage}`], defaultOnboarding.firstVisit));
-        setOnboardingNoReturn7(str(d[`whatsapp_template_onboarding_no_return_day7_${systemLanguage}`], defaultOnboarding.noReturnDay7));
-        setOnboardingLowEngagement14(str(d[`whatsapp_template_onboarding_low_engagement_day14_${systemLanguage}`], defaultOnboarding.lowEngagementDay14));
-        setHabitBreakTemplate(str(d[`whatsapp_template_habit_break_${systemLanguage}`], defaultBehavior.habitBreak));
-        setStreakTemplate(str(d[`whatsapp_template_streak_${systemLanguage}`], defaultBehavior.streaks));
-        setFreezeEndingTemplate(str(d[`whatsapp_template_freeze_ending_${systemLanguage}`], defaultBehavior.freezeEnding));
+        const nextTemplateState = {
+          welcomeTemplate: str(d[getTemplateKey('welcome', systemLanguage)] ?? d.whatsapp_template_welcome, defaultWelcomeTemplate),
+          renewalTemplate: str(d[getTemplateKey('renewal', systemLanguage)] ?? d.whatsapp_template_renewal, defaultRenewalTemplate),
+          postExpiryDay0: str(d[`whatsapp_template_post_expiry_day0_${systemLanguage}`], defaultPostExpiry.day0),
+          postExpiryDay3: str(d[`whatsapp_template_post_expiry_day3_${systemLanguage}`], defaultPostExpiry.day3),
+          postExpiryDay7: str(d[`whatsapp_template_post_expiry_day7_${systemLanguage}`], defaultPostExpiry.day7),
+          postExpiryDay14: str(d[`whatsapp_template_post_expiry_day14_${systemLanguage}`], defaultPostExpiry.day14),
+          onboardingFirstVisit: str(d[`whatsapp_template_onboarding_first_visit_${systemLanguage}`], defaultOnboarding.firstVisit),
+          onboardingNoReturn7: str(d[`whatsapp_template_onboarding_no_return_day7_${systemLanguage}`], defaultOnboarding.noReturnDay7),
+          onboardingLowEngagement14: str(d[`whatsapp_template_onboarding_low_engagement_day14_${systemLanguage}`], defaultOnboarding.lowEngagementDay14),
+          habitBreakTemplate: str(d[`whatsapp_template_habit_break_${systemLanguage}`], defaultBehavior.habitBreak),
+          streakTemplate: str(d[`whatsapp_template_streak_${systemLanguage}`], defaultBehavior.streaks),
+          freezeEndingTemplate: str(d[`whatsapp_template_freeze_ending_${systemLanguage}`], defaultBehavior.freezeEnding),
+          reminderDays: str(d.whatsapp_reminder_days, DEFAULT_REMINDER_DAYS),
+        } satisfies TemplateEditorState;
+        applyTemplateState(nextTemplateState);
+        setSavedTemplateState(nextTemplateState);
         setPostExpiryEnabled(parseBooleanSetting(d.whatsapp_post_expiry_enabled, false));
         setOnboardingEnabled(parseBooleanSetting(d.whatsapp_onboarding_enabled, false));
         setHabitBreakEnabled(parseBooleanSetting(d.whatsapp_habit_break_enabled, false));
         setStreaksEnabled(parseBooleanSetting(d.whatsapp_streaks_enabled, false));
         setFreezeEndingEnabled(parseBooleanSetting(d.whatsapp_freeze_ending_enabled, false));
+        setAutomationEnabled(parseBooleanSetting(d.whatsapp_automation_enabled, true));
       }
     } catch (err) {
       setTemplatesFetchError(true);
@@ -575,7 +654,15 @@ export default function WhatsAppSystemPage() {
     } finally {
       setTemplatesLoading(false);
     }
-  }, [defaultBehavior, defaultOnboarding, defaultPostExpiry, defaultRenewalTemplate, defaultWelcomeTemplate, systemLanguage]);
+  }, [
+    applyTemplateState,
+    defaultBehavior,
+    defaultOnboarding,
+    defaultPostExpiry,
+    defaultRenewalTemplate,
+    defaultWelcomeTemplate,
+    systemLanguage,
+  ]);
 
   const fetchQueue = useCallback(async () => {
     setQueueLoading(true);
@@ -629,17 +716,17 @@ export default function WhatsAppSystemPage() {
     return () => clearInterval(id);
   }, [fetchCampaigns, fetchQueue, fetchSequences, fetchStatus]);
 
-  // Close template editor sheet when save succeeds, then clear stale feedback
-  // so re-opening a sheet doesn't instantly close it again.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (templateFeedback?.type === 'success' && activeSheet !== null && activeSheet !== 'sequences') {
-      setActiveSheet(null);
-      setTemplateFeedback(null);
-    }
-  }, [templateFeedback]);
-
   // ── Actions ────────────────────────────────────────────────────────────────
+
+  const reloadTemplatesTabData = useCallback(async () => {
+    await Promise.all([fetchStatus(), fetchTemplates(), fetchSequences()]);
+  }, [fetchSequences, fetchStatus, fetchTemplates]);
+
+  const closeTemplateSheet = useCallback(() => {
+    applyTemplateState(savedTemplateState);
+    setTemplateFeedback(null);
+    setActiveSheet(null);
+  }, [applyTemplateState, savedTemplateState]);
 
   const handleTemplateSave = async () => {
     setTemplatesSaving(true);
@@ -670,6 +757,8 @@ export default function WhatsAppSystemPage() {
       }
       const res = await api.put('/api/settings', { values });
       if (!res.success) throw new Error(res.message ?? 'Failed to save templates');
+      setSavedTemplateState(captureCurrentTemplateState());
+      setActiveSheet(null);
       setTemplateFeedback({ type: 'success', text: labels.saved_successfully });
     } catch (err) {
       setTemplateFeedback({ type: 'destructive', text: err instanceof Error ? err.message : labels.failed_to_save });
@@ -719,6 +808,29 @@ export default function WhatsAppSystemPage() {
             : 'Automation state updated.',
       });
       await Promise.all([fetchStatus(), fetchSequences()]);
+    } catch (err) {
+      setControlFeedback({
+        type: 'destructive',
+        text: err instanceof Error ? err.message : 'Failed to update automation state.',
+      });
+    } finally {
+      setControlSavingId(null);
+    }
+  };
+
+  const handleLifecycleToggle = async (enabled: boolean) => {
+    setControlSavingId('lifecycle_master');
+    setControlFeedback(null);
+    try {
+      const res = await api.put('/api/settings', {
+        values: { whatsapp_automation_enabled: enabled },
+      });
+      if (!res.success) throw new Error(res.message ?? 'Failed to update automation state');
+      setAutomationEnabled(enabled);
+      setControlFeedback({
+        type: 'success',
+        text: lang === 'ar' ? 'تم تحديث حالة أتمتة دورة الحياة.' : 'Lifecycle automation state updated.',
+      });
     } catch (err) {
       setControlFeedback({
         type: 'destructive',
@@ -895,14 +1007,33 @@ export default function WhatsAppSystemPage() {
           {/* ── Error state ── */}
           {!templatesLoading && templatesFetchError && (
             <Card>
-              <CardContent className="p-5 flex items-center gap-3">
-                <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
-                <p className="text-sm text-muted-foreground flex-1">
-                  {lang === 'ar' ? 'تعذّر تحميل الأتمتة.' : 'Could not load automations.'}
-                </p>
-                <Button variant="ghost" size="sm" onClick={() => void fetchTemplates()}>
-                  {lang === 'ar' ? 'إعادة المحاولة' : 'Retry'}
-                </Button>
+              <CardContent className="p-5 space-y-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {lang === 'ar' ? 'أتمتة دورة الحياة' : 'Lifecycle Automations'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {lang === 'ar'
+                        ? 'تعذّر تحميل إعدادات الأتمتة لهذه الصفحة.'
+                        : 'Could not load automation settings for this page.'}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={automationEnabled}
+                    disabled
+                    aria-label={lang === 'ar' ? 'حالة أتمتة دورة الحياة' : 'Lifecycle automations status'}
+                  />
+                </div>
+                <div className="flex items-center gap-3 border border-border px-3 py-3">
+                  <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                  <p className="text-sm text-muted-foreground flex-1">
+                    {lang === 'ar' ? 'تعذّر تحميل الأتمتة.' : 'Could not load automations.'}
+                  </p>
+                  <Button variant="ghost" size="sm" onClick={() => void reloadTemplatesTabData()}>
+                    {lang === 'ar' ? 'إعادة المحاولة' : 'Retry'}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -970,8 +1101,9 @@ export default function WhatsAppSystemPage() {
                       </p>
                     </div>
                     <Switch
-                      checked={Boolean(status?.lifecycleRuntimeGateEnabled)}
-                      disabled
+                      checked={automationEnabled}
+                      disabled={controlSavingId === 'lifecycle_master'}
+                      onCheckedChange={(checked) => void handleLifecycleToggle(checked)}
                       aria-label={lang === 'ar' ? 'حالة أتمتة دورة الحياة' : 'Lifecycle automations status'}
                     />
                   </div>
@@ -1035,28 +1167,27 @@ export default function WhatsAppSystemPage() {
                         </div>
                       )}
 
-                      <div className="grid gap-2 sm:grid-cols-3">
-                        {[
-                          { titleEn: 'Post-expiry recovery', titleAr: 'استرجاع ما بعد الانتهاء', enabled: postExpiryEnabled },
-                          { titleEn: 'New member onboarding', titleAr: 'تهيئة العضو الجديد', enabled: onboardingEnabled },
-                          { titleEn: 'Habit-break nudge', titleAr: 'تنبيه انقطاع العادة', enabled: habitBreakEnabled },
-                          { titleEn: 'Streak encouragement', titleAr: 'تشجيع الاستمرارية', enabled: streaksEnabled },
-                          { titleEn: 'Freeze-ending reminder', titleAr: 'تذكير انتهاء التجميد', enabled: freezeEndingEnabled },
-                          { titleEn: 'Weekly digest', titleAr: 'الملخص الأسبوعي', enabled: Boolean(status?.weeklyDigestReleaseEnabled) },
-                        ].map((item) => (
-                          <div key={item.titleEn} className="flex items-center justify-between gap-2 border border-border px-3 py-2">
-                            <p className="text-xs font-medium">{lang === 'ar' ? item.titleAr : item.titleEn}</p>
-                            <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
-                              {item.titleEn === 'Weekly digest'
-                                ? item.enabled
-                                  ? (lang === 'ar' ? 'مباشر كنظام' : 'Live as system release')
-                                  : (lang === 'ar' ? 'محجوب كنظام' : 'Blocked system release')
-                                : item.enabled
-                                  ? (lang === 'ar' ? 'مُعدّ' : 'Configured')
-                                  : (lang === 'ar' ? 'محجوب' : 'Blocked')}
-                            </Badge>
-                          </div>
-                        ))}
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="flex items-center justify-between gap-2 border border-border px-3 py-2">
+                          <p className="text-xs font-medium">
+                            {lang === 'ar' ? 'بوابة التشغيل العامة' : 'Runtime release gate'}
+                          </p>
+                          <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
+                            {status?.lifecycleRuntimeGateEnabled
+                              ? (lang === 'ar' ? 'مفعّلة من GymFlow' : 'Enabled by GymFlow')
+                              : (lang === 'ar' ? 'مقفلة من GymFlow' : 'Blocked by GymFlow')}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 border border-border px-3 py-2">
+                          <p className="text-xs font-medium">
+                            {lang === 'ar' ? 'الملخص الأسبوعي' : 'Weekly digest'}
+                          </p>
+                          <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
+                            {status?.weeklyDigestReleaseEnabled
+                              ? (lang === 'ar' ? 'مباشر كنظام' : 'Live as system release')
+                              : (lang === 'ar' ? 'محجوب كنظام' : 'Blocked system release')}
+                          </Badge>
+                        </div>
                       </div>
 
                       {controlFeedback && (
@@ -1080,7 +1211,7 @@ export default function WhatsAppSystemPage() {
               <div
                 role="list"
                 className={`grid grid-cols-1 sm:grid-cols-2 gap-4 transition-opacity ${
-                  !status?.lifecycleRuntimeGateEnabled ? 'opacity-60' : ''
+                  !automationEnabled ? 'opacity-60' : ''
                 }`}
               >
                 {/* ── Welcome card ── */}
@@ -1116,7 +1247,7 @@ export default function WhatsAppSystemPage() {
                       className="text-xs h-7 px-2"
                       onClick={() => { setTemplateFeedback(null); setActiveSheet('welcome'); }}
                     >
-                      {lang === 'ar' ? 'تعديل' : 'Edit'} →
+                      {lang === 'ar' ? '← تعديل' : 'Edit →'}
                     </Button>
                   </div>
                 </div>
@@ -1156,7 +1287,7 @@ export default function WhatsAppSystemPage() {
                       className="text-xs h-7 px-2"
                       onClick={() => { setTemplateFeedback(null); setActiveSheet('renewal'); }}
                     >
-                      {lang === 'ar' ? 'تعديل' : 'Edit'} →
+                      {lang === 'ar' ? '← تعديل' : 'Edit →'}
                     </Button>
                   </div>
                 </div>
@@ -1192,7 +1323,7 @@ export default function WhatsAppSystemPage() {
                         </div>
                         <Switch
                           checked={isEnabled}
-                          disabled={controlSavingId === 'post_expiry' || !status?.lifecycleRuntimeGateEnabled}
+                          disabled={controlSavingId === 'post_expiry' || !automationEnabled}
                           onCheckedChange={(checked) => void handleAutomationToggle('post_expiry', checked)}
                           aria-label={isEnabled ? (lang === 'ar' ? 'مفعّل' : 'Enabled') : (lang === 'ar' ? 'معطّل' : 'Disabled')}
                         />
@@ -1215,7 +1346,7 @@ export default function WhatsAppSystemPage() {
                           className="text-xs h-7 px-2"
                           onClick={() => { setTemplateFeedback(null); setActiveSheet('post_expiry'); }}
                         >
-                          {lang === 'ar' ? 'تعديل' : 'Edit'} →
+                          {lang === 'ar' ? '← تعديل' : 'Edit →'}
                         </Button>
                       </div>
                     </div>
@@ -1252,7 +1383,7 @@ export default function WhatsAppSystemPage() {
                         </div>
                         <Switch
                           checked={isEnabled}
-                          disabled={controlSavingId === 'onboarding' || !status?.lifecycleRuntimeGateEnabled}
+                          disabled={controlSavingId === 'onboarding' || !automationEnabled}
                           onCheckedChange={(checked) => void handleAutomationToggle('onboarding', checked)}
                           aria-label={isEnabled ? (lang === 'ar' ? 'مفعّل' : 'Enabled') : (lang === 'ar' ? 'معطّل' : 'Disabled')}
                         />
@@ -1275,7 +1406,7 @@ export default function WhatsAppSystemPage() {
                           className="text-xs h-7 px-2"
                           onClick={() => { setTemplateFeedback(null); setActiveSheet('onboarding'); }}
                         >
-                          {lang === 'ar' ? 'تعديل' : 'Edit'} →
+                          {lang === 'ar' ? '← تعديل' : 'Edit →'}
                         </Button>
                       </div>
                     </div>
@@ -1309,7 +1440,7 @@ export default function WhatsAppSystemPage() {
                       className="text-xs h-7 px-2"
                       onClick={() => { setTemplateFeedback(null); setActiveSheet('behavior'); }}
                     >
-                      {lang === 'ar' ? 'تعديل' : 'Edit'} →
+                      {lang === 'ar' ? '← تعديل' : 'Edit →'}
                     </Button>
                   </div>
                 </div>
@@ -1349,7 +1480,7 @@ export default function WhatsAppSystemPage() {
                           className="text-xs h-7 px-2"
                           onClick={() => { setTemplateFeedback(null); setActiveSheet('sequences'); }}
                         >
-                          {lang === 'ar' ? 'عرض' : 'View'} →
+                          {lang === 'ar' ? '← عرض' : 'View →'}
                         </Button>
                       </div>
                     </div>
@@ -1367,7 +1498,7 @@ export default function WhatsAppSystemPage() {
               {/* ── Template Editor Sheet ── */}
               <Sheet
                 open={activeSheet !== null && activeSheet !== 'sequences'}
-                onOpenChange={(open) => { if (!open) setActiveSheet(null); }}
+                onOpenChange={(open) => { if (!open) closeTemplateSheet(); }}
               >
                 <SheetContent
                   side={lang === 'ar' ? 'left' : 'right'}
@@ -1412,19 +1543,28 @@ export default function WhatsAppSystemPage() {
                           <Label className="text-sm">
                             {lang === 'ar' ? 'أيام التذكير قبل الانتهاء' : 'Reminder days before expiry'}
                           </Label>
-                          <div className="flex gap-2 flex-wrap">
+                          <div className="flex gap-4 flex-wrap">
                             {REMINDER_OPTIONS.map((day) => (
                               <button
                                 key={day}
                                 type="button"
                                 onClick={() => toggleReminderDay(day)}
-                                className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
-                                  selectedReminderDays.has(day)
-                                    ? 'bg-primary text-white border-primary'
-                                    : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-input'
-                                }`}
+                                className="flex items-center gap-2 text-xs cursor-pointer"
                               >
-                                {lang === 'ar' ? `يوم ${day}` : `Day ${day}`}
+                                <span className={`flex h-4 w-4 shrink-0 items-center justify-center border transition-colors ${
+                                  selectedReminderDays.has(day)
+                                    ? 'bg-primary border-primary'
+                                    : 'bg-transparent border-border'
+                                }`}>
+                                  {selectedReminderDays.has(day) && (
+                                    <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 10 10" fill="none">
+                                      <path d="M2 5l2.5 2.5L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                  )}
+                                </span>
+                                <span className={selectedReminderDays.has(day) ? 'text-foreground font-medium' : 'text-muted-foreground'}>
+                                  {lang === 'ar' ? `يوم ${day}` : `Day ${day}`}
+                                </span>
                               </button>
                             ))}
                           </div>
@@ -1445,7 +1585,7 @@ export default function WhatsAppSystemPage() {
                     {/* Post-expiry editor */}
                     {activeSheet === 'post_expiry' && (
                       <div className="space-y-4">
-                        <div className="flex gap-1 flex-wrap">
+                        <div className="flex border-b border-border">
                           {([
                             { id: 'day0', labelEn: 'Day 0', labelAr: 'يوم 0' },
                             { id: 'day3', labelEn: 'Day 3', labelAr: 'يوم 3' },
@@ -1456,10 +1596,10 @@ export default function WhatsAppSystemPage() {
                               key={s.id}
                               type="button"
                               onClick={() => setPostExpiryDay(s.id)}
-                              className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                              className={`px-4 py-2 text-xs font-medium transition-colors border-b-2 -mb-px ${
                                 postExpiryDay === s.id
-                                  ? 'bg-primary text-white border-primary'
-                                  : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-input'
+                                  ? 'border-primary text-foreground'
+                                  : 'border-transparent text-muted-foreground hover:text-foreground'
                               }`}
                             >
                               {lang === 'ar' ? s.labelAr : s.labelEn}
@@ -1493,7 +1633,7 @@ export default function WhatsAppSystemPage() {
                     {/* Onboarding editor */}
                     {activeSheet === 'onboarding' && (
                       <div className="space-y-4">
-                        <div className="flex gap-1 flex-wrap">
+                        <div className="flex border-b border-border">
                           {([
                             { id: 'firstVisit', labelEn: 'First visit', labelAr: 'أول زيارة' },
                             { id: 'noReturn7', labelEn: 'No return day 7', labelAr: 'غياب يوم 7' },
@@ -1503,10 +1643,10 @@ export default function WhatsAppSystemPage() {
                               key={s.id}
                               type="button"
                               onClick={() => setOnboardingStep(s.id)}
-                              className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                              className={`px-4 py-2 text-xs font-medium transition-colors border-b-2 -mb-px ${
                                 onboardingStep === s.id
-                                  ? 'bg-primary text-white border-primary'
-                                  : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-input'
+                                  ? 'border-primary text-foreground'
+                                  : 'border-transparent text-muted-foreground hover:text-foreground'
                               }`}
                             >
                               {lang === 'ar' ? s.labelAr : s.labelEn}
@@ -1548,7 +1688,7 @@ export default function WhatsAppSystemPage() {
                               : 'These automations are in scope but locked until release.'}
                           </AlertDescription>
                         </Alert>
-                        <div className="flex gap-1 flex-wrap">
+                        <div className="flex border-b border-border">
                           {([
                             { id: 'habitBreak', labelEn: 'Habit break', labelAr: 'انقطاع العادة' },
                             { id: 'streaks', labelEn: 'Streaks', labelAr: 'الاستمرارية' },
@@ -1558,10 +1698,10 @@ export default function WhatsAppSystemPage() {
                               key={s.id}
                               type="button"
                               onClick={() => setBehaviorStep(s.id)}
-                              className={`px-3 py-1.5 text-xs font-semibold border transition-colors ${
+                              className={`px-4 py-2 text-xs font-medium transition-colors border-b-2 -mb-px ${
                                 behaviorStep === s.id
-                                  ? 'bg-primary text-white border-primary'
-                                  : 'bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-input'
+                                  ? 'border-primary text-foreground'
+                                  : 'border-transparent text-muted-foreground hover:text-foreground'
                               }`}
                             >
                               {lang === 'ar' ? s.labelAr : s.labelEn}
@@ -1591,7 +1731,7 @@ export default function WhatsAppSystemPage() {
                     <SheetFooter className="px-6 py-4 border-t border-border shrink-0 flex gap-2 sm:justify-end">
                       <Button
                         variant="ghost"
-                        onClick={() => setActiveSheet(null)}
+                        onClick={closeTemplateSheet}
                         disabled={templatesSaving}
                       >
                         {lang === 'ar' ? 'تجاهل' : 'Discard'}
