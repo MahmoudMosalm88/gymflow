@@ -115,8 +115,10 @@ export default function IncomePage() {
             value={formatCurrencyCompact(summary.thisMonthRevenue)}
             rawValue={summary.thisMonthRevenue}
             color="text-success"
-            previousValue={summary.lastMonthRevenue}
-            compareLabel={lang === 'ar' ? 'مقارنة بالشهر الماضي' : 'vs last month'}
+            targetValue={summary.expectedMonthly}
+            compareLabel={lang === 'ar'
+              ? `من ${formatCurrencyCompact(summary.expectedMonthly)} المتوقع`
+              : `of ${formatCurrencyCompact(summary.expectedMonthly)} expected`}
           />
           <StatCard
             label={lang === 'ar' ? 'الشهر الماضي' : 'Last Month'}

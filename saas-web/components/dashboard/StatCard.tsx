@@ -11,6 +11,7 @@ type Props = {
   valueSize?: string;
   rawValue?: number;
   previousValue?: number;
+  targetValue?: number; // when set, shows collection rate (X% collected) instead of vs-previous delta
   compareLabel?: string;
   sparklineData?: number[];
   sparklineColor?: string;
@@ -27,7 +28,18 @@ function computeDelta(current: number, previous: number): { pct: string; up: boo
   };
 }
 
-export default function StatCard({ label, value, subtitle, color = 'text-brand', valueSize, rawValue, previousValue, compareLabel, sparklineData, sparklineColor, accent }: Props) {
+function computeCollection(current: number, target: number): { pct: number; classes: string } | null {
+  if (target <= 0) return null;
+  const pct = Math.round((current / target) * 100);
+  const classes = pct >= 80
+    ? 'text-success border-success/30 bg-success/10'
+    : pct >= 60
+      ? 'text-warning border-warning/30 bg-warning/10'
+      : 'text-destructive border-destructive/30 bg-destructive/10';
+  return { pct, classes };
+}
+
+export default function StatCard({ label, value, subtitle, color = 'text-brand', valueSize, rawValue, previousValue, targetValue, compareLabel, sparklineData, sparklineColor, accent }: Props) {
   const { lang } = useLang();
   const isRtl = lang === 'ar';
 
@@ -39,7 +51,8 @@ export default function StatCard({ label, value, subtitle, color = 'text-brand',
   })();
 
   const numericValue = rawValue ?? (typeof value === 'number' ? value : parseFloat(String(value).replace(/[^0-9.-]/g, '')));
-  const hasDelta = previousValue !== undefined && !isNaN(numericValue);
+  const collection = targetValue !== undefined ? computeCollection(numericValue, targetValue) : null;
+  const hasDelta = !collection && previousValue !== undefined && !isNaN(numericValue);
   const delta = hasDelta ? computeDelta(numericValue, previousValue) : null;
   const hasSparkline = sparklineData && sparklineData.length >= 2;
 
@@ -57,6 +70,18 @@ export default function StatCard({ label, value, subtitle, color = 'text-brand',
         {/* Value — bottom end */}
         <div className="flex flex-col items-end mt-auto">
           <p className={`font-stat ${autoSize} leading-none tracking-wide ${color}`}>{value}</p>
+
+          {/* Collection rate badge (when targetValue is set) */}
+          {collection && (
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs font-semibold border ${collection.classes}`}>
+                {collection.pct}%
+              </span>
+              {compareLabel && (
+                <span className="text-[11px] text-muted-foreground/50 hidden sm:inline">{compareLabel}</span>
+              )}
+            </div>
+          )}
 
           {/* Delta pill + compare label — directly under the value */}
           {delta && !delta.neutral && (
