@@ -360,9 +360,8 @@ export const solutions: SolutionPage[] = [
     ],
     relatedSolutions: ["womens-gym", "crossfit"],
   },
-];
 
-{
+  {
     slug: "personal-training-studio",
     titleEn: "Gym Management Software for Personal Training Studios",
     titleAr: "برنامج إدارة الصالات للاستوديوهات الشخصية",
@@ -802,7 +801,8 @@ export const solutions: SolutionPage[] = [
     ],
     relatedSolutions: ["multi-branch", "fitness-franchise"],
   },
+];
 
-  export function getSolutionBySlug(slug: string): SolutionPage | null {
+export function getSolutionBySlug(slug: string): SolutionPage | null {
   return solutions.find((s) => s.slug === slug) ?? null;
 }

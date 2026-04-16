@@ -279,7 +279,6 @@ export const locationPages: LocationPage[] = [
       },
     ],
   },
-];
 
 // ─── Giza ─────────────────────────────────────────────────────────────────
   {
@@ -1064,8 +1063,9 @@ export const locationPages: LocationPage[] = [
       { q: "هل يدعم GymFlow تسعير BHD لصالات المنامة؟", a: "يتعامل GymFlow مع BHD بشكل أصلي. اضف الأسعار بالدينار البحريني، وأصدر فواتير BHD، وتتبع جميع الإيرادات بالعملة المحلية بدون أي overhead للتحويل." },
     ],
   },
+];
 
-  // Convenience lookup: slug → page data
+// Convenience lookup: slug → page data
 export const locationPageMap = Object.fromEntries(
   locationPages.map((p) => [p.slug, p])
 ) as Record<string, LocationPage>;
