@@ -369,7 +369,6 @@ export const comparisons: ComparisonPage[] = [
       },
     ],
   },
-];
 
 // ─────────────────────────────────────────────────────────
   // Virtuagym
@@ -952,8 +951,9 @@ export const comparisons: ComparisonPage[] = [
       { q: "كيف يقارن تسعير GymFlow بـ Pike13؟", a: "يبدأ Pike13 من 99 دولاراً شهرياً مع تسعير مرتبط بالاستخدام. يبدأ GymFlow من 29 دولاراً شهرياً ثابتاً — بغض النظر عن عدد الأعضاء. لصالة مصرية أو سعودية نموذجية بـ 100-300 عضو، يوفر GymFlow hundreds من الدولارات شهرياً." },
     ],
   },
+];
 
-  // Helper to find a single comparison by slug
+// Helper to find a single comparison by slug
 export function getComparison(slug: string): ComparisonPage | undefined {
   return comparisons.find((c) => c.slug === slug);
 }
