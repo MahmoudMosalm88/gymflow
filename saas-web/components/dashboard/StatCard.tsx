@@ -9,6 +9,7 @@ type Props = {
   subtitle?: string;
   color?: string;
   valueSize?: string;
+  rawValue?: number;
   previousValue?: number;
   compareLabel?: string;
   sparklineData?: number[];
@@ -26,7 +27,7 @@ function computeDelta(current: number, previous: number): { pct: string; up: boo
   };
 }
 
-export default function StatCard({ label, value, subtitle, color = 'text-brand', valueSize, previousValue, compareLabel, sparklineData, sparklineColor, accent }: Props) {
+export default function StatCard({ label, value, subtitle, color = 'text-brand', valueSize, rawValue, previousValue, compareLabel, sparklineData, sparklineColor, accent }: Props) {
   const { lang } = useLang();
   const isRtl = lang === 'ar';
 
@@ -37,7 +38,7 @@ export default function StatCard({ label, value, subtitle, color = 'text-brand',
     return 'text-xl md:text-2xl';
   })();
 
-  const numericValue = typeof value === 'number' ? value : parseFloat(String(value).replace(/[^0-9.-]/g, ''));
+  const numericValue = rawValue ?? (typeof value === 'number' ? value : parseFloat(String(value).replace(/[^0-9.-]/g, '')));
   const hasDelta = previousValue !== undefined && !isNaN(numericValue);
   const delta = hasDelta ? computeDelta(numericValue, previousValue) : null;
   const hasSparkline = sparklineData && sparklineData.length >= 2;

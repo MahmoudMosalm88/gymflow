@@ -113,6 +113,7 @@ export default function IncomePage() {
           <StatCard
             label={lang === 'ar' ? 'إيراد هذا الشهر' : 'This Month'}
             value={formatCurrencyCompact(summary.thisMonthRevenue)}
+            rawValue={summary.thisMonthRevenue}
             color="text-success"
             previousValue={summary.lastMonthRevenue}
             compareLabel={lang === 'ar' ? 'مقارنة بالشهر الماضي' : 'vs last month'}
