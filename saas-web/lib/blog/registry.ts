@@ -10,6 +10,11 @@ import qrCodeCheckinGymGuide from "./posts/qr-code-checkin-gym-guide";
 import whyEgyptianGymsSwitchingDigital2026 from "./posts/why-egyptian-gyms-switching-digital-2026";
 import saudiGymMarket2026 from "./posts/saudi-gym-market-2026-opportunities";
 import gymMembershipRetentionMistakes from "./posts/gym-membership-retention-mistakes";
+import gymManagementRiyadh from "./posts/gym-management-software-riyadh-guide";
+import gymManagementDubaiAr from "./posts/gym-management-software-dubai-guide-ar";
+import gymManagementDubai from "./posts/gym-management-software-dubai-guide";
+import gymManagementCairoAr from "./posts/gym-management-software-cairo-guide-ar";
+import gymManagementCairo from "./posts/gym-management-software-cairo-guide";
 
 const ALL_POSTS: BlogPost[] = [
   bestGymSoftwareEgypt,
@@ -21,6 +26,11 @@ const ALL_POSTS: BlogPost[] = [
   qrCodeCheckinGymGuide,
   whyEgyptianGymsSwitchingDigital2026,
   saudiGymMarket2026,
+  gymManagementCairo,
+  gymManagementCairoAr,
+  gymManagementDubai,
+  gymManagementDubaiAr,
+  gymManagementRiyadh,
   gymMembershipRetentionMistakes,
 ];
 
