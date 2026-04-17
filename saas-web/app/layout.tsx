@@ -56,9 +56,9 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   metadataBase: new URL("https://gymflowsystem.com"),
   icons: {
-    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
-    shortcut: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
-    apple: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }]
+    icon: [{ url: "/gymflow-logo.png", type: "image/png" }],
+    shortcut: [{ url: "/gymflow-logo.png", type: "image/png" }],
+    apple: [{ url: "/gymflow-logo.png", type: "image/png" }]
   },
   openGraph: {
     type: "website",
