@@ -238,7 +238,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Best-effort notification: do not block account creation if provider is down.
-    sendNewSignupNotification({
+    await sendNewSignupNotification({
       authMethod: payload.authMethod,
       ownerName: payload.ownerName,
       ownerEmail,
