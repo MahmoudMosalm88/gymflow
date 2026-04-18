@@ -753,6 +753,19 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
               AND payload ? 'subscription_id'
             ORDER BY (payload->>'subscription_id'), COALESCE(sent_at, scheduled_at) DESC
          ),
+         post_expiry_events AS (
+           SELECT DISTINCT ON (member_id)
+                  member_id,
+                  COALESCE(sent_at, scheduled_at) AS sent_at
+             FROM message_queue
+            WHERE organization_id = $1
+              AND branch_id = $2
+              AND type = 'renewal'
+              AND payload->>'sequence_kind' = 'post_expiry'
+              AND status = 'sent'
+              AND payload ? 'subscription_id'
+            ORDER BY member_id, COALESCE(sent_at, scheduled_at) DESC
+         ),
          renewal_links AS (
            SELECT DISTINCT renewed_from_subscription_id AS previous_subscription_id
              FROM subscriptions
@@ -783,14 +796,27 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
                 (renewal.id IS NOT NULL OR rl.previous_subscription_id IS NOT NULL) AS has_renewal,
                 (
                   renewal.id IS NOT NULL
-                  AND re.status = 'sent'
-                  AND renewal.created_at >= re.reminder_at
-                  AND renewal.created_at < re.reminder_at + interval '14 day'
+                  AND (
+                    -- Pre-expiry reminder attribution
+                    (
+                      re.status = 'sent'
+                      AND renewal.created_at >= re.reminder_at
+                      AND renewal.created_at < re.reminder_at + interval '14 day'
+                    )
+                    -- Post-expiry recovery attribution
+                    OR (
+                      pe.sent_at IS NOT NULL
+                      AND renewal.created_at >= pe.sent_at
+                      AND renewal.created_at < pe.sent_at + interval '14 day'
+                    )
+                  )
                 ) AS has_whatsapp_attributed_renewal,
                 wa.has_any AS wa_active
            FROM expiring_cycles ec
            LEFT JOIN reminder_events re
              ON re.subscription_id = ec.id
+           LEFT JOIN post_expiry_events pe
+             ON pe.member_id = ec.member_id
            LEFT JOIN renewal_links rl
              ON rl.previous_subscription_id = ec.id
            LEFT JOIN LATERAL (
@@ -1410,7 +1436,7 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
                  FROM subscriptions s
                 WHERE s.organization_id = $1
                   AND s.branch_id = $2
-                  AND sm.message_type = 'renewal'
+                  AND sm.message_type IN ('renewal', 'post_expiry')
                   AND s.member_id = sm.member_id
                   AND s.renewed_from_subscription_id IS NOT NULL
                   AND (sm.source_subscription_id IS NULL OR s.renewed_from_subscription_id = sm.source_subscription_id)
