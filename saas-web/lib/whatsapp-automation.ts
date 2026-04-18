@@ -199,12 +199,12 @@ export const WHATSAPP_AUTOMATIONS: WhatsAppAutomationDefinition[] = [
     group: "operational",
     title: { en: "Renewal reminders", ar: "تذكيرات التجديد" },
     description: {
-      en: "Locked GymFlow timing: 14, 7, and 3 days before expiry.",
-      ar: "توقيت ثابت من GymFlow: قبل الانتهاء بـ 14 و7 و3 أيام.",
+      en: "One reminder template sent on the branch's selected reminder days before expiry.",
+      ar: "قالب تذكير واحد يُرسل في أيام التذكير التي يحددها الفرع قبل الانتهاء.",
     },
     triggerSummary: {
-      en: "Triggers 14, 7, and 3 days before active subscription expiry.",
-      ar: "تعمل قبل انتهاء الاشتراك النشط بـ 14 و7 و3 أيام.",
+      en: "Triggers on the branch's configured reminder days before active subscription expiry.",
+      ar: "تعمل في أيام التذكير المكوّنة للفرع قبل انتهاء الاشتراك النشط.",
     },
     stopSummary: {
       en: "Stops if the member renews, becomes inactive, or WhatsApp is not allowed.",
