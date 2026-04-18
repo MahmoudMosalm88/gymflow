@@ -225,6 +225,18 @@ export async function POST(request: NextRequest) {
       );
     });
 
+    try {
+      if (auth) {
+        await auth.setCustomUserClaims(firebaseUid, {
+          organizationId,
+          branchId,
+          role: "owner"
+        });
+      }
+    } catch (claimError) {
+      console.error("[auth/register] Failed to set custom claims:", claimError);
+    }
+
     // Best-effort notification: do not block account creation if provider is down.
     sendNewSignupNotification({
       authMethod: payload.authMethod,
