@@ -59,7 +59,7 @@ function PtHubContent() {
 
       {/* ── Tab bar ── */}
       {visibleTabs.length > 1 && (
-        <div className="flex gap-0 border-b border-border -mb-2 overflow-x-auto" role="tablist" aria-label={labels.pt}>
+        <div className="flex gap-0 border-b border-border -mb-2 overflow-x-auto no-scrollbar" role="tablist" aria-label={labels.pt}>
           {visibleTabs.map((tab) => (
             <button
               key={tab.key}

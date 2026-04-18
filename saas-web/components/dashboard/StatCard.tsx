@@ -2,6 +2,7 @@
 
 import { useLang } from '@/lib/i18n';
 import { Sparkline } from '@derpdaderp/chartkit';
+import CountUp from 'react-countup';
 
 type Props = {
   label: string;
@@ -16,6 +17,7 @@ type Props = {
   sparklineData?: number[];
   sparklineColor?: string;
   accent?: string;
+  animate?: boolean;
 };
 
 function computeDelta(current: number, previous: number): { pct: string; up: boolean; neutral: boolean } {
@@ -39,7 +41,7 @@ function computeCollection(current: number, target: number): { pct: number; clas
   return { pct, classes };
 }
 
-export default function StatCard({ label, value, subtitle, color = 'text-brand', valueSize, rawValue, previousValue, targetValue, compareLabel, sparklineData, sparklineColor, accent }: Props) {
+export default function StatCard({ label, value, subtitle, color = 'text-brand', valueSize, rawValue, previousValue, targetValue, compareLabel, sparklineData, sparklineColor, accent, animate = true }: Props) {
   const { lang } = useLang();
   const isRtl = lang === 'ar';
 
@@ -51,6 +53,21 @@ export default function StatCard({ label, value, subtitle, color = 'text-brand',
   })();
 
   const numericValue = rawValue ?? (typeof value === 'number' ? value : parseFloat(String(value).replace(/[^0-9.-]/g, '')));
+
+  // Parse prefix (e.g. "SAR ", "$") and suffix (e.g. "%") from string values for CountUp animation.
+  // If the value isn't a parseable number, animatedValue stays null and we fall back to plain rendering.
+  const animatedValue = (() => {
+    if (!animate) return null;
+    const str = String(value);
+    const match = str.match(/^([^0-9]*)([0-9,]+\.?[0-9]*)([^0-9]*)$/);
+    if (!match) return null;
+    const [, prefix, numStr, suffix] = match;
+    const parsed = parseFloat(numStr.replace(/,/g, ''));
+    if (isNaN(parsed)) return null;
+    const decimals = numStr.includes('.') ? numStr.split('.')[1].length : 0;
+    return { prefix, suffix, parsed, decimals };
+  })();
+
   const collection = targetValue !== undefined ? computeCollection(numericValue, targetValue) : null;
   const hasDelta = !collection && previousValue !== undefined && !isNaN(numericValue);
   const delta = hasDelta ? computeDelta(numericValue, previousValue) : null;
@@ -69,7 +86,15 @@ export default function StatCard({ label, value, subtitle, color = 'text-brand',
 
         {/* Value — bottom end */}
         <div className="flex flex-col items-end mt-auto">
-          <p className={`font-stat ${autoSize} leading-none tracking-wide ${color}`}>{value}</p>
+          <p className={`font-stat ${autoSize} leading-none tracking-wide tabular-nums ${color}`}>
+            {animatedValue ? (
+              <>
+                {animatedValue.prefix}
+                <CountUp end={animatedValue.parsed} duration={1.2} separator="," decimals={animatedValue.decimals} />
+                {animatedValue.suffix}
+              </>
+            ) : value}
+          </p>
 
           {/* Collection rate badge (when targetValue is set) */}
           {collection && (

@@ -173,7 +173,7 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
     const startOfPreviousMonth = Math.floor(Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth() - 1, 1) / 1000);
 
     if (report === "overview") {
-      const [members, activeSubs, expiredSubs, revenue, currentMonthRevenue, previousMonthRevenue, today, revenueAtRisk, revenueSaved, atRiskMembers, newMembersThisMonth, churnedThisMonth, inGymNow, expiringThisWeek, yesterdayCheckIns, lastWeekActiveSubs, dailyCheckIns7d, ptLowBalance] = await Promise.all([
+      const [members, activeSubs, expiredSubs, revenue, currentMonthRevenue, previousMonthRevenue, today, revenueAtRisk, revenueSaved, atRiskMembers, newMembersThisMonth, churnedThisMonth, inGymNow, expiringThisWeek, yesterdayCheckIns, lastWeekActiveSubs, dailyCheckIns7d, ptLowBalance, avgVisitsPerWeek, activeSubsSparkline, newMembersSparkline, visitorsSparkline] = await Promise.all([
         query<NumberRow>(
           `SELECT COUNT(*)::text AS count
              FROM members
@@ -428,6 +428,63 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
               AND status = 'active'
               AND GREATEST(total_sessions - sessions_used, 0) <= 2`,
           [auth.organizationId, auth.branchId]
+        ),
+        // Avg visits per week (last 7 days): total successful check-ins / distinct members
+        query<{ avg_visits: string }>(
+          `SELECT
+             CASE
+               WHEN COUNT(DISTINCT member_id) = 0 THEN '0'
+               ELSE ROUND(COUNT(*)::numeric / COUNT(DISTINCT member_id), 1)::text
+             END AS avg_visits
+            FROM logs
+           WHERE organization_id = $1
+             AND branch_id = $2
+             AND status = 'success'
+             AND member_id IS NOT NULL
+             AND timestamp >= $3
+             AND timestamp < $4`,
+          [auth.organizationId, auth.branchId, startOfDay - 6 * 86400, startOfDay + 86400]
+        ),
+        // 7-day sparkline: active subscriptions per day
+        query<{ day: number; count: number }>(
+          `SELECT d::int AS day,
+                  COUNT(DISTINCT s.member_id)::int AS count
+             FROM generate_series(0, 6) AS d
+             LEFT JOIN subscriptions s
+               ON s.organization_id = $1
+              AND s.branch_id = $2
+              AND s.start_date <= $3 + (d * 86400)
+              AND s.end_date > $3 + (d * 86400)
+            GROUP BY d ORDER BY d`,
+          [auth.organizationId, auth.branchId, startOfDay - 6 * 86400]
+        ),
+        // 7-day sparkline: new members per day
+        query<{ day: number; count: number }>(
+          `SELECT d::int AS day,
+                  COUNT(m.id)::int AS count
+             FROM generate_series(0, 6) AS d
+             LEFT JOIN members m
+               ON m.organization_id = $1
+              AND m.branch_id = $2
+              AND m.deleted_at IS NULL
+              AND EXTRACT(EPOCH FROM m.created_at)::bigint >= $3 + (d * 86400)
+              AND EXTRACT(EPOCH FROM m.created_at)::bigint < $3 + ((d + 1) * 86400)
+            GROUP BY d ORDER BY d`,
+          [auth.organizationId, auth.branchId, startOfDay - 6 * 86400]
+        ),
+        // 7-day sparkline: unique visitors per day (for inGymNow sparkline)
+        query<{ day: number; count: number }>(
+          `SELECT d::int AS day,
+                  COUNT(DISTINCT l.member_id)::int AS count
+             FROM generate_series(0, 6) AS d
+             LEFT JOIN logs l
+               ON l.organization_id = $1
+              AND l.branch_id = $2
+              AND l.status = 'success'
+              AND l.timestamp >= $3 + (d * 86400)
+              AND l.timestamp < $3 + ((d + 1) * 86400)
+            GROUP BY d ORDER BY d`,
+          [auth.organizationId, auth.branchId, startOfDay - 6 * 86400]
         )
       ]);
 
@@ -457,9 +514,13 @@ export async function GET(request: NextRequest, { params }: { params: { report: 
           denied: toNumber(today[0]?.denied)
         },
         yesterdayCheckIns: toNumber(yesterdayCheckIns[0]?.count),
-        lastWeekActiveSubs: toNumber(lastWeekActiveSubs[0]?.count),
+        lastMonthActiveSubs: toNumber(lastWeekActiveSubs[0]?.count),
         checkInSparkline: (dailyCheckIns7d ?? []).map((r: any) => Number(r.count ?? 0)),
         ptLowBalance: toNumber(ptLowBalance[0]?.count),
+        avgVisitsPerWeek: parseFloat(avgVisitsPerWeek[0]?.avg_visits ?? '0'),
+        activeSubsSparkline: (activeSubsSparkline ?? []).map((r: any) => Number(r.count ?? 0)),
+        newThisMonthSparkline: (newMembersSparkline ?? []).map((r: any) => Number(r.count ?? 0)),
+        inGymSparkline: (visitorsSparkline ?? []).map((r: any) => Number(r.count ?? 0)),
       });
     }
 

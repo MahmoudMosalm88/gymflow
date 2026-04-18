@@ -3,12 +3,12 @@
 import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { MiniArea } from '@derpdaderp/chartkit';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatCurrency, formatCurrencyCompact, formatDate } from '@/lib/format';
 import { getCachedIncomeSummary, getCachedMonthlyIncome, getCachedRecentPayments } from '@/lib/offline/read-model';
 import StatCard from '@/components/dashboard/StatCard';
+import IncomeAreaChart from '@/components/dashboard/income/IncomeAreaChart';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
@@ -91,9 +91,6 @@ export default function IncomePage() {
   const fmtMonth = (m: string) =>
     new Date(m + '-01').toLocaleDateString(locale, { year: 'numeric', month: 'long' });
 
-  // Revenue trend data for the chart (last 6 months, oldest first)
-  const chartData = [...monthly].reverse().slice(-6).map(r => r.revenue);
-
   if (loading) {
     return <div className="flex items-center justify-center py-24"><LoadingSpinner /></div>;
   }
@@ -142,32 +139,17 @@ export default function IncomePage() {
       )}
 
       {/* ── Revenue Trend Chart ── */}
-      {chartData.length >= 2 && (
+      {monthly.length >= 2 && (
         <div className="mt-6">
           <Card className="shadow-[6px_6px_0_#000000]">
             <CardHeader className="pb-2">
               <CardTitle>{lang === 'ar' ? 'اتجاه الإيراد' : 'Revenue Trend'}</CardTitle>
               <CardDescription>
-                {lang === 'ar' ? 'آخر ٦ أشهر' : 'Last 6 months'}
+                {lang === 'ar' ? 'آخر ٦ أشهر — اشتراكات، تدريب، زيارات' : 'Last 6 months — subscriptions, PT, guest'}
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div style={{ height: 160 }}>
-                <MiniArea
-                  data={chartData}
-                  theme="midnight"
-                  color="#e63946"
-                  height={160}
-                />
-              </div>
-              {/* Month labels under chart */}
-              <div className="flex justify-between mt-2" dir="ltr">
-                {[...monthly].reverse().slice(-6).map(r => (
-                  <span key={r.month} className="text-[10px] text-muted-foreground">
-                    {new Date(r.month + '-01').toLocaleDateString(locale, { month: 'short' })}
-                  </span>
-                ))}
-              </div>
+            <CardContent className="px-2 pb-4">
+              <IncomeAreaChart monthly={monthly} lang={lang} />
             </CardContent>
           </Card>
         </div>

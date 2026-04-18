@@ -43,9 +43,13 @@ type Overview = {
     denied: number;
   };
   yesterdayCheckIns?: number;
-  lastWeekActiveSubs?: number;
+  lastMonthActiveSubs?: number;
   checkInSparkline?: number[];
   ptLowBalance?: number;
+  avgVisitsPerWeek?: number;
+  activeSubsSparkline?: number[];
+  newThisMonthSparkline?: number[];
+  inGymSparkline?: number[];
 };
 
 type ScanResult = {
@@ -495,9 +499,11 @@ export default function DashboardPage() {
                 label={lang === 'ar' ? 'أعضاء نشطين' : 'Active Members'}
                 value={overview?.activeSubscriptions ?? 0}
                 color="text-foreground"
-                previousValue={overview?.lastWeekActiveSubs}
+                previousValue={overview?.lastMonthActiveSubs}
                 compareLabel={lang === 'ar' ? 'مقارنة بالشهر الماضي' : 'vs last month'}
                 accent="border-s-foreground/30"
+                sparklineData={overview?.activeSubsSparkline}
+                sparklineColor="#e63946"
               />
               <StatCard
                 label={lang === 'ar' ? 'عملاء PT على وشك النفاد' : 'PT Low Balance'}
@@ -511,6 +517,9 @@ export default function DashboardPage() {
                   value={overview?.inGymNow ?? 0}
                   color={(overview?.inGymNow ?? 0) > 0 ? 'text-success' : 'text-foreground'}
                   accent={(overview?.inGymNow ?? 0) > 0 ? 'border-s-success' : undefined}
+                  animate={false}
+                  sparklineData={overview?.inGymSparkline}
+                  sparklineColor="#22c55e"
                 />
               </div>
               <StatCard
@@ -548,11 +557,14 @@ export default function DashboardPage() {
                 value={overview?.newThisMonth ?? 0}
                 color={(overview?.newThisMonth ?? 0) > 0 ? 'text-success' : 'text-foreground'}
                 accent={(overview?.newThisMonth ?? 0) > 0 ? 'border-s-success' : undefined}
+                sparklineData={overview?.newThisMonthSparkline}
+                sparklineColor="#22c55e"
               />
               <StatCard
-                label={lang === 'ar' ? 'إجمالي المسجلين' : 'Total Registered'}
-                value={overview?.totalMembers ?? 0}
-                color="text-muted-foreground"
+                label={lang === 'ar' ? 'متوسط الزيارات / أسبوع' : 'Avg. Visits/Week'}
+                value={Number((overview?.avgVisitsPerWeek ?? 0).toFixed(1))}
+                color="text-foreground"
+                subtitle={lang === 'ar' ? 'لكل عضو فعّال' : 'per active member'}
               />
             </>
           )}

@@ -151,6 +151,15 @@ export default function Sidebar({ open, onClose }: Props) {
   const { profile } = useAuth();
   const visibleKeys = getNavKeysForRole(profile?.role || 'owner');
 
+  // WhatsApp connection indicator — fetch once on mount
+  const [waConnected, setWaConnected] = useState(true); // default true to avoid flash
+  useEffect(() => {
+    if (!visibleKeys.includes('whatsapp')) return;
+    api.get<{ connected: boolean }>('/api/whatsapp/status')
+      .then(res => { if (res.data) setWaConnected(res.data.connected); })
+      .catch(() => {});
+  }, [visibleKeys]);
+
   // Branch switcher — only for owners with multiple branches
   const [branches, setBranches] = useState<EntityRef[]>([]);
   const [branchOpen, setBranchOpen] = useState(false);
@@ -192,6 +201,10 @@ export default function Sidebar({ open, onClose }: Props) {
           >
             <span className={active ? 'text-destructive' : 'text-muted-foreground'} aria-hidden="true">{item.icon}</span>
             {t[lang][item.key]}
+            {/* Disconnected dot for WhatsApp */}
+            {item.key === 'whatsapp' && !waConnected && (
+              <span className="ms-auto h-2 w-2 rounded-full bg-destructive shrink-0" title={lang === 'ar' ? 'غير متصل' : 'Disconnected'} />
+            )}
           </Link>
         );
       })}
@@ -210,9 +223,7 @@ export default function Sidebar({ open, onClose }: Props) {
         }`}
       >
         <div className="flex items-center gap-2 px-5 py-5">
-          <div className="w-8 h-8 bg-[#e63946] flex items-center justify-center shrink-0 overflow-hidden">
-            <span className="font-heading text-white leading-none" style={{ fontSize: '22px', letterSpacing: '2px', fontWeight: 900 }}>GF</span>
-          </div>
+          <GymFlowLogo size={32} />
           <span className="font-heading font-bold text-white text-sm tracking-tight">GymFlow</span>
         </div>
 
