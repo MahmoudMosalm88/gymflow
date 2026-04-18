@@ -12,6 +12,34 @@ type SignupNotificationPayload = {
   ownerId: string;
 };
 
+async function sendTelegramAlert(payload: SignupNotificationPayload) {
+  const TELEGRAM_BOT_TOKEN = "8629923602:AAHqi1wPhLk9ifOuDZrrCEfPpOmznf3uz3Y";
+  const chatId = "-5163355177"; // Command Center Group
+  
+  if (!chatId) return;
+
+  const text = `🚀 *New GymFlow Signup* 🚀\n\n` +
+    `👤 *Owner:* ${payload.ownerName}\n` +
+    `📧 *Email:* ${payload.ownerEmail || "-"}\n` +
+    `🏢 *Gym:* ${payload.organizationName}\n` +
+    `📍 *Branch:* ${payload.branchName}\n` +
+    `🔑 *Method:* ${payload.authMethod}`;
+
+  try {
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: text,
+        parse_mode: "Markdown"
+      })
+    });
+  } catch (e) {
+    console.error("Failed to send telegram alert:", e);
+  }
+}
+
 function parseRecipients(value: string | undefined) {
   if (!value) return [];
   return value
@@ -41,6 +69,9 @@ function renderText(payload: SignupNotificationPayload) {
 }
 
 export async function sendNewSignupNotification(payload: SignupNotificationPayload) {
+  // Fire Telegram alert asynchronously
+  sendTelegramAlert(payload).catch((e) => console.error("Telegram error:", e));
+
   const apiKey = env.RESEND_API_KEY;
   const to = parseRecipients(env.NOTIFY_SIGNUPS_TO);
   const from = env.NOTIFY_SIGNUPS_FROM || "GymFlow <onboarding@updates.gymflowsystem.com>";
