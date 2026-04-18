@@ -143,8 +143,6 @@ export async function POST(request: NextRequest) {
     let ownerEmail: string | null = null;
     let ownerPhone: string | null = null;
 
-    let isOldUser = false;
-
     if (payload.authMethod === "email") {
       try {
         const user = await auth.createUser({
@@ -167,10 +165,6 @@ export async function POST(request: NextRequest) {
       firebaseUid = firebaseUser.uid;
       ownerEmail = payload.email || firebaseUser.email || null;
       ownerPhone = payload.phone || firebaseUser.phoneNumber || null;
-      
-      const creationTime = new Date(firebaseUser.metadata.creationTime).getTime();
-      const ageHours = (Date.now() - creationTime) / (1000 * 60 * 60);
-      isOldUser = ageHours > 1;
     }
 
     if (payload.authMethod === "phone" && !ownerPhone) {
@@ -244,21 +238,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Best-effort notification: do not block account creation if provider is down.
-    if (!isOldUser) {
-      await sendNewSignupNotification({
-        authMethod: payload.authMethod,
-        ownerName: payload.ownerName,
-        ownerEmail,
-        ownerPhone,
-        organizationName: payload.organizationName,
-        branchName: payload.branchName,
-        organizationId,
-        branchId,
-        ownerId
-      }).catch((error) => {
-        console.error("[auth/register] signup notification failed:", error);
-      });
-    }
+    await sendNewSignupNotification({
+      authMethod: payload.authMethod,
+      ownerName: payload.ownerName,
+      ownerEmail,
+      ownerPhone,
+      organizationName: payload.organizationName,
+      branchName: payload.branchName,
+      organizationId,
+      branchId,
+      ownerId
+    }).catch((error) => {
+      console.error("[auth/register] signup notification failed:", error);
+    });
 
     return ok(
       {
