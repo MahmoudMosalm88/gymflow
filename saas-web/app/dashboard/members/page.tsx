@@ -9,8 +9,11 @@ import { useLang, t } from '@/lib/i18n';
 import { useAuth } from '@/lib/use-auth';
 import { formatDate } from '@/lib/format';
 import { getCachedMembers } from '@/lib/offline/read-model';
+import { useIsDesktop } from '@/lib/use-media-query';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import StatCard from '@/components/dashboard/StatCard';
+import SwipeableMemberCard from '@/components/dashboard/mobile/SwipeableMemberCard';
+import PullToRefresh from '@/components/dashboard/mobile/PullToRefresh';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -96,6 +99,7 @@ export default function MembersPage() {
   const labels = t[lang];
   const c = copy[lang];
   const isTrainer = profile?.role === 'trainer';
+  const isDesktop = useIsDesktop();
 
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -265,31 +269,33 @@ export default function MembersPage() {
         ) : null}
       </div>
 
-      {/* Stat cards — clickable, filter the table */}
-      <div className="grid grid-cols-3 gap-3 mt-5">
-        <button className="text-start" onClick={() => setStatusFilter('all')}>
+      {/* Stat cards — clickable, filter the table. Horizontal scroll on mobile */}
+      <div className="flex gap-3 mt-5 overflow-x-auto snap-x snap-mandatory no-scrollbar lg:grid lg:grid-cols-3 lg:overflow-visible">
+        <button className="text-start min-w-[140px] snap-start flex-shrink-0 lg:min-w-0" onClick={() => setStatusFilter('all')}>
           <StatCard label={c.total_members} value={stats.total} color="text-foreground" />
         </button>
-        <button className="text-start" onClick={() => setStatusFilter('active')}>
+        <button className="text-start min-w-[140px] snap-start flex-shrink-0 lg:min-w-0" onClick={() => setStatusFilter('active')}>
           <StatCard label={c.active_members} value={stats.active} color="text-success" />
         </button>
-        <button className="text-start" onClick={() => setStatusFilter('no_sub')}>
+        <button className="text-start min-w-[140px] snap-start flex-shrink-0 lg:min-w-0" onClick={() => setStatusFilter('no_sub')}>
           <StatCard label={c.no_sub_members} value={stats.noSub} color={stats.noSub > 0 ? 'text-warning' : 'text-foreground'} />
         </button>
       </div>
 
       {/* Search + filters row */}
-      <div className="flex flex-wrap gap-3 mt-4">
+      <div className="flex flex-col gap-3 mt-4">
         <Input
           type="text"
           placeholder={labels.search_members}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm"
+          className="lg:max-w-sm"
         />
+        {/* Filters row — side by side on mobile */}
+        <div className="flex gap-3">
         {/* Status filter */}
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="flex-1 lg:w-[160px] lg:flex-none">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -301,7 +307,7 @@ export default function MembersPage() {
         </Select>
         {/* Gender filter */}
         <Select value={genderFilter} onValueChange={(v) => setGenderFilter(v as typeof genderFilter)} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="flex-1 lg:w-[140px] lg:flex-none">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -313,7 +319,7 @@ export default function MembersPage() {
         {/* Trainer filter — only when trainers exist */}
         {!isTrainer && trainerNames.length > 0 && (
           <Select value={trainerFilter} onValueChange={setTrainerFilter} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="flex-1 lg:w-[160px] lg:flex-none">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -324,13 +330,36 @@ export default function MembersPage() {
             </SelectContent>
           </Select>
         )}
+        </div>
       </div>
 
-      {/* Members table */}
+      {/* Members list — cards on mobile, table on desktop */}
       <div className="mt-4">
         {loading ? (
           <LoadingSpinner />
+        ) : filtered.length === 0 ? (
+          <div className="py-12 text-center">
+            <p className="text-sm text-muted-foreground">{labels.no_members_found}</p>
+            {(statusFilter !== 'all' || genderFilter !== 'all' || trainerFilter !== 'all') && (
+              <button
+                className="text-xs text-destructive hover:underline mt-2"
+                onClick={() => { setStatusFilter('all'); setGenderFilter('all'); setTrainerFilter('all'); }}
+              >
+                {c.clear_filters}
+              </button>
+            )}
+          </div>
+        ) : !isDesktop ? (
+          /* ── Mobile: swipeable card list with pull-to-refresh ── */
+          <PullToRefresh onRefresh={() => fetchMembers(search || undefined)}>
+            <div className="flex flex-col gap-2">
+              {filtered.map((member, i) => (
+                <SwipeableMemberCard key={member.id} member={member} index={i} />
+              ))}
+            </div>
+          </PullToRefresh>
         ) : (
+          /* ── Desktop: table ── */
           <Card className="shadow-[6px_6px_0_#000000] border-2 border-border">
             <CardContent className="p-0">
               <Table>
@@ -344,101 +373,85 @@ export default function MembersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.length > 0 ? (
-                    filtered.map((member) => (
-                      <TableRow
-                        key={member.id}
-                        tabIndex={0}
-                        role="link"
-                        onClick={() => router.push(`/dashboard/members/${member.id}`)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/dashboard/members/${member.id}`); }}
-                        className={`cursor-pointer ${member.sub_status === 'no_sub' ? 'border-s-2 border-s-warning' : member.sub_status === 'expired' ? 'opacity-60' : ''}`}
-                      >
-                        <TableCell className="font-medium max-w-[200px]">
-                          <span className="truncate block">{member.name}</span>
-                        </TableCell>
-                        <TableCell>
+                  {filtered.map((member) => (
+                    <TableRow
+                      key={member.id}
+                      tabIndex={0}
+                      role="link"
+                      onClick={() => router.push(`/dashboard/members/${member.id}`)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/dashboard/members/${member.id}`); }}
+                      className={`cursor-pointer ${member.sub_status === 'no_sub' ? 'border-s-2 border-s-warning' : member.sub_status === 'expired' ? 'opacity-60' : ''}`}
+                    >
+                      <TableCell className="font-medium max-w-[200px]">
+                        <span className="truncate block">{member.name}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`text-xs font-semibold ${
+                            member.sub_status === 'active'
+                              ? 'bg-success/20 text-success border-success/30'
+                              : member.sub_status === 'expired'
+                              ? 'bg-destructive/20 text-destructive border-destructive/30'
+                              : 'bg-muted text-muted-foreground border-border'
+                          }`}
+                        >
+                          {member.sub_status === 'active'
+                            ? labels.active
+                            : member.sub_status === 'expired'
+                            ? labels.expired
+                            : labels.no_sub}
+                        </Badge>
+                        {member.sync_status && member.sync_status !== 'synced' ? (
                           <Badge
                             variant="outline"
-                            className={`text-xs font-semibold ${
-                              member.sub_status === 'active'
-                                ? 'bg-success/20 text-success border-success/30'
-                                : member.sub_status === 'expired'
-                                ? 'bg-destructive/20 text-destructive border-destructive/30'
-                                : 'bg-muted text-muted-foreground border-border'
-                            }`}
+                            className="ms-2 text-[10px] font-semibold border-warning/30 text-warning bg-warning/10"
                           >
-                            {member.sub_status === 'active'
-                              ? labels.active
-                              : member.sub_status === 'expired'
-                              ? labels.expired
-                              : labels.no_sub}
+                            {c.pending_sync}
                           </Badge>
-                          {member.sync_status && member.sync_status !== 'synced' ? (
-                            <Badge
-                              variant="outline"
-                              className="ms-2 text-[10px] font-semibold border-warning/30 text-warning bg-warning/10"
-                            >
-                              {c.pending_sync}
-                            </Badge>
-                          ) : null}
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell" dir="ltr">{member.phone}</TableCell>
-                        <TableCell className="hidden md:table-cell">{member.trainer_name || '—'}</TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          {formatDate(member.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')}
-                        </TableCell>
-                        <TableCell className="text-end">
-                          {!isTrainer ? (
-                            <DropdownMenu dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <span className="sr-only">{labels.open_menu}</span>
-                                  <DotsHorizontalIcon className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align={lang === 'ar' ? 'start' : 'end'}>
-                                <DropdownMenuLabel>{labels.actions}</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push(`/dashboard/members/${member.id}`);
-                                }}>
-                                  {labels.view}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push(`/dashboard/members/${member.id}/edit`);
-                                }}>
-                                  {labels.edit}
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-destructive" onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeleteTarget(member);
-                                }}>
-                                  {labels.delete}
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          ) : null}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={columns.length} className="h-24 text-center">
-                        <p className="text-sm text-muted-foreground">{labels.no_members_found}</p>
-                        {(statusFilter !== 'all' || genderFilter !== 'all' || trainerFilter !== 'all') && (
-                          <button
-                            className="text-xs text-destructive hover:underline mt-2"
-                            onClick={() => { setStatusFilter('all'); setGenderFilter('all'); setTrainerFilter('all'); }}
-                          >
-                            {c.clear_filters}
-                          </button>
-                        )}
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell" dir="ltr">{member.phone}</TableCell>
+                      <TableCell className="hidden md:table-cell">{member.trainer_name || '—'}</TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        {formatDate(member.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')}
+                      </TableCell>
+                      <TableCell className="text-end">
+                        {!isTrainer ? (
+                          <DropdownMenu dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">{labels.open_menu}</span>
+                                <DotsHorizontalIcon className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align={lang === 'ar' ? 'start' : 'end'}>
+                              <DropdownMenuLabel>{labels.actions}</DropdownMenuLabel>
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/dashboard/members/${member.id}`);
+                              }}>
+                                {labels.view}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/dashboard/members/${member.id}/edit`);
+                              }}>
+                                {labels.edit}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-destructive" onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteTarget(member);
+                              }}>
+                                {labels.delete}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : null}
                       </TableCell>
                     </TableRow>
-                  )}
+                  ))}
                 </TableBody>
               </Table>
             </CardContent>

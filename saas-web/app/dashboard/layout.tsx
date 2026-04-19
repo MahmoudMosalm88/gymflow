@@ -15,6 +15,8 @@ import { fetchOnboardingRedirectTarget } from '@/lib/onboarding-client';
 
 const InstallPrompt = dynamic(() => import('@/components/dashboard/InstallPrompt'), { ssr: false });
 const GlobalScanner = dynamic(() => import('@/components/dashboard/GlobalScanner'), { ssr: false });
+const BottomNav = dynamic(() => import('@/components/dashboard/BottomNav'), { ssr: false });
+const PageTransition = dynamic(() => import('@/components/dashboard/PageTransition'), { ssr: false });
 const Toaster = dynamic(
   () => import('@/components/ui/sonner').then((mod) => mod.Toaster),
   { ssr: false }
@@ -214,16 +216,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <LangContext.Provider value={{ lang, setLang }}>
       <ScanProvider>
-        <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="flex h-screen bg-background text-foreground">
-          {/* Sidebar */}
+        <div dir={lang === 'ar' ? 'rtl' : 'ltr'} className="flex h-[100dvh] bg-background text-foreground">
+          {/* Sidebar — desktop only */}
           <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
           {/* Main area */}
           <div className="flex flex-1 flex-col overflow-hidden">
             <Header onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
             <InstallPrompt />
-            <main className="flex-1 overflow-y-auto p-4 md:p-6 no-scrollbar">{children}</main>
+            <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:pb-6 no-scrollbar">
+              <PageTransition>{children}</PageTransition>
+            </main>
           </div>
+
+          {/* Bottom nav — mobile only */}
+          <BottomNav />
 
           {/* Global barcode scanner listener + toast container */}
           <GlobalScanner />

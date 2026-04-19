@@ -70,13 +70,13 @@ export default function NotificationBell() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="relative border-[#2a2a2a] bg-[#1e1e1e] hover:bg-[#262626]" aria-label={t[lang].notifications}>
+        <Button variant="outline" size="icon" className="relative border-border bg-card hover:bg-muted" aria-label={t[lang].notifications}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
             <path d="M9 17a3 3 0 0 0 6 0" />
           </svg>
           {unread > 0 && (
-            <span className="absolute -right-1 -top-1 min-w-[18px] bg-[#e63946] px-1 py-0.5 text-[10px] font-bold leading-none text-white text-center">
+            <span className="absolute -right-1 -top-1 min-w-[18px] bg-destructive px-1 py-0.5 text-[10px] font-bold leading-none text-white text-center">
               {unreadLabel}
             </span>
           )}
@@ -86,7 +86,7 @@ export default function NotificationBell() {
       <DropdownMenuContent align="end" className="w-[320px]">
         <DropdownMenuLabel className="flex items-center justify-between">
           <span>{t[lang].notifications}</span>
-          <Link href="/dashboard/notifications" className="text-xs text-[#e63946] hover:underline">
+          <Link href="/dashboard/notifications" className="text-xs text-destructive hover:underline">
             {t[lang].view_all}
           </Link>
         </DropdownMenuLabel>
@@ -106,7 +106,7 @@ export default function NotificationBell() {
             return (
             <DropdownMenuItem
               key={item.notification_id}
-              className="block cursor-pointer"
+              className="group block cursor-pointer"
               onSelect={(event) => {
                 event.preventDefault();
                 void markRead(item.notification_id, item.action_url);
@@ -114,11 +114,11 @@ export default function NotificationBell() {
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-semibold text-foreground">{title}</p>
-                  <p className="line-clamp-2 text-xs text-muted-foreground">{body}</p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">{formatDateTime(item.delivered_at, locale)}</p>
+                  <p className="truncate text-xs font-semibold text-foreground group-focus:text-accent-foreground">{title}</p>
+                  <p className="line-clamp-2 text-xs text-muted-foreground group-focus:text-accent-foreground/80">{body}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground group-focus:text-accent-foreground/60">{formatDateTime(item.delivered_at, locale)}</p>
                 </div>
-                {!item.read_at && <span className="mt-1 h-2 w-2 rounded-full bg-[#e63946]" />}
+                {!item.read_at && <span className="mt-1 h-2 w-2 rounded-full bg-destructive" />}
               </div>
             </DropdownMenuItem>
           ); })}

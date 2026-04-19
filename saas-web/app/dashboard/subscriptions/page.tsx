@@ -9,8 +9,11 @@ import { formatDate, formatCurrency } from '@/lib/format';
 import { getCachedMembers, getCachedSubscriptions } from '@/lib/offline/read-model';
 import { saveSubscriptionCreate } from '@/lib/offline/actions';
 import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-method-ui';
+import { useIsDesktop } from '@/lib/use-media-query';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import StatCard from '@/components/dashboard/StatCard';
+import SubscriptionCard from '@/components/dashboard/mobile/SubscriptionCard';
+import PullToRefresh from '@/components/dashboard/mobile/PullToRefresh';
 import type { SubscriptionSubmitData } from '@/components/dashboard/SubscriptionForm';
 
 import { Button } from '@/components/ui/button';
@@ -195,6 +198,7 @@ export default function SubscriptionsPage() {
   const searchParams = useSearchParams();
   const memberIdFilter = searchParams.get('member_id') || '';
   const shouldOpenNewFromQuery = searchParams.get('new') === '1';
+  const isDesktop = useIsDesktop();
 
   // State
   const [subs, setSubs] = useState<Subscription[]>([]);
@@ -463,18 +467,18 @@ export default function SubscriptionsPage() {
         </Button>
       </div>
 
-      {/* Stat cards */}
-      <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <button className="text-start" onClick={() => setStatusFilter('active')}>
+      {/* Stat cards — horizontal scroll on mobile */}
+      <div className="mt-5 flex gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar lg:grid lg:grid-cols-4 lg:overflow-visible">
+        <button className="text-start min-w-[140px] snap-start flex-shrink-0 lg:min-w-0" onClick={() => setStatusFilter('active')}>
           <StatCard label={labels.stat_active} value={stats.activeCount} color="text-success" />
         </button>
-        <button className="text-start" onClick={() => setStatusFilter('expiring')}>
+        <button className="text-start min-w-[140px] snap-start flex-shrink-0 lg:min-w-0" onClick={() => setStatusFilter('expiring')}>
           <StatCard label={labels.stat_expiring} value={stats.expiringCount} color={stats.expiringCount > 0 ? 'text-warning' : 'text-muted-foreground'} />
         </button>
-        <button className="text-start" onClick={() => setStatusFilter('frozen')}>
+        <button className="text-start min-w-[140px] snap-start flex-shrink-0 lg:min-w-0" onClick={() => setStatusFilter('frozen')}>
           <StatCard label={labels.stat_frozen} value={stats.frozenCount} color="text-info" />
         </button>
-        <button className="text-start" onClick={() => setStatusFilter('all')}>
+        <button className="text-start min-w-[140px] snap-start flex-shrink-0 lg:min-w-0" onClick={() => setStatusFilter('all')}>
           <StatCard label={labels.stat_total} value={stats.totalCount} color="text-foreground" />
         </button>
       </div>
@@ -505,30 +509,58 @@ export default function SubscriptionsPage() {
         </Button>
       </div>
 
-      {/* Subscriptions table */}
-      <Card className="mt-6 shadow-[6px_6px_0_#000000]">
-        <div className="border-b border-border px-4 py-3 text-sm text-muted-foreground">
-          {showHistory ? labels.caption_with_history : labels.caption_default}
+      {/* Subscriptions — cards on mobile, table on desktop */}
+      {filtered.length === 0 ? (
+        <div className="mt-6 py-12 text-center">
+          <p className="text-sm text-muted-foreground">{labels.no_subscriptions_found}</p>
         </div>
-        <div className="border-2 border-border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {columns.map((col) => (
-                  <TableHead key={col.key} className={col.className}>
-                    {col.label}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length > 0 ? (
-                filtered.map((sub) => {
+      ) : !isDesktop ? (
+        /* ── Mobile: card list with pull-to-refresh ── */
+        <div className="mt-6">
+          <PullToRefresh onRefresh={fetchSubs}>
+            <div className="flex flex-col gap-2">
+              {filtered.map((sub, i) => {
+                const status = deriveStatus(sub);
+                const now = Math.floor(Date.now() / 1000);
+                const daysLeft = Math.max(0, Math.ceil((sub.end_date - now) / 86400));
+                return (
+                  <SubscriptionCard
+                    key={sub.id}
+                    sub={sub}
+                    status={status}
+                    daysLeft={daysLeft}
+                    index={i}
+                    onTap={() => router.push(`/dashboard/members/${sub.member_id}`)}
+                    formatCurrency={formatCurrency}
+                  />
+                );
+              })}
+            </div>
+          </PullToRefresh>
+        </div>
+      ) : (
+        /* ── Desktop: table ── */
+        <Card className="mt-6 shadow-[6px_6px_0_#000000]">
+          <div className="border-b border-border px-4 py-3 text-sm text-muted-foreground">
+            {showHistory ? labels.caption_with_history : labels.caption_default}
+          </div>
+          <div className="border-2 border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {columns.map((col) => (
+                    <TableHead key={col.key} className={col.className}>
+                      {col.label}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((sub) => {
                   const status = deriveStatus(sub);
                   const expiring = isExpiringThisWeek(sub);
                   const frozen = sub.freeze_status === 'frozen';
 
-                  // Row accent: expiring takes priority over frozen; inactive/expired gets opacity
                   const rowClass = expiring
                     ? 'border-s-2 border-s-warning'
                     : frozen
@@ -614,18 +646,12 @@ export default function SubscriptionsPage() {
                       </TableCell>
                     </TableRow>
                   );
-                })
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center">
-                    {labels.no_subscriptions_found}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </Card>
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      )}
 
       {/* New subscription dialog */}
       <Dialog open={modalOpen} onOpenChange={(open) => {

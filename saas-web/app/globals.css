@@ -96,6 +96,19 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100%;
+  overscroll-behavior: none;           /* Prevent pull-to-refresh on Chrome Android */
+  -webkit-overflow-scrolling: touch;   /* Smooth scroll on iOS */
+}
+
+/* ── Safe area utilities for PWA standalone mode ── */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-area-top    { padding-top: env(safe-area-inset-top); }
+}
+
+/* iOS standalone status bar spacing */
+@media (display-mode: standalone) {
+  body { padding-top: env(safe-area-inset-top, 0px); }
 }
 
 a {
@@ -113,6 +126,13 @@ a {
 }
 .animate-fade-in { animation: fade-in 0.3s cubic-bezier(0.25, 1, 0.5, 1) both; }
 .animate-scale-in { animation: scale-in 0.25s cubic-bezier(0.25, 1, 0.5, 1) both; }
+
+/* Staggered card entry — used by mobile card lists */
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-card-enter { animation: card-enter 0.25s cubic-bezier(0.25, 1, 0.5, 1) both; }
 
 /* Ambient — continuous */
 @keyframes live-glow {
@@ -158,7 +178,7 @@ a {
   content: '';
   position: absolute;
   inset: -2px;
-  background: conic-gradient(from var(--angle), transparent 50%, #e63946, transparent);
+  background: conic-gradient(from var(--angle), transparent 50%, hsl(var(--destructive)), transparent);
   z-index: 0;
   animation: border-snake 6s linear infinite;
   opacity: 0.4;

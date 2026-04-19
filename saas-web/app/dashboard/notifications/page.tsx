@@ -7,9 +7,11 @@ import { useLang, t } from '@/lib/i18n';
 import { formatDateTime } from '@/lib/format';
 import { toast } from 'sonner';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+import PullToRefresh from '@/components/dashboard/mobile/PullToRefresh';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { NotificationListItem, NotificationListResponse } from '@/lib/notifications';
+
 
 // System notification i18n — renders in active language regardless of DB text
 const SYSTEM_NOTIF_I18N: Record<string, { en: { title: string; body: string }; ar: { title: string; body: string } }> = {
@@ -52,6 +54,8 @@ export default function NotificationsPage() {
   const { lang } = useLang();
   const labels = t[lang];
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
+
+
 
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -159,6 +163,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* Notifications list */}
+      <PullToRefresh onRefresh={() => fetchList(false)}>
       <Card className="mt-5 shadow-[6px_6px_0_#000000]">
         <CardHeader>
           <CardTitle className="text-sm">{unreadOnly ? labels.unread_only : labels.all_notifications}</CardTitle>
@@ -227,12 +232,12 @@ export default function NotificationsPage() {
                           {(!item.read_at || item.action_url) && (
                             <div className="mt-2 flex items-center gap-2">
                               {!item.read_at && (
-                                <Button size="sm" variant="outline" className="h-7 text-xs" disabled={markingId === item.notification_id} onClick={() => void markOneRead(item.notification_id)}>
+                                <Button size="sm" variant="outline" className="h-9 text-xs" disabled={markingId === item.notification_id} onClick={() => void markOneRead(item.notification_id)}>
                                   {labels.mark_read}
                                 </Button>
                               )}
                               {item.action_url && (
-                                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => router.push(item.action_url as string)}>
+                                <Button size="sm" variant="ghost" className="h-9 text-xs" onClick={() => router.push(item.action_url as string)}>
                                   {labels.view}
                                 </Button>
                               )}
@@ -259,6 +264,7 @@ export default function NotificationsPage() {
           )}
         </CardContent>
       </Card>
+      </PullToRefresh>
     </div>
   );
 }

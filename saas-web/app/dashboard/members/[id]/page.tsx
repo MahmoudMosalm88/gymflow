@@ -733,28 +733,28 @@ export default function MemberDetailPage() {
         <div className="flex-1 space-y-5">
 
           {/* Health strip: 3 status badges */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 lg:gap-3">
             {/* Subscription status */}
-            <div className={`border-2 p-3 text-center ${activeSub ? 'border-success/30 bg-success/10' : subs.length > 0 ? 'border-destructive/30 bg-destructive/10' : 'border-border bg-muted'}`}>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <div className={`border-2 p-3 lg:p-3 text-center ${activeSub ? 'border-success/30 bg-success/10' : subs.length > 0 ? 'border-destructive/30 bg-destructive/10' : 'border-border bg-muted'}`}>
+              <p className="text-[9px] lg:text-[10px] uppercase tracking-wider text-muted-foreground">
                 {c.health_membership}
               </p>
-              <p className={`font-stat text-lg tracking-wide mt-1 ${activeSub ? 'text-success' : subs.length > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+              <p className={`font-stat text-base lg:text-lg tracking-wide mt-1 ${activeSub ? 'text-success' : subs.length > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
                 {activeSub ? labels.active : subs.length > 0 ? labels.expired : '—'}
               </p>
             </div>
             {/* Last payment */}
-            <div className="border-2 border-border bg-muted p-3 text-center">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <div className="border-2 border-border bg-muted p-3 lg:p-3 text-center">
+              <p className="text-[9px] lg:text-[10px] uppercase tracking-wider text-muted-foreground">
                 {c.health_last_payment}
               </p>
-              <p className="font-stat text-lg tracking-wide mt-1 text-foreground">
+              <p className="font-stat text-base lg:text-lg tracking-wide mt-1 text-foreground">
                 {payments.length > 0 ? formatCurrency(parseFloat(payments[0].amount)) : '—'}
               </p>
             </div>
             {/* Engagement */}
             <div className={`border-2 p-3 text-center ${engagementBg} ${daysSinceLastVisit === null ? 'border-border' : daysSinceLastVisit <= 7 ? 'border-success/30' : daysSinceLastVisit <= 14 ? 'border-warning/30' : 'border-destructive/30'}`}>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              <p className="text-[9px] lg:text-[10px] uppercase tracking-wider text-muted-foreground">
                 {c.health_engagement}
               </p>
               {daysSinceLastVisit !== null ? (
@@ -771,15 +771,15 @@ export default function MemberDetailPage() {
           {/* Subscriptions card (non-trainer only) */}
           {!isTrainer ? (
             <Card className="shadow-[6px_6px_0_#000000]">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm">{labels.subscriptions}</CardTitle>
                 <div className="flex items-center gap-2">
                   {historicalSubs.length > 0 && (
-                    <Button variant="outline" size="sm" onClick={() => setShowSubscriptionHistory((v) => !v)}>
+                    <Button variant="outline" size="sm" className="h-9 lg:h-8 text-xs" onClick={() => setShowSubscriptionHistory((v) => !v)}>
                       {showSubscriptionHistory ? c.hide_history : c.show_history}
                     </Button>
                   )}
-                  <Button variant="ghost" size="sm" onClick={() => router.push(`/dashboard/subscriptions?member_id=${id}&new=1`)}>
+                  <Button variant="ghost" size="sm" className="h-9 lg:h-8 text-xs" onClick={() => router.push(`/dashboard/subscriptions?member_id=${id}&new=1`)}>
                     <PlusIcon className="me-2 h-4 w-4" />
                     {labels.add_new}
                   </Button>
@@ -793,10 +793,10 @@ export default function MemberDetailPage() {
                 ) : (
                   <div className="divide-y divide-border">
                     {visibleSubs.map((sub) => (
-                      <div key={sub.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div key={sub.id} className="flex flex-col gap-3 py-4 lg:py-3 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-foreground truncate">{sub.plan_name || labels.subscription}</span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium text-foreground">{sub.plan_name || labels.subscription}</span>
                             <Badge variant="outline" className={`text-[10px] ${
                               sub.status === 'active' ? 'bg-success/20 text-success border-success/30'
                               : sub.status === 'expired' ? 'bg-destructive/20 text-destructive border-destructive/30'
@@ -808,17 +808,17 @@ export default function MemberDetailPage() {
                               <Badge variant="outline" className="text-[10px] border-warning/30 text-warning bg-warning/10">{c.pending_sync}</Badge>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">
+                          <p className="text-xs text-muted-foreground mt-1.5 lg:mt-0.5">
                             {formatDate(sub.start_date, locale)} — {formatDate(sub.end_date, locale)} · {formatCurrency(sub.price_paid ?? 0)}
                           </p>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0">
                           {sub.status === 'active' && (
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setFreezeSubId(String(sub.id))}>
+                            <Button size="sm" variant="outline" className="h-9 lg:h-7 text-xs flex-1 lg:flex-none" onClick={() => setFreezeSubId(String(sub.id))}>
                               {labels.freeze_subscription}
                             </Button>
                           )}
-                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openRenewModal(sub)}>
+                          <Button size="sm" variant="outline" className="h-9 lg:h-7 text-xs flex-1 lg:flex-none" onClick={() => openRenewModal(sub)}>
                             <UpdateIcon className="me-1 h-3 w-3" />{c.renew}
                           </Button>
                         </div>

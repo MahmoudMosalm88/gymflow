@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatCurrencyCompact } from '@/lib/format';
+import { useIsDesktop } from '@/lib/use-media-query';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import StatCard from '@/components/dashboard/StatCard';
 
@@ -83,7 +85,7 @@ function PinnedCard({ tabKey, lang, onNavigate, onUnpin }: { tabKey: TabKey; lan
   return (
     <button
       onClick={() => onNavigate(tabKey)}
-      className="group relative inline-flex items-center gap-3 border-2 border-border bg-card px-4 py-3 text-start shadow-[4px_4px_0_#000000] transition-colors hover:border-destructive/40 hover:bg-destructive/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
+      className="group relative inline-flex items-center gap-3 border-2 border-border bg-card px-4 py-3 text-start shadow-[6px_6px_0_#000000] transition-colors hover:border-destructive/40 hover:bg-destructive/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
     >
       {statLoading ? (
         <span className="h-6 w-12 animate-pulse bg-border inline-block" />
@@ -195,6 +197,100 @@ function categoryForTab(tabKey: TabKey): CategoryKey {
 
 // ── Self-fetching tabs: these handle their own data loading ──
 const SELF_FETCHING_TABS: TabKey[] = ['traffic', 'whatsapp-performance', 'access-denials'];
+
+/* ── Swipeable tab content — drag left/right to switch categories on mobile ── */
+function ReportTabContent({
+  loading,
+  error,
+  tab,
+  lang,
+  labels,
+  category,
+  changeCategory,
+  renderTab,
+}: {
+  loading: boolean;
+  error: string;
+  tab: TabKey;
+  lang: string;
+  labels: Record<string, string>;
+  category: CategoryKey;
+  changeCategory: (cat: CategoryKey) => void;
+  renderTab: () => React.ReactNode;
+}) {
+  const isDesktop = useIsDesktop();
+  const isRtl = lang === 'ar';
+
+  // Loading / error states (no swipe needed)
+  if (loading && !SELF_FETCHING_TABS.includes(tab)) {
+    return <LoadingSpinner size="lg" />;
+  }
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <Terminal className={cn("h-4 w-4 me-2")} />
+        <AlertTitle>{labels.error_title}</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  // Desktop: simple fade transition
+  if (isDesktop) {
+    return (
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={tab}
+          className="space-y-6"
+          role="tabpanel"
+          aria-label={TABS.find(t => t.key === tab)?.label[lang as 'en' | 'ar'] ?? tab}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+        >
+          {renderTab()}
+        </motion.div>
+      </AnimatePresence>
+    );
+  }
+
+  // Mobile: swipe between categories
+  const catIndex = CATEGORIES.findIndex((c) => c.key === category);
+  const SWIPE_THRESHOLD = 50;
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={tab}
+        className="space-y-6"
+        role="tabpanel"
+        aria-label={TABS.find(t => t.key === tab)?.label[lang as 'en' | 'ar'] ?? tab}
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.2}
+        onDragEnd={(_e, info) => {
+          const offset = info.offset.x;
+          const swipedNext = isRtl ? offset > SWIPE_THRESHOLD : offset < -SWIPE_THRESHOLD;
+          const swipedPrev = isRtl ? offset < -SWIPE_THRESHOLD : offset > SWIPE_THRESHOLD;
+
+          if (swipedNext && catIndex < CATEGORIES.length - 1) {
+            changeCategory(CATEGORIES[catIndex + 1].key);
+          } else if (swipedPrev && catIndex > 0) {
+            changeCategory(CATEGORIES[catIndex - 1].key);
+          }
+        }}
+        initial={{ opacity: 0, x: isRtl ? -20 : 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: isRtl ? 20 : -20 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+        style={{ touchAction: 'pan-y' }}
+      >
+        {renderTab()}
+      </motion.div>
+    </AnimatePresence>
+  );
+}
 
 export default function ReportsPage() {
   const { lang } = useLang();
@@ -468,7 +564,7 @@ export default function ReportsPage() {
       {/* ── Sub-tab bar + period filter ── */}
       <div className="flex flex-col -mt-4">
         <div className="flex items-stretch border-b border-border">
-          <div className="flex overflow-x-auto flex-1" role="tablist" aria-label={lang === 'ar' ? 'تبويبات التقارير' : 'Report tabs'}>
+          <div className="flex overflow-x-auto flex-1 no-scrollbar" role="tablist" aria-label={lang === 'ar' ? 'تبويبات التقارير' : 'Report tabs'}>
             {visibleCategoryTabs.map((item, i) => {
               const isPinned = pinnedTabs.includes(item.key);
               const atMax = pinnedTabs.length >= 4 && !isPinned;
@@ -505,7 +601,7 @@ export default function ReportsPage() {
                     onClick={() => !atMax && togglePin(item.key)}
                     title={atMax ? (lang === 'ar' ? 'الحد الأقصى 4 مثبّتات' : 'Max 4 pins') : isPinned ? (lang === 'ar' ? 'إزالة التثبيت' : 'Unpin') : (lang === 'ar' ? 'تثبيت في الأعلى' : 'Pin to top')}
                     className={cn(
-                      'p-3 flex items-center transition-all rounded-sm',
+                      'p-3 flex items-center transition-all',
                       isPinned
                         ? 'text-destructive'
                         : 'text-muted-foreground/40 hover:text-muted-foreground group-hover:text-muted-foreground/70',
@@ -543,20 +639,17 @@ export default function ReportsPage() {
         </p>
       )}
 
-      {/* ── Tab content ── */}
-      {loading && !SELF_FETCHING_TABS.includes(tab) ? (
-        <LoadingSpinner size="lg" />
-      ) : error ? (
-        <Alert variant="destructive">
-          <Terminal className={cn("h-4 w-4 me-2")} />
-          <AlertTitle>{labels.error_title}</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : (
-        <div className="space-y-6" role="tabpanel" aria-label={TABS.find(t => t.key === tab)?.label[lang] ?? tab}>
-          {renderTab()}
-        </div>
-      )}
+      {/* ── Tab content (swipeable categories on mobile) ── */}
+      <ReportTabContent
+        loading={loading}
+        error={error}
+        tab={tab}
+        lang={lang}
+        labels={labels}
+        category={category}
+        changeCategory={changeCategory}
+        renderTab={renderTab}
+      />
     </div>
   );
 }

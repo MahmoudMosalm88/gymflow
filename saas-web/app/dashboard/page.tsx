@@ -14,6 +14,8 @@ import { playDeniedFeedback, playSuccessFeedback } from '@/lib/check-in/feedback
 import StatCard from '@/components/dashboard/StatCard';
 import HourlyChart from '@/components/dashboard/HourlyChart';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+import PullToRefresh from '@/components/dashboard/mobile/PullToRefresh';
+import { useIsDesktop } from '@/lib/use-media-query';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -89,6 +91,7 @@ export default function DashboardPage() {
       ? { allowed: 'مسموح', warning: 'تحذير', denied: 'مرفوض' }
       : { allowed: 'Allowed', warning: 'Warning', denied: 'Denied' };
 
+  const isDesktop = useIsDesktop();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [loadingOverview, setLoadingOverview] = useState(true);
 
@@ -107,6 +110,16 @@ export default function DashboardPage() {
 
   // Sync with global scanner context
   const { lastScan, setScan } = useScanContext();
+
+  // Auto-open camera when navigated with ?scan=1 (from bottom nav Scan button)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('scan') === '1') {
+      setCameraOpen(true);
+      // Clean up the URL without reload
+      window.history.replaceState({}, '', '/dashboard');
+    }
+  }, []);
 
   // Fetch overview on mount
   const refreshOverview = useCallback(async () => {
@@ -330,6 +343,8 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col p-4 md:p-6 lg:p-8">
+      {/* Visually hidden h1 for screen readers */}
+      <h1 className="sr-only">{lang === 'ar' ? 'لوحة التحكم' : 'Dashboard'}</h1>
 
       {/* ── Hero Scanner ── */}
       <div
@@ -412,6 +427,7 @@ export default function DashboardPage() {
         <div className="px-5 pb-5 flex flex-col gap-2 md:flex-row">
           <Button
             type="button"
+            data-camera-trigger
             onClick={() => { setCameraOpen(true); setScanResult(null); }}
             disabled={scanning}
             aria-label={labels.open_camera}
@@ -485,33 +501,50 @@ export default function DashboardPage() {
         />
       ) : null}
 
-      {/* ── Stat Cards ── */}
+      {/* ── Stat Cards + Activity — wrapped in PullToRefresh on mobile ── */}
+      {!isDesktop ? (
+        <PullToRefresh onRefresh={async () => { await Promise.all([refreshOverview(), refreshActivity(), refreshHourly()]); }}>
+          <DashboardContent />
+        </PullToRefresh>
+      ) : (
+        <DashboardContent />
+      )}
+    </div>
+  );
+
+  // Extracted so PullToRefresh can wrap it on mobile without duplicating JSX
+  function DashboardContent() {
+    return (<>
       <div className="mt-5 space-y-3">
         {/* Row 1: Live / operational — the numbers you check 50x/day */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar lg:grid lg:grid-cols-4 lg:overflow-visible">
           {loadingOverview ? (
             Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="border-2 border-border bg-card h-[90px] animate-pulse" />
+              <div key={i} className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0 border-2 border-border bg-card h-[90px] animate-pulse" />
             ))
           ) : (
             <>
-              <StatCard
-                label={lang === 'ar' ? 'أعضاء نشطين' : 'Active Members'}
-                value={overview?.activeSubscriptions ?? 0}
-                color="text-foreground"
-                previousValue={overview?.lastMonthActiveSubs}
-                compareLabel={lang === 'ar' ? 'مقارنة بالشهر الماضي' : 'vs last month'}
-                accent="border-s-foreground/30"
-                sparklineData={overview?.activeSubsSparkline}
-                sparklineColor="#e63946"
-              />
-              <StatCard
-                label={lang === 'ar' ? 'عملاء PT على وشك النفاد' : 'PT Low Balance'}
-                value={overview?.ptLowBalance ?? 0}
-                color={(overview?.ptLowBalance ?? 0) > 0 ? 'text-warning' : 'text-foreground'}
-                accent={(overview?.ptLowBalance ?? 0) > 0 ? 'border-s-warning' : undefined}
-              />
-              <div className={`h-full ${(overview?.inGymNow ?? 0) > 0 ? 'animate-live-glow' : ''}`}>
+              <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
+                <StatCard
+                  label={lang === 'ar' ? 'أعضاء نشطين' : 'Active Members'}
+                  value={overview?.activeSubscriptions ?? 0}
+                  color="text-foreground"
+                  previousValue={overview?.lastMonthActiveSubs}
+                  compareLabel={lang === 'ar' ? 'مقارنة بالشهر الماضي' : 'vs last month'}
+                  accent="border-s-foreground/30"
+                  sparklineData={overview?.activeSubsSparkline}
+                  sparklineColor="hsl(var(--destructive))"
+                />
+              </div>
+              <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
+                <StatCard
+                  label={lang === 'ar' ? 'عملاء PT على وشك النفاد' : 'PT Low Balance'}
+                  value={overview?.ptLowBalance ?? 0}
+                  color={(overview?.ptLowBalance ?? 0) > 0 ? 'text-warning' : 'text-foreground'}
+                  accent={(overview?.ptLowBalance ?? 0) > 0 ? 'border-s-warning' : undefined}
+                />
+              </div>
+              <div className={`min-w-[160px] snap-start flex-shrink-0 lg:min-w-0 h-full ${(overview?.inGymNow ?? 0) > 0 ? 'animate-live-glow' : ''}`}>
                 <StatCard
                   label={lang === 'ar' ? 'داخل الصالة الآن' : 'Inside Gym Now'}
                   value={overview?.inGymNow ?? 0}
@@ -519,53 +552,63 @@ export default function DashboardPage() {
                   accent={(overview?.inGymNow ?? 0) > 0 ? 'border-s-success' : undefined}
                   animate={false}
                   sparklineData={overview?.inGymSparkline}
-                  sparklineColor="#22c55e"
+                  sparklineColor="hsl(var(--success))"
                 />
               </div>
-              <StatCard
-                label={lang === 'ar' ? 'إيراد لكل عضو نشط' : 'Rev. Per Active Member'}
-                value={formatCurrency(overview?.arpm ?? 0)}
-                color="text-warning"
-                accent="border-s-warning"
-              />
+              <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
+                <StatCard
+                  label={lang === 'ar' ? 'إيراد لكل عضو نشط' : 'Rev. Per Active Member'}
+                  value={formatCurrency(overview?.arpm ?? 0)}
+                  color="text-warning"
+                  accent="border-s-warning"
+                />
+              </div>
             </>
           )}
         </div>
 
         {/* Row 2: Money / growth — the numbers you check morning + evening */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar lg:grid lg:grid-cols-4 lg:overflow-visible">
           {loadingOverview ? (
             Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="border-2 border-border bg-card h-[90px] animate-pulse" />
+              <div key={i} className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0 border-2 border-border bg-card h-[90px] animate-pulse" />
             ))
           ) : (
             <>
-              <StatCard
-                label={lang === 'ar' ? 'إيراد مهدد هذا الأسبوع' : 'Revenue at Risk This Week'}
-                value={formatCurrencyCompact(overview?.revenueAtRisk ?? 0)}
-                color={(overview?.revenueAtRisk ?? 0) > 0 ? 'text-destructive' : 'text-foreground'}
-                accent={(overview?.revenueAtRisk ?? 0) > 0 ? 'border-s-destructive' : undefined}
-              />
-              <StatCard
-                label={lang === 'ar' ? 'اشتراكات تنتهي هذا الأسبوع' : 'Expiring This Week'}
-                value={overview?.expiringThisWeek ?? 0}
-                color={(overview?.expiringThisWeek ?? 0) > 0 ? 'text-warning' : 'text-foreground'}
-                accent={(overview?.expiringThisWeek ?? 0) > 0 ? 'border-s-warning' : undefined}
-              />
-              <StatCard
-                label={lang === 'ar' ? 'أعضاء انضموا هذا الشهر' : 'Joined This Month'}
-                value={overview?.newThisMonth ?? 0}
-                color={(overview?.newThisMonth ?? 0) > 0 ? 'text-success' : 'text-foreground'}
-                accent={(overview?.newThisMonth ?? 0) > 0 ? 'border-s-success' : undefined}
-                sparklineData={overview?.newThisMonthSparkline}
-                sparklineColor="#22c55e"
-              />
-              <StatCard
-                label={lang === 'ar' ? 'متوسط الزيارات / أسبوع' : 'Avg. Visits/Week'}
-                value={Number((overview?.avgVisitsPerWeek ?? 0).toFixed(1))}
-                color="text-foreground"
-                subtitle={lang === 'ar' ? 'لكل عضو فعّال' : 'per active member'}
-              />
+              <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
+                <StatCard
+                  label={lang === 'ar' ? 'إيراد مهدد هذا الأسبوع' : 'Revenue at Risk This Week'}
+                  value={formatCurrencyCompact(overview?.revenueAtRisk ?? 0)}
+                  color={(overview?.revenueAtRisk ?? 0) > 0 ? 'text-destructive' : 'text-foreground'}
+                  accent={(overview?.revenueAtRisk ?? 0) > 0 ? 'border-s-destructive' : undefined}
+                />
+              </div>
+              <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
+                <StatCard
+                  label={lang === 'ar' ? 'اشتراكات تنتهي هذا الأسبوع' : 'Expiring This Week'}
+                  value={overview?.expiringThisWeek ?? 0}
+                  color={(overview?.expiringThisWeek ?? 0) > 0 ? 'text-warning' : 'text-foreground'}
+                  accent={(overview?.expiringThisWeek ?? 0) > 0 ? 'border-s-warning' : undefined}
+                />
+              </div>
+              <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
+                <StatCard
+                  label={lang === 'ar' ? 'أعضاء انضموا هذا الشهر' : 'Joined This Month'}
+                  value={overview?.newThisMonth ?? 0}
+                  color={(overview?.newThisMonth ?? 0) > 0 ? 'text-success' : 'text-foreground'}
+                  accent={(overview?.newThisMonth ?? 0) > 0 ? 'border-s-success' : undefined}
+                  sparklineData={overview?.newThisMonthSparkline}
+                  sparklineColor="hsl(var(--success))"
+                />
+              </div>
+              <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
+                <StatCard
+                  label={lang === 'ar' ? 'متوسط الزيارات / أسبوع' : 'Avg. Visits/Week'}
+                  value={Number((overview?.avgVisitsPerWeek ?? 0).toFixed(1))}
+                  color="text-foreground"
+                  subtitle={lang === 'ar' ? 'لكل عضو فعّال' : 'per active member'}
+                />
+              </div>
             </>
           )}
         </div>
@@ -656,6 +699,6 @@ export default function DashboardPage() {
         </Card>
 
       </div>
-    </div>
-  );
+    </>);
+  }
 }

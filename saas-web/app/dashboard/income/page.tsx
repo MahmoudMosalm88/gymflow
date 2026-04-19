@@ -11,6 +11,7 @@ import StatCard from '@/components/dashboard/StatCard';
 import IncomeAreaChart from '@/components/dashboard/income/IncomeAreaChart';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useIsDesktop } from '@/lib/use-media-query';
 
 const MonthCalendarDialog = dynamic(() => import('@/components/dashboard/MonthCalendarDialog'));
 
@@ -51,6 +52,7 @@ export default function IncomePage() {
   const [recent, setRecent] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const isDesktop = useIsDesktop();
 
   useEffect(() => {
     let mounted = true;
@@ -106,35 +108,43 @@ export default function IncomePage() {
 
       {/* ── Stat Cards ── */}
       {summary && (
-        <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatCard
-            label={lang === 'ar' ? 'إيراد هذا الشهر' : 'This Month'}
-            value={formatCurrencyCompact(summary.thisMonthRevenue)}
-            rawValue={summary.thisMonthRevenue}
-            color="text-success"
-            targetValue={summary.expectedMonthly}
-            compareLabel={lang === 'ar'
-              ? `من ${formatCurrencyCompact(summary.expectedMonthly)} المتوقع`
-              : `of ${formatCurrencyCompact(summary.expectedMonthly)} expected`}
-          />
-          <StatCard
-            label={lang === 'ar' ? 'الشهر الماضي' : 'Last Month'}
-            value={formatCurrencyCompact(summary.lastMonthRevenue)}
-            color="text-foreground"
-          />
-          <StatCard
-            label={lang === 'ar' ? 'إيراد التدريب الشخصي' : 'PT Revenue'}
-            value={formatCurrencyCompact(summary.ptRevenueThisMonth)}
-            color={summary.ptRevenueThisMonth > 0 ? 'text-warning' : 'text-foreground'}
-          />
-          <StatCard
-            label={lang === 'ar' ? 'المتوقع شهرياً' : 'Expected Monthly'}
-            value={formatCurrencyCompact(summary.expectedMonthly)}
-            color="text-info"
-            subtitle={lang === 'ar'
-              ? `من ${summary.activeSubscriptionCount} اشتراك نشط`
-              : `From ${summary.activeSubscriptionCount} active subscriptions`}
-          />
+        <div className="mt-5 flex gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar lg:grid lg:grid-cols-4 lg:overflow-visible">
+          <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
+            <StatCard
+              label={lang === 'ar' ? 'إيراد هذا الشهر' : 'This Month'}
+              value={formatCurrencyCompact(summary.thisMonthRevenue)}
+              rawValue={summary.thisMonthRevenue}
+              color="text-success"
+              targetValue={summary.expectedMonthly}
+              compareLabel={lang === 'ar'
+                ? `من ${formatCurrencyCompact(summary.expectedMonthly)} المتوقع`
+                : `of ${formatCurrencyCompact(summary.expectedMonthly)} expected`}
+            />
+          </div>
+          <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
+            <StatCard
+              label={lang === 'ar' ? 'الشهر الماضي' : 'Last Month'}
+              value={formatCurrencyCompact(summary.lastMonthRevenue)}
+              color="text-foreground"
+            />
+          </div>
+          <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
+            <StatCard
+              label={lang === 'ar' ? 'إيراد التدريب الشخصي' : 'PT Revenue'}
+              value={formatCurrencyCompact(summary.ptRevenueThisMonth)}
+              color={summary.ptRevenueThisMonth > 0 ? 'text-warning' : 'text-foreground'}
+            />
+          </div>
+          <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
+            <StatCard
+              label={lang === 'ar' ? 'المتوقع شهرياً' : 'Expected Monthly'}
+              value={formatCurrencyCompact(summary.expectedMonthly)}
+              color="text-info"
+              subtitle={lang === 'ar'
+                ? `من ${summary.activeSubscriptionCount} اشتراك نشط`
+                : `From ${summary.activeSubscriptionCount} active subscriptions`}
+            />
+          </div>
         </div>
       )}
 
@@ -165,16 +175,50 @@ export default function IncomePage() {
           <CardContent>
             {monthly.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">{labels.no_income_yet}</p>
+            ) : !isDesktop ? (
+              /* Mobile: monthly cards */
+              <div className="flex flex-col gap-2">
+                {monthly.map((row, i) => {
+                  const prevRow = monthly[i + 1];
+                  const delta = prevRow && prevRow.revenue > 0
+                    ? Math.round(((row.revenue - prevRow.revenue) / prevRow.revenue) * 100)
+                    : null;
+                  return (
+                    <button
+                      key={row.month}
+                      onClick={() => setSelectedMonth(row.month)}
+                      className="border-2 border-border bg-card p-3 text-start animate-card-enter transition-colors hover:border-destructive/40"
+                      style={{ animationDelay: `${i * 40}ms` }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold text-foreground">{fmtMonth(row.month)}</p>
+                        <div className="text-end">
+                          <span className="text-sm font-bold text-foreground tabular-nums">{fmt(row.revenue)}</span>
+                          {delta !== null && delta !== 0 && (
+                            <div className={`text-[10px] font-semibold ${delta > 0 ? 'text-success' : 'text-destructive'}`}>
+                              {delta > 0 ? '↑' : '↓'} {Math.abs(delta)}%
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-3 mt-1.5 text-xs text-muted-foreground tabular-nums">
+                        <span>{row.count} {labels.payments_count}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             ) : (
+              /* Desktop: table */
               <div className="overflow-auto border-2 border-border">
                 <table className="w-full text-sm">
                   <thead className="bg-secondary text-muted-foreground">
                     <tr>
                       <th className="text-start px-4 py-2.5 font-medium">{labels.month_col}</th>
                       <th className="text-end px-4 py-2.5 font-medium">{labels.revenue_col}</th>
-                      <th className="text-end px-4 py-2.5 font-medium hidden sm:table-cell">{labels.subscriptions_col}</th>
-                      <th className="text-end px-4 py-2.5 font-medium hidden sm:table-cell">{labels.guest_passes_col}</th>
-                      <th className="text-end px-4 py-2.5 font-medium hidden sm:table-cell">{labels.pt_packages}</th>
+                      <th className="text-end px-4 py-2.5 font-medium">{labels.subscriptions_col}</th>
+                      <th className="text-end px-4 py-2.5 font-medium">{labels.guest_passes_col}</th>
+                      <th className="text-end px-4 py-2.5 font-medium">{labels.pt_packages}</th>
                       <th className="text-end px-4 py-2.5 font-medium">{labels.payments_count}</th>
                     </tr>
                   </thead>
@@ -203,9 +247,9 @@ export default function IncomePage() {
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-2.5 text-end text-muted-foreground hidden sm:table-cell tabular-nums">{fmt(row.subscriptionRevenue)}</td>
-                          <td className="px-4 py-2.5 text-end text-muted-foreground hidden sm:table-cell tabular-nums">{fmt(row.guestRevenue)}</td>
-                          <td className="px-4 py-2.5 text-end text-muted-foreground hidden sm:table-cell tabular-nums">{fmt(row.ptRevenue || 0)}</td>
+                          <td className="px-4 py-2.5 text-end text-muted-foreground tabular-nums">{fmt(row.subscriptionRevenue)}</td>
+                          <td className="px-4 py-2.5 text-end text-muted-foreground tabular-nums">{fmt(row.guestRevenue)}</td>
+                          <td className="px-4 py-2.5 text-end text-muted-foreground tabular-nums">{fmt(row.ptRevenue || 0)}</td>
                           <td className="px-4 py-2.5 text-end text-muted-foreground tabular-nums">{row.count}</td>
                         </tr>
                       );
@@ -232,7 +276,43 @@ export default function IncomePage() {
           <CardContent>
             {recent.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">{labels.no_income_yet}</p>
+            ) : !isDesktop ? (
+              /* Mobile: payment cards */
+              <div className="flex flex-col gap-2">
+                {recent.map((p, i) => (
+                  <div
+                    key={p.id}
+                    className="border-2 border-border bg-card p-3 animate-card-enter"
+                    style={{ animationDelay: `${i * 40}ms` }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{formatDate(p.date, locale)}</p>
+                      </div>
+                      <span className="text-sm font-bold text-foreground tabular-nums shrink-0">{fmt(p.amount)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      {(p.type === 'guest_pass' || p.type === 'pt_package') && (
+                        <span className="text-[10px] font-bold tracking-wide px-1.5 py-0.5 bg-muted text-muted-foreground border border-border">
+                          {p.type === 'guest_pass' ? labels.guest_tag : labels.pt_package_tag}
+                        </span>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {p.type === 'guest_pass'
+                          ? labels.guest_passes
+                          : p.type === 'pt_package'
+                            ? p.packageTitle || labels.pt_package_payment
+                          : p.type === 'renewal'
+                            ? labels.renewal_payment
+                            : `${p.planMonths} ${labels.months_label}`}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : (
+              /* Desktop: table */
               <div className="overflow-auto border-2 border-border">
                 <table className="w-full text-sm">
                   <thead className="bg-secondary text-muted-foreground">
@@ -240,7 +320,7 @@ export default function IncomePage() {
                       <th className="text-start px-4 py-2.5 font-medium">{labels.date_col}</th>
                       <th className="text-start px-4 py-2.5 font-medium">{labels.name_col}</th>
                       <th className="text-end px-4 py-2.5 font-medium">{labels.amount_col}</th>
-                      <th className="text-start px-4 py-2.5 font-medium hidden sm:table-cell">{labels.details_col}</th>
+                      <th className="text-start px-4 py-2.5 font-medium">{labels.details_col}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -256,7 +336,7 @@ export default function IncomePage() {
                           )}
                         </td>
                         <td className="px-4 py-2.5 text-end font-semibold text-foreground tabular-nums">{fmt(p.amount)}</td>
-                        <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">
+                        <td className="px-4 py-2.5 text-muted-foreground">
                           {p.type === 'guest_pass'
                             ? labels.guest_passes
                             : p.type === 'pt_package'

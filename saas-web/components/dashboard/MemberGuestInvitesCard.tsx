@@ -91,8 +91,8 @@ export default function MemberGuestInvitesCard({ memberId }: { memberId: string 
           <p className="text-sm text-muted-foreground">{c.load_error}</p>
         ) : (
           <div className="space-y-3">
-            {/* Inline stats — one line, not 3 cards */}
-            <div className="flex items-center gap-4 text-sm">
+            {/* Inline stats */}
+            <div className="flex items-center gap-3 lg:gap-4 text-xs lg:text-sm flex-wrap">
               <span className="text-muted-foreground">{c.allowance}: <span className="font-stat text-foreground">{summary.allowance}</span></span>
               <span className="text-muted-foreground">{c.used}: <span className="font-stat text-foreground">{summary.used}</span></span>
               <span className="text-muted-foreground">{c.remaining}: <span className={`font-stat ${summary.remaining > 0 ? 'text-success' : 'text-destructive'}`}>{summary.remaining}</span></span>
@@ -114,7 +114,7 @@ export default function MemberGuestInvitesCard({ memberId }: { memberId: string 
                 {summary.recentGuests.map((row) => {
                   const status = getGuestStatus(row, c);
                   return (
-                    <div key={row.id} className="flex items-center justify-between py-1.5">
+                    <div key={row.id} className="flex items-center justify-between py-2.5 lg:py-1.5">
                       <div className="min-w-0">
                         <span className="text-sm text-foreground">{row.guest_name}</span>
                         <span className="text-xs text-muted-foreground ms-2">

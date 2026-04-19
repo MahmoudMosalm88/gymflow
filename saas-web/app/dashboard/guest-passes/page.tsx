@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { useIsDesktop } from '@/lib/use-media-query';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -105,6 +106,7 @@ export default function GuestPassesPage() {
   const { lang } = useLang();
   const labels = t[lang];
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
+  const isDesktop = useIsDesktop();
   const router = useRouter();
   const searchParams = useSearchParams();
   const inviterFromQuery = searchParams.get('inviter_member_id') || '';
@@ -263,34 +265,96 @@ export default function GuestPassesPage() {
     }
   }
 
-  async function markUsed(id: string) {
+  function markUsed(id: string) {
     if (actionId) return;
+
+    // Save original row so we can restore it if the user undoes
+    const original = rows.find((r) => r.id === id);
+    if (!original) return;
+
+    // Mark this pass as pending so buttons disable immediately
     setActionId(id);
-    try {
-      const res = await api.patch('/api/guest-passes', { id, mark_used: true });
-      if (!res.success) throw new Error();
-      await load();
-      if (selectedInviterId) await loadInviterSummary(selectedInviterId);
-    } catch {
-      toast.error(lang === 'ar' ? 'فشل تحديث التصريح.' : 'Failed to mark pass as used.');
-    } finally {
-      setActionId(null);
-    }
+
+    // Optimistically update the UI — the pass looks "used" right away
+    setRows((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, used_at: new Date().toISOString() } : r))
+    );
+
+    const toastId = toast(lang === 'ar' ? 'تم تحديد البطاقة كمستخدمة' : 'Pass marked as used', {
+      duration: 5000,
+      action: {
+        label: lang === 'ar' ? 'تراجع' : 'Undo',
+        onClick: () => {
+          // Revert the optimistic update and clear the pending state
+          setRows((prev) => prev.map((r) => (r.id === id ? original : r)));
+          setActionId(null);
+          toast.dismiss(toastId);
+        },
+      },
+      onAutoClose: () => {
+        // 5 seconds elapsed with no undo — fire the real API call
+        void (async () => {
+          try {
+            const res = await api.patch('/api/guest-passes', { id, mark_used: true });
+            if (!res.success) throw new Error();
+            await load();
+            if (selectedInviterId) await loadInviterSummary(selectedInviterId);
+          } catch {
+            // API failed — revert the optimistic update
+            setRows((prev) => prev.map((r) => (r.id === id ? original : r)));
+            toast.error(lang === 'ar' ? 'فشل تحديث التصريح.' : 'Failed to mark pass as used.');
+          } finally {
+            setActionId(null);
+          }
+        })();
+      },
+    });
   }
 
-  async function voidPass(id: string) {
+  function voidPass(id: string) {
     if (actionId) return;
+
+    // Save original row so we can restore it if the user undoes
+    const original = rows.find((r) => r.id === id);
+    if (!original) return;
+
+    // Mark this pass as pending so buttons disable immediately
     setActionId(id);
-    try {
-      const res = await api.patch('/api/guest-passes', { id, void_pass: true });
-      if (!res.success) throw new Error();
-      await load();
-      if (selectedInviterId) await loadInviterSummary(selectedInviterId);
-    } catch {
-      toast.error(lang === 'ar' ? 'فشل إلغاء التصريح.' : 'Failed to void pass.');
-    } finally {
-      setActionId(null);
-    }
+
+    // Optimistically update the UI — the pass looks "voided" right away
+    setRows((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, voided_at: new Date().toISOString() } : r))
+    );
+
+    const toastId = toast(lang === 'ar' ? 'تم إلغاء البطاقة' : 'Pass voided', {
+      duration: 5000,
+      action: {
+        label: lang === 'ar' ? 'تراجع' : 'Undo',
+        onClick: () => {
+          // Revert the optimistic update and clear the pending state
+          setRows((prev) => prev.map((r) => (r.id === id ? original : r)));
+          setActionId(null);
+          toast.dismiss(toastId);
+        },
+      },
+      onAutoClose: () => {
+        // 5 seconds elapsed with no undo — fire the real API call
+        void (async () => {
+          try {
+            const res = await api.patch('/api/guest-passes', { id, void_pass: true });
+            if (!res.success) throw new Error();
+            await load();
+            if (selectedInviterId) await loadInviterSummary(selectedInviterId);
+          } catch {
+            // API failed — revert the optimistic update
+            setRows((prev) => prev.map((r) => (r.id === id ? original : r)));
+            toast.error(lang === 'ar' ? 'فشل إلغاء التصريح.' : 'Failed to void pass.');
+          } finally {
+            setActionId(null);
+          }
+        })();
+      },
+    });
   }
 
   if (loading) return <LoadingSpinner />;
@@ -373,7 +437,7 @@ export default function GuestPassesPage() {
                 <p className="text-xs text-muted-foreground">{lang === 'ar' ? 'جارٍ البحث...' : 'Searching...'}</p>
               )}
               {!selectedInviterId && inviterResults.length > 0 && (
-                <div className="rounded-lg border bg-card">
+                <div className="border bg-card">
                   {inviterResults.map((member) => (
                     <button
                       key={member.id}
@@ -400,7 +464,7 @@ export default function GuestPassesPage() {
 
             <div className="md:col-span-2 xl:col-span-5">
               {selectedInviterSummary ? (
-                <div className="rounded-lg border border-dashed p-4">
+                <div className="border border-dashed p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium">{selectedInviterSummary.member.name}</p>
@@ -439,87 +503,153 @@ export default function GuestPassesPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{labels.guest_pass_list}</CardTitle>
-        </CardHeader>
-        <CardContent className="overflow-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{labels.guest_code}</TableHead>
-                <TableHead>{labels.name}</TableHead>
-                <TableHead>{lang === 'ar' ? 'الداعي' : 'Inviter'}</TableHead>
-                <TableHead>{labels.phone}</TableHead>
-                <TableHead>{labels.guest_amount}</TableHead>
-                <TableHead>{labels.status}</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.length === 0 ? (
+      {/* Guest passes — cards on mobile, table on desktop */}
+      {rows.length === 0 ? (
+        <div className="py-12 text-center">
+          <p className="text-sm text-muted-foreground">{labels.no_guest_passes}</p>
+        </div>
+      ) : !isDesktop ? (
+        /* ── Mobile: card list ── */
+        <div className="flex flex-col gap-2">
+          {rows.map((row, i) => {
+            const status = getPassStatus(row, lang);
+            return (
+              <div
+                key={row.id}
+                className="border-2 border-border bg-card p-4 animate-card-enter"
+                style={{ animationDelay: `${i * 40}ms` }}
+              >
+                {/* Row 1: Guest name + status */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-sm truncate flex-1">{row.member_name}</span>
+                  <Badge className={`text-[10px] shrink-0 ${status.className}`}>{status.label}</Badge>
+                </div>
+                {/* Row 2: Code + inviter */}
+                <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                  <span className="font-mono text-[11px]">{row.code}</span>
+                  {row.inviter_name && (
+                    <>
+                      <span className="text-border">|</span>
+                      <span className="truncate">{row.inviter_name}</span>
+                    </>
+                  )}
+                </div>
+                {/* Row 3: Phone + amount */}
+                <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground/60">
+                  <span dir="ltr">{row.phone || '-'}</span>
+                  <span className="font-medium text-foreground">{row.amount ? formatCurrency(Number(row.amount)) : '-'}</span>
+                </div>
+                {/* Actions row */}
+                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border">
+                  {!row.used_at && !row.voided_at && !row.converted_at && (
+                    <Button size="sm" variant="outline" className="flex-1 h-9" disabled={actionId === row.id} onClick={() => markUsed(row.id)}>
+                      {labels.mark_used}
+                    </Button>
+                  )}
+                  {!row.used_at && !row.voided_at && !row.converted_at && (
+                    <Button size="sm" variant="ghost" className="h-9" disabled={actionId === row.id} onClick={() => voidPass(row.id)}>
+                      {lang === 'ar' ? 'إلغاء' : 'Void'}
+                    </Button>
+                  )}
+                  {row.converted_member_id ? (
+                    <Button size="sm" variant="secondary" className="flex-1 h-9" onClick={() => router.push(`/dashboard/members/${row.converted_member_id}`)}>
+                      {lang === 'ar' ? 'عرض العميل' : 'View Client'}
+                    </Button>
+                  ) : !row.voided_at ? (
+                    <Button size="sm" variant="default" className="flex-1 h-9" onClick={() => {
+                      const params = new URLSearchParams({
+                        name: row.member_name,
+                        ...(row.phone ? { phone: row.phone } : {}),
+                        from_guest: row.id,
+                      });
+                      router.push(`/dashboard/members/new?${params.toString()}`);
+                    }}>
+                      {labels.convert_to_client}
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* ── Desktop: table ── */
+        <Card>
+          <CardHeader>
+            <CardTitle>{labels.guest_pass_list}</CardTitle>
+          </CardHeader>
+          <CardContent className="overflow-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                    {labels.no_guest_passes}
-                  </TableCell>
+                  <TableHead>{labels.guest_code}</TableHead>
+                  <TableHead>{labels.name}</TableHead>
+                  <TableHead>{lang === 'ar' ? 'الداعي' : 'Inviter'}</TableHead>
+                  <TableHead>{labels.phone}</TableHead>
+                  <TableHead>{labels.guest_amount}</TableHead>
+                  <TableHead>{labels.status}</TableHead>
+                  <TableHead />
                 </TableRow>
-              ) : rows.map((row) => {
-                const status = getPassStatus(row, lang);
-                return (
-                  <TableRow key={row.id}>
-                    <TableCell className="font-medium font-mono text-xs">{row.code}</TableCell>
-                    <TableCell>{row.member_name}</TableCell>
-                    <TableCell>{row.inviter_name || '—'}</TableCell>
-                    <TableCell dir="ltr">{row.phone || '-'}</TableCell>
-                    <TableCell className="tabular-nums">{row.amount ? formatCurrency(Number(row.amount)) : '-'}</TableCell>
-                    <TableCell>
-                      <Badge className={status.className}>{status.label}</Badge>
-                    </TableCell>
-                    <TableCell className="text-end">
-                      <div className="flex flex-wrap gap-2 justify-end">
-                        {!row.used_at && !row.voided_at && !row.converted_at && (
-                          <Button size="sm" variant="outline" disabled={actionId === row.id} onClick={() => markUsed(row.id)}>
-                            {labels.mark_used}
-                          </Button>
-                        )}
-                        {!row.used_at && !row.voided_at && !row.converted_at && (
-                          <Button size="sm" variant="ghost" disabled={actionId === row.id} onClick={() => voidPass(row.id)}>
-                            {lang === 'ar' ? 'إلغاء' : 'Void'}
-                          </Button>
-                        )}
-                        {row.converted_member_id ? (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => router.push(`/dashboard/members/${row.converted_member_id}`)}
-                          >
-                            {lang === 'ar' ? 'عرض العميل' : 'View Client'}
-                          </Button>
-                        ) : !row.voided_at ? (
-                          <Button
-                            size="sm"
-                            variant="default"
-                            onClick={() => {
-                              const params = new URLSearchParams({
-                                name: row.member_name,
-                                ...(row.phone ? { phone: row.phone } : {}),
-                                from_guest: row.id,
-                              });
-                              router.push(`/dashboard/members/new?${params.toString()}`);
-                            }}
-                          >
-                            {labels.convert_to_client}
-                          </Button>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row) => {
+                  const status = getPassStatus(row, lang);
+                  return (
+                    <TableRow key={row.id}>
+                      <TableCell className="font-medium font-mono text-xs">{row.code}</TableCell>
+                      <TableCell>{row.member_name}</TableCell>
+                      <TableCell>{row.inviter_name || '—'}</TableCell>
+                      <TableCell dir="ltr">{row.phone || '-'}</TableCell>
+                      <TableCell className="tabular-nums">{row.amount ? formatCurrency(Number(row.amount)) : '-'}</TableCell>
+                      <TableCell>
+                        <Badge className={status.className}>{status.label}</Badge>
+                      </TableCell>
+                      <TableCell className="text-end">
+                        <div className="flex flex-wrap gap-2 justify-end">
+                          {!row.used_at && !row.voided_at && !row.converted_at && (
+                            <Button size="sm" variant="outline" disabled={actionId === row.id} onClick={() => markUsed(row.id)}>
+                              {labels.mark_used}
+                            </Button>
+                          )}
+                          {!row.used_at && !row.voided_at && !row.converted_at && (
+                            <Button size="sm" variant="ghost" disabled={actionId === row.id} onClick={() => voidPass(row.id)}>
+                              {lang === 'ar' ? 'إلغاء' : 'Void'}
+                            </Button>
+                          )}
+                          {row.converted_member_id ? (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => router.push(`/dashboard/members/${row.converted_member_id}`)}
+                            >
+                              {lang === 'ar' ? 'عرض العميل' : 'View Client'}
+                            </Button>
+                          ) : !row.voided_at ? (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => {
+                                const params = new URLSearchParams({
+                                  name: row.member_name,
+                                  ...(row.phone ? { phone: row.phone } : {}),
+                                  from_guest: row.id,
+                                });
+                                router.push(`/dashboard/members/new?${params.toString()}`);
+                              }}
+                            >
+                              {labels.convert_to_client}
+                            </Button>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
