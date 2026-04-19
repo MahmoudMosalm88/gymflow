@@ -124,6 +124,17 @@ const navItems = [
     ),
   },
   {
+    key: 'help' as const,
+    href: '/dashboard/help',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="10" cy="10" r="8" />
+        <path d="M7.5 7.5a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3.5" />
+        <circle cx="10" cy="15" r="0.5" fill="currentColor" stroke="none" />
+      </svg>
+    ),
+  },
+  {
     key: 'settings' as const,
     href: '/dashboard/settings',
     icon: (

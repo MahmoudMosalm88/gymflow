@@ -10,14 +10,15 @@ export type NavKey =
   | "income"
   | "whatsapp"
   | "notifications"
+  | "help"
   | "settings"
   | "profile";
 
 const roleNav: Record<AppRole, NavKey[]> = {
-  owner: ["dashboard", "members", "guest_passes", "pt", "subscriptions", "reports", "income", "whatsapp", "notifications", "settings", "profile"],
-  manager: ["dashboard", "members", "guest_passes", "pt", "subscriptions", "whatsapp", "notifications", "profile"],
-  staff: ["dashboard", "members", "guest_passes", "pt", "subscriptions", "notifications", "profile"],
-  trainer: ["pt", "members", "profile"],
+  owner: ["dashboard", "members", "guest_passes", "pt", "subscriptions", "reports", "income", "whatsapp", "notifications", "help", "settings", "profile"],
+  manager: ["dashboard", "members", "guest_passes", "pt", "subscriptions", "whatsapp", "notifications", "help", "profile"],
+  staff: ["dashboard", "members", "guest_passes", "pt", "subscriptions", "notifications", "help", "profile"],
+  trainer: ["pt", "members", "help", "profile"],
 };
 
 const navPaths: Record<NavKey, string> = {
@@ -30,6 +31,7 @@ const navPaths: Record<NavKey, string> = {
   income: "/dashboard/income",
   whatsapp: "/dashboard/whatsapp",
   notifications: "/dashboard/notifications",
+  help: "/dashboard/help",
   settings: "/dashboard/settings",
   profile: "/dashboard/profile",
 };
