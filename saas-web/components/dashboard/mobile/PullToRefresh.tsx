@@ -58,7 +58,7 @@ export default function PullToRefresh({ onRefresh, children }: Props) {
         drag="y"
         dragConstraints={{ top: 0, bottom: 0 }}
         dragElastic={{ top: 0.4, bottom: 0 }}
-        style={{ y }}
+        style={{ y, touchAction: 'pan-x' }}
         onDrag={(_, info) => {
           // Prevent downward drag if not at scroll top
           if (!canPull() && info.delta.y > 0) {

@@ -3,6 +3,7 @@
 import { useLang } from '@/lib/i18n';
 import { Sparkline } from '@derpdaderp/chartkit';
 import CountUp from 'react-countup';
+import { useIsDesktop } from '@/lib/use-media-query';
 
 type Props = {
   label: string;
@@ -44,6 +45,9 @@ function computeCollection(current: number, target: number): { pct: number; clas
 export default function StatCard({ label, value, subtitle, color = 'text-brand', valueSize, rawValue, previousValue, targetValue, compareLabel, sparklineData, sparklineColor, accent, animate = true }: Props) {
   const { lang } = useLang();
   const isRtl = lang === 'ar';
+  const isDesktop = useIsDesktop();
+  // Skip CountUp animation on mobile for performance
+  const shouldAnimate = animate && isDesktop;
 
   const autoSize = valueSize ?? (() => {
     const len = String(value).length;
@@ -57,7 +61,7 @@ export default function StatCard({ label, value, subtitle, color = 'text-brand',
   // Parse prefix (e.g. "SAR ", "$") and suffix (e.g. "%") from string values for CountUp animation.
   // If the value isn't a parseable number, animatedValue stays null and we fall back to plain rendering.
   const animatedValue = (() => {
-    if (!animate) return null;
+    if (!shouldAnimate) return null;
     const str = String(value);
     const match = str.match(/^([^0-9]*)([0-9,]+\.?[0-9]*)([^0-9]*)$/);
     if (!match) return null;
@@ -139,7 +143,7 @@ export default function StatCard({ label, value, subtitle, color = 'text-brand',
           />
         </div>
       ) : (
-        <div className="h-[8px]" />
+        <div className="h-[32px]" />
       )}
     </div>
   );

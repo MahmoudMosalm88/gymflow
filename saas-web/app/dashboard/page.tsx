@@ -544,7 +544,7 @@ export default function DashboardPage() {
                   accent={(overview?.ptLowBalance ?? 0) > 0 ? 'border-s-warning' : undefined}
                 />
               </div>
-              <div className={`min-w-[160px] snap-start flex-shrink-0 lg:min-w-0 h-full ${(overview?.inGymNow ?? 0) > 0 ? 'animate-live-glow' : ''}`}>
+              <div className={`min-w-[160px] snap-start flex-shrink-0 lg:min-w-0 ${(overview?.inGymNow ?? 0) > 0 ? 'animate-live-glow' : ''}`}>
                 <StatCard
                   label={lang === 'ar' ? 'داخل الصالة الآن' : 'Inside Gym Now'}
                   value={overview?.inGymNow ?? 0}
