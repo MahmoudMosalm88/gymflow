@@ -66,14 +66,16 @@ export default function Hero({ t }: HeroProps) {
       </div>
       <video
         ref={videoRef}
-        src="/demo.webm"
         autoPlay
         muted
         loop
         playsInline
         preload="metadata"
         className={styles.heroVideo}
-      />
+      >
+        <source src="/demo.webm" type="video/webm" />
+        <source src="/demo.mp4" type="video/mp4" />
+      </video>
     </div>
   );
 
