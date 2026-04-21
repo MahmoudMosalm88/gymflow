@@ -47,7 +47,7 @@
       "contactSales": "اطلب السعر",
       "signIn": "تسجيل الدخول",
       "cookieBannerTitle": "الكوكيز والتحليلات",
-      "cookieBannerBody": "يستخدم GymFlow ملفات تخزين أساسية للموقع، ومع موافقتك فقط نستخدم ملفات تحليلات على الصفحات العامة لفهم الزيارات وتحسين الموقع.",
+      "cookieBannerBody": "يستخدم GymFlow تخزين المتصفح الأساسي، ومع موافقتك فقط نستخدم ملفات تحليلات على الصفحات العامة لفهم الزيارات وتحسين الموقع.",
       "cookieAccept": "قبول التحليلات",
       "cookieDecline": "رفض",
       "cookieLearnMore": "اقرأ إشعار الكوكيز",
@@ -157,7 +157,7 @@
             },
             {
               "en": "To secure the service, investigate incidents, prevent abuse, and maintain backups, logs, and operational resilience.",
-              "ar": "لحماية الخدمة والتحقيق في الحوادث ومنع سوء الاستخدام والحفاظ على النسخ الاحتياطية والسجلات والمرونة التشغيلية."
+              "ar": "لحماية الخدمة والتحقيق في الحوادث ومنع إساءة الاستخدام والحفاظ على النسخ الاحتياطية والسجلات والمرونة التشغيلية."
             },
             {
               "en": "To support onboarding, migration, customer support, and service improvement using aggregated or operational information.",

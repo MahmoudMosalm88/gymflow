@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
 import LegalPage from "@/app/components/legal/LegalPage";
-import legalContent from "../../../shared/legal-content.json";
+import legalContent from "@/lib/legal-content.json";
 
 export const dynamicParams = false;
 

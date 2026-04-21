@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import legalContent from '../../../shared/legal-content.json'
+import legalContent from '../../../saas-web/lib/legal-content.json'
 
 function pick(value, locale) {
   if (!value) return ''

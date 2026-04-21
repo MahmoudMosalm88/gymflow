@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import LegalPage from '../components/legal/LegalPage'
-import legalContent from '../../shared/legal-content.json'
+import legalContent from '../../saas-web/lib/legal-content.json'
 
 export const dynamicParams = false
 

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import legalContent from '../../../../shared/legal-content.json';
+import legalContent from '@/lib/legal-content.json';
 
 type Locale = 'en' | 'ar';
 
