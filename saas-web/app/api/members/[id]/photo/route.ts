@@ -46,7 +46,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     const rows = await query<{ id: string; updated_at_unix: number }>(
       `SELECT id,
-              EXTRACT(EPOCH FROM updated_at)::bigint AS updated_at_unix
+              FLOOR(EXTRACT(EPOCH FROM updated_at))::bigint AS updated_at_unix
          FROM members
         WHERE id = $1
           AND organization_id = $2

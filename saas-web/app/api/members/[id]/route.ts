@@ -58,7 +58,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     if (baseUpdatedAt !== null) {
       const currentRows = await query<{ updated_at_unix: number }>(
-        `SELECT EXTRACT(EPOCH FROM updated_at)::bigint AS updated_at_unix
+        `SELECT FLOOR(EXTRACT(EPOCH FROM updated_at))::bigint AS updated_at_unix
            FROM members
           WHERE id = $1
             AND organization_id = $2
