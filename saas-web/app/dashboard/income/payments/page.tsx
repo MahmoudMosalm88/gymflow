@@ -8,6 +8,7 @@ import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { getCachedIncomePayments } from '@/lib/offline/read-model';
+import { useSaveShortcut } from '@/lib/use-save-shortcut';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -90,6 +91,7 @@ export default function AllPaymentsPage() {
   const [saving, setSaving] = useState(false);
   const [confirmState, setConfirmState] = useState<ConfirmState>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const editScopeRef = useRef<HTMLDivElement | null>(null);
 
   const fetchPayments = useCallback((searchTerm: string, offset: number, append: boolean) => {
     const setter = offset === 0 ? setLoading : setLoadingMore;
@@ -163,6 +165,16 @@ export default function AllPaymentsPage() {
 
     setConfirmState({ type: 'save' });
   };
+
+  useSaveShortcut({
+    scopeRef: editScopeRef,
+    onSave: () => {
+      void handleSaveEdit();
+    },
+    enabled: Boolean(editRow),
+    disabled: saving || !editRow,
+    enterMode: 'all',
+  });
 
   const executeSaveEdit = async () => {
     if (!editRow) return;
@@ -325,7 +337,7 @@ export default function AllPaymentsPage() {
             <DialogTitle>{copy[lang].editPayment}</DialogTitle>
             <DialogDescription>{copy[lang].editDesc}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div ref={editScopeRef} className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm text-muted-foreground">{labels.amount_col}</label>
               <input

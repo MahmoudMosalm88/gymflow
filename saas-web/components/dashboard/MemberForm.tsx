@@ -1,9 +1,11 @@
 'use client';
 
+import { useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useLang, t } from '@/lib/i18n';
+import { useSaveShortcut } from '@/lib/use-save-shortcut';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,6 +57,7 @@ type Props = {
 export default function MemberForm({ initialData, onSubmit, onCancel, loading, hideTitle }: Props) {
   const { lang } = useLang();
   const labels = t[lang];
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   const form = useForm<MemberFormInput, undefined, MemberFormOutput>({
     resolver: zodResolver(memberFormSchema),
@@ -77,6 +80,13 @@ export default function MemberForm({ initialData, onSubmit, onCancel, loading, h
     });
   };
 
+  useSaveShortcut({
+    scopeRef: formRef,
+    onSave: () => formRef.current?.requestSubmit(),
+    disabled: Boolean(loading),
+    enterMode: 'form',
+  });
+
   return (
     <Card className="w-full">
       {!hideTitle && (
@@ -86,7 +96,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, loading, h
       )}
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <form ref={formRef} onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
             {/* Name */}
             <FormField
               control={form.control}

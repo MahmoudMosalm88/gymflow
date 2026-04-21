@@ -1,10 +1,11 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { useAuth } from '@/lib/use-auth';
+import { useSaveShortcut } from '@/lib/use-save-shortcut';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -171,6 +172,7 @@ function PtSettingsTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
+  const saveScopeRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     api.get<Record<string, string>>('/api/settings')
@@ -212,6 +214,15 @@ function PtSettingsTab() {
     }
   };
 
+  useSaveShortcut({
+    scopeRef: saveScopeRef,
+    onSave: () => {
+      void handleSave();
+    },
+    disabled: saving,
+    enterMode: 'all',
+  });
+
   if (loading) return <LoadingSpinner />;
 
   return (
@@ -220,7 +231,7 @@ function PtSettingsTab() {
         <CardTitle>{c.pt_card_title}</CardTitle>
         <CardDescription>{c.pt_card_description}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent ref={saveScopeRef} className="space-y-5">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <Label htmlFor="pt-session-minutes">{c.pt_session_minutes}</Label>
@@ -288,6 +299,7 @@ function GeneralTab() {
   const [message, setMessage] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
   const [backfillRunning, setBackfillRunning] = useState(false);
   const [backfillMessage, setBackfillMessage] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
+  const scannerSaveScopeRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     api.get<Record<string, string>>('/api/settings')
@@ -323,6 +335,15 @@ function GeneralTab() {
       setSaving(false);
     }
   };
+
+  useSaveShortcut({
+    scopeRef: scannerSaveScopeRef,
+    onSave: () => {
+      void handleSave();
+    },
+    disabled: saving,
+    enterMode: 'all',
+  });
 
   const handleCardCodeBackfill = async () => {
     setBackfillRunning(true);
@@ -410,7 +431,7 @@ function GeneralTab() {
           <CardTitle>{c.scanner_card_title}</CardTitle>
           <CardDescription>{c.scanner_card_description}</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent ref={scannerSaveScopeRef} className="space-y-5">
           <div>
             <Label htmlFor="scan-cooldown">{c.scanner_cooldown_label}</Label>
             <Input

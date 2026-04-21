@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
@@ -10,6 +10,7 @@ import { formatDate, formatDateTime, formatCurrency } from '@/lib/format';
 import { getCachedMemberDetail } from '@/lib/offline/read-model';
 import { saveSubscriptionRenew } from '@/lib/offline/actions';
 import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-method-ui';
+import { useSaveShortcut } from '@/lib/use-save-shortcut';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 
 import { Button } from '@/components/ui/button';
@@ -266,6 +267,7 @@ export default function MemberDetailPage() {
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
   const isTrainer = profile?.role === 'trainer';
   const canManageTrainer = profile?.role !== 'trainer';
+  const renewScopeRef = useRef<HTMLDivElement | null>(null);
 
   const [member, setMember] = useState<Member | null>(null);
   const [subs, setSubs] = useState<Subscription[]>([]);
@@ -538,6 +540,16 @@ export default function MemberDetailPage() {
       setRenewing(false);
     }
   }
+
+  useSaveShortcut({
+    scopeRef: renewScopeRef,
+    onSave: () => {
+      void handleRenew();
+    },
+    enabled: !isTrainer && Boolean(renewSub),
+    disabled: renewing,
+    enterMode: 'all',
+  });
 
   const planOptions = ['1', '3', '6', '12', '18', '24'];
   const radioOption = (selected: boolean) =>
@@ -998,7 +1010,7 @@ export default function MemberDetailPage() {
             <DialogHeader>
               <DialogTitle>{c.renew_subscription}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 pt-2">
+            <div ref={renewScopeRef} className="space-y-4 pt-2">
               {/* Warning if subscription still has days left */}
               {renewSub && renewSub.status === 'active' && (() => {
                 const nowDate = new Date();

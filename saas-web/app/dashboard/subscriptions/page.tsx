@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
@@ -10,6 +10,7 @@ import { getCachedMembers, getCachedSubscriptions } from '@/lib/offline/read-mod
 import { saveSubscriptionCreate } from '@/lib/offline/actions';
 import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-method-ui';
 import { useIsDesktop } from '@/lib/use-media-query';
+import { useSaveShortcut } from '@/lib/use-save-shortcut';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import StatCard from '@/components/dashboard/StatCard';
 import SubscriptionCard from '@/components/dashboard/mobile/SubscriptionCard';
@@ -199,6 +200,7 @@ export default function SubscriptionsPage() {
   const memberIdFilter = searchParams.get('member_id') || '';
   const shouldOpenNewFromQuery = searchParams.get('new') === '1';
   const isDesktop = useIsDesktop();
+  const editScopeRef = useRef<HTMLDivElement | null>(null);
 
   // State
   const [subs, setSubs] = useState<Subscription[]>([]);
@@ -409,6 +411,16 @@ export default function SubscriptionsPage() {
       setEditSaving(false);
     }
   }
+
+  useSaveShortcut({
+    scopeRef: editScopeRef,
+    onSave: () => {
+      void handleEditSave();
+    },
+    enabled: editOpen,
+    disabled: editSaving || !editDraft,
+    enterMode: 'all',
+  });
 
   // Locale for date formatting
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
@@ -702,7 +714,7 @@ export default function SubscriptionsPage() {
             </DialogDescription>
           </DialogHeader>
           {editDraft && (
-            <div className="grid gap-4 py-2">
+            <div ref={editScopeRef} className="grid gap-4 py-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="edit-start-date">{labels.startDate}</Label>
                 <Input

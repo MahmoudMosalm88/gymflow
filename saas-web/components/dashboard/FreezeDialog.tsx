@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useLang, t } from '@/lib/i18n';
 import { saveSubscriptionFreeze } from '@/lib/offline/actions';
+import { useSaveShortcut } from '@/lib/use-save-shortcut';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -20,6 +21,7 @@ export default function FreezeDialog({ subscriptionId, expectedEndDate, open, on
   const { lang } = useLang();
   const labels = t[lang];
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
+  const scopeRef = useRef<HTMLDivElement | null>(null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -60,6 +62,16 @@ export default function FreezeDialog({ subscriptionId, expectedEndDate, open, on
     }
   };
 
+  useSaveShortcut({
+    scopeRef,
+    onSave: () => {
+      void handleSubmit();
+    },
+    enabled: open,
+    disabled: submitting,
+    enterMode: 'all',
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -70,7 +82,7 @@ export default function FreezeDialog({ subscriptionId, expectedEndDate, open, on
           <DialogTitle className="text-[#e8e4df]">{labels.freeze_subscription}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 mt-2">
+        <div ref={scopeRef} className="flex flex-col gap-4 mt-2">
           {/* Start date with calendar popover */}
           <div>
             <label className="text-xs text-[#8a8578] block mb-1.5">{labels.freeze_start}</label>

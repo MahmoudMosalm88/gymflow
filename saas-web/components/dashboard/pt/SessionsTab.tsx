@@ -5,6 +5,7 @@ import { api } from '@/lib/api-client';
 import { useAuth } from '@/lib/use-auth';
 import { useLang, t } from '@/lib/i18n';
 import { formatDate, formatDateTime } from '@/lib/format';
+import { useSaveShortcut } from '@/lib/use-save-shortcut';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import StatCard from '@/components/dashboard/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -91,6 +92,7 @@ export default function SessionsTab() {
   const [editStart, setEditStart] = useState('');
   const [editDuration, setEditDuration] = useState('60');
   const [editNotes, setEditNotes] = useState('');
+  const editScopeRef = useRef<HTMLDivElement | null>(null);
 
   // Book session dialog
   const [bookOpen, setBookOpen] = useState(false);
@@ -225,6 +227,16 @@ export default function SessionsTab() {
       setError(err instanceof Error ? err.message : labels.error);
     }
   }
+
+  useSaveShortcut({
+    scopeRef: editScopeRef,
+    onSave: () => {
+      void saveSessionEdit();
+    },
+    enabled: Boolean(editSession),
+    disabled: !editSession,
+    enterMode: 'all',
+  });
 
   // ── Render ──
 
@@ -417,7 +429,7 @@ export default function SessionsTab() {
           <DialogHeader>
             <DialogTitle>{labels.reschedule}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div ref={editScopeRef} className="space-y-4">
             <div className="space-y-2">
               <Label>{labels.date}</Label>
               <Input type="datetime-local" min={nowLocalIso()} value={editStart} onChange={(e) => setEditStart(e.target.value)} />
@@ -490,6 +502,7 @@ function BookSessionDialog({ open, onClose, trainers, packages, lang, labels, on
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const scopeRef = useRef<HTMLDivElement | null>(null);
 
   // Derive member/trainer from selected package
   const selectedPkg = packages.find(p => p.id === packageId);
@@ -525,6 +538,16 @@ function BookSessionDialog({ open, onClose, trainers, packages, lang, labels, on
     }
   }
 
+  useSaveShortcut({
+    scopeRef,
+    onSave: () => {
+      void handleBook();
+    },
+    enabled: open,
+    disabled: saving || !packageId || !start,
+    enterMode: 'all',
+  });
+
   // Group packages by trainer for easier selection
   const pkgOptions = packages.map(p => ({
     id: p.id,
@@ -538,7 +561,7 @@ function BookSessionDialog({ open, onClose, trainers, packages, lang, labels, on
         <DialogHeader>
           <DialogTitle>{lang === 'ar' ? 'حجز جلسة جديدة' : 'Book New Session'}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
+        <div ref={scopeRef} className="space-y-4">
           {/* Package selector — shows member + package + remaining */}
           <div className="space-y-2">
             <Label>{lang === 'ar' ? 'الباقة' : 'Package'}</Label>

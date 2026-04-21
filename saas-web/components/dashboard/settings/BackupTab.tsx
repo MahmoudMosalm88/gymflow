@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatDateTime } from '@/lib/format';
+import { useSaveShortcut } from '@/lib/use-save-shortcut';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -83,6 +84,7 @@ export default function BackupTab() {
   const [windowStart, setWindowStart] = useState('0');
   const [windowEnd, setWindowEnd] = useState('24');
   const [savingSchedule, setSavingSchedule] = useState(false);
+  const scheduleScopeRef = useRef<HTMLDivElement | null>(null);
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -219,6 +221,15 @@ export default function BackupTab() {
     }
   };
 
+  useSaveShortcut({
+    scopeRef: scheduleScopeRef,
+    onSave: () => {
+      void saveSchedule();
+    },
+    disabled: savingSchedule,
+    enterMode: 'all',
+  });
+
   const statusLabel = (s: string) => s === 'completed' ? labels.backup_status_completed : s === 'failed' ? labels.backup_status_failed : labels.backup_status_pending;
   const statusVariant = (s: string) =>
     s === 'completed' ? 'bg-success hover:bg-success/90' : s === 'failed' ? 'bg-destructive hover:bg-destructive/90' : 'bg-warning hover:bg-warning/90';
@@ -293,7 +304,7 @@ export default function BackupTab() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Auto-backup schedule section */}
-          <div className="border border-border p-4 space-y-3">
+          <div ref={scheduleScopeRef} className="border border-border p-4 space-y-3">
             <h3 className="text-base font-semibold">{labels.periodic_backups}</h3>
             {/* Styled checkbox — border-2, accent color, no native appearance */}
             <div className="flex items-center gap-2">

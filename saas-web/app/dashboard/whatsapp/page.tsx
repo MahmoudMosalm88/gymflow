@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatDateTime } from '@/lib/format';
+import { useSaveShortcut } from '@/lib/use-save-shortcut';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -471,6 +472,7 @@ export default function WhatsAppSystemPage() {
   const [activeSheet, setActiveSheet] = useState<
     'welcome' | 'renewal' | 'post_expiry' | 'onboarding' | 'behavior' | 'sequences' | null
   >(null);
+  const templateSaveScopeRef = useRef<HTMLDivElement | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [templatesFetchError, setTemplatesFetchError] = useState(false);
   const [savedTemplateState, setSavedTemplateState] = useState<TemplateEditorState>({
@@ -766,6 +768,16 @@ export default function WhatsAppSystemPage() {
       setTemplatesSaving(false);
     }
   };
+
+  useSaveShortcut({
+    scopeRef: templateSaveScopeRef,
+    onSave: () => {
+      void handleTemplateSave();
+    },
+    enabled: activeSheet !== null && activeSheet !== 'behavior' && activeSheet !== 'sequences',
+    disabled: templatesSaving,
+    enterMode: 'all',
+  });
 
   const toggleReminderDay = (day: number) => {
     const next = new Set(selectedReminderDays);
@@ -1533,6 +1545,7 @@ export default function WhatsAppSystemPage() {
                 onOpenChange={(open) => { if (!open) closeTemplateSheet(); }}
               >
                 <SheetContent
+                  ref={templateSaveScopeRef}
                   side={lang === 'ar' ? 'left' : 'right'}
                   className="w-full sm:w-[600px] sm:max-w-[600px] flex flex-col p-0"
                 >
@@ -1841,7 +1854,7 @@ export default function WhatsAppSystemPage() {
                                   </Badge>
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                  {item.memberPhone || '—'} · {formatDateTime(item.latestEventAt, lang)}
+                                  <span dir="ltr">{item.memberPhone || '—'}</span> · {formatDateTime(item.latestEventAt, lang)}
                                 </p>
                                 <p className="text-xs text-muted-foreground">{item.sequenceKind}</p>
                               </div>
@@ -1976,7 +1989,7 @@ export default function WhatsAppSystemPage() {
                         <TableCell>
                           <div className="space-y-1">
                             <p className="font-medium">{item.member_name || (lang === 'ar' ? 'بدون اسم' : 'Unnamed')}</p>
-                            <p className="text-xs text-muted-foreground">{item.member_phone || '—'}</p>
+                            <p className="text-xs text-muted-foreground" dir="ltr">{item.member_phone || '—'}</p>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -2212,7 +2225,7 @@ export default function WhatsAppSystemPage() {
                           <div key={r.id} className="flex items-center justify-between gap-3 border border-border px-3 py-2">
                             <div>
                               <p className="font-medium">{r.name}</p>
-                              <p className="text-xs text-muted-foreground">{r.phone || '—'}</p>
+                              <p className="text-xs text-muted-foreground" dir="ltr">{r.phone || '—'}</p>
                             </div>
                             <Badge variant="outline">{lang === 'ar' ? 'مطابق' : 'Included'}</Badge>
                           </div>

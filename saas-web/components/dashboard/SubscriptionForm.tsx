@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils'; // cn helper
 import { addCalendarMonths, toUnixSeconds } from '@/lib/subscription-dates';
 import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-method-ui';
 import type { EntityRef } from '@/lib/entities';
+import { useSaveShortcut } from '@/lib/use-save-shortcut';
 
 export type SubscriptionFormValues = {
   member_id: string;
@@ -113,6 +114,7 @@ const subscriptionFormSchema = z.object({
 export default function SubscriptionForm({ members, preselectedMemberId, onSubmit, onCancel, loading }: Props) {
   const { lang } = useLang();
   const labels = { ...t[lang], ...formLabels[lang] };
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   const form = useForm<SubscriptionFormInput, undefined, SubscriptionFormOutput>({
     resolver: zodResolver(subscriptionFormSchema),
@@ -144,6 +146,13 @@ export default function SubscriptionForm({ members, preselectedMemberId, onSubmi
     onSubmit(dataToSubmit);
   }
 
+  useSaveShortcut({
+    scopeRef: formRef,
+    onSave: () => formRef.current?.requestSubmit(),
+    disabled: Boolean(loading),
+    enterMode: 'form',
+  });
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -151,7 +160,7 @@ export default function SubscriptionForm({ members, preselectedMemberId, onSubmi
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <form ref={formRef} onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
             {/* Member select */}
             <FormField
               control={form.control}

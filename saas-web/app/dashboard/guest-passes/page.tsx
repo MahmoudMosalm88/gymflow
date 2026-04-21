@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { useIsDesktop } from '@/lib/use-media-query';
+import { useSaveShortcut } from '@/lib/use-save-shortcut';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -110,6 +111,8 @@ export default function GuestPassesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const inviterFromQuery = searchParams.get('inviter_member_id') || '';
+  const allowanceSaveScopeRef = useRef<HTMLDivElement | null>(null);
+  const createPassScopeRef = useRef<HTMLDivElement | null>(null);
 
   const [rows, setRows] = useState<GuestPass[]>([]);
   const [loading, setLoading] = useState(true);
@@ -357,9 +360,27 @@ export default function GuestPassesPage() {
     });
   }
 
-  if (loading) return <LoadingSpinner />;
-
   const canCreateInvite = !selectedInviterId || Boolean(selectedInviterSummary?.hasActiveCycle && selectedInviterSummary.remaining > 0);
+
+  useSaveShortcut({
+    scopeRef: allowanceSaveScopeRef,
+    onSave: () => {
+      void saveAllowance();
+    },
+    disabled: policySaving,
+    enterMode: 'all',
+  });
+
+  useSaveShortcut({
+    scopeRef: createPassScopeRef,
+    onSave: () => {
+      void createPass();
+    },
+    disabled: saving || !canCreateInvite,
+    enterMode: 'all',
+  });
+
+  if (loading) return <LoadingSpinner />;
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
@@ -370,7 +391,7 @@ export default function GuestPassesPage() {
           <CardHeader>
             <CardTitle>{lang === 'ar' ? 'سياسة دعوات الضيوف' : 'Guest Invite Policy'}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent ref={allowanceSaveScopeRef} className="space-y-3">
             <div className="space-y-1">
               <Label>{lang === 'ar' ? 'العدد المسموح لكل دورة اشتراك' : 'Allowed invites per subscription cycle'}</Label>
               <Input
@@ -396,14 +417,14 @@ export default function GuestPassesPage() {
           <CardHeader>
             <CardTitle>{labels.add_guest_pass}</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <CardContent ref={createPassScopeRef} className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <div className="space-y-1 xl:col-span-2">
               <Label>{lang === 'ar' ? 'الضيف' : 'Guest name'}</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label>{labels.phone}</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <Input dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label>{labels.guest_amount}</Label>
@@ -425,6 +446,7 @@ export default function GuestPassesPage() {
             <div className="space-y-1 md:col-span-2 xl:col-span-3">
               <Label>{lang === 'ar' ? 'العضو الداعي - اختياري' : 'Inviting member - optional'}</Label>
               <Input
+                data-save-shortcut-ignore="true"
                 value={inviterQuery}
                 onChange={(e) => {
                   setInviterQuery(e.target.value);
@@ -447,7 +469,7 @@ export default function GuestPassesPage() {
                     >
                       <div>
                         <p className="text-sm font-medium">{member.name}</p>
-                        <p className="text-xs text-muted-foreground">{member.phone || member.card_code || '—'}</p>
+                        <p className="text-xs text-muted-foreground" dir="ltr">{member.phone || member.card_code || '—'}</p>
                       </div>
                       <Badge className={member.sub_status === 'active' ? 'bg-success/10 text-success border border-success/30' : 'bg-muted text-muted-foreground border border-border'}>
                         {member.sub_status === 'active'

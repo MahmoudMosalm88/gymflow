@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -8,6 +8,7 @@ import { useLang, t } from '@/lib/i18n';
 import { toUnixSeconds } from '@/lib/subscription-dates';
 import { saveMemberWithSubscription } from '@/lib/offline/actions';
 import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-method-ui';
+import { useSaveShortcut } from '@/lib/use-save-shortcut';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,6 +76,7 @@ export default function AddMemberModal({ open, onClose, onSuccess }: Props) {
   const { lang } = useLang();
   const labels = t[lang];
   const isRtl = lang === 'ar';
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -155,6 +157,14 @@ export default function AddMemberModal({ open, onClose, onSuccess }: Props) {
         : 'border-[#2a2a2a] bg-[#1e1e1e] text-[#8a8578] hover:border-[#3a3a3a]'
     }`;
 
+  useSaveShortcut({
+    scopeRef: formRef,
+    onSave: () => formRef.current?.requestSubmit(),
+    enabled: open,
+    disabled: submitting,
+    enterMode: 'form',
+  });
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
       <DialogContent
@@ -166,7 +176,7 @@ export default function AddMemberModal({ open, onClose, onSuccess }: Props) {
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="px-6 pb-6 pt-4 space-y-5">
+          <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} className="px-6 pb-6 pt-4 space-y-5">
 
             {/* ── Member Info ── */}
             <p className="text-xs font-semibold uppercase tracking-wider text-[#8a8578]">

@@ -5,6 +5,7 @@ import { api } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format';
 import { useLang, t } from '@/lib/i18n';
 import { useAuth, logout } from '@/lib/use-auth';
+import { useSaveShortcut } from '@/lib/use-save-shortcut';
 import type { Auth, RecaptchaVerifier } from 'firebase/auth';
 import type { FirebaseClientConfig } from '@/lib/firebase-client';
 import { SESSION_PROFILE_KEY } from '@/lib/session';
@@ -166,6 +167,8 @@ export default function ProfilePage() {
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
   const recaptchaContainerRef = useRef<HTMLDivElement | null>(null);
   const recaptchaTargetRef = useRef<HTMLDivElement | null>(null);
+  const profileSaveScopeRef = useRef<HTMLDivElement | null>(null);
+  const availabilitySaveScopeRef = useRef<HTMLDivElement | null>(null);
 
   const e164Regex = /^\+[1-9]\d{7,14}$/;
 
@@ -599,6 +602,25 @@ export default function ProfilePage() {
   const phoneChanged = phoneValue !== savedPhoneValue;
   const phoneNeedsVerification = phoneChanged && phoneValue.length > 0 && verifiedPhone !== phoneValue;
 
+  useSaveShortcut({
+    scopeRef: profileSaveScopeRef,
+    onSave: () => {
+      void handleSave();
+    },
+    disabled: !isDirty || saving || phoneNeedsVerification,
+    enterMode: 'all',
+  });
+
+  useSaveShortcut({
+    scopeRef: availabilitySaveScopeRef,
+    onSave: () => {
+      void saveAvailability();
+    },
+    enabled: isTrainer,
+    disabled: availabilitySaving,
+    enterMode: 'all',
+  });
+
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
       {/* ── Page header: title + Save button ── */}
@@ -629,155 +651,157 @@ export default function ProfilePage() {
         </Alert>
       )}
 
-      {/* ── Identity Banner ── */}
-      <div
-        className="flex items-center gap-4 p-5 bg-card border-2 border-border shadow-[6px_6px_0_#000000]"
-        style={{ borderInlineStart: '4px solid hsl(var(--destructive))' }}
-      >
-        {/* Initials badge — same visual language as the sidebar GF logo */}
-        <span
-          style={{
-            background: 'hsl(var(--destructive))',
-            color: '#fff',
-            padding: '10px 14px',
-            fontWeight: 800,
-            fontSize: '1.1rem',
-            lineHeight: 1,
-            flexShrink: 0,
-          }}
+      <div ref={profileSaveScopeRef} className="contents">
+        {/* ── Identity Banner ── */}
+        <div
+          className="flex items-center gap-4 p-5 bg-card border-2 border-border shadow-[6px_6px_0_#000000]"
+          style={{ borderInlineStart: '4px solid hsl(var(--destructive))' }}
         >
-          {initials}
-        </span>
-        <div className="flex flex-col gap-0.5 min-w-0">
-          <p className="font-bold text-lg text-foreground truncate">{form.name || '—'}</p>
-          {profile?.role && (
-            <Badge variant="outline" className="text-[10px] w-fit capitalize">{profile.role}</Badge>
-          )}
-          <p className="text-sm text-muted-foreground truncate">{orgLine}</p>
+          {/* Initials badge — same visual language as the sidebar GF logo */}
+          <span
+            style={{
+              background: 'hsl(var(--destructive))',
+              color: '#fff',
+              padding: '10px 14px',
+              fontWeight: 800,
+              fontSize: '1.1rem',
+              lineHeight: 1,
+              flexShrink: 0,
+            }}
+          >
+            {initials}
+          </span>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <p className="font-bold text-lg text-foreground truncate">{form.name || '—'}</p>
+            {profile?.role && (
+              <Badge variant="outline" className="text-[10px] w-fit capitalize">{profile.role}</Badge>
+            )}
+            <p className="text-sm text-muted-foreground truncate">{orgLine}</p>
+          </div>
         </div>
-      </div>
 
-      {/* ── Two-column grid: Personal Info + Organization ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* ── Two-column grid: Personal Info + Organization ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        {/* Personal Info */}
-        <Card className="shadow-[6px_6px_0_#000000]">
-          <CardHeader>
-            <CardTitle>{labels.personal_info}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="profile-name">{labels.name}</Label>
-              <Input
-                id="profile-name"
-                value={form.name || ''}
-                onChange={(e) => updateField('name', e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="profile-email">{labels.email}</Label>
-              <Input
-                id="profile-email"
-                type="email"
-                value={form.email || ''}
-                onChange={(e) => updateField('email', e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="profile-phone">{labels.phone}</Label>
-              <Input
-                id="profile-phone"
-                type="tel"
-                value={form.phone || ''}
-                onChange={(e) => updateField('phone', e.target.value)}
-              />
-              {phoneChanged && (
-                <div className="rounded-md border border-border p-3 space-y-3">
-                  <p className="text-xs text-muted-foreground">
-                    {labels.verify_phone_otp}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" onClick={sendPhoneOtp} disabled={otpBusy}>
-                      {otpBusy ? labels.sending_code : labels.send_code}
-                    </Button>
-                    {otpStatus === 'verified' && (
-                      <span className="text-xs text-emerald-600 font-medium">
-                        {labels.verified}
-                      </span>
-                    )}
-                  </div>
-                  {(otpStatus === 'sent' || otpStatus === 'verified') && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder={labels.enter_otp}
-                        value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value)}
-                        className="max-w-[180px]"
-                      />
-                      <Button type="button" onClick={verifyPhoneOtp} disabled={otpBusy || otpStatus === 'verified'}>
-                        {otpBusy ? labels.verifying : labels.verify_code}
-                      </Button>
-                    </div>
-                  )}
-                  {otpMessage && (
-                    <Alert variant={otpStatus === 'verified' ? 'default' : 'destructive'}>
-                      {otpStatus === 'verified' ? <Check className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
-                      <AlertDescription>{otpMessage}</AlertDescription>
-                    </Alert>
-                  )}
-                  {otpConflict && (
+          {/* Personal Info */}
+          <Card className="shadow-[6px_6px_0_#000000]">
+            <CardHeader>
+              <CardTitle>{labels.personal_info}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="profile-name">{labels.name}</Label>
+                <Input
+                  id="profile-name"
+                  value={form.name || ''}
+                  onChange={(e) => updateField('name', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="profile-email">{labels.email}</Label>
+                <Input
+                  id="profile-email"
+                  type="email"
+                  value={form.email || ''}
+                  onChange={(e) => updateField('email', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="profile-phone">{labels.phone}</Label>
+                <Input
+                  id="profile-phone"
+                  type="tel"
+                  dir="ltr"
+                  value={form.phone || ''}
+                  onChange={(e) => updateField('phone', e.target.value)}
+                />
+                {phoneChanged && (
+                  <div data-save-shortcut-ignore="true" className="rounded-md border border-border p-3 space-y-3">
                     <p className="text-xs text-muted-foreground">
-                      Action: enter a different phone number, then send a new code.
+                      {labels.verify_phone_otp}
                     </p>
-                  )}
-                  <div
-                    ref={recaptchaContainerRef}
-                    id="profile-phone-recaptcha"
-                    className="fixed -left-[9999px] top-0 h-px w-px overflow-hidden pointer-events-none"
-                  />
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" onClick={sendPhoneOtp} disabled={otpBusy}>
+                        {otpBusy ? labels.sending_code : labels.send_code}
+                      </Button>
+                      {otpStatus === 'verified' && (
+                        <span className="text-xs text-emerald-600 font-medium">
+                          {labels.verified}
+                        </span>
+                      )}
+                    </div>
+                    {(otpStatus === 'sent' || otpStatus === 'verified') && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder={labels.enter_otp}
+                          value={otpCode}
+                          onChange={(e) => setOtpCode(e.target.value)}
+                          className="max-w-[180px]"
+                        />
+                        <Button type="button" onClick={verifyPhoneOtp} disabled={otpBusy || otpStatus === 'verified'}>
+                          {otpBusy ? labels.verifying : labels.verify_code}
+                        </Button>
+                      </div>
+                    )}
+                    {otpMessage && (
+                      <Alert variant={otpStatus === 'verified' ? 'default' : 'destructive'}>
+                        {otpStatus === 'verified' ? <Check className="h-4 w-4" /> : <Terminal className="h-4 w-4" />}
+                        <AlertDescription>{otpMessage}</AlertDescription>
+                      </Alert>
+                    )}
+                    {otpConflict && (
+                      <p className="text-xs text-muted-foreground">
+                        Action: enter a different phone number, then send a new code.
+                      </p>
+                    )}
+                    <div
+                      ref={recaptchaContainerRef}
+                      id="profile-phone-recaptcha"
+                      className="fixed -left-[9999px] top-0 h-px w-px overflow-hidden pointer-events-none"
+                    />
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Organization */}
-        <Card className="shadow-[6px_6px_0_#000000]">
-          <CardHeader>
-            <CardTitle>{labels.organization}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="profile-org">{labels.gym_name}</Label>
-              <Input
-                id="profile-org"
-                value={form.organization_name || ''}
-                onChange={(e) => updateField('organization_name', e.target.value)}
-                disabled={!canEditTenantNames}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="profile-branch">{labels.branch_name}</Label>
-              <Input
-                id="profile-branch"
-                value={form.branch_name || ''}
-                onChange={(e) => updateField('branch_name', e.target.value)}
-                disabled={!canEditTenantNames}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          {/* Organization */}
+          <Card className="shadow-[6px_6px_0_#000000]">
+            <CardHeader>
+              <CardTitle>{labels.organization}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="profile-org">{labels.gym_name}</Label>
+                <Input
+                  id="profile-org"
+                  value={form.organization_name || ''}
+                  onChange={(e) => updateField('organization_name', e.target.value)}
+                  disabled={!canEditTenantNames}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="profile-branch">{labels.branch_name}</Label>
+                <Input
+                  id="profile-branch"
+                  value={form.branch_name || ''}
+                  onChange={(e) => updateField('branch_name', e.target.value)}
+                  disabled={!canEditTenantNames}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-      {isTrainer && (
-        <Card className="shadow-[6px_6px_0_#000000]">
-          <CardHeader>
-            <CardTitle>{trainerCopy.title}</CardTitle>
-            <p className="text-sm text-muted-foreground">{trainerCopy.subtitle}</p>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {isTrainer && (
+          <Card className="shadow-[6px_6px_0_#000000]">
+            <CardHeader>
+              <CardTitle>{trainerCopy.title}</CardTitle>
+              <p className="text-sm text-muted-foreground">{trainerCopy.subtitle}</p>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="trainer-gender">{trainerCopy.gender}</Label>
               <Select value={form.gender || '__none__'} onValueChange={(value) => updateField('gender', value === '__none__' ? '' : value)}>
@@ -840,12 +864,13 @@ export default function ProfilePage() {
                 className="min-h-[120px]"
               />
             </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {isTrainer && (
-        <Card className="shadow-[6px_6px_0_#000000]">
+        <Card ref={availabilitySaveScopeRef} className="shadow-[6px_6px_0_#000000]">
           <CardHeader>
             <CardTitle>{labels.trainer_availability}</CardTitle>
             <p className="text-sm text-muted-foreground">
