@@ -26,20 +26,35 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const memberId = url.searchParams.get("member_id");
     const includeHistory = url.searchParams.get("include_history") === "1" || Boolean(memberId);
-    const now = Math.floor(Date.now() / 1000);
     const accessNow = getCurrentSubscriptionAccessReferenceUnix();
     await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, accessNow);
 
     const rows = includeHistory
       ? await query(
           `SELECT s.*,
-                  m.name AS member_name
+                  m.name AS member_name,
+                  CASE
+                    WHEN s.is_active = true AND s.start_date <= $4 AND s.end_date > $4 AND s.sessions_per_month IS NOT NULL
+                      THEN GREATEST(COALESCE(q.sessions_cap, s.sessions_per_month) - COALESCE(q.sessions_used, 0), 0)
+                    ELSE NULL
+                  END AS sessions_remaining
              FROM subscriptions s
              JOIN members m
                ON m.id = s.member_id
               AND m.organization_id = s.organization_id
               AND m.branch_id = s.branch_id
               AND m.deleted_at IS NULL
+             LEFT JOIN LATERAL (
+               SELECT q.sessions_used, q.sessions_cap
+                 FROM quotas q
+                WHERE q.subscription_id = s.id
+                  AND q.organization_id = s.organization_id
+                  AND q.branch_id = s.branch_id
+                  AND q.cycle_start <= $4
+                  AND q.cycle_end > $4
+                ORDER BY q.cycle_start DESC
+                LIMIT 1
+             ) q ON true
             WHERE s.organization_id = $1
               AND s.branch_id = $2
               AND ($3::uuid IS NULL OR s.member_id = $3::uuid)
@@ -60,6 +75,11 @@ export async function GET(request: NextRequest) {
           `WITH ranked AS (
              SELECT s.*,
                     m.name AS member_name,
+                    CASE
+                      WHEN s.is_active = true AND s.start_date <= $3 AND s.end_date > $3 AND s.sessions_per_month IS NOT NULL
+                        THEN GREATEST(COALESCE(q.sessions_cap, s.sessions_per_month) - COALESCE(q.sessions_used, 0), 0)
+                      ELSE NULL
+                    END AS sessions_remaining,
                     ROW_NUMBER() OVER (
                       PARTITION BY s.member_id
                       ORDER BY
@@ -79,6 +99,17 @@ export async function GET(request: NextRequest) {
                 AND m.organization_id = s.organization_id
                 AND m.branch_id = s.branch_id
                 AND m.deleted_at IS NULL
+               LEFT JOIN LATERAL (
+                 SELECT q.sessions_used, q.sessions_cap
+                   FROM quotas q
+                  WHERE q.subscription_id = s.id
+                    AND q.organization_id = s.organization_id
+                    AND q.branch_id = s.branch_id
+                    AND q.cycle_start <= $3
+                    AND q.cycle_end > $3
+                  ORDER BY q.cycle_start DESC
+                  LIMIT 1
+               ) q ON true
               WHERE s.organization_id = $1
                 AND s.branch_id = $2
            )
@@ -93,6 +124,7 @@ export async function GET(request: NextRequest) {
                   plan_months,
                   price_paid,
                   sessions_per_month,
+                  sessions_remaining,
                   is_active,
                   created_at
              FROM ranked

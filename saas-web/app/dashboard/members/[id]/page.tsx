@@ -95,6 +95,8 @@ const copy = {
     type_guest: 'Guest Pass',
     type_other: 'Other',
     months_short: 'mo',
+    sessions_per_month_short: 'sessions/mo',
+    current_plan: 'Current Plan',
     show_more: 'Show more',
     show_less: 'Show less',
     health_membership: 'Membership',
@@ -147,6 +149,8 @@ const copy = {
     type_guest: 'تذكرة زائر',
     type_other: 'أخرى',
     months_short: 'شهر',
+    sessions_per_month_short: 'جلسة/شهر',
+    current_plan: 'الاشتراك الحالي',
     show_more: 'المزيد من التفاصيل',
     show_less: 'إخفاء التفاصيل',
     health_membership: 'العضوية',
@@ -199,6 +203,7 @@ type SubscriptionRaw = {
   is_active: boolean;
   plan_months: number;
   sessions_per_month: number | null;
+  sessions_remaining?: number | null;
 };
 
 type Subscription = SubscriptionRaw & {
@@ -283,7 +288,7 @@ export default function MemberDetailPage() {
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState('');
   const [showSubscriptionHistory, setShowSubscriptionHistory] = useState(false);
-  const [showMoreInfo, setShowMoreInfo] = useState(false);
+  const [showMoreInfo, setShowMoreInfo] = useState(true);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [pendingTrainerId, setPendingTrainerId] = useState<string | null | undefined>(undefined);
@@ -379,6 +384,10 @@ export default function MemberDetailPage() {
   useEffect(() => {
     void loadMemberData();
   }, [loadMemberData]);
+
+  useEffect(() => {
+    setShowMoreInfo(true);
+  }, [id]);
 
   if (loading || authLoading) return <LoadingSpinner size="lg" />;
 
@@ -540,6 +549,14 @@ export default function MemberDetailPage() {
 
   // Derive health signals from existing data
   const activeSub = subs.find(s => s.status === 'active');
+  const activePlanLabel = activeSub
+    ? activeSub.sessions_per_month != null
+      ? `${activeSub.plan_months} ${c.months_short} · ${activeSub.sessions_per_month} ${c.sessions_per_month_short}`
+      : `${activeSub.plan_months} ${c.months_short}`
+    : '—';
+  const activeSessionsLeft = activeSub?.sessions_per_month != null
+    ? Math.max(0, activeSub.sessions_remaining ?? activeSub.sessions_per_month)
+    : null;
   const lastVisitTimestamp = attendance.length > 0 ? attendance[0].timestamp : null;
   const daysSinceLastVisit = lastVisitTimestamp
     ? Math.floor((Date.now() / 1000 - lastVisitTimestamp) / 86400)
@@ -589,6 +606,12 @@ export default function MemberDetailPage() {
                 <p className="font-heading font-bold text-lg text-foreground tracking-tight">{member.name}</p>
                 <p className="text-sm text-muted-foreground tabular-nums" dir="ltr">{member.phone}</p>
                 <Badge variant="outline" className="mt-1 text-[10px]">{member.access_tier}</Badge>
+              </div>
+              <div className="space-y-2 text-sm border-t border-border pt-3">
+                <InfoRow label={c.current_plan} value={activePlanLabel} />
+                {activeSessionsLeft !== null ? (
+                  <InfoRow label={labels.sessions_remaining_label} value={String(activeSessionsLeft)} />
+                ) : null}
               </div>
               {/* Expandable extra info */}
               {showMoreInfo && (
