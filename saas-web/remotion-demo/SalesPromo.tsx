@@ -36,7 +36,7 @@ export const SalesPromo: React.FC = () => {
                                     border: '2px solid #2a2a2a'
                                 }}
                             >
-                                <DashboardPreview />
+                                <DashboardPreview lang="en" />
                             </div>
                         </Sequence>
                     </AbsoluteFill>

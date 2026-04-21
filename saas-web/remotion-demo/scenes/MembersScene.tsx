@@ -1,160 +1,232 @@
 import React from 'react';
 import { useCurrentFrame, useVideoConfig, spring, interpolate, Img, staticFile } from 'remotion';
-import { loadFont } from '@remotion/google-fonts/Inter';
 import { Cursor } from '../components/Cursor';
 import { Spotlight } from '../components/Spotlight';
 
-const { fontFamily } = loadFont('normal', { weights: ['400', '600', '700', '800'] });
+// ─── Frame constants ───────────────────────────────────────────────────────────
+// Phase 1: Members list (frames 0–150)
+const FADE_IN         = 0;
+const ZOOM_START      = 8;
+const TYPEWRITER_START = 30;
+const TYPEWRITER_END  = 58;   // "Samer" = 5 chars × 4 frames each + start
+const ROW_HIGHLIGHT   = 60;
+const CURSOR_CLICK_ROW = 70;
 
-// Members scene: cursor clicks search → typewriter → cursor selects result row
-// Screenshot coords (1280×800):
-// Search bar: y=191–222, x=311–695
-// First row (Samer Mahmoud): y=297–345, x=155–1225
+// Phase 2: Member detail (frames 150–315)
+const CROSSFADE_START = 150;
+const CROSSFADE_END   = 165;
+const DETAIL_SPOT     = 180;  // spotlight on header/subscription area
+const CURSOR_DETAIL   = 185;  // cursor moves to subscription badge
+const KEN_BURNS_START = 200;
 
-const FADE_IN = 0;
-const ZOOM_START = 8;
-const CURSOR_SEARCH = 16;
-const TYPEWRITER_START = 22;
-const TYPEWRITER_END = 52;
-const CURSOR_TO_ROW = 54;
-const ROW_SELECT = 58;
+const SEARCH_TEXT = 'Samer'; // typewriter string
 
-const ZOOM = 1.25;
-const ORIGIN_X = 0.5;
-const ORIGIN_Y = 0.48;
-const SEARCH_TEXT = 'Samer Mahmoud';
+// ─── Layout approximations (viewport %) ───────────────────────────────────────
+// Members list screenshot:
+//   Search bar:   top ~22%, left ~20%
+//   Row highlight: top ~35% of viewport
+// Member detail screenshot:
+//   Header / subscription badge: top ~30%, centre x
 
-function mapX(xPct: number) { return (xPct - ORIGIN_X) * ZOOM + ORIGIN_X; }
-function mapY(yPct: number) { return (yPct - ORIGIN_Y) * ZOOM + ORIGIN_Y; }
-
-const SEARCH_TOP = mapY(191 / 800);
-const SEARCH_LEFT = mapX(311 / 1280);
-const SEARCH_HEIGHT = (222 - 191) / 800 * ZOOM;
-const ROW_TOP = mapY(297 / 800);
-const ROW_BOTTOM = mapY(345 / 800);
-const ROW_MID_X = mapX(690 / 1280);
-
-export function MembersScene() {
+export function MembersScene({ lang }: { lang: 'en' | 'ar' }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const fadeIn = interpolate(frame, [FADE_IN, 14], [0, 1], {
+  // ── Fade in ──────────────────────────────────────────────────────────────────
+  const fadeIn = interpolate(frame, [FADE_IN, 12], [0, 1], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
 
-  const zoomSpring = spring({
+  // ── Phase 1 zoom: 1 → 1.15 ───────────────────────────────────────────────────
+  const phase1ZoomSpring = spring({
     frame: frame - ZOOM_START,
     fps,
-    config: { damping: 28, stiffness: 110 },
+    config: { damping: 200 },
     durationInFrames: 40,
   });
-  const zoomVal = interpolate(zoomSpring, [0, 1], [1, ZOOM]);
+  const phase1Zoom = interpolate(phase1ZoomSpring, [0, 1], [1, 1.15]);
 
-  // Typewriter
-  const chars = Math.floor(
+  // ── Phase 2 zoom: 1.15 → 1.2 (after crossfade) ───────────────────────────────
+  const phase2ZoomSpring = spring({
+    frame: frame - CROSSFADE_END,
+    fps,
+    config: { damping: 200 },
+    durationInFrames: 25,
+  });
+  const phase2Zoom = interpolate(phase2ZoomSpring, [0, 1], [0, 0.05]); // adds 0→0.05
+
+  // ── Ken Burns: subtle horizontal drift on detail screen ──────────────────────
+  const kenBurnsDrift = interpolate(frame, [KEN_BURNS_START, 315], [0, -1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+
+  // ── Crossfade: members.png fades out, member-detail.png fades in ──────────────
+  const membersOpacity = interpolate(frame, [CROSSFADE_START, CROSSFADE_END], [1, 0], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const detailOpacity = interpolate(frame, [CROSSFADE_START, CROSSFADE_END], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+
+  // ── Typewriter ────────────────────────────────────────────────────────────────
+  // One character every 4 frames
+  const charsVisible = Math.floor(
     interpolate(frame, [TYPEWRITER_START, TYPEWRITER_END], [0, SEARCH_TEXT.length], {
       extrapolateLeft: 'clamp',
       extrapolateRight: 'clamp',
     }),
   );
-  const displayText = SEARCH_TEXT.slice(0, chars);
-  const cursorBlink =
-    frame >= TYPEWRITER_START && frame <= TYPEWRITER_END + 10 && Math.sin(frame / 5) > 0;
+  const displayText  = SEARCH_TEXT.slice(0, charsVisible);
+  // Blinking cursor while typing
+  const showCaret    = frame >= TYPEWRITER_START && frame <= TYPEWRITER_END + 8 && Math.sin(frame / 5) > 0;
+  const typewriterOpacity = interpolate(frame, [TYPEWRITER_START - 2, TYPEWRITER_START + 4], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
 
-  const searchOpacity = interpolate(
-    frame,
-    [TYPEWRITER_START - 2, TYPEWRITER_START + 4],
-    [0, 1],
-    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
-  );
-
-  // Row highlight — subtle background glow instead of red border
-  const rowGlow = spring({
-    frame: frame - ROW_SELECT,
+  // ── Row highlight bar ─────────────────────────────────────────────────────────
+  const rowHighlightSpring = spring({
+    frame: frame - ROW_HIGHLIGHT,
     fps,
-    config: { damping: 18, stiffness: 200 },
+    config: { damping: 200 },
     durationInFrames: 14,
   });
-  const rowGlowOpacity = interpolate(rowGlow, [0, 0.3], [0, 1], {
+  const rowHighlightOpacity = interpolate(rowHighlightSpring, [0, 0.3], [0, 1], {
+    extrapolateRight: 'clamp',
+  });
+  // Fade out row highlight once crossfade starts
+  const rowHighlightFade = interpolate(frame, [CROSSFADE_START, CROSSFADE_END], [1, 0], {
+    extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#0a0a0a', overflow: 'hidden' }}>
-      {/* Screenshot */}
+
+      {/* ── Phase 1: Members list ─────────────────────────────────────────────── */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          opacity: fadeIn,
-          transform: `scale(${zoomVal})`,
-          transformOrigin: `${ORIGIN_X * 100}% ${ORIGIN_Y * 100}%`,
+          // Fade the whole layer: appears at start, crossfades out at frame 150
+          opacity: fadeIn * membersOpacity,
+          transform: `scale(${phase1Zoom})`,
+          transformOrigin: '50% 40%',
         }}
       >
         <Img
-          src={staticFile('demo-screens/members.png')}
+          src={staticFile(`demo-screens/${lang}/members.png`)}
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
       </div>
 
-      {/* Typewriter text overlay */}
-      {frame >= TYPEWRITER_START && (
+      {/* ── Typewriter overlay — sits at ~22% from top, ~20% from left ───────── */}
+      {frame >= TYPEWRITER_START && frame < CROSSFADE_END && (
         <div
           style={{
             position: 'absolute',
-            top: `${SEARCH_TOP * 100}%`,
-            left: `${SEARCH_LEFT * 100 + 3}%`,
-            height: `${SEARCH_HEIGHT * 100}%`,
+            top: '22%',
+            left: '20%',
+            padding: '3px 7px',
+            background: 'rgba(10,10,10,0.7)',
+            fontFamily: 'monospace',
+            fontSize: 14,
+            color: '#ffffff',
+            opacity: typewriterOpacity * membersOpacity,
+            pointerEvents: 'none',
             display: 'flex',
             alignItems: 'center',
-            fontFamily,
-            fontSize: 13 * (zoomVal / ZOOM),
-            color: '#e8e4df',
-            opacity: searchOpacity,
-            pointerEvents: 'none',
             gap: 1,
+            letterSpacing: '0.04em',
           }}
         >
           {displayText}
-          {cursorBlink && <span style={{ color: '#e63946', fontWeight: 700 }}>|</span>}
+          {showCaret && (
+            <span style={{ color: '#e63946', fontWeight: 700 }}>|</span>
+          )}
         </div>
       )}
 
-      {/* Subtle row glow on result — warm highlight, no border */}
-      {frame >= ROW_SELECT && (
+      {/* ── Row highlight bar — semi-transparent white at ~35% from top ───────── */}
+      {frame >= ROW_HIGHLIGHT && frame < CROSSFADE_END && (
         <div
           style={{
             position: 'absolute',
-            top: `${ROW_TOP * 100}%`,
-            left: `${mapX(155 / 1280) * 100}%`,
-            right: `${(1 - mapX(1225 / 1280)) * 100}%`,
-            height: `${(ROW_BOTTOM - ROW_TOP) * 100}%`,
-            background: 'rgba(230,57,70,0.08)',
-            boxShadow: '0 0 20px 6px rgba(230,57,70,0.06)',
-            opacity: rowGlowOpacity,
+            top: '35%',
+            left: '5%',
+            right: '5%',
+            height: '6%',
+            background: 'rgba(255,255,255,0.10)',
+            borderRadius: 2,
+            opacity: rowHighlightOpacity * rowHighlightFade,
             pointerEvents: 'none',
           }}
         />
       )}
 
-      {/* Spotlight on search → then on result row */}
-      <Spotlight
-        targets={[
-          { frame: CURSOR_SEARCH, cx: SEARCH_LEFT * 100 + 20, cy: SEARCH_TOP * 100, rx: 260, ry: 60 },
-          { frame: CURSOR_TO_ROW, cx: ROW_MID_X * 100, cy: ROW_TOP * 100 + 3, rx: 440, ry: 60 },
-        ]}
-        intensity={0.35}
-      />
+      {/* ── Phase 1 spotlight — member list area ─────────────────────────────── */}
+      {frame < CROSSFADE_END && (
+        <Spotlight
+          targets={[
+            { frame: 14, cx: 50, cy: 35, rx: 420, ry: 160 },
+          ]}
+          intensity={0.38}
+          fadeInFrame={14}
+        />
+      )}
 
-      {/* Cursor: moves to search, then down to result row */}
+      {/* ── Phase 2: Member detail ────────────────────────────────────────────── */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: detailOpacity,
+          // phase2Zoom adds a tiny extra scale after crossfade; ken burns drifts left
+          transform: `scale(${1.15 + phase2Zoom}) translateX(${kenBurnsDrift}%)`,
+          transformOrigin: '50% 35%',
+        }}
+      >
+        <Img
+          src={staticFile(`demo-screens/${lang}/member-detail.png`)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      </div>
+
+      {/* ── Phase 2 spotlight — header / subscription status area ────────────── */}
+      {frame >= CROSSFADE_START && (
+        <Spotlight
+          targets={[
+            // Subscription/header band at ~30% from top
+            { frame: DETAIL_SPOT, cx: 50, cy: 30, rx: 380, ry: 100 },
+            // Drift spotlight slightly toward subscription badge as cursor moves
+            { frame: CURSOR_DETAIL + 20, cx: 60, cy: 33, rx: 300, ry: 90 },
+          ]}
+          intensity={0.42}
+          fadeInFrame={CROSSFADE_END}
+        />
+      )}
+
+      {/* ── Cursor ─────────────────────────────────────────────────────────────── */}
       <Cursor
         waypoints={[
-          { frame: CURSOR_SEARCH, x: 55, y: 50 },
-          { frame: CURSOR_SEARCH + 4, x: SEARCH_LEFT * 100 + 8, y: SEARCH_TOP * 100 + 2 },
-          { frame: CURSOR_TO_ROW, x: ROW_MID_X * 100 - 15, y: (ROW_TOP + ROW_BOTTOM) / 2 * 100 },
+          // Phase 1: appears near search bar, clicks it, then moves to row
+          { frame: 22,              x: 55, y: 50 },
+          { frame: 26,              x: 22, y: 22 },   // hover search bar
+          { frame: CURSOR_CLICK_ROW, x: 50, y: 37 },  // click the highlighted row
+          // Phase 2: re-materialises near subscription badge after crossfade
+          { frame: CURSOR_DETAIL,   x: 58, y: 32 },
+          { frame: CURSOR_DETAIL + 30, x: 62, y: 34 },
         ]}
-        clicks={[CURSOR_SEARCH + 4, ROW_SELECT]}
+        clicks={[
+          26,               // click search bar
+          CURSOR_CLICK_ROW, // click row
+          CURSOR_DETAIL,    // click subscription badge
+        ]}
+        hideAfter={290}
       />
     </div>
   );

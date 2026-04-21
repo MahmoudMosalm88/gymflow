@@ -30,6 +30,7 @@
     "@radix-ui/react-switch": "^1.2.6",
     "@remotion/cli": "^4.0.428",
     "@remotion/google-fonts": "^4.0.428",
+    "@remotion/media": "^4.0.428",
     "@remotion/motion-blur": "^4.0.428",
     "@remotion/renderer": "^4.0.428",
     "@remotion/transitions": "^4.0.428",

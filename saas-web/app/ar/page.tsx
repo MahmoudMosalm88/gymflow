@@ -17,7 +17,7 @@ export default function ArabicHomePage() {
     <main className={styles.page} dir="rtl">
       <StructuredData />
       <Navbar lang="ar" t={t} />
-      <Hero t={t} />
+      <Hero t={t} lang="ar" />
       <Problem t={t} />
       <HowItWorks t={t} />
       <Features t={t} />

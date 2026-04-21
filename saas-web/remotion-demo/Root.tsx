@@ -4,35 +4,63 @@ import { DashboardPreview } from './DashboardPreview';
 import { LandingPagePromo } from './LandingPagePromo';
 import { SalesPromo } from './SalesPromo';
 
+// 75 seconds × 30 fps = 2250 visible frames
+const TOTAL_FRAMES = 2250;
+const FPS = 30;
+const WIDTH = 1280;
+const HEIGHT = 800;
+
 export const RemotionRoot: React.FC = () => {
   return (
     <>
+      {/* New bilingual demo videos */}
       <Composition
-        id="DashboardPreview"
+        id="DashboardPreview-EN"
         component={DashboardPreview}
-        durationInFrames={395}
-        fps={30}
-        width={1280}
-        height={800}
+        defaultProps={{ lang: 'en' as const }}
+        durationInFrames={TOTAL_FRAMES}
+        fps={FPS}
+        width={WIDTH}
+        height={HEIGHT}
+      />
+
+      <Composition
+        id="DashboardPreview-AR"
+        component={DashboardPreview}
+        defaultProps={{ lang: 'ar' as const }}
+        durationInFrames={TOTAL_FRAMES}
+        fps={FPS}
+        width={WIDTH}
+        height={HEIGHT}
+      />
+
+      {/* Legacy compositions (kept for reference) */}
+      <Composition
+        id="DashboardPreview-Legacy"
+        component={DashboardPreview}
+        defaultProps={{ lang: 'en' as const }}
+        durationInFrames={TOTAL_FRAMES}
+        fps={FPS}
+        width={WIDTH}
+        height={HEIGHT}
       />
 
       <Composition
         id="LandingPagePromo"
         component={LandingPagePromo}
         durationInFrames={395}
-        fps={30}
-        width={1280}
-        height={800}
+        fps={FPS}
+        width={WIDTH}
+        height={HEIGHT}
       />
 
       <Composition
         id="SalesPromo"
         component={SalesPromo}
-        // 120 + 395 + 150 - 30 = 635 frames
         durationInFrames={635}
-        fps={30}
-        width={1280}
-        height={800}
+        fps={FPS}
+        width={WIDTH}
+        height={HEIGHT}
       />
     </>
   );
