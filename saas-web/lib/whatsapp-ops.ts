@@ -941,6 +941,46 @@ async function hasActiveBroadcastCampaign(
   organizationId: string,
   branchId: string
 ) {
+  await client.query(
+    `WITH stats AS (
+        SELECT wc.id AS campaign_id,
+               COUNT(mq.id)::int AS recipient_count,
+               COUNT(*) FILTER (WHERE mq.status = 'sent')::int AS sent_count,
+               COUNT(*) FILTER (WHERE mq.status = 'failed')::int AS failed_count,
+               COUNT(*) FILTER (WHERE mq.status = 'pending')::int AS pending_count,
+               COUNT(*) FILTER (WHERE mq.status = 'processing')::int AS processing_count
+          FROM whatsapp_campaigns wc
+          LEFT JOIN message_queue mq
+            ON mq.campaign_id = wc.id
+           AND mq.organization_id = wc.organization_id
+           AND mq.branch_id = wc.branch_id
+         WHERE wc.organization_id = $1
+           AND wc.branch_id = $2
+         GROUP BY wc.id
+      )
+      UPDATE whatsapp_campaigns wc
+         SET recipient_count = stats.recipient_count,
+             sent_count = stats.sent_count,
+             failed_count = stats.failed_count,
+             status = CASE
+               WHEN wc.status = 'cancelled' THEN 'cancelled'
+               WHEN stats.processing_count > 0 THEN 'running'
+               WHEN stats.pending_count > 0 THEN 'queued'
+               WHEN stats.recipient_count > 0 AND stats.failed_count = stats.recipient_count THEN 'failed'
+               ELSE 'completed'
+             END,
+             completed_at = CASE
+               WHEN wc.status = 'cancelled' THEN COALESCE(wc.completed_at, NOW())
+               WHEN stats.pending_count = 0 AND stats.processing_count = 0 THEN COALESCE(wc.completed_at, NOW())
+               ELSE NULL
+             END
+        FROM stats
+       WHERE wc.id = stats.campaign_id
+         AND wc.organization_id = $1
+         AND wc.branch_id = $2`,
+    [organizationId, branchId]
+  );
+
   const rows = await client.query<{ id: string }>(
     `SELECT id
        FROM whatsapp_campaigns
