@@ -230,7 +230,7 @@ export default function Sidebar({ open, onClose }: Props) {
 
       <aside
         className={`fixed top-0 start-0 z-50 h-full w-64 bg-[#0a0a0a] border-e-2 border-border hidden lg:flex flex-col transition-transform lg:static lg:translate-x-0 rtl:lg:translate-x-0 ${
-          open ? '!flex translate-x-0 rtl:-translate-x-0' : '-translate-x-full rtl:translate-x-full'
+          open ? '!flex translate-x-0' : '-translate-x-full rtl:translate-x-full'
         }`}
       >
         <div className="flex items-center gap-2 px-5 py-5">

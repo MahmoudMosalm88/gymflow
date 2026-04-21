@@ -272,7 +272,7 @@ export default function AllPaymentsPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5 text-end font-semibold text-foreground tabular-nums">{formatCurrency(p.amount)}</td>
+                        <td className="px-4 py-2.5 text-end font-semibold text-foreground tabular-nums" dir="ltr">{formatCurrency(p.amount)}</td>
                         <td className="px-4 py-2.5 text-muted-foreground hidden sm:table-cell">
                           <div>{p.type === 'guest_pass'
                             ? labels.guest_passes

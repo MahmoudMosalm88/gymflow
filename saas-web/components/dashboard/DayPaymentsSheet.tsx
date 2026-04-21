@@ -59,7 +59,7 @@ export default function DayPaymentsSheet({ date, open, onOpenChange }: Props) {
           </SheetTitle>
         </SheetHeader>
 
-        <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
+        <div className="mt-4 min-h-0 flex-1 overflow-y-auto pe-1">
           {loading ? (
             <div className="flex justify-center py-12">
               <LoadingSpinner />

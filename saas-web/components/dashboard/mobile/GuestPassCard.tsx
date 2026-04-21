@@ -25,8 +25,8 @@ export default function GuestPassCard({ pass, index, onTap, formatCurrency }: Pr
 
   const statusConfig: Record<string, { classes: string; label: string }> = {
     active: { classes: 'bg-success/20 text-success border-success/30', label: lang === 'ar' ? 'نشط' : 'Active' },
-    used: { classes: 'bg-muted text-muted-foreground border-border', label: lang === 'ar' ? 'مُستخدم' : 'Used' },
-    voided: { classes: 'bg-destructive/20 text-destructive border-destructive/30', label: lang === 'ar' ? 'ملغي' : 'Voided' },
+    used: { classes: 'bg-muted text-muted-foreground border-border', label: lang === 'ar' ? 'مستخدم' : 'Used' },
+    voided: { classes: 'bg-destructive/20 text-destructive border-destructive/30', label: lang === 'ar' ? 'ملغى' : 'Voided' },
   };
   const sc = statusConfig[pass.status] || statusConfig.active;
 
@@ -50,7 +50,7 @@ export default function GuestPassCard({ pass, index, onTap, formatCurrency }: Pr
         {pass.inviter_name && (
           <>
             <span className="text-border">|</span>
-            <span className="truncate">{lang === 'ar' ? 'دعوة من' : 'By'} {pass.inviter_name}</span>
+            <span className="truncate">{lang === 'ar' ? 'بواسطة' : 'By'} {pass.inviter_name}</span>
           </>
         )}
       </div>

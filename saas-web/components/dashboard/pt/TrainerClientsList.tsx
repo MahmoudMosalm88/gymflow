@@ -29,7 +29,7 @@ export default function TrainerClientsList({ clients, lang }: Props) {
         >
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground truncate">{client.name}</p>
-            {client.phone && <p className="text-[11px] text-muted-foreground">{client.phone}</p>}
+            {client.phone && <p className="text-[11px] text-muted-foreground" dir="ltr">{client.phone}</p>}
           </div>
           <div className="text-end shrink-0 ms-3">
             <p className={`text-sm font-stat ${client.sessions_remaining <= 2 ? 'text-destructive' : 'text-foreground'}`}>

@@ -94,7 +94,7 @@ export default function TrainerDetailSheet({ trainer, open, onClose }: Props) {
                 </Badge>
               )}
             </div>
-            {trainer.phone && <p className="text-xs text-muted-foreground mt-1">{trainer.phone}</p>}
+            {trainer.phone && <p className="text-xs text-muted-foreground mt-1" dir="ltr">{trainer.phone}</p>}
           </div>
         </div>
 

@@ -198,7 +198,7 @@ export default function SwipeableMemberCard({ member, index }: Props) {
           <span>{formatDate(member.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')}</span>
           {member.sync_status && member.sync_status !== 'synced' && (
             <Badge variant="outline" className="text-[9px] border-warning/30 text-warning bg-warning/10 px-1 py-0">
-              {lang === 'ar' ? 'بانتظار المزامنة' : 'Pending sync'}
+              {lang === 'ar' ? 'في انتظار المزامنة' : 'Pending sync'}
             </Badge>
           )}
         </div>

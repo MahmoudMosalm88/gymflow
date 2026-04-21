@@ -141,7 +141,7 @@ export default function MonthCalendarDialog({ month, open, onOpenChange }: Props
               ) : (
                 <div className="py-8 text-center">
                   <p className="text-sm text-muted-foreground">
-                    {lang === 'ar' ? 'لا توجد مدفوعات مسجلة في هذا الشهر' : 'No payments recorded this month'}
+                    {lang === 'ar' ? 'لا توجد مدفوعات مسجلة هذا الشهر' : 'No payments recorded this month'}
                   </p>
                 </div>
               )}
@@ -170,7 +170,7 @@ export default function MonthCalendarDialog({ month, open, onOpenChange }: Props
                     />
                   </div>
                   <p className="text-xs text-muted-foreground text-center mt-2">
-                    {lang === 'ar' ? 'اضغط على يوم مُعلّم لعرض المدفوعات' : 'Click a highlighted day to view payments'}
+                    {lang === 'ar' ? 'اضغط على يوم مميز لعرض المدفوعات' : 'Click a highlighted day to view payments'}
                   </p>
                 </>
               )}

@@ -526,7 +526,7 @@ export default function DashboardPage() {
             <>
               <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
                 <StatCard
-                  label={lang === 'ar' ? 'أعضاء نشطين' : 'Active Members'}
+                  label={lang === 'ar' ? 'الأعضاء النشطين' : 'Active Members'}
                   value={overview?.activeSubscriptions ?? 0}
                   color="text-foreground"
                   previousValue={overview?.lastMonthActiveSubs}
@@ -538,7 +538,7 @@ export default function DashboardPage() {
               </div>
               <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
                 <StatCard
-                  label={lang === 'ar' ? 'عملاء PT على وشك النفاد' : 'PT Low Balance'}
+                  label={lang === 'ar' ? 'رصيد PT منخفض' : 'PT Low Balance'}
                   value={overview?.ptLowBalance ?? 0}
                   color={(overview?.ptLowBalance ?? 0) > 0 ? 'text-warning' : 'text-foreground'}
                   accent={(overview?.ptLowBalance ?? 0) > 0 ? 'border-s-warning' : undefined}
@@ -546,7 +546,7 @@ export default function DashboardPage() {
               </div>
               <div className={`min-w-[160px] snap-start flex-shrink-0 lg:min-w-0 ${(overview?.inGymNow ?? 0) > 0 ? 'animate-live-glow' : ''}`}>
                 <StatCard
-                  label={lang === 'ar' ? 'داخل الصالة الآن' : 'Inside Gym Now'}
+                  label={lang === 'ar' ? 'داخل النادي الآن' : 'Inside Gym Now'}
                   value={overview?.inGymNow ?? 0}
                   color={(overview?.inGymNow ?? 0) > 0 ? 'text-success' : 'text-foreground'}
                   accent={(overview?.inGymNow ?? 0) > 0 ? 'border-s-success' : undefined}
@@ -557,7 +557,7 @@ export default function DashboardPage() {
               </div>
               <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
                 <StatCard
-                  label={lang === 'ar' ? 'إيراد لكل عضو نشط' : 'Rev. Per Active Member'}
+                  label={lang === 'ar' ? 'الإيراد لكل عضو نشط' : 'Rev. Per Active Member'}
                   value={formatCurrency(overview?.arpm ?? 0)}
                   color="text-warning"
                   accent="border-s-warning"
@@ -577,7 +577,7 @@ export default function DashboardPage() {
             <>
               <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
                 <StatCard
-                  label={lang === 'ar' ? 'إيراد مهدد هذا الأسبوع' : 'Revenue at Risk This Week'}
+                  label={lang === 'ar' ? 'الإيرادات المعرضة للخطر هذا الأسبوع' : 'Revenue at Risk This Week'}
                   value={formatCurrencyCompact(overview?.revenueAtRisk ?? 0)}
                   color={(overview?.revenueAtRisk ?? 0) > 0 ? 'text-destructive' : 'text-foreground'}
                   accent={(overview?.revenueAtRisk ?? 0) > 0 ? 'border-s-destructive' : undefined}
@@ -585,7 +585,7 @@ export default function DashboardPage() {
               </div>
               <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
                 <StatCard
-                  label={lang === 'ar' ? 'اشتراكات تنتهي هذا الأسبوع' : 'Expiring This Week'}
+                  label={lang === 'ar' ? 'تنتهي هذا الأسبوع' : 'Expiring This Week'}
                   value={overview?.expiringThisWeek ?? 0}
                   color={(overview?.expiringThisWeek ?? 0) > 0 ? 'text-warning' : 'text-foreground'}
                   accent={(overview?.expiringThisWeek ?? 0) > 0 ? 'border-s-warning' : undefined}
@@ -593,7 +593,7 @@ export default function DashboardPage() {
               </div>
               <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
                 <StatCard
-                  label={lang === 'ar' ? 'أعضاء انضموا هذا الشهر' : 'Joined This Month'}
+                  label={lang === 'ar' ? 'انضموا هذا الشهر' : 'Joined This Month'}
                   value={overview?.newThisMonth ?? 0}
                   color={(overview?.newThisMonth ?? 0) > 0 ? 'text-success' : 'text-foreground'}
                   accent={(overview?.newThisMonth ?? 0) > 0 ? 'border-s-success' : undefined}
@@ -603,10 +603,10 @@ export default function DashboardPage() {
               </div>
               <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
                 <StatCard
-                  label={lang === 'ar' ? 'متوسط الزيارات / أسبوع' : 'Avg. Visits/Week'}
+                  label={lang === 'ar' ? 'متوسط الزيارات/أسبوع' : 'Avg. Visits/Week'}
                   value={Number((overview?.avgVisitsPerWeek ?? 0).toFixed(1))}
                   color="text-foreground"
-                  subtitle={lang === 'ar' ? 'لكل عضو فعّال' : 'per active member'}
+                  subtitle={lang === 'ar' ? 'لكل عضو نشط' : 'per active member'}
                 />
               </div>
             </>
@@ -631,7 +631,7 @@ export default function DashboardPage() {
                 <HourlyChart bars={hourlyBars} lang={lang} todayStats={overview?.todayStats} />
               ) : (
                 <p className="text-sm text-muted-foreground py-8 text-center">
-                  {lang === 'ar' ? 'لا توجد تسجيلات دخول اليوم بعد' : 'No check-ins yet today'}
+                  {lang === 'ar' ? 'لا يوجد تسجيل دخول اليوم' : 'No check-ins yet today'}
                 </p>
               )}
             </CardContent>

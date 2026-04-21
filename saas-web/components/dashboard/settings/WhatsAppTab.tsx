@@ -110,7 +110,7 @@ export default function WhatsAppTab() {
             {statusText}
           </span>
           {connected && status?.phone && (
-            <span className="text-foreground font-medium">{status.phone}</span>
+            <span className="text-foreground font-medium" dir="ltr">{status.phone}</span>
           )}
         </div>
 

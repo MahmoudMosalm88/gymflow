@@ -925,7 +925,7 @@ export default function MemberDetailPage() {
                               <Badge variant="outline" className="text-[10px] border-warning/30 text-warning bg-warning/10 ms-1">{c.pending_sync}</Badge>
                             )}
                           </div>
-                          <span className="text-sm font-stat text-success shrink-0 ms-2 tabular-nums">{formatCurrency(parseFloat(pay.amount))}</span>
+                          <span dir="ltr" className="text-sm font-stat text-success shrink-0 ms-2 tabular-nums">{formatCurrency(parseFloat(pay.amount))}</span>
                         </div>
                       );
                     })}

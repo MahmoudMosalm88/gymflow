@@ -33,7 +33,7 @@ export default function SubscriptionCard({ sub, status, daysLeft, index, onTap, 
   // Status styling
   const statusConfig: Record<string, { classes: string; label: string }> = {
     active: { classes: 'bg-success/20 text-success border-success/30', label: labels.active },
-    pending: { classes: 'bg-info/20 text-info border-info/30', label: lang === 'ar' ? 'قادم' : 'Pending' },
+    pending: { classes: 'bg-info/20 text-info border-info/30', label: lang === 'ar' ? 'قيد الانتظار' : 'Pending' },
     expired: { classes: 'bg-destructive/20 text-destructive border-destructive/30', label: labels.expired },
     inactive: { classes: 'bg-muted text-muted-foreground border-border', label: lang === 'ar' ? 'غير نشط' : 'Inactive' },
   };
@@ -82,7 +82,7 @@ export default function SubscriptionCard({ sub, status, daysLeft, index, onTap, 
         )}
         {sub.freeze_status === 'frozen' && (
           <Badge variant="outline" className="text-[9px] border-info/30 text-info bg-info/10 px-1 py-0">
-            {lang === 'ar' ? 'مجمد' : 'Frozen'}
+            {lang === 'ar' ? 'مجمّد' : 'Frozen'}
           </Badge>
         )}
       </div>

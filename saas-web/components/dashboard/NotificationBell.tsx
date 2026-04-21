@@ -76,7 +76,7 @@ export default function NotificationBell() {
             <path d="M9 17a3 3 0 0 0 6 0" />
           </svg>
           {unread > 0 && (
-            <span className="absolute -right-1 -top-1 min-w-[18px] bg-destructive px-1 py-0.5 text-[10px] font-bold leading-none text-white text-center">
+            <span className="absolute -end-1 -top-1 min-w-[18px] bg-destructive px-1 py-0.5 text-[10px] font-bold leading-none text-white text-center">
               {unreadLabel}
             </span>
           )}

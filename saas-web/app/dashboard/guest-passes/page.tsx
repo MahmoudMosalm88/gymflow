@@ -75,7 +75,7 @@ type SettingsPayload = {
 function getPassStatus(row: GuestPass, lang: 'ar' | 'en') {
   if (row.voided_at) {
     return {
-      label: lang === 'ar' ? 'ملغاة' : 'Voided',
+      label: lang === 'ar' ? 'ملغى' : 'Voided',
       className: 'bg-muted text-muted-foreground border border-border',
     };
   }
@@ -87,18 +87,18 @@ function getPassStatus(row: GuestPass, lang: 'ar' | 'en') {
   }
   if (row.used_at) {
     return {
-      label: lang === 'ar' ? 'تم الاستخدام' : 'Used',
+      label: lang === 'ar' ? 'مستخدم' : 'Used',
       className: 'bg-success/10 text-success border border-success/30',
     };
   }
   if (new Date(row.expires_at).getTime() <= Date.now()) {
     return {
-      label: lang === 'ar' ? 'منتهية' : 'Expired',
+      label: lang === 'ar' ? 'منتهي' : 'Expired',
       className: 'bg-warning/10 text-warning border border-warning/30',
     };
   }
   return {
-    label: lang === 'ar' ? 'مفتوحة' : 'Open',
+    label: lang === 'ar' ? 'مفتوح' : 'Open',
     className: 'bg-success/10 text-success border border-success/30',
   };
 }
@@ -145,7 +145,7 @@ export default function GuestPassesPage() {
         setAllowanceInput(String(typeof configured === 'number' ? configured : 1));
       }
     } catch {
-      toast.error(lang === 'ar' ? 'فشل تحميل التصاريح.' : 'Failed to load guest passes.');
+      toast.error(lang === 'ar' ? 'فشل تحميل بطاقات الضيوف.' : 'Failed to load guest passes.');
     }
   }, [lang]);
 
@@ -419,7 +419,7 @@ export default function GuestPassesPage() {
           </CardHeader>
           <CardContent ref={createPassScopeRef} className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <div className="space-y-1 xl:col-span-2">
-              <Label>{lang === 'ar' ? 'الضيف' : 'Guest name'}</Label>
+              <Label>{lang === 'ar' ? 'اسم الضيف' : 'Guest name'}</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="space-y-1">
@@ -499,7 +499,7 @@ export default function GuestPassesPage() {
                           : `${selectedInviterSummary.remaining} of ${selectedInviterSummary.allowance} left`}
                       </Badge>
                       <Button type="button" variant="ghost" size="sm" onClick={clearInviter}>
-                        {lang === 'ar' ? 'إزالة' : 'Clear'}
+                        {lang === 'ar' ? 'مسح' : 'Clear'}
                       </Button>
                     </div>
                   </div>
@@ -559,7 +559,7 @@ export default function GuestPassesPage() {
                 {/* Row 3: Phone + amount */}
                 <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground/60">
                   <span dir="ltr">{row.phone || '-'}</span>
-                  <span className="font-medium text-foreground">{row.amount ? formatCurrency(Number(row.amount)) : '-'}</span>
+                  <span className="font-medium text-foreground" dir="ltr">{row.amount ? formatCurrency(Number(row.amount)) : '-'}</span>
                 </div>
                 {/* Actions row */}
                 <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border">
@@ -622,7 +622,7 @@ export default function GuestPassesPage() {
                       <TableCell>{row.member_name}</TableCell>
                       <TableCell>{row.inviter_name || '—'}</TableCell>
                       <TableCell dir="ltr">{row.phone || '-'}</TableCell>
-                      <TableCell className="tabular-nums">{row.amount ? formatCurrency(Number(row.amount)) : '-'}</TableCell>
+                      <TableCell className="tabular-nums" dir="ltr">{row.amount ? formatCurrency(Number(row.amount)) : '-'}</TableCell>
                       <TableCell>
                         <Badge className={status.className}>{status.label}</Badge>
                       </TableCell>

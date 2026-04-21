@@ -60,7 +60,7 @@ export default function DataTable<T extends Record<string, unknown>>({
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider text-[#8a8578] ${isRtl ? 'text-right' : 'text-left'} ${col.className || ''}`}
+                  className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider text-[#8a8578] text-start ${col.className || ''}`}
                 >
                   {col.label}
                 </th>
@@ -98,7 +98,7 @@ export default function DataTable<T extends Record<string, unknown>>({
                       key={col.key}
                       className={`px-4 py-3 text-[#e8e4df] tabular-nums ${col.className || ''}`}
                     >
-                      {col.render ? col.render(row) : String(row[col.key] ?? '')}
+                      {col.render ? col.render(row) : col.key.toLowerCase().includes('phone') ? <span dir="ltr">{String(row[col.key] ?? '')}</span> : String(row[col.key] ?? '')}
                     </td>
                   ))}
                 </tr>

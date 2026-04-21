@@ -589,7 +589,7 @@ export default function SubscriptionsPage() {
                       <TableCell className="hidden sm:table-cell">{formatDate(sub.start_date, locale)}</TableCell>
                       <TableCell className="hidden sm:table-cell">{formatDate(sub.end_date, locale)}</TableCell>
                       <TableCell className="hidden md:table-cell">{sub.plan_months}</TableCell>
-                      <TableCell className="hidden lg:table-cell tabular-nums">{formatCurrency(sub.price_paid || 0)}</TableCell>
+                      <TableCell dir="ltr" className="hidden lg:table-cell tabular-nums">{formatCurrency(sub.price_paid || 0)}</TableCell>
                       <TableCell className="hidden md:table-cell tabular-nums">
                         {(() => {
                           if (status === 'expired' || status === 'inactive') return <span className="text-muted-foreground">—</span>;

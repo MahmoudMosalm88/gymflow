@@ -111,7 +111,7 @@ export default function IncomePage() {
         <div className="mt-5 flex gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar lg:grid lg:grid-cols-4 lg:overflow-visible">
           <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
             <StatCard
-              label={lang === 'ar' ? 'إيراد هذا الشهر' : 'This Month'}
+              label={lang === 'ar' ? 'هذا الشهر' : 'This Month'}
               value={formatCurrencyCompact(summary.thisMonthRevenue)}
               rawValue={summary.thisMonthRevenue}
               color="text-success"
@@ -130,7 +130,7 @@ export default function IncomePage() {
           </div>
           <div className="min-w-[160px] snap-start flex-shrink-0 lg:min-w-0">
             <StatCard
-              label={lang === 'ar' ? 'إيراد التدريب الشخصي' : 'PT Revenue'}
+              label={lang === 'ar' ? 'إيرادات PT' : 'PT Revenue'}
               value={formatCurrencyCompact(summary.ptRevenueThisMonth)}
               color={summary.ptRevenueThisMonth > 0 ? 'text-warning' : 'text-foreground'}
             />
@@ -153,9 +153,9 @@ export default function IncomePage() {
         <div className="mt-6">
           <Card className="shadow-[6px_6px_0_#000000]">
             <CardHeader className="pb-2">
-              <CardTitle>{lang === 'ar' ? 'اتجاه الإيراد' : 'Revenue Trend'}</CardTitle>
+              <CardTitle>{lang === 'ar' ? 'اتجاه الإيرادات' : 'Revenue Trend'}</CardTitle>
               <CardDescription>
-                {lang === 'ar' ? 'آخر ٦ أشهر — اشتراكات، تدريب، زيارات' : 'Last 6 months — subscriptions, PT, guest'}
+                {lang === 'ar' ? 'آخر ٦ أشهر — اشتراكات، PT، ضيوف' : 'Last 6 months — subscriptions, PT, guest'}
               </CardDescription>
             </CardHeader>
             <CardContent className="px-2 pb-4">
@@ -243,7 +243,7 @@ export default function IncomePage() {
                             {delta !== null && delta !== 0 && (
                               <div className={`text-[10px] font-semibold mt-0.5 ${delta > 0 ? 'text-success' : 'text-destructive'}`}>
                                 {delta > 0 ? '↑' : '↓'} {Math.abs(delta)}%{' '}
-                                <span className="text-muted-foreground/50 font-normal">{lang === 'ar' ? 'عن الشهر السابق' : 'vs prior month'}</span>
+                                <span className="text-muted-foreground/50 font-normal">{lang === 'ar' ? 'مقارنة بالشهر السابق' : 'vs prior month'}</span>
                               </div>
                             )}
                           </td>
@@ -290,7 +290,7 @@ export default function IncomePage() {
                         <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">{formatDate(p.date, locale)}</p>
                       </div>
-                      <span className="text-sm font-bold text-foreground tabular-nums shrink-0">{fmt(p.amount)}</span>
+                      <span className="text-sm font-bold text-foreground tabular-nums shrink-0" dir="ltr">{fmt(p.amount)}</span>
                     </div>
                     <div className="flex items-center gap-2 mt-1.5">
                       {(p.type === 'guest_pass' || p.type === 'pt_package') && (
@@ -335,7 +335,7 @@ export default function IncomePage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5 text-end font-semibold text-foreground tabular-nums">{fmt(p.amount)}</td>
+                        <td className="px-4 py-2.5 text-end font-semibold text-foreground tabular-nums" dir="ltr">{fmt(p.amount)}</td>
                         <td className="px-4 py-2.5 text-muted-foreground">
                           {p.type === 'guest_pass'
                             ? labels.guest_passes
