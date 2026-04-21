@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Inter, Space_Grotesk, El_Messiri, IBM_Plex_Sans_Arabic, Bebas_Neue } from "next/font/google";
 
+import PublicAnalyticsConsent from "@/components/analytics/public-analytics-consent";
 import { ThemeProvider } from "@/components/theme-provider";
 
 // Stat numbers — ultra-condensed brutalist display
@@ -64,7 +65,7 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "GymFlow",
     title: "GymFlow | Gym Management Software for MENA",
-    description: "Run your gym without the admin headache. QR check-ins, WhatsApp reminders, subscription management, real-time reports. Free trial, no credit card.",
+    description: "Run your gym without the admin headache. QR check-ins, WhatsApp reminders, subscription management, and real-time reports for gyms across MENA.",
     url: "https://gymflowsystem.com",
     locale: "en_US",
     alternateLocale: "ar_EG",
@@ -80,7 +81,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "GymFlow | Gym Management Software for MENA",
-    description: "Run your gym without the admin headache. QR check-ins, WhatsApp reminders, subscription management, real-time reports.",
+    description: "Run your gym without the admin headache. QR check-ins, WhatsApp reminders, subscription management, and real-time reports.",
     images: ["/og-image.png"],
   },
   alternates: {
@@ -148,17 +149,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             }}
           />
         )}
-        <script dangerouslySetInnerHTML={{
-          __html: `!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-posthog.init('phc_tLNXukzsjgXHBKFyXHakEwqmJr2hThueDNUGUAzem7Sw',{api_host:'https://us.i.posthog.com', person_profiles: 'identified_only'});
-posthog.register({app: 'gymflow'});`
-        }} />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
+          <PublicAnalyticsConsent />
           {children}
         </ThemeProvider>
       </body>

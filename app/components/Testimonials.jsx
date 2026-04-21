@@ -36,7 +36,7 @@ export default function Testimonials() {
               ))}
             </div>
             <p className="font-sans text-muted-foreground mb-4">
-              &ldquo;The privacy and security features convinced us. No vendor lock-in, no subscription fees. We own our data completely.&rdquo;
+              &ldquo;We needed clearer control over staff access, member records, and renewals. GymFlow gave us that without making the front desk slower.&rdquo;
             </p>
             <div>
               <p className="font-sans font-bold text-foreground">Marcus Johnson</p>

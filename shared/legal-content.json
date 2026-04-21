@@ -1,0 +1,665 @@
+{
+  "routeOrder": [
+    "legal",
+    "privacy-policy",
+    "terms-of-service",
+    "billing-and-refunds",
+    "cookie-notice",
+    "security-and-data-handling",
+    "contact-and-data-requests",
+    "contact"
+  ],
+  "defaults": {
+    "brand": "GymFlow",
+    "supportEmail": "hello@gymflowsystem.com",
+    "lastUpdated": "2026-04-21"
+  },
+  "ui": {
+    "en": {
+      "backHome": "Back to home",
+      "backLegal": "Legal center",
+      "contactLink": "Contact GymFlow",
+      "lastUpdated": "Last updated",
+      "entityNotice": "These public pages describe the GymFlow service at a brand level. The exact contracting entity, pricing, taxes, payment timing, and any market-specific terms will appear in your quote, order form, invoice, or other written agreement and may be updated as the business structure evolves.",
+      "switchToArabic": "العربية",
+      "switchToEnglish": "English",
+      "relatedPages": "Related pages",
+      "emailUs": "Email GymFlow",
+      "contactSales": "Get pricing",
+      "signIn": "Sign in",
+      "cookieBannerTitle": "Cookies and analytics",
+      "cookieBannerBody": "GymFlow uses essential site storage and, with your permission, analytics cookies on public pages to understand visits and improve the website.",
+      "cookieAccept": "Accept analytics",
+      "cookieDecline": "Decline",
+      "cookieLearnMore": "Read cookie notice",
+      "hubIntroEyebrow": "Legal and trust"
+    },
+    "ar": {
+      "backHome": "العودة للرئيسية",
+      "backLegal": "المركز القانوني",
+      "contactLink": "التواصل مع GymFlow",
+      "lastUpdated": "آخر تحديث",
+      "entityNotice": "هذه الصفحات العامة تصف خدمة GymFlow على مستوى العلامة التجارية. أمّا الجهة المتعاقدة الفعلية والسعر والضرائب ومواعيد الدفع وأي شروط خاصة بالسوق فستظهر في عرض السعر أو نموذج الطلب أو الفاتورة أو أي اتفاق مكتوب آخر، وقد يتم تحديثها مع تطور الهيكل التجاري.",
+      "switchToArabic": "العربية",
+      "switchToEnglish": "English",
+      "relatedPages": "صفحات مرتبطة",
+      "emailUs": "راسل GymFlow",
+      "contactSales": "اطلب السعر",
+      "signIn": "تسجيل الدخول",
+      "cookieBannerTitle": "الكوكيز والتحليلات",
+      "cookieBannerBody": "يستخدم GymFlow ملفات تخزين أساسية للموقع، ومع موافقتك فقط نستخدم ملفات تحليلات على الصفحات العامة لفهم الزيارات وتحسين الموقع.",
+      "cookieAccept": "قبول التحليلات",
+      "cookieDecline": "رفض",
+      "cookieLearnMore": "اقرأ إشعار الكوكيز",
+      "hubIntroEyebrow": "القانون والثقة"
+    }
+  },
+  "pages": {
+    "legal": {
+      "title": {
+        "en": "Legal center",
+        "ar": "المركز القانوني"
+      },
+      "metaDescription": {
+        "en": "Public legal, billing, privacy, cookie, and data-handling pages for GymFlow.",
+        "ar": "الصفحات العامة الخاصة بخصوصية وشروط وفوترة وأمن البيانات في GymFlow."
+      },
+      "summary": {
+        "en": "This is the public trust and legal hub for GymFlow. It brings together the policies most B2B gym operators ask for before rollout, procurement, or onboarding.",
+        "ar": "هذا هو المركز العام للثقة والمعلومات القانونية الخاصة بـ GymFlow. يجمع السياسات التي يطلبها غالباً أصحاب الجيمات والشركات قبل البدء أو التعاقد أو الإعداد."
+      },
+      "cardSummary": {
+        "en": "One place for privacy, terms, billing, cookies, security, and data request information.",
+        "ar": "مكان واحد للخصوصية والشروط والفوترة والكوكيز والأمن وطلبات البيانات."
+      },
+      "sections": [
+        {
+          "heading": {
+            "en": "What you will find here",
+            "ar": "ماذا ستجد هنا"
+          },
+          "paragraphs": [
+            {
+              "en": "GymFlow is sold to businesses, not consumers, so the public legal pack is written to support procurement, trust review, and operational onboarding.",
+              "ar": "يُباع GymFlow للشركات وليس للمستهلكين، لذلك تمت كتابة الحزمة القانونية العامة لدعم المشتريات وبناء الثقة ومراجعة التشغيل قبل البدء."
+            },
+            {
+              "en": "The public website does not publish final commercial terms. Exact scope, pricing, taxes, and payment details are confirmed in the commercial documents shared with each customer.",
+              "ar": "الموقع العام لا ينشر الشروط التجارية النهائية. يتم تأكيد النطاق والسعر والضرائب وتفاصيل الدفع بدقة في المستندات التجارية التي تُرسل لكل عميل."
+            }
+          ]
+        }
+      ]
+    },
+    "privacy-policy": {
+      "title": {
+        "en": "Privacy Policy",
+        "ar": "سياسة الخصوصية"
+      },
+      "metaDescription": {
+        "en": "How GymFlow handles business, member, and staff data on the platform.",
+        "ar": "كيف يتعامل GymFlow مع بيانات الأعمال والأعضاء والموظفين داخل المنصة."
+      },
+      "summary": {
+        "en": "This Privacy Policy explains the categories of data GymFlow handles, the purposes for processing, the service providers involved, and how customers can request help with data access, correction, export, or deletion.",
+        "ar": "توضح سياسة الخصوصية هذه فئات البيانات التي يتعامل معها GymFlow، وأغراض المعالجة، ومقدمي الخدمات المشاركين، وكيف يمكن للعملاء طلب المساعدة في الوصول للبيانات أو تصحيحها أو تصديرها أو حذفها."
+      },
+      "cardSummary": {
+        "en": "How GymFlow collects, uses, secures, and supports requests about business and member data.",
+        "ar": "كيف يجمع GymFlow بيانات الأعمال والأعضاء ويستخدمها ويحميها ويدعم الطلبات المتعلقة بها."
+      },
+      "sections": [
+        {
+          "heading": {
+            "en": "Scope and roles",
+            "ar": "النطاق والأدوار"
+          },
+          "paragraphs": [
+            {
+              "en": "GymFlow provides software and related support services to gyms, studios, and fitness businesses. In most cases, the customer controls the business and member data entered into the service, and GymFlow processes that data to operate the platform.",
+              "ar": "يوفر GymFlow البرمجيات وخدمات الدعم المرتبطة بها للجيمات والاستوديوهات وأعمال اللياقة. وفي أغلب الحالات يتحكم العميل في بيانات العمل والأعضاء التي تُدخل إلى الخدمة، بينما يعالج GymFlow تلك البيانات لتشغيل المنصة."
+            },
+            {
+              "en": "Customers remain responsible for using the service lawfully, including sending member communications only where they have the right basis, notice, or consent required for their market.",
+              "ar": "يبقى العميل مسؤولاً عن استخدام الخدمة بشكل قانوني، بما في ذلك إرسال الرسائل للأعضاء فقط عندما يملك الأساس أو الإشعار أو الموافقة المطلوبة في سوقه."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Data categories",
+            "ar": "فئات البيانات"
+          },
+          "bullets": [
+            {
+              "en": "Business account information such as gym name, branch details, owner or staff contact details, and billing or onboarding records.",
+              "ar": "بيانات حساب العمل مثل اسم الجيم وتفاصيل الفروع وبيانات التواصل الخاصة بالمالك أو الموظفين وسجلات الفوترة أو الإعداد."
+            },
+            {
+              "en": "Member records such as names, phone numbers, attendance history, subscription status, payment status, and operational notes entered by the customer.",
+              "ar": "سجلات الأعضاء مثل الأسماء وأرقام الهواتف وسجل الحضور وحالة الاشتراك وحالة الدفع والملاحظات التشغيلية التي يُدخلها العميل."
+            },
+            {
+              "en": "Technical and security information such as device, browser, IP-derived logs, audit trails, and troubleshooting records needed to secure and support the service.",
+              "ar": "البيانات التقنية والأمنية مثل الجهاز والمتصفح والسجلات المستنتجة من عنوان الشبكة وسجلات التدقيق وبيانات الاستكشاف اللازمة لحماية الخدمة ودعمها."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "How GymFlow uses data",
+            "ar": "كيف يستخدم GymFlow البيانات"
+          },
+          "bullets": [
+            {
+              "en": "To authenticate users, operate dashboards, process attendance, manage subscriptions, and deliver customer-requested workflows such as reports or WhatsApp automations.",
+              "ar": "لمصادقة المستخدمين وتشغيل اللوحات ومعالجة الحضور وإدارة الاشتراكات وتنفيذ المهام التي يطلبها العميل مثل التقارير أو أتمتة واتساب."
+            },
+            {
+              "en": "To secure the service, investigate incidents, prevent abuse, and maintain backups, logs, and operational resilience.",
+              "ar": "لحماية الخدمة والتحقيق في الحوادث ومنع سوء الاستخدام والحفاظ على النسخ الاحتياطية والسجلات والمرونة التشغيلية."
+            },
+            {
+              "en": "To support onboarding, migration, customer support, and service improvement using aggregated or operational information.",
+              "ar": "لدعم الإعداد والترحيل ودعم العملاء وتحسين الخدمة باستخدام المعلومات التشغيلية أو المجمعة."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Service providers and data sharing",
+            "ar": "مقدمو الخدمة ومشاركة البيانات"
+          },
+          "paragraphs": [
+            {
+              "en": "GymFlow may use third-party infrastructure and software providers for hosting, authentication, storage, backups, analytics on public pages, communication tooling, and support operations. Information is shared with those providers only to the extent reasonably needed to run or support the service.",
+              "ar": "قد يستخدم GymFlow مزودي خدمات خارجيين للبنية التحتية والمصادقة والتخزين والنسخ الاحتياطي والتحليلات على الصفحات العامة وأدوات التواصل وعمليات الدعم. تتم مشاركة المعلومات مع هؤلاء المزودين فقط بالقدر المعقول اللازم لتشغيل الخدمة أو دعمها."
+            },
+            {
+              "en": "GymFlow does not sell customer member lists to unrelated third parties for their own marketing use.",
+              "ar": "لا يبيع GymFlow قوائم أعضاء العملاء إلى أطراف خارجية غير مرتبطة لاستخدامها التسويقي الخاص."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Retention, security, and requests",
+            "ar": "الاحتفاظ والأمن والطلبات"
+          },
+          "paragraphs": [
+            {
+              "en": "GymFlow keeps data for as long as reasonably needed to provide the service, meet support and security obligations, and comply with applicable legal or recordkeeping requirements. Retention may also depend on customer instructions and subscription status.",
+              "ar": "يحتفظ GymFlow بالبيانات طالما كان ذلك معقولاً لتقديم الخدمة والوفاء بالتزامات الدعم والأمن والامتثال للمتطلبات القانونية أو المحاسبية المطبقة. وقد تعتمد مدة الاحتفاظ أيضاً على تعليمات العميل وحالة الاشتراك."
+            },
+            {
+              "en": "If you need help with access, export, correction, or deletion, contact GymFlow from an authorized business address so ownership and authority can be verified before any action is taken.",
+              "ar": "إذا كنت تحتاج إلى مساعدة في الوصول أو التصدير أو التصحيح أو الحذف، فتواصل مع GymFlow من عنوان عمل مخول حتى يمكن التحقق من الملكية والصلاحية قبل اتخاذ أي إجراء."
+            }
+          ]
+        }
+      ]
+    },
+    "terms-of-service": {
+      "title": {
+        "en": "Terms of Service",
+        "ar": "شروط الخدمة"
+      },
+      "metaDescription": {
+        "en": "The public business terms for using GymFlow.",
+        "ar": "الشروط العامة للأعمال عند استخدام GymFlow."
+      },
+      "summary": {
+        "en": "These Terms describe the basic rules for using GymFlow, the customer's responsibilities, and how public website terms interact with quotes, order forms, invoices, and other written commercial agreements.",
+        "ar": "تصف هذه الشروط القواعد الأساسية لاستخدام GymFlow ومسؤوليات العميل وكيف تتفاعل شروط الموقع العامة مع عروض الأسعار ونماذج الطلبات والفواتير والاتفاقات التجارية المكتوبة الأخرى."
+      },
+      "cardSummary": {
+        "en": "The baseline business terms for using GymFlow as a B2B software service.",
+        "ar": "الشروط الأساسية لاستخدام GymFlow كخدمة برمجية موجهة للأعمال."
+      },
+      "sections": [
+        {
+          "heading": {
+            "en": "Using the service",
+            "ar": "استخدام الخدمة"
+          },
+          "paragraphs": [
+            {
+              "en": "GymFlow is intended for legitimate gym, studio, and fitness business operations. Customers must provide accurate onboarding information, keep account access secure, and ensure that only authorized users access the service.",
+              "ar": "تم تصميم GymFlow لعمليات الجيمات والاستوديوهات وأعمال اللياقة المشروعة. ويجب على العملاء تقديم معلومات إعداد دقيقة والحفاظ على أمان الوصول إلى الحساب وضمان أن يستخدم الخدمة فقط الأشخاص المخولون."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Customer responsibilities",
+            "ar": "مسؤوليات العميل"
+          },
+          "bullets": [
+            {
+              "en": "You are responsible for the information your organization enters into GymFlow and for the decisions you make using that information.",
+              "ar": "أنت مسؤول عن المعلومات التي تدخلها مؤسستك في GymFlow وعن القرارات التي تتخذها بناءً على تلك المعلومات."
+            },
+            {
+              "en": "You are responsible for your member communications, including marketing, reminders, and operational messaging sent through WhatsApp or other channels connected to your account.",
+              "ar": "أنت مسؤول عن تواصلك مع الأعضاء، بما في ذلك التسويق والتذكيرات والرسائل التشغيلية المرسلة عبر واتساب أو أي قنوات أخرى مرتبطة بحسابك."
+            },
+            {
+              "en": "You must not use GymFlow to violate law, infringe rights, bypass consent or messaging rules, or attempt unauthorized access to the service or other customer data.",
+              "ar": "يجب ألا تستخدم GymFlow في مخالفة القانون أو انتهاك الحقوق أو تجاوز قواعد الموافقة أو الرسائل أو محاولة الوصول غير المصرح به للخدمة أو إلى بيانات عملاء آخرين."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Commercial documents control pricing and payment",
+            "ar": "المستندات التجارية هي التي تحكم السعر والدفع"
+          },
+          "paragraphs": [
+            {
+              "en": "The public website is informational. Exact fees, taxes, invoicing cadence, payment methods, support scope, and any country-specific commercial terms are controlled by the quote, order form, invoice, or other written agreement you accept with GymFlow.",
+              "ar": "الموقع العام ذو طبيعة تعريفية. أمّا الرسوم الدقيقة والضرائب وجدول الفواتير ووسائل الدفع ونطاق الدعم وأي شروط تجارية خاصة بكل دولة فتخضع لعرض السعر أو نموذج الطلب أو الفاتورة أو أي اتفاق مكتوب آخر تقبله مع GymFlow."
+            },
+            {
+              "en": "If there is a conflict between these public Terms and a signed or accepted commercial document, the commercial document controls for that customer relationship.",
+              "ar": "إذا وجد تعارض بين هذه الشروط العامة ومستند تجاري موقع أو مقبول، فإن المستند التجاري هو الذي يسري على علاقة ذلك العميل."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Service changes, suspension, and termination",
+            "ar": "تغييرات الخدمة والإيقاف والإنهاء"
+          },
+          "paragraphs": [
+            {
+              "en": "GymFlow may update the service, add or retire features, apply maintenance, or change supporting tools where reasonably needed for security, reliability, legal compliance, or product improvement.",
+              "ar": "يجوز لـ GymFlow تحديث الخدمة أو إضافة أو إيقاف مزايا أو إجراء صيانة أو تغيير الأدوات الداعمة عندما يكون ذلك مطلوباً بشكل معقول للأمن أو الاعتمادية أو الامتثال أو تحسين المنتج."
+            },
+            {
+              "en": "GymFlow may suspend access where reasonably necessary for security, abuse prevention, overdue payment handling after notice, or other material violations of the customer agreement.",
+              "ar": "يجوز لـ GymFlow تعليق الوصول عندما يكون ذلك ضرورياً بشكل معقول للأمن أو منع إساءة الاستخدام أو معالجة التأخر في السداد بعد الإخطار أو غير ذلك من المخالفات الجوهرية لاتفاق العميل."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Intellectual property and liability",
+            "ar": "الملكية الفكرية والمسؤولية"
+          },
+          "paragraphs": [
+            {
+              "en": "GymFlow retains rights in the software, service design, documentation, and related materials. Customers retain rights in their own business data and content, subject to the permissions needed for GymFlow to operate the service.",
+              "ar": "يحتفظ GymFlow بحقوقه في البرمجيات وتصميم الخدمة والوثائق والمواد ذات الصلة. ويحتفظ العملاء بحقوقهم في بيانات أعمالهم ومحتواهم، مع منح الأذونات اللازمة لـ GymFlow لتشغيل الخدمة."
+            },
+            {
+              "en": "Except to the extent required by applicable law or expressly stated in writing, the service is provided on a commercial best-effort basis without unlimited warranties, and liability is limited to the extent set out in the governing customer agreement.",
+              "ar": "إلا بالقدر الذي يتطلبه القانون المطبق أو ما يرد صراحةً كتابةً، تُقدَّم الخدمة على أساس تجاري ببذل جهد معقول دون ضمانات غير محدودة، وتبقى المسؤولية محدودة بالقدر المبين في اتفاق العميل الحاكم."
+            }
+          ]
+        }
+      ]
+    },
+    "billing-and-refunds": {
+      "title": {
+        "en": "Billing, Cancellation, and Refunds",
+        "ar": "الفوترة والإلغاء والاسترداد"
+      },
+      "metaDescription": {
+        "en": "How GymFlow handles quotes, invoices, payment methods, cancellations, and refunds.",
+        "ar": "كيف يتعامل GymFlow مع عروض الأسعار والفواتير ووسائل الدفع والإلغاء والاسترداد."
+      },
+      "summary": {
+        "en": "GymFlow uses a quote-first, business-to-business commercial model. This page explains how pricing is agreed, how invoices are handled, and how cancellation and refund decisions are managed.",
+        "ar": "يعتمد GymFlow نموذجاً تجارياً يبدأ بعرض سعر وموجهاً للأعمال. توضح هذه الصفحة كيف يتم الاتفاق على السعر وكيفية التعامل مع الفواتير وكيف تُدار قرارات الإلغاء والاسترداد."
+      },
+      "cardSummary": {
+        "en": "How commercial terms, invoices, payment methods, cancellations, and refunds work.",
+        "ar": "كيف تعمل الشروط التجارية والفواتير ووسائل الدفع والإلغاء والاسترداد."
+      },
+      "sections": [
+        {
+          "heading": {
+            "en": "Pricing and orders",
+            "ar": "الأسعار والطلبات"
+          },
+          "paragraphs": [
+            {
+              "en": "GymFlow does not publish final one-size-fits-all pricing on the public website. Commercial terms are scoped based on branch count, operating needs, rollout complexity, and the service package agreed with each customer.",
+              "ar": "لا ينشر GymFlow سعراً نهائياً موحداً للجميع على الموقع العام. يتم تحديد الشروط التجارية بناءً على عدد الفروع واحتياجات التشغيل وتعقيد الإطلاق وباقة الخدمة المتفق عليها مع كل عميل."
+            },
+            {
+              "en": "A customer becomes billable only after the parties agree the commercial terms in writing, such as through a quote, order form, invoice, or other written acceptance process.",
+              "ar": "يصبح العميل خاضعاً للفوترة فقط بعد اتفاق الطرفين كتابةً على الشروط التجارية، مثل عرض السعر أو نموذج الطلب أو الفاتورة أو أي آلية قبول مكتوبة أخرى."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Invoices and payment methods",
+            "ar": "الفواتير ووسائل الدفع"
+          },
+          "paragraphs": [
+            {
+              "en": "GymFlow may invoice customers manually or through approved billing workflows. Payment methods may vary by market and customer relationship.",
+              "ar": "قد يقوم GymFlow بإصدار الفواتير يدوياً أو من خلال مسارات فوترة معتمدة. وقد تختلف وسائل الدفع بحسب السوق وطبيعة العلاقة مع العميل."
+            }
+          ],
+          "bullets": [
+            {
+              "en": "For Egypt, payment may be collected through invoice, bank transfer, cash collection, InstaPay, Fawry, Vodafone Cash, or other locally approved methods agreed with the customer.",
+              "ar": "في مصر قد يتم تحصيل الدفع عبر الفاتورة أو التحويل البنكي أو التحصيل النقدي أو InstaPay أو Fawry أو Vodafone Cash أو أي وسائل محلية معتمدة أخرى يتم الاتفاق عليها مع العميل."
+            },
+            {
+              "en": "For other markets, GymFlow may use different payment rails, banking instructions, or digital collection methods depending on local operations and the customer agreement.",
+              "ar": "في الأسواق الأخرى قد يستخدم GymFlow وسائل دفع مختلفة أو تعليمات بنكية أو وسائل تحصيل رقمية بحسب العمليات المحلية واتفاق العميل."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Cancellation and non-payment",
+            "ar": "الإلغاء وعدم السداد"
+          },
+          "paragraphs": [
+            {
+              "en": "Cancellation rights, notice periods, and the end-of-service process depend on the commercial arrangement agreed with the customer. Public website copy does not override the agreed billing documents.",
+              "ar": "تعتمد حقوق الإلغاء وفترات الإشعار وآلية إنهاء الخدمة على الترتيب التجاري المتفق عليه مع العميل. ولا يتغلب نص الموقع العام على مستندات الفوترة المتفق عليها."
+            },
+            {
+              "en": "If invoices remain unpaid after notice, GymFlow may pause onboarding, support, access, or other service components in line with the customer agreement.",
+              "ar": "إذا بقيت الفواتير غير مسددة بعد الإخطار، فيجوز لـ GymFlow إيقاف الإعداد أو الدعم أو الوصول أو غير ذلك من مكونات الخدمة وفقاً لاتفاق العميل."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Refunds",
+            "ar": "الاسترداد"
+          },
+          "paragraphs": [
+            {
+              "en": "Refunds are not promised by default on the public website. Any refund commitment must be stated in writing or required under applicable law.",
+              "ar": "لا يعد الموقع العام برد المبالغ بشكل افتراضي. ويجب أن يرد أي التزام بالاسترداد كتابةً أو يكون مطلوباً بموجب القانون المطبق."
+            },
+            {
+              "en": "Where a refund is approved, GymFlow may offset operational costs, already-delivered services, or unpaid balances as permitted by the customer agreement and applicable law.",
+              "ar": "عند الموافقة على استرداد مبلغ، يجوز لـ GymFlow خصم التكاليف التشغيلية أو الخدمات التي تم تقديمها بالفعل أو الأرصدة غير المسددة بالقدر الذي يسمح به اتفاق العميل والقانون المطبق."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Taxes",
+            "ar": "الضرائب"
+          },
+          "paragraphs": [
+            {
+              "en": "Taxes, withholding, VAT treatment, and invoice formatting depend on the market, the contracting setup, and the customer agreement. If taxes apply, they may be stated separately in the commercial documents.",
+              "ar": "تعتمد الضرائب والاستقطاع ومعالجة ضريبة القيمة المضافة وشكل الفاتورة على السوق والترتيب التعاقدي واتفاق العميل. وإذا كانت الضرائب مطبقة فقد تُذكر بشكل منفصل في المستندات التجارية."
+            }
+          ]
+        }
+      ]
+    },
+    "cookie-notice": {
+      "title": {
+        "en": "Cookie Notice",
+        "ar": "إشعار الكوكيز"
+      },
+      "metaDescription": {
+        "en": "How GymFlow uses cookies, local storage, and analytics on public pages.",
+        "ar": "كيف يستخدم GymFlow الكوكيز والتخزين المحلي والتحليلات على الصفحات العامة."
+      },
+      "summary": {
+        "en": "GymFlow uses essential browser storage to keep the website working and, on public pages, may use analytics only after the visitor gives consent through the banner or other consent control.",
+        "ar": "يستخدم GymFlow تخزين المتصفح الأساسي لإبقاء الموقع يعمل، وقد يستخدم على الصفحات العامة تحليلات فقط بعد أن يمنح الزائر موافقته عبر الشريط أو أداة الموافقة."
+      },
+      "cardSummary": {
+        "en": "What browser storage GymFlow uses and how analytics consent works on public pages.",
+        "ar": "ما الذي يستخدمه GymFlow من تخزين المتصفح وكيف تعمل موافقة التحليلات على الصفحات العامة."
+      },
+      "sections": [
+        {
+          "heading": {
+            "en": "Essential storage",
+            "ar": "التخزين الأساسي"
+          },
+          "paragraphs": [
+            {
+              "en": "Some parts of the site and application use essential cookies or local storage for basic operation, such as theme preferences, session continuity, authentication support, or other functionality needed to serve the page safely.",
+              "ar": "تستخدم بعض أجزاء الموقع والتطبيق ملفات كوكيز أساسية أو تخزيناً محلياً للتشغيل الأساسي، مثل تفضيلات الواجهة أو استمرارية الجلسة أو دعم المصادقة أو غير ذلك من الوظائف اللازمة لخدمة الصفحة بشكل آمن."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Analytics on public pages",
+            "ar": "التحليلات على الصفحات العامة"
+          },
+          "paragraphs": [
+            {
+              "en": "GymFlow may use analytics on public-facing pages to understand visits, improve content, and measure site performance. Those analytics are loaded only after the visitor accepts analytics through the cookie banner or equivalent control.",
+              "ar": "قد يستخدم GymFlow تحليلات على الصفحات العامة لفهم الزيارات وتحسين المحتوى وقياس أداء الموقع. ولا يتم تحميل تلك التحليلات إلا بعد أن يقبل الزائر التحليلات عبر شريط الكوكيز أو أداة مماثلة."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Managing your choice",
+            "ar": "إدارة اختيارك"
+          },
+          "paragraphs": [
+            {
+              "en": "If you decline analytics, GymFlow will not load public-page analytics until you later opt in. You can also control cookies through your browser settings, though blocking essential storage may affect how the site works.",
+              "ar": "إذا رفضت التحليلات، فلن يقوم GymFlow بتحميل تحليلات الصفحات العامة إلى أن توافق لاحقاً. ويمكنك أيضاً التحكم في الكوكيز عبر إعدادات المتصفح، مع ملاحظة أن حظر التخزين الأساسي قد يؤثر في عمل الموقع."
+            }
+          ]
+        }
+      ]
+    },
+    "security-and-data-handling": {
+      "title": {
+        "en": "Security and Data Handling",
+        "ar": "أمن البيانات والتعامل معها"
+      },
+      "metaDescription": {
+        "en": "How GymFlow approaches security, access control, hosting, backups, and incident handling.",
+        "ar": "كيف يتعامل GymFlow مع الأمن والتحكم في الوصول والاستضافة والنسخ الاحتياطي والحوادث."
+      },
+      "summary": {
+        "en": "This page describes GymFlow's practical security posture in plain language, including access restriction, hosting, backups, logging, and incident response expectations.",
+        "ar": "تصف هذه الصفحة الوضع الأمني العملي لـ GymFlow بلغة واضحة، بما في ذلك تقييد الوصول والاستضافة والنسخ الاحتياطي والسجلات وتوقعات التعامل مع الحوادث."
+      },
+      "cardSummary": {
+        "en": "A plain-language summary of GymFlow's security posture and operational safeguards.",
+        "ar": "ملخص واضح للوضع الأمني في GymFlow والضوابط التشغيلية."
+      },
+      "sections": [
+        {
+          "heading": {
+            "en": "Access and authentication",
+            "ar": "الوصول والمصادقة"
+          },
+          "bullets": [
+            {
+              "en": "GymFlow restricts access to systems and operational data to authorized users and staff with a legitimate need.",
+              "ar": "يقصر GymFlow الوصول إلى الأنظمة والبيانات التشغيلية على المستخدمين والموظفين المصرح لهم ولديهم حاجة مشروعة."
+            },
+            {
+              "en": "Account authentication, role boundaries, and audit-oriented records are used to reduce unauthorized access risk.",
+              "ar": "تُستخدم آليات المصادقة وحدود الأدوار والسجلات الموجهة للتدقيق لتقليل مخاطر الوصول غير المصرح به."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Hosting, transport, and storage",
+            "ar": "الاستضافة والنقل والتخزين"
+          },
+          "paragraphs": [
+            {
+              "en": "GymFlow uses hosted infrastructure and supporting service providers to run the platform. Data is intended to move over encrypted connections where supported, and the service relies on cloud security controls and operational hardening appropriate to a growing B2B SaaS platform.",
+              "ar": "يستخدم GymFlow بنية مستضافة ومقدمي خدمات داعمين لتشغيل المنصة. ومن المفترض أن تنتقل البيانات عبر اتصالات مشفرة حيثما كان ذلك مدعوماً، وتعتمد الخدمة على ضوابط أمنية سحابية وتحصين تشغيلي مناسب لمنصة B2B SaaS في طور النمو."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Backups and resilience",
+            "ar": "النسخ الاحتياطي والمرونة"
+          },
+          "paragraphs": [
+            {
+              "en": "GymFlow uses backups, operational logging, and recovery workflows intended to reduce the risk of permanent data loss and improve service recovery after incidents.",
+              "ar": "يستخدم GymFlow نسخاً احتياطية وسجلات تشغيلية ومسارات استعادة تهدف إلى تقليل خطر فقدان البيانات بشكل دائم وتحسين استعادة الخدمة بعد الحوادث."
+            },
+            {
+              "en": "No system can guarantee uninterrupted availability or zero-risk storage, but GymFlow aims to operate with commercially reasonable safeguards for the stage and nature of the service.",
+              "ar": "لا يوجد نظام يمكنه ضمان التوافر المستمر أو تخزيناً بلا مخاطر، لكن GymFlow يسعى للعمل بضوابط معقولة تجارياً تتناسب مع مرحلة الخدمة وطبيعتها."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Incident handling",
+            "ar": "التعامل مع الحوادث"
+          },
+          "paragraphs": [
+            {
+              "en": "If GymFlow identifies a material security issue affecting customer data or service integrity, it may investigate, contain, remediate, and notify affected customers as appropriate for the severity of the issue and applicable obligations.",
+              "ar": "إذا رصد GymFlow مشكلة أمنية جوهرية تؤثر في بيانات العملاء أو سلامة الخدمة، فقد يقوم بالتحقيق والاحتواء والمعالجة وإخطار العملاء المتأثرين بحسب جسامة المشكلة والالتزامات المطبقة."
+            }
+          ]
+        }
+      ]
+    },
+    "contact-and-data-requests": {
+      "title": {
+        "en": "Contact and Data Requests",
+        "ar": "التواصل وطلبات البيانات"
+      },
+      "metaDescription": {
+        "en": "How to contact GymFlow about privacy, data export, correction, deletion, and business requests.",
+        "ar": "كيفية التواصل مع GymFlow بشأن الخصوصية وتصدير البيانات وتصحيحها وحذفها والطلبات التجارية."
+      },
+      "summary": {
+        "en": "This page explains how GymFlow handles business contact, privacy requests, and operational requests such as data export, correction, or deletion support.",
+        "ar": "توضح هذه الصفحة كيف يتعامل GymFlow مع التواصل التجاري وطلبات الخصوصية والطلبات التشغيلية مثل دعم التصدير أو التصحيح أو الحذف."
+      },
+      "cardSummary": {
+        "en": "Where to send sales, support, privacy, and data handling requests.",
+        "ar": "إلى أين ترسل طلبات المبيعات والدعم والخصوصية والتعامل مع البيانات."
+      },
+      "sections": [
+        {
+          "heading": {
+            "en": "What you can request",
+            "ar": "ما الذي يمكنك طلبه"
+          },
+          "bullets": [
+            {
+              "en": "Sales or procurement questions, including pricing, scope, onboarding, and market rollout.",
+              "ar": "أسئلة المبيعات أو المشتريات، بما في ذلك السعر والنطاق والإعداد والإطلاق في السوق."
+            },
+            {
+              "en": "Operational support related to your account, migration, or platform setup.",
+              "ar": "الدعم التشغيلي المرتبط بحسابك أو الترحيل أو إعداد المنصة."
+            },
+            {
+              "en": "Data requests such as export, correction, deletion support, or other privacy-related assistance for a customer account.",
+              "ar": "طلبات البيانات مثل التصدير أو التصحيح أو دعم الحذف أو أي مساعدة أخرى مرتبطة بالخصوصية لحساب العميل."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Verification before action",
+            "ar": "التحقق قبل اتخاذ إجراء"
+          },
+          "paragraphs": [
+            {
+              "en": "GymFlow may require reasonable proof that the requester is authorized to act for the customer account before sharing, changing, exporting, or deleting information.",
+              "ar": "قد يطلب GymFlow دليلاً معقولاً على أن مقدم الطلب مخول للتصرف نيابة عن حساب العميل قبل مشاركة المعلومات أو تعديلها أو تصديرها أو حذفها."
+            },
+            {
+              "en": "If a request concerns member data, GymFlow may direct the requester back to the business customer first where that customer controls the data relationship.",
+              "ar": "إذا كان الطلب يتعلق ببيانات الأعضاء، فقد يوجه GymFlow مقدم الطلب أولاً إلى العميل التجاري عندما يكون هذا العميل هو من يسيطر على علاقة البيانات."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "Response expectations",
+            "ar": "توقعات الرد"
+          },
+          "paragraphs": [
+            {
+              "en": "Response times depend on the nature, complexity, and urgency of the request. GymFlow will aim to acknowledge business-critical issues promptly and handle data-related requests within a reasonable operational timeframe.",
+              "ar": "تعتمد أوقات الرد على طبيعة الطلب وتعقيده ومدى إلحاحه. وسيحاول GymFlow تأكيد استلام القضايا التجارية الحرجة بسرعة والتعامل مع الطلبات المتعلقة بالبيانات خلال إطار زمني تشغيلي معقول."
+            }
+          ]
+        }
+      ]
+    },
+    "contact": {
+      "title": {
+        "en": "Contact GymFlow",
+        "ar": "تواصل مع GymFlow"
+      },
+      "metaDescription": {
+        "en": "Contact GymFlow for pricing, demos, onboarding, or legal and data questions.",
+        "ar": "تواصل مع GymFlow بخصوص الأسعار أو العروض أو الإعداد أو الأسئلة القانونية وطلبات البيانات."
+      },
+      "summary": {
+        "en": "Use this page if you want pricing, a rollout conversation, onboarding help, or a clear channel for legal and data-related questions.",
+        "ar": "استخدم هذه الصفحة إذا كنت تريد سعراً أو مناقشة للإطلاق أو مساعدة في الإعداد أو قناة واضحة للأسئلة القانونية وطلبات البيانات."
+      },
+      "cardSummary": {
+        "en": "How to reach GymFlow for pricing, demos, onboarding, privacy, or legal questions.",
+        "ar": "كيفية الوصول إلى GymFlow بشأن الأسعار أو العروض أو الإعداد أو أسئلة الخصوصية والقانون."
+      },
+      "sections": [
+        {
+          "heading": {
+            "en": "Best for",
+            "ar": "مناسب لـ"
+          },
+          "bullets": [
+            {
+              "en": "Requesting pricing, rollout scope, or a product walkthrough.",
+              "ar": "طلب السعر أو نطاق الإطلاق أو عرض توضيحي للمنتج."
+            },
+            {
+              "en": "Discussing migration from a current system or older GymFlow data.",
+              "ar": "مناقشة الترحيل من نظام حالي أو من بيانات GymFlow القديمة."
+            },
+            {
+              "en": "Sending privacy, procurement, billing, or legal review questions.",
+              "ar": "إرسال أسئلة الخصوصية أو المشتريات أو الفوترة أو المراجعة القانونية."
+            }
+          ]
+        },
+        {
+          "heading": {
+            "en": "What to include in your message",
+            "ar": "ماذا تذكر في رسالتك"
+          },
+          "bullets": [
+            {
+              "en": "Your gym or organization name and market.",
+              "ar": "اسم الجيم أو المؤسسة والسوق الذي تعمل فيه."
+            },
+            {
+              "en": "Whether you need pricing, onboarding, migration, procurement, or support.",
+              "ar": "هل تحتاج إلى تسعير أو إعداد أو ترحيل أو مشتريات أو دعم."
+            },
+            {
+              "en": "Approximate branch count and any timing or rollout urgency.",
+              "ar": "عدد الفروع التقريبي وأي توقيت أو استعجال متعلق بالإطلاق."
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

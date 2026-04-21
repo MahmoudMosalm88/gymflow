@@ -29,10 +29,10 @@ export default function FAQ() {
 
           <div className="card">
             <h3 className="font-sans font-bold text-lg text-foreground mb-3">
-              How many members can I manage?
+              How does pricing work?
             </h3>
             <p className="font-sans text-muted-foreground">
-              GymFlow handles unlimited members. It&apos;s optimized for performance even with 10,000+ members and 50+ daily check-ins per member.
+              GymFlow pricing is scoped around your gym size, branch setup, rollout needs, and support requirements. We confirm commercial terms directly with each customer instead of forcing a one-size-fits-all plan.
             </p>
           </div>
 
@@ -56,10 +56,10 @@ export default function FAQ() {
 
           <div className="card">
             <h3 className="font-sans font-bold text-lg text-foreground mb-3">
-              What about updates and support?
+              How do billing and payments work?
             </h3>
             <p className="font-sans text-muted-foreground">
-              We release regular updates with new features and improvements. Community support is available, and we&apos;re building a comprehensive help center.
+              GymFlow uses a quote-first, invoice-led commercial model. In Egypt, payment can be arranged through local methods agreed with your business, and the exact billing terms are confirmed in writing before rollout.
             </p>
           </div>
         </div>

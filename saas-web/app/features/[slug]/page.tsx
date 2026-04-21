@@ -160,7 +160,7 @@ export default function FeaturePage({
           </p>
 
           <a
-            href="/login"
+            href="/contact"
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -175,7 +175,7 @@ export default function FeaturePage({
               boxShadow: "4px 4px 0 rgba(230,57,70,0.4)",
             }}
           >
-            Start free →
+            Get pricing →
           </a>
         </section>
 
@@ -450,11 +450,11 @@ export default function FeaturePage({
               fontSize: "0.95rem",
             }}
           >
-            Start free — no credit card required. Setup in 10 minutes.
+            Talk to GymFlow about pricing, rollout, and onboarding. Commercial terms are confirmed directly with your gym.
           </p>
           <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
             <a
-              href="/login"
+              href="/contact"
               style={{
                 display: "inline-flex",
                 background: "#e63946",
@@ -466,7 +466,7 @@ export default function FeaturePage({
                 boxShadow: "4px 4px 0 rgba(230,57,70,0.4)",
               }}
             >
-              Start free →
+              Get pricing →
             </a>
             <a
               href="/features"

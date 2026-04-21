@@ -20,7 +20,7 @@ export default function Navbar() {
             Success Stories
           </Link>
           <Link href="#get-started" className="bg-primary text-primary-foreground px-6 py-2 rounded-lg font-semibold hover:opacity-90 transition-all hover:scale-105 shadow-md">
-            Get Started
+            Get Pricing
           </Link>
         </div>
       </div>

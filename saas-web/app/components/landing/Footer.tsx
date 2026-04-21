@@ -5,8 +5,13 @@ import GymFlowLogo from '@/components/GymFlowLogo';
 interface FooterProps {
   t: {
     footerTagline: string;
+    footerLegalCenter: string;
     footerPrivacy: string;
     footerTerms: string;
+    footerBilling: string;
+    footerCookies: string;
+    footerSecurity: string;
+    footerContact: string;
     footerCopyright: string;
     footerProduct: string;
     footerAllFeatures: string;
@@ -80,8 +85,13 @@ export default function Footer({ t }: FooterProps) {
       <div className={styles.footerBottom}>
         <p className={styles.footerCopy}>{t.footerCopyright}</p>
         <div className={styles.footerLinks}>
+          <Link href="/legal" className={styles.footerLink}>{t.footerLegalCenter}</Link>
           <Link href="/privacy-policy" className={styles.footerLink}>{t.footerPrivacy}</Link>
           <Link href="/terms-of-service" className={styles.footerLink}>{t.footerTerms}</Link>
+          <Link href="/billing-and-refunds" className={styles.footerLink}>{t.footerBilling}</Link>
+          <Link href="/cookie-notice" className={styles.footerLink}>{t.footerCookies}</Link>
+          <Link href="/security-and-data-handling" className={styles.footerLink}>{t.footerSecurity}</Link>
+          <Link href="/contact" className={styles.footerLink}>{t.footerContact}</Link>
         </div>
       </div>
     </footer>

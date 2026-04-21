@@ -678,7 +678,7 @@ export default async function CityPage({
             Join gym owners across {page.cityEn} and {page.countryEn} who use GymFlow to automate the admin and focus on their clients.
           </p>
           <a
-            href="/dashboard"
+            href="/contact"
             style={{
               background: accent,
               color: "#fff",
@@ -691,10 +691,10 @@ export default async function CityPage({
               display: "inline-block",
             }}
           >
-            START FOR FREE
+            GET PRICING
           </a>
           <p style={{ marginTop: 16, fontSize: 12, color: muted }}>
-            No credit card · Setup in one day · Cancel anytime
+            Invoice-first rollout · Local payment options can be arranged in Egypt
           </p>
         </section>
 

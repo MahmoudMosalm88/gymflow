@@ -11,22 +11,23 @@ import StructuredData from "./components/landing/StructuredData";
 
 type Lang = "en" | "ar";
 
-const copy = {
+export const landingCopy = {
   en: {
     /* Navbar */
     navFeatures: "Features",
     navBlog: "Blog",
     navFaq: "FAQ",
-    navCta: "Get started free",
+    navCta: "Get pricing",
+    navSignin: "Sign in",
 
     /* Hero */
     heroLabel: "GYM MANAGEMENT · REDEFINED",
     heroTitle: "Run your gym without the",
     heroTitleEm: "admin headache.",
     heroSub: "GymFlow automates memberships, check-ins, renewals, and reports — so you can focus on what matters: your clients.",
-    heroCta: "Start free",
+    heroCta: "Get pricing",
     heroCtaSecondary: "Sign in",
-    heroMicro: "No credit card required · Setup in 10 minutes",
+    heroMicro: "Arabic + English · Built for gyms in Egypt and the Gulf",
 
     /* Problem */
     problemLabel: "THE PROBLEM",
@@ -63,17 +64,17 @@ const copy = {
     faqTitle: "Questions answered.",
     faqItems: [
       { q: "How do I migrate my existing client data?", a: "You can import clients via CSV upload or use our migration tool to bring data from your current system. Our support team assists with any complex transfers." },
-      { q: "Does GymFlow work for multi-branch gyms?", a: "Yes. The Growth plan supports unlimited branches under one account. Each branch has its own check-in setup, reports, and staff access levels." },
+      { q: "Does GymFlow work for multi-branch gyms?", a: "Yes. GymFlow supports both single-branch and multi-branch operations. We scope setup, reporting, and rollout around your branch structure." },
       { q: "What happens when a client's subscription expires?", a: "Expired clients are automatically denied entry at check-in. You can configure automated WhatsApp renewal reminders to go out 7, 3, and 1 day before expiry." },
       { q: "Is my clients' data secure?", a: "All data is encrypted in transit and at rest. We use Google Cloud infrastructure with daily backups and ISO-standard security practices." },
-      { q: "Can I cancel anytime?", a: "Yes, absolutely. No long-term contracts. You can cancel from your account settings at any time, and you'll retain access until the end of your billing period." },
+      { q: "How does pricing work?", a: "GymFlow uses a quote-first business model. Pricing depends on your gym size, branch setup, rollout needs, and support scope, and the final terms are confirmed in writing before launch." },
     ] as const,
 
     /* CTA */
     ctaTitle: "Ready to get your time back?",
     ctaSub: "Join gym owners across the region who run their operations with GymFlow.",
-    ctaBtn: "Start free trial",
-    ctaMicro: "No credit card · Cancel anytime · Setup in 10 minutes",
+    ctaBtn: "Get pricing",
+    ctaMicro: "Invoice-first rollout · Manual payment options available in Egypt",
 
     /* Preview */
     previewLabel: "SEE IT IN ACTION",
@@ -89,8 +90,13 @@ const copy = {
 
     /* Footer */
     footerTagline: "Gym management, simplified.",
+    footerLegalCenter: "Legal Center",
     footerPrivacy: "Privacy Policy",
     footerTerms: "Terms of Service",
+    footerBilling: "Billing & Refunds",
+    footerCookies: "Cookie Notice",
+    footerSecurity: "Security",
+    footerContact: "Contact",
     footerCopyright: "© 2026 GymFlow. All rights reserved.",
     footerProduct: "Product",
     footerAllFeatures: "All Features",
@@ -113,16 +119,17 @@ const copy = {
     navFeatures: "المزايا",
     navBlog: "المدونة",
     navFaq: "الأسئلة الشائعة",
-    navCta: "ابدأ مجاناً",
+    navCta: "اطلب السعر",
+    navSignin: "تسجيل الدخول",
 
     /* Hero */
     heroLabel: "إدارة الصالات الرياضية · بأسلوب أذكى",
     heroTitle: "أدِر صالتك الرياضية بلا",
     heroTitleEm: "عناء الإدارة.",
     heroSub: "يتولى GymFlow الاشتراكاتِ وتسجيلَ الدخول والتجديداتِ تلقائياً — لتتفرّغ لما يهمّ حقاً: عملاؤك.",
-    heroCta: "ابدأ مجاناً",
+    heroCta: "اطلب السعر",
     heroCtaSecondary: "تسجيل الدخول",
-    heroMicro: "لا حاجة لبطاقة ائتمانية · الإعداد في 10 دقائق",
+    heroMicro: "عربي + English · مصمم للجيمات في مصر والخليج",
 
     /* Problem */
     problemLabel: "المشكلة",
@@ -159,17 +166,17 @@ const copy = {
     faqTitle: "أسئلة يطرحها الجميع",
     faqItems: [
       { q: "كيف أنقل بيانات عملائي الحاليين؟", a: "يمكنك استيراد العملاء عبر رفع ملف CSV أو استخدام أداة الترحيل لنقل البيانات من نظامك الحالي. يساعدك فريق الدعم في أي عملية نقل معقدة." },
-      { q: "هل يعمل GymFlow مع الصالات متعددة الفروع؟", a: "نعم. تدعم خطة النمو فروعاً غير محدودة تحت حساب واحد. لكل فرع إعداد تسجيل دخوله وتقاريره ومستويات صلاحية موظفيه." },
+      { q: "هل يعمل GymFlow مع الصالات متعددة الفروع؟", a: "نعم. يدعم GymFlow الجيمات ذات الفرع الواحد أو الفروع المتعددة، ويتم تحديد الإعداد والتقارير وآلية الإطلاق بحسب هيكل فروعك." },
       { q: "ماذا يحدث عند انتهاء اشتراك العميل؟", a: "يُرفض دخول العملاء المنتهية اشتراكاتهم تلقائياً. يمكنك ضبط تذكيرات تجديد تلقائية عبر واتساب قبل 7 و3 و1 أيام من انتهاء الاشتراك." },
       { q: "هل بيانات عملائي آمنة؟", a: "جميع البيانات مشفّرة أثناء النقل وعند التخزين. نعتمد على البنية التحتية لـ Google Cloud مع نسخ احتياطية يومية وممارسات أمان وفق معايير دولية." },
-      { q: "هل يمكنني الإلغاء في أي وقت؟", a: "نعم، دون عقود طويلة الأمد. يمكنك الإلغاء من إعدادات حسابك في أي وقت، وتحتفظ بحق الوصول حتى نهاية فترة الفوترة." },
+      { q: "كيف تعمل الأسعار؟", a: "يعتمد GymFlow على نموذج تجاري يبدأ بعرض سعر. ويتم تحديد السعر بحسب حجم الجيم وعدد الفروع واحتياجات الإطلاق والدعم، ثم تُؤكد الشروط كتابةً قبل البدء." },
     ] as const,
 
     /* CTA */
     ctaTitle: "هل أنت مستعد لاستعادة وقتك؟",
     ctaSub: "انضم إلى صالات رياضية في المنطقة تدير أعمالها باحترافية مع GymFlow.",
-    ctaBtn: "ابدأ مجاناً",
-    ctaMicro: "لا بطاقة ائتمانية · إلغاء في أي وقت · إعداد في 10 دقائق",
+    ctaBtn: "اطلب السعر",
+    ctaMicro: "إطلاق بنظام الفاتورة · وسائل دفع محلية متاحة في مصر",
 
     /* Preview */
     previewLabel: "شاهده بنفسك",
@@ -185,8 +192,13 @@ const copy = {
 
     /* Footer */
     footerTagline: "إدارة الجيم، مُبسَّطة.",
+    footerLegalCenter: "المركز القانوني",
     footerPrivacy: "سياسة الخصوصية",
     footerTerms: "شروط الخدمة",
+    footerBilling: "الفوترة والاسترداد",
+    footerCookies: "إشعار الكوكيز",
+    footerSecurity: "الأمان",
+    footerContact: "التواصل",
     footerCopyright: "© 2026 GymFlow. جميع الحقوق محفوظة.",
     footerProduct: "المنتج",
     footerAllFeatures: "جميع المزايا",
@@ -209,7 +221,7 @@ const copy = {
 export default function HomePage() {
   const lang: Lang = "en";
   const isArabic = false;
-  const t = copy.en;
+  const t = landingCopy.en;
 
   return (
     <main className={styles.page} dir={isArabic ? "rtl" : "ltr"}>

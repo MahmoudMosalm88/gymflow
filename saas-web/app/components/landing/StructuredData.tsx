@@ -8,12 +8,6 @@ const softwareApp = {
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Web",
   "url": "https://gymflowsystem.com",
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "USD",
-    "description": "Free trial — no credit card required",
-  },
   "description":
     "GymFlow is a cloud-based gym management platform that automates client check-ins, subscription tracking, WhatsApp reminders, and financial reporting for gyms in the Middle East and North Africa.",
   "featureList": [
@@ -39,6 +33,14 @@ const organization = {
   "logo": "https://gymflowsystem.com/icons/icon-512.png",
   "description":
     "Gym management software built for the MENA region. Arabic-first, cloud-based, with QR check-ins and WhatsApp automation.",
+  "contactPoint": [
+    {
+      "@type": "ContactPoint",
+      "contactType": "sales",
+      "email": "hello@gymflowsystem.com",
+      "availableLanguage": ["English", "Arabic"]
+    }
+  ],
   "areaServed": [
     { "@type": "Country", "name": "Egypt" },
     { "@type": "Country", "name": "Saudi Arabia" },
@@ -69,7 +71,7 @@ const faqPage = {
       "name": "Does GymFlow work for multi-branch gyms?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. The Growth plan supports unlimited branches under one account. Each branch has its own check-in setup, reports, and staff access levels.",
+        "text": "Yes. GymFlow supports both single-branch and multi-branch gyms. Scope, rollout, and commercial terms are confirmed directly with each customer."
       },
     },
     {
@@ -90,10 +92,10 @@ const faqPage = {
     },
     {
       "@type": "Question",
-      "name": "Can I cancel anytime?",
+      "name": "How does pricing work?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes, absolutely. No long-term contracts. You can cancel from your account settings at any time, and you'll retain access until the end of your billing period.",
+        "text": "GymFlow uses a quote-first business model. Pricing depends on gym size, branches, rollout needs, and support scope, and the final terms are confirmed in writing with each customer."
       },
     },
     {

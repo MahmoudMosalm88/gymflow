@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Github, Twitter } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -37,7 +36,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="#get-started" className="font-sans text-muted-foreground hover:text-primary text-sm transition-colors">
-                  Get Started
+                  Get Pricing
                 </Link>
               </li>
             </ul>
@@ -45,23 +44,22 @@ export default function Footer() {
 
           <div>
             <h3 className="font-sans font-bold text-foreground mb-4">
-              Community
+              Resources
             </h3>
             <ul className="space-y-2">
               <li>
-                <a href="https://github.com/MahmoudMosalm88/gymflow" target="_blank" rel="noopener noreferrer" className="font-sans text-muted-foreground hover:text-primary text-sm transition-colors">
-                  <Github className="inline-block h-4 w-4 mr-1" />
-                  GitHub
-                </a>
+                <Link href="/legal" className="font-sans text-muted-foreground hover:text-primary text-sm transition-colors">
+                  Legal Center
+                </Link>
               </li>
               <li>
-                <a href="#" className="font-sans text-muted-foreground hover:text-primary text-sm transition-colors">
-                  Discord
-                </a>
+                <Link href="/contact" className="font-sans text-muted-foreground hover:text-primary text-sm transition-colors">
+                  Contact
+                </Link>
               </li>
               <li>
-                <a href="#" className="font-sans text-muted-foreground hover:text-primary text-sm transition-colors">
-                  Issues
+                <a href="mailto:hello@gymflowsystem.com" className="font-sans text-muted-foreground hover:text-primary text-sm transition-colors">
+                  hello@gymflowsystem.com
                 </a>
               </li>
             </ul>
@@ -73,18 +71,18 @@ export default function Footer() {
             </h3>
             <ul className="space-y-2">
               <li>
-                <Link href="#privacy" className="font-sans text-muted-foreground hover:text-primary text-sm transition-colors">
+                <Link href="/privacy-policy" className="font-sans text-muted-foreground hover:text-primary text-sm transition-colors">
                   Privacy Policy
                 </Link>
               </li>
               <li>
-                <Link href="#terms" className="font-sans text-muted-foreground hover:text-primary text-sm transition-colors">
+                <Link href="/terms-of-service" className="font-sans text-muted-foreground hover:text-primary text-sm transition-colors">
                   Terms of Service
                 </Link>
               </li>
               <li>
-                <Link href="#license" className="font-sans text-muted-foreground hover:text-primary text-sm transition-colors">
-                  License (MIT)
+                <Link href="/billing-and-refunds" className="font-sans text-muted-foreground hover:text-primary text-sm transition-colors">
+                  Billing & Refunds
                 </Link>
               </li>
             </ul>
@@ -93,15 +91,15 @@ export default function Footer() {
 
         <div className="border-t border-border dark:border-slate-800 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="font-sans text-muted-foreground text-sm">
-            © 2026 GymFlow. Open source, MIT licensed. Made for fitness professionals.
+            © 2026 GymFlow. Built for gyms that want clearer operations, billing control, and member communication.
           </p>
-          <div className="flex gap-6">
-            <a href="https://github.com/MahmoudMosalm88/gymflow" target="_blank" rel="noopener noreferrer" title="GitHub" className="text-muted-foreground hover:text-primary transition-colors">
-            <Github className="w-5 h-5" />
-            </a>
-            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" title="Twitter/X" className="text-muted-foreground hover:text-primary transition-colors">
-            <Twitter className="w-5 h-5" />
-            </a>
+          <div className="flex gap-6 text-sm">
+            <Link href="/cookie-notice" className="font-sans text-muted-foreground hover:text-primary transition-colors">
+              Cookies
+            </Link>
+            <Link href="/security-and-data-handling" className="font-sans text-muted-foreground hover:text-primary transition-colors">
+              Security
+            </Link>
           </div>
         </div>
       </div>

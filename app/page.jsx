@@ -12,8 +12,8 @@ import CTA from './components/CTA'
 import Footer from './components/Footer'
 
 const PRIMARY_CTA = {
-  href: 'https://gymflowsystem.com',
-  label: 'Open GymFlow',
+  href: 'https://gymflowsystem.com/contact',
+  label: 'Get Pricing',
 }
 
 const SECONDARY_CTA = {

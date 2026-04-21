@@ -352,10 +352,10 @@ export default function SolutionPage({
               fontSize: "0.95rem",
             }}
           >
-            Start free — no credit card required. Setup in 10 minutes.
+            Talk to GymFlow about pricing, rollout, and onboarding. Commercial terms are confirmed directly with your gym.
           </p>
           <a
-            href="/login"
+            href="/contact"
             style={{
               display: "inline-flex",
               background: "#e63946",
@@ -367,7 +367,7 @@ export default function SolutionPage({
               boxShadow: "4px 4px 0 rgba(230,57,70,0.4)",
             }}
           >
-            Start free →
+            Get pricing →
           </a>
         </div>
       </div>

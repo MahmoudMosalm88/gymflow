@@ -365,11 +365,11 @@ export default function BlogPostPage({
           </h2>
           <p style={{ color: "#888", marginBottom: "1.5rem", fontSize: "0.95rem" }}>
             {isAr
-              ? "ابدأ مجاناً بدون بطاقة ائتمانية. الإعداد في 10 دقائق."
-              : "Start free — no credit card required. Setup in 10 minutes."}
+              ? "تواصل مع GymFlow بخصوص السعر والإطلاق والإعداد. يتم تأكيد الشروط التجارية مباشرة مع الجيم."
+              : "Talk to GymFlow about pricing, rollout, and onboarding. Commercial terms are confirmed directly with your gym."}
           </p>
           <a
-            href="/login"
+            href="/contact"
             style={{
               display: "inline-flex",
               background: "#e63946",
@@ -381,7 +381,7 @@ export default function BlogPostPage({
               boxShadow: "4px 4px 0 rgba(230,57,70,0.4)",
             }}
           >
-            {isAr ? "ابدأ مجاناً" : "Start free"} →
+            {isAr ? "اطلب السعر" : "Get pricing"} →
           </a>
         </div>
       </article>

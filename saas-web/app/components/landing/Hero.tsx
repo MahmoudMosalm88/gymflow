@@ -90,7 +90,7 @@ export default function Hero({ t }: HeroProps) {
             <p className={styles.heroSub}>{t.heroSub}</p>
 
             <div className={styles.heroCtas}>
-              <Link href="/login" className={styles.ctaPrimary}>
+              <Link href="/contact" className={styles.ctaPrimary}>
                 {t.heroCta}
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
               </Link>
