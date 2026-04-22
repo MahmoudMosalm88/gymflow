@@ -1755,3 +1755,14 @@ The reports revamp roadmap is now implemented for all owner-facing report items 
 - `saas-web/lib/legal-content.json` — email updated
 - `saas-web/app/globals.css` — print stylesheet added
 - `docs/research/legal-pages-revamp-research.md` — new research file
+
+### April 22, 2026 — Sessions remaining progress bar
+
+**What changed**:
+- Member profile page now shows a **progress bar** for remaining sessions instead of a plain number
+- Displays fraction (`4 / 12`) with color-coded text and bar: green (>50%), yellow (25-50%), red (<25%)
+- Skipped entirely for unlimited plans (no `sessions_per_month`)
+- Brutalist styling: square corners, `border border-border` track, no rounding
+
+**Files changed**:
+- `saas-web/app/dashboard/members/[id]/page.tsx` — replaced `InfoRow` for sessions with progress bar widget

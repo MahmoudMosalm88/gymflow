@@ -621,8 +621,33 @@ export default function MemberDetailPage() {
               </div>
               <div className="space-y-2 text-sm border-t border-border pt-3">
                 <InfoRow label={c.current_plan} value={activePlanLabel} />
-                {activeSessionsLeft !== null ? (
-                  <InfoRow label={labels.sessions_remaining_label} value={String(activeSessionsLeft)} />
+                {activeSessionsLeft !== null && activeSub?.sessions_per_month != null ? (
+                  <div className="py-3 border-b border-border last:border-0">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-muted-foreground">{labels.sessions_remaining_label}</span>
+                      <span className={`text-sm font-bold tabular-nums ${
+                        activeSessionsLeft / activeSub.sessions_per_month > 0.5
+                          ? 'text-success'
+                          : activeSessionsLeft / activeSub.sessions_per_month > 0.25
+                            ? 'text-warning'
+                            : 'text-destructive'
+                      }`}>
+                        {activeSessionsLeft} / {activeSub.sessions_per_month}
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-muted border border-border overflow-hidden">
+                      <div
+                        className={`h-full transition-all ${
+                          activeSessionsLeft / activeSub.sessions_per_month > 0.5
+                            ? 'bg-success'
+                            : activeSessionsLeft / activeSub.sessions_per_month > 0.25
+                              ? 'bg-warning'
+                              : 'bg-destructive'
+                        }`}
+                        style={{ width: `${Math.round((activeSessionsLeft / activeSub.sessions_per_month) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
                 ) : null}
               </div>
               {/* Expandable extra info */}
