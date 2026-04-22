@@ -46,6 +46,7 @@ export type OfflineSubscription = {
   price_paid: number | null;
   payment_method: "cash" | "digital" | null;
   sessions_per_month: number | null;
+  sessions_remaining?: number | null;
   is_active: boolean;
   created_at: number;
   sync_status?: SyncStatus;

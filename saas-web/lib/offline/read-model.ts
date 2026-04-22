@@ -16,6 +16,7 @@ import type {
   OfflineSubscription,
 } from "./db";
 import { getCurrentSubscriptionAccessReferenceUnix, toSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
+import { getMonthlyCycleWindow } from "@/lib/billing-cycle";
 import { getCairoDayStartUnix, getCairoHour } from "@/lib/cairo-time";
 
 export type OfflineMemberListItem = Pick<OfflineMember, "id" | "name" | "phone" | "gender" | "card_code" | "created_at" | "sync_status" | "last_error"> & {
@@ -109,6 +110,38 @@ function getTopSubscriptionForMember(memberId: string, subscriptions: OfflineSub
   return subscriptions
     .filter((item) => item.member_id === memberId)
     .sort(rankSubscriptions(now))[0] || null;
+}
+
+function deriveOfflineSessionsRemaining(
+  subscription: OfflineSubscription,
+  member: OfflineMember,
+  accessReference: number
+): number | null {
+  if (subscription.sessions_per_month == null) return null;
+
+  if (
+    !member.subscription
+    || member.subscription.id !== subscription.id
+    || !member.subscription.is_active
+    || subscription.start_date > accessReference
+    || subscription.end_date <= accessReference
+  ) {
+    return null;
+  }
+
+  if (!member.quota) return null;
+
+  const { cycleStart, cycleEnd } = getMonthlyCycleWindow({
+    subscriptionStart: subscription.start_date,
+    subscriptionEnd: subscription.end_date,
+    reference: accessReference,
+  });
+
+  if (member.quota.cycle_start !== cycleStart || member.quota.cycle_end !== cycleEnd) {
+    return null;
+  }
+
+  return Math.max(0, member.quota.sessions_cap - member.quota.sessions_used);
 }
 
 function buildMemberMap(members: OfflineMember[]) {
@@ -210,10 +243,16 @@ export async function getCachedMemberDetail(memberId: string) {
   ]);
   if (!member) return null;
 
+  const accessReference = getCurrentSubscriptionAccessReferenceUnix();
+
   const memberSubs = subscriptions
     .filter((item) => item.member_id === memberId)
     .sort(rankSubscriptions(nowUnix()))
-    .map((item) => ({ ...item, status: getDisplayStatus(item) }));
+    .map((item) => ({
+      ...item,
+      sessions_remaining: item.sessions_remaining ?? deriveOfflineSessionsRemaining(item, member, accessReference),
+      status: getDisplayStatus(item),
+    }));
 
   const attendance = logs
     .filter((item) => item.member_id === memberId)

@@ -566,8 +566,8 @@ export default function MemberDetailPage() {
       ? `${activeSub.plan_months} ${c.months_short} · ${activeSub.sessions_per_month} ${c.sessions_per_month_short}`
       : `${activeSub.plan_months} ${c.months_short}`
     : '—';
-  const activeSessionsLeft = activeSub?.sessions_per_month != null
-    ? Math.max(0, activeSub.sessions_remaining ?? activeSub.sessions_per_month)
+  const activeSessionsLeft = activeSub?.sessions_per_month != null && typeof activeSub.sessions_remaining === 'number'
+    ? Math.max(0, activeSub.sessions_remaining)
     : null;
   const lastVisitTimestamp = attendance.length > 0 ? attendance[0].timestamp : null;
   const daysSinceLastVisit = lastVisitTimestamp
