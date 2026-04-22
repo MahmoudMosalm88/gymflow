@@ -391,19 +391,6 @@ export default function MemberDetailPage() {
     setShowMoreInfo(true);
   }, [id]);
 
-  if (loading || authLoading) return <LoadingSpinner size="lg" />;
-
-  if (!member) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-        <h2 className="text-xl font-semibold">{labels.member_not_found}</h2>
-        <Button variant="link" onClick={() => router.push('/dashboard/members')}>
-          &larr; {labels.back_to_members}
-        </Button>
-      </div>
-    );
-  }
-
   const InfoRow = ({ label, value }: { label: string; value: string | JSX.Element }) => (
     <div className="flex items-center justify-between border-b border-border py-3 last:border-0">
       <span className="text-sm font-medium text-muted-foreground">{label}</span>
@@ -550,6 +537,19 @@ export default function MemberDetailPage() {
     disabled: renewing,
     enterMode: 'all',
   });
+
+  if (loading || authLoading) return <LoadingSpinner size="lg" />;
+
+  if (!member) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+        <h2 className="text-xl font-semibold">{labels.member_not_found}</h2>
+        <Button variant="link" onClick={() => router.push('/dashboard/members')}>
+          &larr; {labels.back_to_members}
+        </Button>
+      </div>
+    );
+  }
 
   const planOptions = ['1', '3', '6', '12', '18', '24'];
   const radioOption = (selected: boolean) =>
