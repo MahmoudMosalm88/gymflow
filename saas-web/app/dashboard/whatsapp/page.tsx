@@ -459,7 +459,6 @@ export default function WhatsAppSystemPage() {
   const [reminderDays, setReminderDays] = useState(DEFAULT_REMINDER_DAYS);
   const [postExpiryDay, setPostExpiryDay] = useState<'day0' | 'day3' | 'day7' | 'day14'>('day0');
   const [onboardingStep, setOnboardingStep] = useState<'firstVisit' | 'noReturn7' | 'lowEngagement14'>('firstVisit');
-  const [behaviorStep, setBehaviorStep] = useState<'habitBreak' | 'streaks' | 'freezeEnding'>('habitBreak');
   const [controlSavingId, setControlSavingId] = useState<string | null>(null);
   const [controlFeedback, setControlFeedback] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
   const [auditOpen, setAuditOpen] = useState(false);
@@ -470,7 +469,7 @@ export default function WhatsAppSystemPage() {
 
   // ── Sheet / grid state ──
   const [activeSheet, setActiveSheet] = useState<
-    'welcome' | 'renewal' | 'post_expiry' | 'onboarding' | 'behavior' | 'sequences' | null
+    'welcome' | 'renewal' | 'post_expiry' | 'onboarding' | 'habit_break' | 'streaks' | 'freeze_ending' | 'sequences' | null
   >(null);
   const templateSaveScopeRef = useRef<HTMLDivElement | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -750,6 +749,12 @@ export default function WhatsAppSystemPage() {
           onboardingNoReturn7.trim() || defaultOnboarding.noReturnDay7,
         [`whatsapp_template_onboarding_low_engagement_day14_${systemLanguage}`]:
           onboardingLowEngagement14.trim() || defaultOnboarding.lowEngagementDay14,
+        [`whatsapp_template_habit_break_${systemLanguage}`]:
+          habitBreakTemplate.trim() || defaultBehavior.habitBreak,
+        [`whatsapp_template_streak_${systemLanguage}`]:
+          streakTemplate.trim() || defaultBehavior.streaks,
+        [`whatsapp_template_freeze_ending_${systemLanguage}`]:
+          freezeEndingTemplate.trim() || defaultBehavior.freezeEnding,
         whatsapp_reminder_days: Array.from(selectedReminderDays).sort((a, b) => b - a).join(','),
         system_language: systemLanguage,
       };
@@ -774,7 +779,7 @@ export default function WhatsAppSystemPage() {
     onSave: () => {
       void handleTemplateSave();
     },
-    enabled: activeSheet !== null && activeSheet !== 'behavior' && activeSheet !== 'sequences',
+    enabled: activeSheet !== null && activeSheet !== 'sequences',
     disabled: templatesSaving,
     enterMode: 'all',
   });
@@ -798,11 +803,16 @@ export default function WhatsAppSystemPage() {
   };
 
   const handleAutomationToggle = async (
-    automationId: 'post_expiry' | 'onboarding',
+    automationId: 'post_expiry' | 'onboarding' | 'habit_break' | 'streaks' | 'freeze_ending',
     enabled: boolean
   ) => {
-    const settingKey =
-      automationId === 'post_expiry' ? 'whatsapp_post_expiry_enabled' : 'whatsapp_onboarding_enabled';
+    const settingKey = {
+      post_expiry: 'whatsapp_post_expiry_enabled',
+      onboarding: 'whatsapp_onboarding_enabled',
+      habit_break: 'whatsapp_habit_break_enabled',
+      streaks: 'whatsapp_streaks_enabled',
+      freeze_ending: 'whatsapp_freeze_ending_enabled',
+    }[automationId];
     setControlSavingId(automationId);
     setControlFeedback(null);
     try {
@@ -811,7 +821,10 @@ export default function WhatsAppSystemPage() {
       });
       if (!res.success) throw new Error(res.message ?? 'Failed to update automation state');
       if (automationId === 'post_expiry') setPostExpiryEnabled(enabled);
-      else setOnboardingEnabled(enabled);
+      else if (automationId === 'onboarding') setOnboardingEnabled(enabled);
+      else if (automationId === 'habit_break') setHabitBreakEnabled(enabled);
+      else if (automationId === 'streaks') setStreaksEnabled(enabled);
+      else setFreezeEndingEnabled(enabled);
       setControlFeedback({
         type: 'success',
         text:
@@ -1457,37 +1470,140 @@ export default function WhatsAppSystemPage() {
                   );
                 })()}
 
-                {/* ── Behavior card (locked — coming soon) ── */}
-                <div
-                  role="listitem"
-                  aria-label={lang === 'ar' ? 'أتمتة العادات والاستمرارية' : 'Habit & Streaks automation'}
-                  className="border border-border border-s-[3px] border-s-border p-4 flex flex-col gap-3 bg-card opacity-70"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-muted-foreground">
-                        {lang === 'ar' ? 'العادات والاستمرارية' : 'Habit & Streaks'}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {lang === 'ar' ? 'تحفيز الحضور المنتظم' : 'Motivate regular attendance'}
-                      </p>
-                    </div>
-                    <Switch checked={false} disabled aria-label={lang === 'ar' ? 'معطّل' : 'Disabled'} />
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {lang === 'ar' ? 'قريباً' : 'Coming soon'}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs h-7 px-2"
-                      onClick={() => { setTemplateFeedback(null); setActiveSheet('behavior'); }}
+                {/* ── Habit-break card ── */}
+                {(() => {
+                  const hasTemplate = habitBreakTemplate.trim().length > 0;
+                  const borderColor = habitBreakEnabled && hasTemplate ? 'border-s-success' : 'border-s-border';
+                  return (
+                    <div
+                      role="listitem"
+                      aria-label={lang === 'ar' ? 'أتمتة انقطاع العادة' : 'Habit-break automation'}
+                      className={`border border-border border-s-[3px] ${borderColor} p-4 flex flex-col gap-3 bg-card`}
                     >
-                      {lang === 'ar' ? '← تعديل' : 'Edit →'}
-                    </Button>
-                  </div>
-                </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {lang === 'ar' ? 'تنبيه انقطاع العادة' : 'Habit Break'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {lang === 'ar' ? 'تنبيه عند انقطاع الحضور بعد بداية جيدة' : 'Nudge members when attendance drops after a strong start'}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={habitBreakEnabled}
+                          disabled={controlSavingId === 'habit_break' || !automationEnabled}
+                          onCheckedChange={(checked) => void handleAutomationToggle('habit_break', checked)}
+                          aria-label={habitBreakEnabled ? (lang === 'ar' ? 'مفعّل' : 'Enabled') : (lang === 'ar' ? 'معطّل' : 'Disabled')}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        {habitBreakEnabled && hasTemplate ? (
+                          <span className="text-xs text-success">● {lang === 'ar' ? 'مفعّل · 1 رسالة' : 'Enabled · 1 message'}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">○ {lang === 'ar' ? 'معطّل' : 'Disabled'}</span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => { setTemplateFeedback(null); setActiveSheet('habit_break'); }}
+                        >
+                          {lang === 'ar' ? '← تعديل' : 'Edit →'}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ── Streaks card ── */}
+                {(() => {
+                  const hasTemplate = streakTemplate.trim().length > 0;
+                  const borderColor = streaksEnabled && hasTemplate ? 'border-s-success' : 'border-s-border';
+                  return (
+                    <div
+                      role="listitem"
+                      aria-label={lang === 'ar' ? 'أتمتة الاستمرارية' : 'Streak automation'}
+                      className={`border border-border border-s-[3px] ${borderColor} p-4 flex flex-col gap-3 bg-card`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {lang === 'ar' ? 'تشجيع الاستمرارية' : 'Streak Encouragement'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {lang === 'ar' ? 'رسالة تشجيع عند الوصول إلى سلسلة حضور' : 'Celebrate milestone attendance streaks'}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={streaksEnabled}
+                          disabled={controlSavingId === 'streaks' || !automationEnabled}
+                          onCheckedChange={(checked) => void handleAutomationToggle('streaks', checked)}
+                          aria-label={streaksEnabled ? (lang === 'ar' ? 'مفعّل' : 'Enabled') : (lang === 'ar' ? 'معطّل' : 'Disabled')}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        {streaksEnabled && hasTemplate ? (
+                          <span className="text-xs text-success">● {lang === 'ar' ? 'مفعّل · 1 رسالة' : 'Enabled · 1 message'}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">○ {lang === 'ar' ? 'معطّل' : 'Disabled'}</span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => { setTemplateFeedback(null); setActiveSheet('streaks'); }}
+                        >
+                          {lang === 'ar' ? '← تعديل' : 'Edit →'}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ── Freeze-ending card ── */}
+                {(() => {
+                  const hasTemplate = freezeEndingTemplate.trim().length > 0;
+                  const borderColor = freezeEndingEnabled && hasTemplate ? 'border-s-success' : 'border-s-border';
+                  return (
+                    <div
+                      role="listitem"
+                      aria-label={lang === 'ar' ? 'أتمتة انتهاء التجميد' : 'Freeze-ending automation'}
+                      className={`border border-border border-s-[3px] ${borderColor} p-4 flex flex-col gap-3 bg-card`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {lang === 'ar' ? 'تذكير انتهاء التجميد' : 'Freeze Ending'}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {lang === 'ar' ? 'ذكّر العضو قبل عودته من التجميد' : 'Remind members shortly before freeze ends'}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={freezeEndingEnabled}
+                          disabled={controlSavingId === 'freeze_ending' || !automationEnabled}
+                          onCheckedChange={(checked) => void handleAutomationToggle('freeze_ending', checked)}
+                          aria-label={freezeEndingEnabled ? (lang === 'ar' ? 'مفعّل' : 'Enabled') : (lang === 'ar' ? 'معطّل' : 'Disabled')}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        {freezeEndingEnabled && hasTemplate ? (
+                          <span className="text-xs text-success">● {lang === 'ar' ? 'مفعّل · 1 رسالة' : 'Enabled · 1 message'}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">○ {lang === 'ar' ? 'معطّل' : 'Disabled'}</span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => { setTemplateFeedback(null); setActiveSheet('freeze_ending'); }}
+                        >
+                          {lang === 'ar' ? '← تعديل' : 'Edit →'}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* ── Active Sequences card (view-only) ── */}
                 {(() => {
@@ -1555,14 +1671,18 @@ export default function WhatsAppSystemPage() {
                       {activeSheet === 'renewal' && (lang === 'ar' ? 'تعديل: تذكير التجديد' : 'Edit: Renewal Reminder')}
                       {activeSheet === 'post_expiry' && (lang === 'ar' ? 'تعديل: استرجاع ما بعد الانتهاء' : 'Edit: Post-Expiry Recovery')}
                       {activeSheet === 'onboarding' && (lang === 'ar' ? 'تعديل: تهيئة العضو' : 'Edit: Onboarding')}
-                      {activeSheet === 'behavior' && (lang === 'ar' ? 'تعديل: العادات والاستمرارية' : 'Edit: Habit & Streaks')}
+                      {activeSheet === 'habit_break' && (lang === 'ar' ? 'تعديل: تنبيه انقطاع العادة' : 'Edit: Habit Break')}
+                      {activeSheet === 'streaks' && (lang === 'ar' ? 'تعديل: تشجيع الاستمرارية' : 'Edit: Streak Encouragement')}
+                      {activeSheet === 'freeze_ending' && (lang === 'ar' ? 'تعديل: تذكير انتهاء التجميد' : 'Edit: Freeze Ending')}
                     </SheetTitle>
                     <SheetDescription>
                       {activeSheet === 'welcome' && (lang === 'ar' ? 'ترسل عند تسجيل عضو جديد. المتغيرات: {name}' : 'Sent when a new member is added. Variables: {name}')}
                       {activeSheet === 'renewal' && (lang === 'ar' ? 'المتغيرات: {name}، {expiryDate}، {daysLeft}' : 'Variables: {name}, {expiryDate}, {daysLeft}')}
                       {activeSheet === 'post_expiry' && (lang === 'ar' ? 'المتغيرات: {name}، {expiryDate}' : 'Variables: {name}, {expiryDate}')}
                       {activeSheet === 'onboarding' && (lang === 'ar' ? 'المتغيرات: {name}' : 'Variables: {name}')}
-                      {activeSheet === 'behavior' && (lang === 'ar' ? 'المتغيرات: {name}، {daysAbsent}، {streakDays}، {resumeDate}' : 'Variables: {name}, {daysAbsent}, {streakDays}, {resumeDate}')}
+                      {activeSheet === 'habit_break' && (lang === 'ar' ? 'المتغيرات: {name}، {daysAbsent}' : 'Variables: {name}, {daysAbsent}')}
+                      {activeSheet === 'streaks' && (lang === 'ar' ? 'المتغيرات: {name}، {streakDays}' : 'Variables: {name}, {streakDays}')}
+                      {activeSheet === 'freeze_ending' && (lang === 'ar' ? 'المتغيرات: {name}، {resumeDate}' : 'Variables: {name}, {resumeDate}')}
                     </SheetDescription>
                   </SheetHeader>
 
@@ -1721,86 +1841,66 @@ export default function WhatsAppSystemPage() {
                       </div>
                     )}
 
-                    {/* Behavior editor — read-only */}
-                    {activeSheet === 'behavior' && (
-                      <div className="space-y-4">
-                        <Alert>
-                          <AlertCircle className="h-4 w-4" />
-                          <AlertTitle>{lang === 'ar' ? 'قريباً' : 'Coming soon'}</AlertTitle>
-                          <AlertDescription>
-                            {lang === 'ar'
-                              ? 'هذه الأتمتات ضمن النطاق لكنها مقفلة حتى الإطلاق.'
-                              : 'These automations are in scope but locked until release.'}
-                          </AlertDescription>
-                        </Alert>
-                        <div className="flex border-b border-border">
-                          {([
-                            { id: 'habitBreak', labelEn: 'Habit break', labelAr: 'انقطاع العادة' },
-                            { id: 'streaks', labelEn: 'Streaks', labelAr: 'الاستمرارية' },
-                            { id: 'freezeEnding', labelEn: 'Freeze ending', labelAr: 'انتهاء التجميد' },
-                          ] as const).map((s) => (
-                            <button
-                              key={s.id}
-                              type="button"
-                              onClick={() => setBehaviorStep(s.id)}
-                              className={`px-4 py-2 text-xs font-medium transition-colors border-b-2 -mb-px ${
-                                behaviorStep === s.id
-                                  ? 'border-primary text-foreground'
-                                  : 'border-transparent text-muted-foreground hover:text-foreground'
-                              }`}
-                            >
-                              {lang === 'ar' ? s.labelAr : s.labelEn}
-                            </button>
-                          ))}
-                        </div>
-                        {(() => {
-                          const map = {
-                            habitBreak: { value: habitBreakTemplate, type: 'habit_break' as const },
-                            streaks: { value: streakTemplate, type: 'streaks' as const },
-                            freezeEnding: { value: freezeEndingTemplate, type: 'freeze_ending' as const },
-                          };
-                          const active = map[behaviorStep];
-                          return (
-                            <div className="grid gap-4 lg:grid-cols-2 items-stretch">
-                              <Textarea value={active.value} onChange={() => undefined} rows={6} className="resize-none" disabled />
-                              <WaPreview text={previewText(active.value, active.type)} sampleName={sampleName} />
-                            </div>
-                          );
-                        })()}
+                    {/* Behavior editors */}
+                    {activeSheet === 'habit_break' && (
+                      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+                        <Textarea
+                          value={habitBreakTemplate}
+                          onChange={(e) => setHabitBreakTemplate(e.target.value)}
+                          rows={6}
+                          className="resize-none"
+                          placeholder={lang === 'ar' ? 'المتغيرات: {name}، {daysAbsent}' : 'Placeholders: {name}, {daysAbsent}'}
+                        />
+                        <WaPreview text={previewText(habitBreakTemplate, 'habit_break')} sampleName={sampleName} />
+                      </div>
+                    )}
+
+                    {activeSheet === 'streaks' && (
+                      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+                        <Textarea
+                          value={streakTemplate}
+                          onChange={(e) => setStreakTemplate(e.target.value)}
+                          rows={6}
+                          className="resize-none"
+                          placeholder={lang === 'ar' ? 'المتغيرات: {name}، {streakDays}' : 'Placeholders: {name}, {streakDays}'}
+                        />
+                        <WaPreview text={previewText(streakTemplate, 'streaks')} sampleName={sampleName} />
+                      </div>
+                    )}
+
+                    {activeSheet === 'freeze_ending' && (
+                      <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+                        <Textarea
+                          value={freezeEndingTemplate}
+                          onChange={(e) => setFreezeEndingTemplate(e.target.value)}
+                          rows={6}
+                          className="resize-none"
+                          placeholder={lang === 'ar' ? 'المتغيرات: {name}، {resumeDate}' : 'Placeholders: {name}, {resumeDate}'}
+                        />
+                        <WaPreview text={previewText(freezeEndingTemplate, 'freeze_ending')} sampleName={sampleName} />
                       </div>
                     )}
                   </div>
 
-                  {/* Footer: Save/Discard for editable sheets */}
-                  {activeSheet !== 'behavior' && (
-                    <SheetFooter className="px-6 py-4 border-t border-border shrink-0 flex gap-2 sm:justify-end">
-                      <Button
-                        variant="ghost"
-                        onClick={closeTemplateSheet}
-                        disabled={templatesSaving}
-                      >
-                        {lang === 'ar' ? 'تجاهل' : 'Discard'}
-                      </Button>
-                      <Button
-                        onClick={() => void handleTemplateSave()}
-                        disabled={templatesSaving}
-                      >
-                        {templatesSaving ? (
-                          <><Loader2 className="h-4 w-4 animate-spin me-2" />{lang === 'ar' ? 'جارٍ الحفظ...' : 'Saving...'}</>
-                        ) : (
-                          lang === 'ar' ? 'حفظ' : 'Save'
-                        )}
-                      </Button>
-                    </SheetFooter>
-                  )}
-                  {/* Footer: Close-only for behavior (read-only) */}
-                  {activeSheet === 'behavior' && (
-                    <SheetFooter className="px-6 py-4 border-t border-border shrink-0 flex gap-2 sm:justify-end">
-                      <Button variant="ghost" onClick={() => setActiveSheet(null)}>
-                        {lang === 'ar' ? 'إغلاق' : 'Close'}
-                      </Button>
-                    </SheetFooter>
-                  )}
+                  <SheetFooter className="px-6 py-4 border-t border-border shrink-0 flex gap-2 sm:justify-end">
+                    <Button
+                      variant="ghost"
+                      onClick={closeTemplateSheet}
+                      disabled={templatesSaving}
+                    >
+                      {lang === 'ar' ? 'تجاهل' : 'Discard'}
+                    </Button>
+                    <Button
+                      onClick={() => void handleTemplateSave()}
+                      disabled={templatesSaving}
+                    >
+                      {templatesSaving ? (
+                        <><Loader2 className="h-4 w-4 animate-spin me-2" />{lang === 'ar' ? 'جارٍ الحفظ...' : 'Saving...'}</>
+                      ) : (
+                        lang === 'ar' ? 'حفظ' : 'Save'
+                      )}
+                    </Button>
+                  </SheetFooter>
                 </SheetContent>
               </Sheet>
 

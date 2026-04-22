@@ -71,6 +71,8 @@ type LifecycleEligibilityResult = {
   reason?: "stopped_manual" | "stopped_not_eligible" | "stopped_renewed" | "stopped_goal_met";
 };
 
+type BehaviorAutomationId = "habit_break" | "streaks" | "freeze_ending";
+
 const databaseUrl = process.env.DATABASE_URL;
 const pollMs = Number(process.env.WORKER_POLL_MS || 5000);
 const connCheckMs = Number(process.env.CONN_CHECK_MS || 3000);
@@ -313,6 +315,19 @@ function getLifecycleSequenceScope(
   if (automationId !== "post_expiry") return null;
   const raw = typeof payload?.subscription_id === "string" ? payload.subscription_id.trim() : "";
   return raw.length > 0 ? raw : null;
+}
+
+function getBehaviorAutomationId(sequenceKind: unknown): BehaviorAutomationId | null {
+  if (sequenceKind === "habit_break") return "habit_break";
+  if (sequenceKind === "streak") return "streaks";
+  if (sequenceKind === "freeze_ending") return "freeze_ending";
+  return null;
+}
+
+function getBehaviorAutomationSettingKey(automationId: BehaviorAutomationId) {
+  if (automationId === "habit_break") return "whatsapp_habit_break_enabled";
+  if (automationId === "streaks") return "whatsapp_streaks_enabled";
+  return "whatsapp_freeze_ending_enabled";
 }
 
 async function loadManualStopsFromSettings(settings: Record<string, unknown>) {
@@ -709,6 +724,155 @@ async function evaluateOnboardingSequenceEligibility(
   return { eligible: true };
 }
 
+async function evaluateBehaviorMessagingEligibility(
+  client: PoolClient,
+  runtime: TenantRuntime,
+  memberId: string,
+  automationId: BehaviorAutomationId,
+  payload: Record<string, unknown> | null,
+  memberDoNotContactKnown: boolean
+): Promise<LifecycleEligibilityResult> {
+  if (memberDoNotContactKnown) {
+    return { eligible: false, reason: "stopped_not_eligible" };
+  }
+
+  if (automationId === "freeze_ending") {
+    const rawFreezeId =
+      typeof payload?.freeze_id === "number"
+        ? payload.freeze_id
+        : typeof payload?.freeze_id === "string"
+          ? Number.parseInt(payload.freeze_id, 10)
+          : Number.NaN;
+    if (!Number.isInteger(rawFreezeId) || rawFreezeId <= 0) {
+      return { eligible: false, reason: "stopped_not_eligible" };
+    }
+
+    const nowSec = toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000));
+    const result = await client.query<{
+      deleted: boolean;
+      do_not_contact: boolean;
+      freeze_still_relevant: boolean;
+    }>(
+      `SELECT EXISTS(
+                SELECT 1
+                  FROM members m
+                 WHERE m.id = $3
+                   AND m.organization_id = $1
+                   AND m.branch_id = $2
+                   AND m.deleted_at IS NOT NULL
+              ) AS deleted,
+              EXISTS(
+                SELECT 1
+                  FROM members m
+                 WHERE m.id = $3
+                   AND m.organization_id = $1
+                   AND m.branch_id = $2
+                   AND COALESCE(m.whatsapp_do_not_contact, false) = true
+              ) AS do_not_contact,
+              EXISTS(
+                SELECT 1
+                  FROM subscription_freezes sf
+                  JOIN subscriptions s ON s.id = sf.subscription_id
+                 WHERE sf.organization_id = $1
+                   AND sf.branch_id = $2
+                   AND s.member_id = $3
+                   AND sf.id = $4
+                   AND sf.end_date >= $5
+                   AND sf.end_date < $6
+              ) AS freeze_still_relevant`,
+      [
+        runtime.organizationId,
+        runtime.branchId,
+        memberId,
+        rawFreezeId,
+        nowSec,
+        nowSec + 2 * 86400,
+      ]
+    );
+
+    const row = result.rows[0];
+    if (!row || row.deleted || row.do_not_contact || !row.freeze_still_relevant) {
+      return { eligible: false, reason: "stopped_not_eligible" };
+    }
+    return { eligible: true };
+  }
+
+  const result = await client.query<{
+    deleted: boolean;
+    do_not_contact: boolean;
+    has_active_subscription: boolean;
+    visits_14d: number;
+    days_absent: number | null;
+  }>(
+    `WITH active_subscription AS (
+       SELECT 1
+         FROM subscriptions s
+        WHERE s.organization_id = $1
+          AND s.branch_id = $2
+          AND s.member_id = $3
+          AND s.is_active = true
+          AND s.start_date <= $4
+          AND s.end_date > $4
+        LIMIT 1
+     ),
+     activity AS (
+       SELECT COUNT(*) FILTER (WHERE l.status = 'success' AND l.timestamp >= $4 - (14 * 86400))::int AS visits_14d,
+              MAX(l.timestamp) FILTER (WHERE l.status = 'success')::bigint AS last_visit
+         FROM logs l
+        WHERE l.organization_id = $1
+          AND l.branch_id = $2
+          AND l.member_id = $3
+     )
+     SELECT EXISTS(
+              SELECT 1
+                FROM members m
+               WHERE m.id = $3
+                 AND m.organization_id = $1
+                 AND m.branch_id = $2
+                 AND m.deleted_at IS NOT NULL
+            ) AS deleted,
+            EXISTS(
+              SELECT 1
+                FROM members m
+               WHERE m.id = $3
+                 AND m.organization_id = $1
+                 AND m.branch_id = $2
+                 AND COALESCE(m.whatsapp_do_not_contact, false) = true
+            ) AS do_not_contact,
+            EXISTS(SELECT 1 FROM active_subscription) AS has_active_subscription,
+            COALESCE((SELECT visits_14d FROM activity), 0)::int AS visits_14d,
+            CASE
+              WHEN (SELECT last_visit FROM activity) IS NULL THEN NULL
+              ELSE FLOOR(($4 - (SELECT last_visit FROM activity)) / 86400.0)::int
+            END AS days_absent`,
+    [
+      runtime.organizationId,
+      runtime.branchId,
+      memberId,
+      toSubscriptionAccessReferenceUnix(Math.floor(Date.now() / 1000)),
+    ]
+  );
+
+  const row = result.rows[0];
+  if (!row || row.deleted || row.do_not_contact || !row.has_active_subscription) {
+    return { eligible: false, reason: "stopped_not_eligible" };
+  }
+
+  if (automationId === "habit_break") {
+    if (row.days_absent === null) {
+      return { eligible: false, reason: "stopped_not_eligible" };
+    }
+    if (row.days_absent < 4) {
+      return { eligible: false, reason: "stopped_goal_met" };
+    }
+    if (row.days_absent > 6 || row.visits_14d < 3) {
+      return { eligible: false, reason: "stopped_not_eligible" };
+    }
+  }
+
+  return { eligible: true };
+}
+
 let cachedVersion: [number, number, number] | undefined;
 let versionFetchedAt = 0;
 
@@ -966,12 +1130,15 @@ async function processTenantQueue(runtime: TenantRuntime) {
       try {
         const payload = row.payload as Record<string, unknown> | null;
         const lifecycleAutomationId = getLifecycleSequenceAutomationId(payload?.sequence_kind);
+        const behaviorAutomationId = getBehaviorAutomationId(payload?.sequence_kind);
         if (lifecycleAutomationId) {
           const lifecycleScope = getLifecycleSequenceScope(lifecycleAutomationId, payload);
+          const automationEnabled = parseBooleanSetting(settings.whatsapp_automation_enabled, true);
           const lifecycleEnabled =
-            lifecycleAutomationId === "post_expiry"
+            automationEnabled &&
+            (lifecycleAutomationId === "post_expiry"
               ? isLifecycleFlagEnabled(settings, "whatsapp_post_expiry_enabled")
-              : isLifecycleFlagEnabled(settings, "whatsapp_onboarding_enabled");
+              : isLifecycleFlagEnabled(settings, "whatsapp_onboarding_enabled"));
 
           if (!lifecycleEnabled) {
             await markQueueStopped(client, row.id, row.campaign_id, "stopped_not_eligible");
@@ -1011,6 +1178,30 @@ async function processTenantQueue(runtime: TenantRuntime) {
               await markQueueStopped(client, row.id, row.campaign_id, eligibility.reason);
               continue;
             }
+          }
+        }
+
+        if (behaviorAutomationId && row.member_id) {
+          const behaviorEnabled =
+            parseBooleanSetting(settings.whatsapp_automation_enabled, true) &&
+            isLifecycleFlagEnabled(settings, getBehaviorAutomationSettingKey(behaviorAutomationId));
+
+          if (!behaviorEnabled) {
+            await markQueueStopped(client, row.id, row.campaign_id, "stopped_not_eligible");
+            continue;
+          }
+
+          const eligibility = await evaluateBehaviorMessagingEligibility(
+            client,
+            runtime,
+            row.member_id,
+            behaviorAutomationId,
+            payload,
+            Boolean(row.member_whatsapp_do_not_contact)
+          );
+          if (!eligibility.eligible && eligibility.reason) {
+            await markQueueStopped(client, row.id, row.campaign_id, eligibility.reason);
+            continue;
           }
         }
 

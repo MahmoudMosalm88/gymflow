@@ -63,7 +63,8 @@ This is part of the sales value:
 Control model:
 - per automation toggle
 - per branch activation
-- fixed timing owned by GymFlow
+- GymFlow-owned timing for multi-step automations
+- owner-selected reminder days for renewal reminders
 
 ### 2. Frequency control is still GymFlow’s responsibility
 Even though owners choose the automation mix, GymFlow must help prevent bad messaging behavior.
@@ -132,14 +133,14 @@ Allowed live automations right now:
 - manual sends
 - broadcast campaigns
 - QR code sends
-
-Blocked in production until explicitly approved:
 - post-expiry recovery sequence
 - early onboarding follow-up steps after welcome
-- weekly digest
 - habit-break nudges
 - streak messages
 - freeze-ending reminders
+
+Blocked in production until explicitly approved:
+- weekly digest
 - milestone celebrations
 - birthday messages
 
@@ -185,10 +186,9 @@ Reports:
 - onboarding funnel support later
 
 #### 2. Renewal reminders
-Locked reminder cadence:
-- 14 days before expiry
-- 7 days before expiry
-- 3 days before expiry
+Owner-selected reminder days:
+- the branch chooses reminder days from the supported options
+- default branch setup is `7,3,1` unless the owner changes it
 
 Purpose:
 - reduce involuntary churn
@@ -266,8 +266,8 @@ Stop immediately if:
 - owner/staff stops the sequence
 
 Status:
-- code exists
-- blocked in production
+- live
+- default off until the branch enables it
 
 Control:
 - owner-controlled
@@ -311,9 +311,8 @@ Stop later steps if:
 - member already met the engagement target for that step
 
 Status:
-- code exists
-- welcome is live
-- later onboarding steps are blocked in production
+- live
+- default off until the branch enables it
 
 Control:
 - owner-controlled
@@ -345,11 +344,11 @@ Why it matters:
 - high retention value if executed carefully
 
 Status:
-- code exists
-- blocked in production
+- live
+- default off until the branch enables it
 
 Control:
-- owner-controlled later
+- owner-controlled
 
 Reports:
 - dedicated Habit-Break report
@@ -371,11 +370,11 @@ Milestone examples:
 - 100
 
 Status:
-- code exists
-- blocked in production
+- live
+- default off until the branch enables it
 
 Control:
-- owner-controlled later
+- owner-controlled
 
 Reports:
 - dedicated Streak Performance report
@@ -389,11 +388,11 @@ Purpose:
 - bring frozen members back smoothly
 
 Status:
-- code exists
-- blocked in production
+- live
+- default off until the branch enables it
 
 Control:
-- owner-controlled later
+- owner-controlled
 
 Reports:
 - reactivation support later
@@ -670,9 +669,8 @@ Owners/managers must be able to understand on mobile:
 To avoid drift, the locked timing in this document overrides older doc wording.
 
 ### Renewal reminders
-- 14 days before expiry
-- 7 days before expiry
-- 3 days before expiry
+- owner-selected reminder days from the supported branch options
+- default branch setup is `7,3,1` unless changed by the owner
 
 ### Post-expiry recovery
 - Day 0

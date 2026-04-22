@@ -15,14 +15,16 @@ It covers:
 
 ## Recommended First Rollout Scope
 
+Historical note:
+- the original first wave was `post_expiry` + `onboarding`
+- as of 2026-04-22, `habit_break`, `streaks`, and `freeze_ending` are also available in product code
+- they still remain default-off per branch until intentionally enabled
+- `weekly_digest` remains blocked
 Recommended first wave:
 - `post_expiry`
 - `onboarding`
 
 Keep blocked for later waves:
-- `habit_break`
-- `streaks`
-- `freeze_ending`
 - `weekly_digest`
 
 Why this is the safest first wave:
@@ -41,16 +43,13 @@ Why this is the safest first wave:
 - [x] Confirm first-wave automations
   - Proposed: `post_expiry`, `onboarding`
 - [x] Confirm second-wave automations stay blocked
-  - `habit_break`
-  - `streaks`
-  - `freeze_ending`
   - `weekly_digest`
 - [x] Confirm whether `weekly_digest` remains system-owned with no owner toggle
 - [x] Freeze the rollout decision in source-of-truth docs
 
 Decision frozen on 2026-04-15:
 - first wave is `post_expiry` + `onboarding`
-- second-wave automations remain blocked
+- `habit_break`, `streaks`, and `freeze_ending` were later promoted to available owner-controlled lanes on 2026-04-22
 - `weekly_digest` is system-owned and has no owner toggle
 
 ### 2. Enable Worker Lifecycle Gate
@@ -143,10 +142,8 @@ Implementation note:
     - `whatsapp_onboarding_enabled`
   - all other branches are explicitly `false`
 - [x] Keep second-wave automations blocked during pilot
-  - `habit_break`
-  - `streaks`
-  - `freeze_ending`
   - `weekly_digest`
+- [x] Keep newly available behavior automations default-off until a branch intentionally enables them
 - [x] Document rollback criteria
   - rollback immediately if any branch shows wrong-member onboarding or wrong-member post-expiry sends
   - rollback if failed WhatsApp sends spike materially above current baseline
