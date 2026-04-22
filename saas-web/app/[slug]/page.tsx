@@ -6,8 +6,13 @@ import legalContent from "@/lib/legal-content.json";
 
 export const dynamicParams = false;
 
+/** Only generate legal/policy pages — contact pages get their own route */
+const legalSlugs = legalContent.routeOrder.filter(
+  (s) => s !== "contact" && s !== "contact-and-data-requests"
+);
+
 export function generateStaticParams() {
-  return legalContent.routeOrder.map((slug) => ({ slug }));
+  return legalSlugs.map((slug) => ({ slug }));
 }
 
 export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
@@ -26,10 +31,16 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   };
 }
 
-export default function LegalRoutePage({ params }: { params: { slug: string } }) {
+export default function LegalRoutePage({ params, searchParams }: {
+  params: { slug: string };
+  searchParams: { lang?: string };
+}) {
   if (!legalContent.pages[params.slug as keyof typeof legalContent.pages]) {
     notFound();
   }
 
-  return <LegalPage slug={params.slug} />;
+  // Detect locale server-side from query param to prevent flash of wrong language
+  const initialLocale = searchParams.lang === "ar" ? "ar" : "en";
+
+  return <LegalPage slug={params.slug} initialLocale={initialLocale} />;
 }

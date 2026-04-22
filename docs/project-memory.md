@@ -1733,3 +1733,25 @@ The reports revamp roadmap is now implemented for all owner-facing report items 
 - `main` and `origin/main` both point to `cf24c52`.
 - Landing deploy history is green for the latest pushed work.
 - SaaS production is live on the latest pushed commit, not on an older fallback revision.
+
+---
+
+### April 22, 2026 — Legal pages revamp
+
+**What changed**:
+- Legal/policy/billing pages fully revamped to match GymFlow's brutalist design system
+- **Layout restructured**: hub page is now a card grid (3-col desktop, 1-col mobile); individual policy pages are single clean documents (no cards per section) with a sticky TOC sidebar
+- **Design system aligned**: removed all `rounded-*`, `shadow-sm`, `backdrop-blur-sm`, glassmorphism. Applied `border-2`, `shadow-[6px_6px_0_#1a1a1a]`, `font-black` headings
+- **RTL/i18n fixed**: `lang` + `dir` on `<main>`, server-side locale detection (no more English flash on `?lang=ar`), localized dates via `Intl.DateTimeFormat`
+- **Accessibility**: ARIA landmarks, breadcrumb nav, `<time>` element, proper heading hierarchy
+- **Contact/pricing separated**: `contact` and `contact-and-data-requests` slugs removed from legal route system — to get their own route later
+- **Sales email**: updated to `sales@gymflowsystem.com`
+- **Print stylesheet**: added `@media print` rules to hide nav and show URLs
+- **TOC**: IntersectionObserver-driven active section highlighting, CSS logical properties for RTL
+
+**Files changed**:
+- `saas-web/app/components/legal/LegalPage.tsx` — full rewrite
+- `saas-web/app/[slug]/page.tsx` — server-side locale detection, contact slugs excluded
+- `saas-web/lib/legal-content.json` — email updated
+- `saas-web/app/globals.css` — print stylesheet added
+- `docs/research/legal-pages-revamp-research.md` — new research file

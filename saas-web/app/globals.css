@@ -192,3 +192,34 @@ a {
 @keyframes border-snake {
   to { --angle: 360deg; }
 }
+
+/* ── Print styles for legal pages ─────────────────────── */
+@media print {
+  /* Hide navigation and interactive elements */
+  aside,
+  nav[aria-label="Breadcrumb"],
+  [role="group"][aria-label="Language"] {
+    display: none !important;
+  }
+
+  /* Remove shadows and decorative borders for clean print */
+  * {
+    box-shadow: none !important;
+  }
+
+  /* Show URLs after links */
+  article a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.75em;
+    color: #666;
+  }
+
+  /* Prevent headings from being orphaned at page breaks */
+  h1, h2, h3 {
+    page-break-after: avoid;
+  }
+
+  section {
+    page-break-inside: avoid;
+  }
+}
