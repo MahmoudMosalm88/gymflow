@@ -1,7 +1,7 @@
 # GymFlow — Project Memory (Source of Truth)
 
 > Single living document. Combines git history, session logs, and all docs into one timeline.
-> Any new task should start here. Last updated: **April 3, 2026**.
+> Any new task should start here. Last updated: **April 22, 2026**.
 
 ---
 
@@ -24,7 +24,7 @@ GymFlow is a gym membership management system built for Arabic-speaking gym owne
 ## Infrastructure (SaaS)
 
 - **GCP Project**: `gymflow-saas-260215-251`
-- **Cloud Run**: `gymflow-web-app`, `europe-west1`, URL: `https://gymflow-web-app-102836518373.europe-west1.run.app`, `minScale=0` after April 1 cost cut
+- **Cloud Run**: `gymflow-web-app`, `europe-west1`, URLs: `https://gymflow-web-app-wa77b4slkq-ew.a.run.app` and `https://gymflow-web-app-102836518373.europe-west1.run.app`, `minScale=2`
 - **Custom domain**: `https://gymflowsystem.com`
 - **Cloud SQL**: `gymflow-pg` (PostgreSQL 15), `europe-west1-d`, tier `db-g1-small` after April 1 cost cut
 - **Artifact Registry**: `europe-west1-docker.pkg.dev/gymflow-saas-260215-251/gymflow/gymflow-web`
@@ -1694,3 +1694,42 @@ The reports revamp roadmap is now implemented for all owner-facing report items 
 - Any new side effect added to create/renew/member-edit flows must either:
   - verify the required relation exists first, or
   - degrade safely without rolling back the primary business action.
+
+## 2026-04-21 → 2026-04-22 — PM resynced to git and live deploy state
+
+**Why this section exists**:
+- `docs/project-memory.md` had fallen behind the actual repo and production state.
+- Git history, GitHub Actions, Cloud Build, and Cloud Run were rechecked directly on April 22, 2026.
+
+**Recent commits now reflected in PM**:
+- `03ae3db` — `feat(legal): add public policy and billing pages`
+- `0d6d0a3` — `fix(legal): bundle policy content into saas-web build`
+- `1aca12e` — `fix(members): show current plan and sessions left`
+- `9bcfda1` — `fix(members): stop false edit conflicts`
+- `527ad46` — `fix(dashboard): add keyboard save shortcuts`
+- `9e0dc55` — `fix(i18n): comprehensive Arabic/RTL audit — phone dir, translations, logical CSS, currency`
+- `cf24c52` — `fix(members): restore profile page hook order`
+
+**Deploy verification performed on April 22, 2026**:
+- GitHub Pages workflow `Build and Deploy to GitHub Pages` is green for the latest landing-site deploy:
+  - commit `cf24c521710edfed45d859a2dd64fa6a4e644584`
+  - run updated at `2026-04-22T12:55:42Z`
+- SaaS Cloud Build is green for the latest production image:
+  - commit `cf24c521710edfed45d859a2dd64fa6a4e644584`
+  - build created at `2026-04-22T12:54:50Z`
+  - build finished at `2026-04-22T13:04:17Z`
+- Cloud Run live service `gymflow-web-app` is serving that same latest commit:
+  - latest created revision: `gymflow-web-app-00180-pkp`
+  - latest ready revision: `gymflow-web-app-00180-pkp`
+  - traffic: `100%` to latest revision
+  - live URL: `https://gymflow-web-app-wa77b4slkq-ew.a.run.app`
+  - deployed image tag: `cf24c521710edfed45d859a2dd64fa6a4e644584`
+
+**Important nuance**:
+- Earlier SaaS deploy attempts for `03ae3db` and `1aca12e` failed in Cloud Build.
+- Those failures are no longer the live state. Later commits from `9bcfda1` onward rebuilt successfully, and production is now aligned to `cf24c52`.
+
+**Current source-of-truth status after this resync**:
+- `main` and `origin/main` both point to `cf24c52`.
+- Landing deploy history is green for the latest pushed work.
+- SaaS production is live on the latest pushed commit, not on an older fallback revision.
