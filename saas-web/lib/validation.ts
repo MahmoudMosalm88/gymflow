@@ -3,6 +3,12 @@ import { z } from "zod";
 const e164Regex = /^\+[1-9]\d{7,14}$/;
 export const paymentMethodSchema = z.enum(["cash", "digital"]);
 
+function emptyStringToUndefined(value: unknown) {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? undefined : trimmed;
+}
+
 const e164PhoneSchema = z
   .string()
   .trim()
@@ -61,6 +67,22 @@ export const loginSchema = z.union([passwordLoginSchema, tokenLoginSchema]);
 
 export const forgotPasswordSchema = z.object({
   email: z.string().trim().email()
+});
+
+export const publicContactSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().email(),
+  phone: z.preprocess(emptyStringToUndefined, z.string().trim().min(5).max(30).optional()),
+  organizationName: z.string().trim().min(2).max(120),
+  market: z.string().trim().min(2).max(80),
+  branchCount: z.preprocess(
+    emptyStringToUndefined,
+    z.coerce.number().int().min(1).max(10000).optional()
+  ),
+  requestType: z.enum(["pricing", "demo", "onboarding", "migration", "legal", "data", "support", "other"]),
+  message: z.string().trim().min(20).max(4000),
+  locale: z.enum(["en", "ar"]).default("en"),
+  website: z.preprocess(emptyStringToUndefined, z.string().trim().max(200).optional())
 });
 
 export const memberSchema = z.object({

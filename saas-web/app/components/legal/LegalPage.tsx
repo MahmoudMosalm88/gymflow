@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
+import ContactForm from '@/app/components/legal/ContactForm';
 import legalContent from '@/lib/legal-content.json';
 
 type Locale = 'en' | 'ar';
@@ -44,6 +45,7 @@ function formatDate(iso: string, locale: Locale): string {
 const policySlugs = legalContent.routeOrder.filter(
   (s) => s !== 'contact' && s !== 'contact-and-data-requests' && s !== 'legal'
 );
+const contactFormAnchor = 'send-a-message';
 
 /* ── props ───────────────────────────────────────────── */
 
@@ -90,6 +92,16 @@ export default function LegalPage({ slug, initialLocale }: LegalPageProps) {
   const isArabic = locale === 'ar';
   const isHub = slug === 'legal';
   const sections = page.sections ?? [];
+  const isContactPage = slug === 'contact';
+  const tocItems = [
+    ...(isContactPage
+      ? [{ id: contactFormAnchor, label: isArabic ? 'أرسل رسالة' : 'Send a message' }]
+      : []),
+    ...sections.map((section) => ({
+      id: toAnchor(pick(section.heading, 'en')),
+      label: pick(section.heading, locale)
+    }))
+  ];
 
   /* ──────────────────────────────────────────────────── */
   /*  LEGAL HUB — card grid linking to each policy page  */
@@ -222,6 +234,19 @@ export default function LegalPage({ slug, initialLocale }: LegalPageProps) {
 
           {/* Document — single continuous flow, no cards */}
           <article className="max-w-2xl">
+            {isContactPage && (
+              <section
+                id={contactFormAnchor}
+                ref={(el) => {
+                  if (el) sectionRefs.current.set(contactFormAnchor, el);
+                  else sectionRefs.current.delete(contactFormAnchor);
+                }}
+                className="scroll-mt-20"
+              >
+                <ContactForm locale={locale} fallbackEmail={legalContent.defaults.supportEmail} />
+              </section>
+            )}
+
             {sections.map((section, idx) => {
               const anchor = toAnchor(pick(section.heading, 'en'));
               const paragraphs = "paragraphs" in section ? section.paragraphs ?? [] : [];
@@ -235,7 +260,7 @@ export default function LegalPage({ slug, initialLocale }: LegalPageProps) {
                     if (el) sectionRefs.current.set(anchor, el);
                     else sectionRefs.current.delete(anchor);
                   }}
-                  className={`scroll-mt-20 ${idx > 0 ? 'mt-10 border-t-2 border-border pt-10' : ''}`}
+                  className={`scroll-mt-20 ${idx > 0 || isContactPage ? 'mt-10 border-t-2 border-border pt-10' : ''}`}
                 >
                   <h2 className="mb-5 font-sans text-xl font-bold text-foreground">
                     {pick(section.heading, locale)}
@@ -286,7 +311,7 @@ export default function LegalPage({ slug, initialLocale }: LegalPageProps) {
           </article>
 
           {/* Sticky TOC sidebar — desktop only */}
-          {sections.length > 1 && (
+          {tocItems.length > 1 && (
             <nav
               aria-label={isArabic ? 'المحتويات' : 'On this page'}
               className="hidden lg:block"
@@ -296,20 +321,19 @@ export default function LegalPage({ slug, initialLocale }: LegalPageProps) {
                   {isArabic ? 'المحتويات' : 'On this page'}
                 </p>
                 <ul className="space-y-1">
-                  {sections.map((section) => {
-                    const anchor = toAnchor(pick(section.heading, 'en'));
-                    const isActive = activeSection === anchor;
+                  {tocItems.map((item) => {
+                    const isActive = activeSection === item.id;
                     return (
-                      <li key={anchor}>
+                      <li key={item.id}>
                         <a
-                          href={`#${anchor}`}
+                          href={`#${item.id}`}
                           className={`block border-s-2 px-3 py-1.5 text-sm transition-colors ${
                             isActive
                               ? 'border-primary font-bold text-primary'
                               : 'border-transparent text-muted-foreground hover:border-foreground hover:text-foreground'
                           }`}
                         >
-                          {pick(section.heading, locale)}
+                          {item.label}
                         </a>
                       </li>
                     );
