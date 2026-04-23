@@ -3,6 +3,9 @@ substitutions:
   _REGION: europe-west1
   _REPOSITORY: gymflow
 
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 steps:
   - id: Build
     name: gcr.io/cloud-builders/docker
