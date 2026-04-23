@@ -1,8 +1,8 @@
-# GymFlow SaaS Web (GCP-Only Baseline)
+# GymFlow SaaS Web
 
-This folder is an isolated SaaS migration workspace for GymFlow, separate from the existing desktop runtime.
+This repo root now hosts the active GymFlow SaaS app. On April 24, 2026, the old GitHub Pages landing site was retired and preserved under `archive/landing-pages-site/`.
 
-## What is implemented in this baseline
+## What is implemented
 
 - Next.js app-router project scaffold (`app/*`)
 - API surface mapped to your locked contract:
@@ -81,6 +81,11 @@ This command validates:
 - Firebase Admin bootstrap (service-account or ADC),
 - a live Admin SDK API call (`listUsers(1)`).
 
+## Archived landing snapshot
+
+- The retired public landing/download site lives in `archive/landing-pages-site/`.
+- It is preserved for reference only and is not part of the active build or deploy path.
+
 ## Important gaps before production cutover
 
 - Full frontend feature parity screens are not yet migrated.
@@ -88,4 +93,4 @@ This command validates:
 - Real WhatsApp send flow still needs VM runtime integration (currently dry-run ready).
 - Firebase client-side auth flow UI is still minimal.
 
-This baseline is structured to let us deliver each phase cleanly with isolated, testable increments.
+The active web runtime, Docker build, and Cloud Build configuration now all run from the repo root.

@@ -1,391 +1,154 @@
-
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
-html {
-  scroll-behavior: smooth;
+:root {
+  --background: 0 0% 8%;             /* #141414 dark charcoal */
+  --foreground: 30 6% 90%;           /* #e8e4df warm off-white */
+
+  --primary: 356 77% 56%;            /* #e63946 deep red — single brand accent */
+  --primary-foreground: 0 0% 100%;
+
+  --accent: 356 77% 56%;
+  --accent-foreground: 0 0% 100%;
+
+  --secondary: 0 0% 15%;             /* #262626 */
+  --secondary-foreground: 30 6% 90%;
+
+  --muted: 0 0% 15%;                 /* #262626 */
+  --muted-foreground: 30 4% 50%;     /* #8a8578 warm gray */
+
+  --popover: 0 0% 12%;               /* #1e1e1e */
+  --popover-foreground: 30 6% 90%;
+
+  --card: 0 0% 12%;                  /* #1e1e1e */
+  --card-foreground: 30 6% 90%;
+
+  --border: 0 0% 16%;                /* #2a2a2a */
+  --input: 0 0% 23%;                 /* #3a3a3a */
+  --ring: 356 77% 56%;
+
+  --destructive: 356 77% 56%;
+  --destructive-foreground: 0 0% 100%;
+
+  --success: 142.1 76.2% 36.3%;
+  --success-foreground: 0 0% 100%;
+
+  --warning: 48 96% 63%;
+  --warning-foreground: 0 0% 0%;
+
+  --info: 200 80% 50%;
+  --info-foreground: 0 0% 100%;
+
+  /* Chart colors — brutalist red + grays */
+  --chart-1: 356 77% 56%;    /* red */
+  --chart-2: 0 0% 40%;       /* dark gray */
+  --chart-3: 356 60% 38%;    /* dark red */
+  --chart-4: 0 0% 68%;       /* mid gray */
+  --chart-5: 0 0% 25%;       /* charcoal */
+
+  --radius: 0rem;             /* Zero radius — cascades to ALL shadcn components */
 }
 
 body {
-  @apply bg-background text-foreground font-inter transition-colors duration-300 ease-in-out;
+  @apply font-sans;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
 }
 
-/* The html.dark body styles will be handled by the HSL var definitions now */
-
-/* Typography Styles */
-@layer base {
-  h1 {
-    @apply font-sans text-h1; /* Using global font-sans now */
-  }
-
-  h2 {
-    @apply font-sans text-h2;
-  }
-
-  h3 {
-    @apply font-sans text-h3;
-  }
-
-  h4 {
-    @apply font-sans text-h4;
-  }
-
-  h5 {
-    @apply font-sans text-h5;
-  }
-
-  h6 {
-    @apply font-sans text-h6;
-  }
-
-  p {
-    @apply font-sans text-body; /* Using global font-sans now */
-  }
-
-  code {
-    @apply font-mono;
-  }
-
-  /* Link styling */
-  a {
-    @apply transition-colors duration-200;
-  }
-
-  /* Focus ring for accessibility */
-  :focus-visible {
-    @apply outline-none ring-2 ring-primary ring-offset-2; /* Use new primary color */
-  }
-
-  html.dark :focus-visible {
-    @apply ring-offset-background; /* Use new background color */
-  }
+/* ── Typography hierarchy ── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
-/* Design Token CSS Variables */
-@layer base {
-  /* Define light mode colors with HSL variables for the design system */
-  :root {
-    --background: 0 0% 100%; /* HSL for white */
-    --foreground: 222.2 47.4% 11.2%; /* HSL for very dark gray */
-
-    --primary: 231 48% 48%; /* HSL for #3F51B5 (Deep Blue) */
-    --primary-foreground: 0 0% 100%; /* HSL for white */
-
-    --accent: 33 100% 50%; /* HSL for #FF8C00 (Orange) */
-    --accent-foreground: 0 0% 100%; /* HSL for white */
-
-    --secondary: 210 40% 96.1%; /* Light gray */
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 47.4% 11.2%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 47.4% 11.2%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-
-    --destructive: 0 84.2% 60.2%; /* HSL for a red */
-    --destructive-foreground: 0 0% 100%;
-
-    --success: 142.1 76.2% 36.3%; /* HSL for a green */
-    --success-foreground: 0 0% 100%;
-
-    --warning: 48 96% 63%; /* HSL for a yellow */
-    --warning-foreground: 0 0% 0%;
-
-    /* Semantic - Info */
-    --info: 200 80% 50%; /* HSL for a blue */
-    --info-foreground: 0 0% 100%;
-
-    --radius: 0.5rem; /* For shadcn/ui border-radius, can be adopted by landing page components */
-
-    /* Existing Landing Page Colors mapped to new HSL vars for consistency, or as fallback */
-    --lp-primary-500: var(--accent); /* Mapping old brand orange to new accent */
-    --lp-accent-500: var(--destructive); /* Mapping old brand red to new destructive */
-
-    /* Existing semantic (will be replaced by new HSL ones or mapped) - These were already defined in tailwind.config.js as well*/
-    --lp-success: var(--success);
-    --lp-warning: var(--warning);
-    --lp-error: var(--destructive);
-    --lp-info: var(--info);
-
-    /* Existing neutral (will be replaced by new HSL ones or mapped) */
-    --lp-background: var(--background);
-    --lp-surface: var(--secondary);
-    --lp-surface-secondary: var(--muted);
-    --lp-border: var(--border);
-    --lp-text-primary: var(--foreground);
-    --lp-text-secondary: var(--muted-foreground);
-    --lp-text-tertiary: var(--muted-foreground);
-    --lp-disabled: var(--muted-foreground);
-  }
-
-  /* Define dark mode colors */
-  html.dark {
-    --background: 224 71.4% 4.1%;
-    --foreground: 210 20% 98%;
-
-    --primary: 217.2 91.2% 59.8%; /* Lighter blue for dark mode */
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --accent: 33 100% 50%; /* #FF8C00 (Orange) remains same */
-    --accent-foreground: 0 0% 100%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 20% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.4% 65%;
-
-    --popover: 224 71.4% 4.1%;
-    --popover-foreground: 210 20% 98%;
-
-    --card: 224 71.4% 4.1%;
-    --card-foreground: 210 20% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 217.2 91.2% 59.8%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 20% 98%;
-
-    --success: 142.1 76.2% 36.3%;
-    --success-foreground: 0 0% 100%;
-
-    --warning: 48 96% 63%;
-    --warning-foreground: 0 0% 0%;
-
-    --info: 200 80% 50%;
-    --info-foreground: 0 0% 100%;
-
-    /* Landing page dark mode colors mapped */
-    --lp-background: var(--background);
-    --lp-surface: var(--secondary);
-    --lp-surface-secondary: var(--muted);
-    --lp-border: var(--border);
-    --lp-text-primary: var(--foreground);
-    --lp-text-secondary: var(--muted-foreground);
-    --lp-text-tertiary: var(--muted-foreground);
-    --lp-disabled: var(--muted-foreground);
-  }
+/* Arabic overrides — triggered when dashboard wrapper sets dir="rtl" */
+[dir="rtl"] {
+  font-family: var(--font-arabic);
+  line-height: 1.5;
 }
 
-/* Button Styles */
-@layer components {
-  .btn-primary {
-    /* Use accent color for primary buttons on landing page */
-    @apply bg-accent hover:bg-accent/90 active:bg-accent/80 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2;
-  }
-
-  /* html.dark .btn-primary will now be handled by the base HSL vars */
-
-  .btn-secondary {
-    @apply border-2 border-primary text-primary hover:bg-primary/5 dark:hover:bg-primary/10 active:bg-primary/10 font-semibold py-3 px-6 rounded-lg transition-colors duration-200 disabled:border-muted disabled:text-muted-foreground disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
-  }
-
-  /* html.dark .btn-secondary will now be handled by the base HSL vars */
-
-  .btn-ghost {
-    @apply bg-transparent text-primary hover:bg-background/80 dark:hover:bg-background/90 active:bg-background/70 font-semibold py-3 px-6 rounded-lg transition-colors duration-200 disabled:text-muted-foreground disabled:cursor-not-allowed;
-  }
-
-  .btn-sm {
-    @apply py-2 px-4 text-sm;
-  }
-
-  .btn-lg {
-    @apply py-4 px-8 text-lg;
-  }
-
-  /* Link Button */
-  .btn-link {
-    @apply inline-block text-primary hover:text-primary-foreground hover:underline font-semibold transition-colors duration-200;
-  }
+[dir="rtl"] h1,
+[dir="rtl"] h2,
+[dir="rtl"] h3,
+[dir="rtl"] h4,
+[dir="rtl"] h5,
+[dir="rtl"] h6 {
+  font-family: var(--font-arabic-heading);
+  letter-spacing: 0;
+  line-height: 1.4;
 }
 
-/* Card Styles */
-@layer components {
-  .card {
-    @apply bg-card text-card-foreground border border-border rounded-xl p-6 shadow-sm hover:shadow-lg hover:border-primary transition-all duration-300;
-  }
-
-  .card-header {
-    @apply mb-6;
-  }
-
-  .card-content {
-    @apply space-y-4;
-  }
-
-  .card-footer {
-    @apply pt-6 border-t border-border mt-6;
-  }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-/* Input Styles */
-@layer components {
-  .input-base {
-    @apply w-full px-4 py-3 border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all duration-200;
-  }
-
-  input, textarea, select {
-    @apply input-base;
-  }
-
-  input:disabled, textarea:disabled, select:disabled {
-    @apply bg-muted text-muted-foreground cursor-not-allowed;
-  }
-}
-
-/* Form Label */
-@layer components {
-  .label {
-    @apply block text-label font-semibold text-foreground mb-2;
-  }
-
-  .form-group {
-    @apply mb-6;
-  }
-
-  .helper-text {
-    @apply text-body-sm text-muted-foreground mt-2;
-  }
-
-  .error-text {
-    @apply text-body-sm text-destructive mt-2;
-  }
-}
-
-/* Gradient Classes */
-@layer utilities {
-  .gradient-primary {
-    @apply bg-gradient-to-r from-accent to-destructive; /* Using accent and destructive as primary gradient */
-  }
-
-  .gradient-primary-br {
-    @apply bg-gradient-to-br from-accent to-destructive; /* Using accent and destructive as primary gradient */
-  }
-
-  .gradient-hero {
-    @apply bg-gradient-to-br from-secondary to-background dark:from-muted dark:to-background; /* Using HSL based vars */
-  }
-
-  .gradient-text {
-    @apply bg-gradient-to-r from-accent to-destructive bg-clip-text text-transparent; /* Using accent and destructive as primary gradient */
-  }
-}
-
-/* Responsive Typography */
-@layer components {
-  @screen md {
-    h1 {
-      @apply text-4xl md:text-5xl;
-    }
-
-    h2 {
-      @apply text-2xl md:text-3xl;
-    }
-
-    p {
-      @apply text-base md:text-lg;
-    }
-  }
-}
-
-/* Smooth transitions for dark mode */
 html,
-body,
-[role='dialog'] {
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  overscroll-behavior: none;           /* Prevent pull-to-refresh on Chrome Android */
+  -webkit-overflow-scrolling: touch;   /* Smooth scroll on iOS */
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 10px;
+/* ── Safe area utilities for PWA standalone mode ── */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-area-top    { padding-top: env(safe-area-inset-top); }
 }
 
-::-webkit-scrollbar-track {
-  @apply bg-background; /* Use background HSL var */
+/* iOS standalone status bar spacing */
+@media (display-mode: standalone) {
+  body { padding-top: env(safe-area-inset-top, 0px); }
 }
 
-::-webkit-scrollbar-thumb {
-  @apply bg-primary rounded-full hover:bg-primary/80; /* Use primary HSL var */
+a {
+  color: inherit;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-primary;
+/* Dashboard animations — one-time */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
-
-/* Firefox Scrollbar */
-* {
-  scrollbar-color: hsl(var(--primary)) hsl(var(--background));
-  scrollbar-width: thin;
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
 }
+.animate-fade-in { animation: fade-in 0.3s cubic-bezier(0.25, 1, 0.5, 1) both; }
+.animate-scale-in { animation: scale-in 0.25s cubic-bezier(0.25, 1, 0.5, 1) both; }
 
-html.dark * {
-  scrollbar-color: hsl(var(--primary)) hsl(var(--background));
+/* Staggered card entry — used by mobile card lists */
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
+.animate-card-enter { animation: card-enter 0.25s cubic-bezier(0.25, 1, 0.5, 1) both; }
 
-/* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+/* Ambient — continuous */
+@keyframes live-glow {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--success) / 0), 6px 6px 0 #000; }
+  50% { box-shadow: 0 0 16px 4px hsl(var(--success) / 0.3), 6px 6px 0 #000; }
 }
-
-@keyframes slideInUp {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+@keyframes breathe {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
 }
-
-@keyframes slideInDown {
-  from {
-    transform: translateY(-20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+.animate-live-glow > * {
+  animation: live-glow 2s ease-in-out infinite;
+  border-color: hsl(var(--success) / 0.5) !important;
 }
+.animate-breathe { animation: breathe 2.5s ease-in-out infinite; }
 
-@layer utilities {
-  .animate-fade-in {
-    animation: fadeIn 0.5s ease-in-out;
-  }
-
-  .animate-slide-in-up {
-    animation: slideInUp 0.5s ease-in-out;
-  }
-
-  .animate-slide-in-down {
-    animation: slideInDown 0.5s ease-in-out;
-  }
-}
 
 /* Prefers Reduced Motion Support */
 @media (prefers-reduced-motion: reduce) {
@@ -395,5 +158,68 @@ html.dark * {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Scanner search bar snake border ──────────────────────────────────────── */
+
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.search-bar-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.search-bar-wrapper::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: conic-gradient(from var(--angle), transparent 50%, hsl(var(--destructive)), transparent);
+  z-index: 0;
+  animation: border-snake 6s linear infinite;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+
+.search-bar-wrapper.focused::after {
+  opacity: 1;
+}
+
+@keyframes border-snake {
+  to { --angle: 360deg; }
+}
+
+/* ── Print styles for legal pages ─────────────────────── */
+@media print {
+  /* Hide navigation and interactive elements */
+  aside,
+  nav[aria-label="Breadcrumb"],
+  [role="group"][aria-label="Language"] {
+    display: none !important;
+  }
+
+  /* Remove shadows and decorative borders for clean print */
+  * {
+    box-shadow: none !important;
+  }
+
+  /* Show URLs after links */
+  article a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.75em;
+    color: #666;
+  }
+
+  /* Prevent headings from being orphaned at page breaks */
+  h1, h2, h3 {
+    page-break-after: avoid;
+  }
+
+  section {
+    page-break-inside: avoid;
   }
 }

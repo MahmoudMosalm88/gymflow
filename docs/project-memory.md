@@ -1,7 +1,7 @@
 # GymFlow — Project Memory (Source of Truth)
 
 > Single living document. Combines git history, session logs, and all docs into one timeline.
-> Any new task should start here. Last updated: **April 22, 2026**.
+> Any new task should start here. Last updated: **April 24, 2026**.
 
 ---
 
@@ -11,13 +11,15 @@ GymFlow is a gym membership management system built for Arabic-speaking gym owne
 
 **Owner**: Mahmoud — UX/UI designer, limited coding background. Prefers bold decisions and quick execution. Do not over-explain. Do not stop to ask excessive questions — implement, then show.
 
-### Three apps in one monorepo (`/Users/mahmoudsfiles/projects/GymFlow/gymflow/`)
+### Current repo layout (`/Users/mahmoudsfiles/projects/GymFlow/gymflow/`)
 
 | App | Path | Stack | Status |
 |-----|------|-------|--------|
-| **Desktop** | `/src/` | Electron + electron-vite + SQLite (better-sqlite3) + Baileys WhatsApp | Active — v1.0.9 |
-| **Landing Page** | `/app/` | Next.js static export → GitHub Pages (`/gymflow` basePath) | Active |
-| **SaaS Web** | `/saas-web/` | Next.js 14 App Router + PostgreSQL + Firebase Auth + Cloud Run | Active |
+| **SaaS Web** | `/` | Next.js 14 App Router + PostgreSQL + Firebase Auth + Cloud Run | Active |
+| **Landing Snapshot** | `/archive/landing-pages-site/` | Retired Next.js static export / GitHub Pages site | Archived |
+| **WhatsApp Worker** | `/worker/whatsapp-vm/` | Node/TS background worker | Active |
+
+> Historical notes below still reference `/saas-web/` for events that happened before the April 24, 2026 repo flatten.
 
 ---
 
@@ -28,7 +30,7 @@ GymFlow is a gym membership management system built for Arabic-speaking gym owne
 - **Custom domain**: `https://gymflowsystem.com`
 - **Cloud SQL**: `gymflow-pg` (PostgreSQL 15), `europe-west1-d`, tier `db-g1-small` after April 1 cost cut
 - **Artifact Registry**: `europe-west1-docker.pkg.dev/gymflow-saas-260215-251/gymflow/gymflow-web`
-- **Cloud Build trigger**: `gymflow-saas-main-autodeploy` — watches `saas-web/**` on `main` branch
+- **Cloud Build trigger**: `gymflow-saas-main-autodeploy` — watches the repo root on `main` via `cloudbuild.trigger.yaml` after the April 24, 2026 flatten
 - **Storage buckets**: backups (30-day lifecycle), imports, photos
 - **WhatsApp VM**: `gymflow-whatsapp-worker`, `europe-west1-b`, machine type `e2-micro` after April 1 cost cut
 - **Cloud Run runtime service account**: `gymflow-web-sa@gymflow-saas-260215-251.iam.gserviceaccount.com`
@@ -45,17 +47,12 @@ gcloud secrets versions access latest --secret="gymflow-firebase-admin-json" --p
 GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-admin.json /tmp/cloud-sql-proxy "gymflow-saas-260215-251:europe-west1:gymflow-pg" --port=5433
 
 # 3. Start dev server
-cd saas-web && npm run dev
+npm run dev
 ```
-`.env.local` exists in `saas-web/` — use `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY` (individual vars), NOT `FIREBASE_SERVICE_ACCOUNT_JSON` (dotenv mangles `\n` in private key).
+`.env.local` exists at the repo root — use `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY` (individual vars), NOT `FIREBASE_SERVICE_ACCOUNT_JSON` (dotenv mangles `\n` in private key).
 
 ### Local Dev (Desktop)
-```bash
-# From repo root
-npm run dev
-# Runs electron-rebuild for better-sqlite3, then electron-vite dev
-# App opens at http://127.0.0.1:5176/
-```
+Desktop runtime notes below are historical. After the April 24, 2026 repo flatten, `npm run dev` at the repo root starts the SaaS app, not the old desktop runtime.
 
 ---
 
@@ -444,7 +441,7 @@ Commit `e17aadd`: Desktop app converted to full dark premium palette.
 - Desktop app: full dark UI, WhatsApp connect/disconnect/QR via Baileys, member management, QR check-in, attendance, subscriptions, reports, import/export, PDF generation, auto-update
 - SaaS web: full brutalist UI, Firebase auth, multi-tenant dashboard, members/subscriptions/attendance/reports, WhatsApp settings UI (polls for QR), backup/restore, Cloud Run deployment
 - SaaS web PWA: install prompt, service worker, offline fallback page, offline check-in queue + sync engine (initial production-ready version)
-- Landing page: 11-section brutalist dark marketing page → GitHub Pages
+- Landing snapshot: retired GitHub Pages landing/download site preserved under `/archive/landing-pages-site/`
 
 ### What's NOT done yet
 | Item | Notes |
@@ -453,7 +450,7 @@ Commit `e17aadd`: Desktop app converted to full dark premium palette.
 | PWA / offline check-in | Implemented and locally validated. Next: production soak test and monitoring for sync edge-cases. |
 | Tests | Zero tests anywhere |
 | Staging environment | None — only production Cloud Run |
-| DB migrations in Cloud Build trigger | `cloudbuild.yaml` has the step, but trigger uses inline config that doesn't include it |
+| DB migrations in live Cloud Build trigger | The trigger now uses repo-root `cloudbuild.trigger.yaml`, which still does not run migrations |
 | Dashboard UX polish | QR scanner prominence, member empty states, subscription status badges |
 | WhatsApp message delivery report | Planned in `docs/future_reports.md` |
 | Churn prediction / LTV reports | Planned in `docs/future_reports.md` |

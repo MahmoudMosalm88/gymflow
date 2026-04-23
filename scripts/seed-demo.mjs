@@ -1,7 +1,7 @@
 /**
  * GymFlow Demo Account Seeder
  * Creates demosales@gymflow.app with 500 realistic Egyptian gym members
- * Run from saas-web/: node ../scripts/seed-demo.mjs
+ * Run from repo root: node scripts/seed-demo.mjs
  */
 
 import { readFileSync } from "fs";
@@ -10,8 +10,8 @@ import { fileURLToPath } from "url";
 import { join, dirname } from "path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const saasWebDir = join(__dirname, "../saas-web");
-const require = createRequire(join(saasWebDir, "package.json"));
+const repoRoot = join(__dirname, "..");
+const require = createRequire(join(repoRoot, "package.json"));
 
 const { Client } = require("pg");
 const { v4: uuidv4 } = require("uuid");

@@ -10,11 +10,11 @@ import { execFileSync } from "node:child_process";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
-const requireFromSaas = createRequire(path.join(repoRoot, "saas-web/package.json"));
-const dotenv = requireFromSaas("dotenv");
-const admin = requireFromSaas("firebase-admin");
+const requireFromRoot = createRequire(path.join(repoRoot, "package.json"));
+const dotenv = requireFromRoot("dotenv");
+const admin = requireFromRoot("firebase-admin");
 
-dotenv.config({ path: path.join(repoRoot, "saas-web/.env.local") });
+dotenv.config({ path: path.join(repoRoot, ".env.local") });
 
 const TARGET_UID = process.env.VERIFY_LIVE_UID || "LvWA1osltZfXMu0PD9KKFlqfexr2";
 const TARGET_BRANCH_ID =

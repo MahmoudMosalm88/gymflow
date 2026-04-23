@@ -9,10 +9,10 @@ steps:
     args:
       - build
       - -f
-      - saas-web/Dockerfile
+      - Dockerfile
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/gymflow-web:$COMMIT_SHA
-      - saas-web
+      - .
 
   - id: Push
     name: gcr.io/cloud-builders/docker

@@ -1,5 +1,5 @@
 # dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.js
 
@@ -8,6 +8,7 @@
 
 # next.js
 /.next/
+/.next*
 /out/
 
 # production
@@ -23,6 +24,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
 .env*.local
 
 # vercel
@@ -38,7 +40,7 @@ yarn-error.log*
 *.zip
 
 # Electron build artifacts
-/dist/
+dist/
 /dist-hotfix/
 /dist-hotfix-x64/
 /dist-v102/
@@ -50,14 +52,21 @@ yarn-error.log*
 # Backups
 .backups/
 
-# SaaS web build
-saas-web/.next/
-saas-web/node_modules/
-saas-web/.env.local
+# Local tooling and artifacts
+.ccb/
+.playwright-mcp/
+.revamp/
+.superpowers/
+/saas-web/
+scripts/.last-live-runtime-check.json
 
 # TypeScript build info
 *.tsbuildinfo
 
 # Backup files
 *.backup
-.playwright-mcp/
+test-results/
+.tmp/
+.next_after_build_*/
+.next_devreset_*/
+.next_stale_*/

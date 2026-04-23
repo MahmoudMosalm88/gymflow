@@ -8,7 +8,7 @@ import FAQ from "../components/landing/FAQ";
 import CTA from "../components/landing/CTA";
 import Footer from "../components/landing/Footer";
 import StructuredData from "../components/landing/StructuredData";
-import { landingCopy } from "../page";
+import { landingCopy } from "../landing-copy";
 
 export default function ArabicHomePage() {
   const t = landingCopy.ar;

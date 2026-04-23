@@ -1,30 +1,25 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-This repository is a monorepo with three active apps:
-- `saas-web/`: Next.js 14 SaaS app (App Router, API routes, PostgreSQL/Firebase integrations).
-- `app/`: root marketing/landing site assets and pages.
+This repository is centered on a root-level Next.js SaaS app plus a preserved archive of the retired landing site:
+- `app/`: active Next.js 14 SaaS app (App Router, API routes, PostgreSQL/Firebase integrations).
+- `archive/landing-pages-site/`: preserved GitHub Pages landing/download site snapshot. Reference only, not active runtime.
 
 Supporting folders:
 - `docs/`: project memory, audits, deployment notes.
 - `assets/`: shared static assets.
-- `saas-web/worker/whatsapp-vm/`: WhatsApp automation worker.
+- `worker/whatsapp-vm/`: WhatsApp automation worker.
 
 ## Build, Test, and Development Commands
-Run commands from the matching app root.
+Run commands from the repo root unless a section explicitly says otherwise.
 
-Landing site (repo root):
-- `npm run dev` — run the root Next.js marketing site locally.
-- `npm run build` / `npm run start` — production build/start for the landing site.
-- `npm run lint` — ESLint for `.js/.jsx`.
-
-SaaS (`saas-web/`):
+SaaS app (repo root):
 - `npm run dev` — run Next.js locally.
 - `npm run build` / `npm run start` — production build/start.
 - `npm run typecheck` — strict TS check.
 - `npm run db:migrate` — database migrations.
 
-Worker (`saas-web/worker/whatsapp-vm/`):
+Worker (`worker/whatsapp-vm/`):
 - `npm run dev` — run worker via `tsx`.
 
 ## Coding Style & Naming Conventions
@@ -36,8 +31,7 @@ Worker (`saas-web/worker/whatsapp-vm/`):
 
 ## Testing Guidelines
 - Minimum expectation: changed logic should have regression coverage or a reproducible manual test note in PR.
-- For SaaS critical flows (auth/scanner/import), validate locally with `npm run build` + smoke checks.
-- For landing changes, validate with `npm run build` at the repo root.
+- For critical flows (auth/scanner/import), validate locally with `npm run build` + smoke checks.
 
 ## Commit & Pull Request Guidelines
 - Follow Conventional Commit style seen in history: `fix(...)`, `feat(...)`, `docs:`, `chore(...)`.
@@ -53,7 +47,7 @@ Worker (`saas-web/worker/whatsapp-vm/`):
 ## Deployment Workflow
 - Do not run manual production deployments from local terminal.
 - Deployment must happen through the configured CI/CD trigger on push to `main`.
-- Before pushing, confirm build health locally (`saas-web`: `npm run build`, root landing site: `npm run build`).
+- Before pushing, confirm build health locally from the repo root with `npm run build`.
 - If a live issue is urgent, push the fix first, then verify trigger/build/revision status.
 
 ## Communication Rule

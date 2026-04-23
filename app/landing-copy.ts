@@ -1,26 +1,12 @@
-import styles from "./landing.module.css";
-import Navbar from "./components/landing/Navbar";
-import Hero from "./components/landing/Hero";
-import Problem from "./components/landing/Problem";
-import HowItWorks from "./components/landing/HowItWorks";
-import Features from "./components/landing/Features";
-import FAQ from "./components/landing/FAQ";
-import CTA from "./components/landing/CTA";
-import Footer from "./components/landing/Footer";
-import StructuredData from "./components/landing/StructuredData";
-
-type Lang = "en" | "ar";
+export type Lang = "en" | "ar";
 
 export const landingCopy = {
   en: {
-    /* Navbar */
     navFeatures: "Features",
     navBlog: "Blog",
     navFaq: "FAQ",
     navCta: "Get pricing",
     navSignin: "Sign in",
-
-    /* Hero */
     heroLabel: "GYM MANAGEMENT · REDEFINED",
     heroTitle: "Run your gym without the",
     heroTitleEm: "admin headache.",
@@ -28,8 +14,6 @@ export const landingCopy = {
     heroCta: "Get pricing",
     heroCtaSecondary: "Sign in",
     heroMicro: "Arabic + English · Built for gyms in Egypt and the Gulf",
-
-    /* Problem */
     problemLabel: "THE PROBLEM",
     problemTitle: "Running a gym shouldn't feel like a second full-time job.",
     problemCards: [
@@ -37,8 +21,6 @@ export const landingCopy = {
       { title: "Manual check-ins create queues", body: "Hand-written logs and manual ID searches make your front desk a bottleneck every single morning." },
       { title: "You're flying blind", body: "Spreadsheets don't show which plans are growing, which clients are at risk, or where your revenue is coming from." },
     ] as const,
-
-    /* How It Works */
     howLabel: "HOW IT WORKS",
     howTitle: "From setup to running — in one afternoon.",
     howSteps: [
@@ -46,8 +28,6 @@ export const landingCopy = {
       { num: "02", title: "Configure plans & automations", body: "Set your membership tiers, pricing, session quotas, and renewal reminders. Done once, runs forever." },
       { num: "03", title: "Manage from one dashboard", body: "Check-ins, reports, renewals, and messages — all in one place. No more switching between tools." },
     ] as const,
-
-    /* Features */
     featuresLabel: "FEATURES",
     featuresTitle: "Everything your gym needs. Nothing it doesn't.",
     featuresCards: [
@@ -58,8 +38,6 @@ export const landingCopy = {
       { title: "Income Tracking", body: "Monthly revenue breakdown with MoM deltas, PT revenue split, expected monthly income, and per-day earnings calendar.", size: "medium" as const },
       { title: "Works Offline", body: "Full offline mode for the front desk. Check-ins, member lookups, and actions queue locally and sync automatically when internet returns.", size: "medium" as const },
     ] as const,
-
-    /* FAQ */
     faqLabel: "FAQ",
     faqTitle: "Questions answered.",
     faqItems: [
@@ -69,14 +47,10 @@ export const landingCopy = {
       { q: "Is my clients' data secure?", a: "All data is encrypted in transit and at rest. We use Google Cloud infrastructure with daily backups and ISO-standard security practices." },
       { q: "How does pricing work?", a: "GymFlow uses a quote-first business model. Pricing depends on your gym size, branch setup, rollout needs, and support scope, and the final terms are confirmed in writing before launch." },
     ] as const,
-
-    /* CTA */
     ctaTitle: "Ready to get your time back?",
     ctaSub: "Join gym owners across the region who run their operations with GymFlow.",
     ctaBtn: "Get pricing",
     ctaMicro: "Invoice-first rollout · Manual payment options available in Egypt",
-
-    /* Preview */
     previewLabel: "SEE IT IN ACTION",
     previewTitle: "A real look at the dashboard.",
     previewTabs: [
@@ -87,8 +61,6 @@ export const landingCopy = {
       { key: "subscriptions", label: "Subscriptions", src: "/demo-screens/subscriptions.png" },
       { key: "pt", label: "PT & Staff", src: "/demo-screens/pt.png" },
     ] as const,
-
-    /* Footer */
     footerTagline: "Gym management, simplified.",
     footerLegalCenter: "Legal Center",
     footerPrivacy: "Privacy Policy",
@@ -115,14 +87,11 @@ export const landingCopy = {
     footerLocationAlex: "Alexandria",
   },
   ar: {
-    /* Navbar */
     navFeatures: "المزايا",
     navBlog: "المدونة",
     navFaq: "الأسئلة الشائعة",
     navCta: "اطلب السعر",
     navSignin: "تسجيل الدخول",
-
-    /* Hero */
     heroLabel: "إدارة الصالات الرياضية · بأسلوب أذكى",
     heroTitle: "أدِر صالتك الرياضية بلا",
     heroTitleEm: "عناء الإدارة.",
@@ -130,8 +99,6 @@ export const landingCopy = {
     heroCta: "اطلب السعر",
     heroCtaSecondary: "تسجيل الدخول",
     heroMicro: "عربي + English · مصمم للجيمات في مصر والخليج",
-
-    /* Problem */
     problemLabel: "المشكلة",
     problemTitle: "إدارة الصالة الرياضية لا ينبغي أن تستنزف كل وقتك.",
     problemCards: [
@@ -139,8 +106,6 @@ export const landingCopy = {
       { title: "تسجيل الدخول اليدوي يُعطّل سير العمل", body: "السجلات الورقية والبحث اليدوي يحوّلان مكتب الاستقبال إلى نقطة اختناق في كل صباح." },
       { title: "تعمل دون بيانات واضحة", body: "جداول البيانات لا تُخبرك أيّ الخطط تنمو، ولا مَن من عملائك في خطر، ولا مصادر إيراداتك." },
     ] as const,
-
-    /* How It Works */
     howLabel: "آلية العمل",
     howTitle: "من الإعداد إلى التشغيل — في يوم واحد.",
     howSteps: [
@@ -148,8 +113,6 @@ export const landingCopy = {
       { num: "02", title: "اضبط الخطط والتجديدات التلقائية", body: "حدّد مستويات العضوية والأسعار وحصص الجلسات وتذكيرات التجديد. تُضبط مرة واحدة وتعمل تلقائياً." },
       { num: "03", title: "أدِر كل شيء من لوحة واحدة", body: "تسجيل الدخول والتقارير والتجديدات والرسائل — جميعها في مكان واحد، دون التنقل بين أدوات متعددة." },
     ] as const,
-
-    /* Features */
     featuresLabel: "المزايا",
     featuresTitle: "كل ما تحتاجه صالتك الرياضية. لا أقل ولا أكثر.",
     featuresCards: [
@@ -160,8 +123,6 @@ export const landingCopy = {
       { title: "تتبع الإيرادات", body: "تفصيل الإيرادات الشهرية مع مقارنات شهرية، وتقسيم إيرادات التدريب الشخصي، والدخل الشهري المتوقع، وتقويم الأرباح اليومية.", size: "medium" as const },
       { title: "يعمل بدون إنترنت", body: "وضع كامل للعمل بدون إنترنت لمكتب الاستقبال. تسجيل الدخول والبحث عن الأعضاء والإجراءات تُخزّن محلياً وتُزامَن تلقائياً عند عودة الإنترنت.", size: "medium" as const },
     ] as const,
-
-    /* FAQ */
     faqLabel: "الأسئلة الشائعة",
     faqTitle: "أسئلة يطرحها الجميع",
     faqItems: [
@@ -171,14 +132,10 @@ export const landingCopy = {
       { q: "هل بيانات عملائي آمنة؟", a: "جميع البيانات مشفّرة أثناء النقل وعند التخزين. نعتمد على البنية التحتية لـ Google Cloud مع نسخ احتياطية يومية وممارسات أمان وفق معايير دولية." },
       { q: "كيف تعمل الأسعار؟", a: "يعتمد GymFlow على نموذج تجاري يبدأ بعرض سعر. ويتم تحديد السعر بحسب حجم الجيم وعدد الفروع واحتياجات الإطلاق والدعم، ثم تُؤكد الشروط كتابةً قبل البدء." },
     ] as const,
-
-    /* CTA */
     ctaTitle: "هل أنت مستعد لاستعادة وقتك؟",
     ctaSub: "انضم إلى صالات رياضية في المنطقة تدير أعمالها باحترافية مع GymFlow.",
     ctaBtn: "اطلب السعر",
     ctaMicro: "إطلاق بنظام الفاتورة · وسائل دفع محلية متاحة في مصر",
-
-    /* Preview */
     previewLabel: "شاهده بنفسك",
     previewTitle: "نظرة حقيقية على لوحة التحكم.",
     previewTabs: [
@@ -189,8 +146,6 @@ export const landingCopy = {
       { key: "subscriptions", label: "الاشتراكات", src: "/demo-screens/subscriptions.png" },
       { key: "pt", label: "التدريب والفريق", src: "/demo-screens/pt.png" },
     ] as const,
-
-    /* Footer */
     footerTagline: "إدارة الجيم، مُبسَّطة.",
     footerLegalCenter: "المركز القانوني",
     footerPrivacy: "سياسة الخصوصية",
@@ -217,23 +172,3 @@ export const landingCopy = {
     footerLocationAlex: "الإسكندرية",
   },
 } as const;
-
-export default function HomePage() {
-  const lang: Lang = "en";
-  const isArabic = false;
-  const t = landingCopy.en;
-
-  return (
-    <main className={styles.page} dir={isArabic ? "rtl" : "ltr"}>
-      <StructuredData />
-      <Navbar lang={lang} t={t} />
-      <Hero t={t} />
-      <Problem t={t} />
-      <HowItWorks t={t} />
-      <Features t={t} />
-      <FAQ t={t} />
-      <CTA t={t} />
-      <Footer t={t} />
-    </main>
-  );
-}

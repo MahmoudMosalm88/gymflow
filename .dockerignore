@@ -5,6 +5,15 @@ node_modules
 *.md
 .env*
 .env.local
+archive/
+assets/
+docs/
+memory/
+saas-web/
+shared/
+.revamp/
+.superpowers/
+cloudflare-requests.json
 infra/
 worker/
 scripts/

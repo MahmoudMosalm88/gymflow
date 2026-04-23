@@ -1,0 +1,399 @@
+
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-background text-foreground font-inter transition-colors duration-300 ease-in-out;
+}
+
+/* The html.dark body styles will be handled by the HSL var definitions now */
+
+/* Typography Styles */
+@layer base {
+  h1 {
+    @apply font-sans text-h1; /* Using global font-sans now */
+  }
+
+  h2 {
+    @apply font-sans text-h2;
+  }
+
+  h3 {
+    @apply font-sans text-h3;
+  }
+
+  h4 {
+    @apply font-sans text-h4;
+  }
+
+  h5 {
+    @apply font-sans text-h5;
+  }
+
+  h6 {
+    @apply font-sans text-h6;
+  }
+
+  p {
+    @apply font-sans text-body; /* Using global font-sans now */
+  }
+
+  code {
+    @apply font-mono;
+  }
+
+  /* Link styling */
+  a {
+    @apply transition-colors duration-200;
+  }
+
+  /* Focus ring for accessibility */
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-2; /* Use new primary color */
+  }
+
+  html.dark :focus-visible {
+    @apply ring-offset-background; /* Use new background color */
+  }
+}
+
+/* Design Token CSS Variables */
+@layer base {
+  /* Define light mode colors with HSL variables for the design system */
+  :root {
+    --background: 0 0% 100%; /* HSL for white */
+    --foreground: 222.2 47.4% 11.2%; /* HSL for very dark gray */
+
+    --primary: 231 48% 48%; /* HSL for #3F51B5 (Deep Blue) */
+    --primary-foreground: 0 0% 100%; /* HSL for white */
+
+    --accent: 33 100% 50%; /* HSL for #FF8C00 (Orange) */
+    --accent-foreground: 0 0% 100%; /* HSL for white */
+
+    --secondary: 210 40% 96.1%; /* Light gray */
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 47.4% 11.2%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+
+    --destructive: 0 84.2% 60.2%; /* HSL for a red */
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142.1 76.2% 36.3%; /* HSL for a green */
+    --success-foreground: 0 0% 100%;
+
+    --warning: 48 96% 63%; /* HSL for a yellow */
+    --warning-foreground: 0 0% 0%;
+
+    /* Semantic - Info */
+    --info: 200 80% 50%; /* HSL for a blue */
+    --info-foreground: 0 0% 100%;
+
+    --radius: 0.5rem; /* For shadcn/ui border-radius, can be adopted by landing page components */
+
+    /* Existing Landing Page Colors mapped to new HSL vars for consistency, or as fallback */
+    --lp-primary-500: var(--accent); /* Mapping old brand orange to new accent */
+    --lp-accent-500: var(--destructive); /* Mapping old brand red to new destructive */
+
+    /* Existing semantic (will be replaced by new HSL ones or mapped) - These were already defined in tailwind.config.js as well*/
+    --lp-success: var(--success);
+    --lp-warning: var(--warning);
+    --lp-error: var(--destructive);
+    --lp-info: var(--info);
+
+    /* Existing neutral (will be replaced by new HSL ones or mapped) */
+    --lp-background: var(--background);
+    --lp-surface: var(--secondary);
+    --lp-surface-secondary: var(--muted);
+    --lp-border: var(--border);
+    --lp-text-primary: var(--foreground);
+    --lp-text-secondary: var(--muted-foreground);
+    --lp-text-tertiary: var(--muted-foreground);
+    --lp-disabled: var(--muted-foreground);
+  }
+
+  /* Define dark mode colors */
+  html.dark {
+    --background: 224 71.4% 4.1%;
+    --foreground: 210 20% 98%;
+
+    --primary: 217.2 91.2% 59.8%; /* Lighter blue for dark mode */
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --accent: 33 100% 50%; /* #FF8C00 (Orange) remains same */
+    --accent-foreground: 0 0% 100%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 20% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.4% 65%;
+
+    --popover: 224 71.4% 4.1%;
+    --popover-foreground: 210 20% 98%;
+
+    --card: 224 71.4% 4.1%;
+    --card-foreground: 210 20% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 217.2 91.2% 59.8%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 20% 98%;
+
+    --success: 142.1 76.2% 36.3%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 48 96% 63%;
+    --warning-foreground: 0 0% 0%;
+
+    --info: 200 80% 50%;
+    --info-foreground: 0 0% 100%;
+
+    /* Landing page dark mode colors mapped */
+    --lp-background: var(--background);
+    --lp-surface: var(--secondary);
+    --lp-surface-secondary: var(--muted);
+    --lp-border: var(--border);
+    --lp-text-primary: var(--foreground);
+    --lp-text-secondary: var(--muted-foreground);
+    --lp-text-tertiary: var(--muted-foreground);
+    --lp-disabled: var(--muted-foreground);
+  }
+}
+
+/* Button Styles */
+@layer components {
+  .btn-primary {
+    /* Use accent color for primary buttons on landing page */
+    @apply bg-accent hover:bg-accent/90 active:bg-accent/80 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-primary-foreground font-semibold py-3 px-6 rounded-lg transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2;
+  }
+
+  /* html.dark .btn-primary will now be handled by the base HSL vars */
+
+  .btn-secondary {
+    @apply border-2 border-primary text-primary hover:bg-primary/5 dark:hover:bg-primary/10 active:bg-primary/10 font-semibold py-3 px-6 rounded-lg transition-colors duration-200 disabled:border-muted disabled:text-muted-foreground disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
+  }
+
+  /* html.dark .btn-secondary will now be handled by the base HSL vars */
+
+  .btn-ghost {
+    @apply bg-transparent text-primary hover:bg-background/80 dark:hover:bg-background/90 active:bg-background/70 font-semibold py-3 px-6 rounded-lg transition-colors duration-200 disabled:text-muted-foreground disabled:cursor-not-allowed;
+  }
+
+  .btn-sm {
+    @apply py-2 px-4 text-sm;
+  }
+
+  .btn-lg {
+    @apply py-4 px-8 text-lg;
+  }
+
+  /* Link Button */
+  .btn-link {
+    @apply inline-block text-primary hover:text-primary-foreground hover:underline font-semibold transition-colors duration-200;
+  }
+}
+
+/* Card Styles */
+@layer components {
+  .card {
+    @apply bg-card text-card-foreground border border-border rounded-xl p-6 shadow-sm hover:shadow-lg hover:border-primary transition-all duration-300;
+  }
+
+  .card-header {
+    @apply mb-6;
+  }
+
+  .card-content {
+    @apply space-y-4;
+  }
+
+  .card-footer {
+    @apply pt-6 border-t border-border mt-6;
+  }
+}
+
+/* Input Styles */
+@layer components {
+  .input-base {
+    @apply w-full px-4 py-3 border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all duration-200;
+  }
+
+  input, textarea, select {
+    @apply input-base;
+  }
+
+  input:disabled, textarea:disabled, select:disabled {
+    @apply bg-muted text-muted-foreground cursor-not-allowed;
+  }
+}
+
+/* Form Label */
+@layer components {
+  .label {
+    @apply block text-label font-semibold text-foreground mb-2;
+  }
+
+  .form-group {
+    @apply mb-6;
+  }
+
+  .helper-text {
+    @apply text-body-sm text-muted-foreground mt-2;
+  }
+
+  .error-text {
+    @apply text-body-sm text-destructive mt-2;
+  }
+}
+
+/* Gradient Classes */
+@layer utilities {
+  .gradient-primary {
+    @apply bg-gradient-to-r from-accent to-destructive; /* Using accent and destructive as primary gradient */
+  }
+
+  .gradient-primary-br {
+    @apply bg-gradient-to-br from-accent to-destructive; /* Using accent and destructive as primary gradient */
+  }
+
+  .gradient-hero {
+    @apply bg-gradient-to-br from-secondary to-background dark:from-muted dark:to-background; /* Using HSL based vars */
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-accent to-destructive bg-clip-text text-transparent; /* Using accent and destructive as primary gradient */
+  }
+}
+
+/* Responsive Typography */
+@layer components {
+  @screen md {
+    h1 {
+      @apply text-4xl md:text-5xl;
+    }
+
+    h2 {
+      @apply text-2xl md:text-3xl;
+    }
+
+    p {
+      @apply text-base md:text-lg;
+    }
+  }
+}
+
+/* Smooth transitions for dark mode */
+html,
+body,
+[role='dialog'] {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-background; /* Use background HSL var */
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-primary rounded-full hover:bg-primary/80; /* Use primary HSL var */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-primary;
+}
+
+/* Firefox Scrollbar */
+* {
+  scrollbar-color: hsl(var(--primary)) hsl(var(--background));
+  scrollbar-width: thin;
+}
+
+html.dark * {
+  scrollbar-color: hsl(var(--primary)) hsl(var(--background));
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+
+  .animate-slide-in-up {
+    animation: slideInUp 0.5s ease-in-out;
+  }
+
+  .animate-slide-in-down {
+    animation: slideInDown 0.5s ease-in-out;
+  }
+}
+
+/* Prefers Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
