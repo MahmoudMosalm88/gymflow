@@ -5,7 +5,6 @@ GymFlow is a gym membership management system centered on a multi-tenant SaaS we
 ## Project Overview
 
 - **SaaS Web Platform (Next.js)**: The primary product now lives at the repo root. It uses Next.js, PostgreSQL, and Firebase Authentication, designed for multi-tenancy and hosted on GCP.
-- **Archived Landing Snapshot**: The retired GitHub Pages landing/download site is preserved under `/archive/landing-pages-site`.
 - **WhatsApp Worker**: A dedicated VM worker in `worker/whatsapp-vm` for WhatsApp automation.
 
 ## Key Technologies
@@ -23,7 +22,6 @@ GymFlow is a gym membership management system centered on a multi-tenant SaaS we
 - `/db`: PostgreSQL schema (`schema.sql`) and migration scripts.
 - `/lib`: Shared logic (Auth, DB, Migration/Backup engines).
 - `/worker`: WhatsApp VM worker.
-- `/archive/landing-pages-site`: Preserved copy of the retired landing site.
 - `/docs`: Project documentation and product memory.
 
 ## Building and Running

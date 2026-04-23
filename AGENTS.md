@@ -1,9 +1,8 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-This repository is centered on a root-level Next.js SaaS app plus a preserved archive of the retired landing site:
+This repository is centered on a root-level Next.js SaaS app:
 - `app/`: active Next.js 14 SaaS app (App Router, API routes, PostgreSQL/Firebase integrations).
-- `archive/landing-pages-site/`: preserved GitHub Pages landing/download site snapshot. Reference only, not active runtime.
 
 Supporting folders:
 - `docs/`: project memory, audits, deployment notes.

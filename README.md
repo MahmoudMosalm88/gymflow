@@ -1,6 +1,6 @@
 # GymFlow SaaS Web
 
-This repo root now hosts the active GymFlow SaaS app. On April 24, 2026, the old GitHub Pages landing site was retired and preserved under `archive/landing-pages-site/`.
+This repo root now hosts the active GymFlow SaaS app. On April 24, 2026, the old GitHub Pages landing site was retired and removed from this repo.
 
 ## What is implemented
 
@@ -80,11 +80,6 @@ This command validates:
 - recommended Firebase web keys for stable phone/popup auth,
 - Firebase Admin bootstrap (service-account or ADC),
 - a live Admin SDK API call (`listUsers(1)`).
-
-## Archived landing snapshot
-
-- The retired public landing/download site lives in `archive/landing-pages-site/`.
-- It is preserved for reference only and is not part of the active build or deploy path.
 
 ## Important gaps before production cutover
 

@@ -16,7 +16,6 @@ GymFlow is a gym membership management system built for Arabic-speaking gym owne
 | App | Path | Stack | Status |
 |-----|------|-------|--------|
 | **SaaS Web** | `/` | Next.js 14 App Router + PostgreSQL + Firebase Auth + Cloud Run | Active |
-| **Landing Snapshot** | `/archive/landing-pages-site/` | Retired Next.js static export / GitHub Pages site | Archived |
 | **WhatsApp Worker** | `/worker/whatsapp-vm/` | Node/TS background worker | Active |
 
 > Historical notes below still reference `/saas-web/` for events that happened before the April 24, 2026 repo flatten.
@@ -441,7 +440,7 @@ Commit `e17aadd`: Desktop app converted to full dark premium palette.
 - Desktop app: full dark UI, WhatsApp connect/disconnect/QR via Baileys, member management, QR check-in, attendance, subscriptions, reports, import/export, PDF generation, auto-update
 - SaaS web: full brutalist UI, Firebase auth, multi-tenant dashboard, members/subscriptions/attendance/reports, WhatsApp settings UI (polls for QR), backup/restore, Cloud Run deployment
 - SaaS web PWA: install prompt, service worker, offline fallback page, offline check-in queue + sync engine (initial production-ready version)
-- Landing snapshot: retired GitHub Pages landing/download site preserved under `/archive/landing-pages-site/`
+- Landing page: retired GitHub Pages landing/download site (removed from repo on April 24, 2026)
 
 ### What's NOT done yet
 | Item | Notes |
