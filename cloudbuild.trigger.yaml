@@ -38,7 +38,7 @@ steps:
           --allow-unauthenticated \
           --port=8080 \
           --min-instances=2 \
-          --update-env-vars=NODE_ENV=production
+          --update-env-vars=NODE_ENV=production,RELEASE_ID=$COMMIT_SHA
 
         # Force traffic to latest revision to avoid stale pinned revision routing.
         gcloud run services update-traffic ${_SERVICE_NAME} \

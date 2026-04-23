@@ -16,10 +16,14 @@ SaaS app (repo root):
 - `npm run dev` — run Next.js locally.
 - `npm run build` / `npm run start` — production build/start.
 - `npm run typecheck` — strict TS check.
+- `npm run test` — Vitest unit + integration suites.
+- `npm run test:smoke` — Playwright local smoke suite.
+- `npm run test:smoke:prod` — Playwright production smoke suite.
 - `npm run db:migrate` — database migrations.
 
 Worker (`worker/whatsapp-vm/`):
 - `npm run dev` — run worker via `tsx`.
+- `npm run typecheck` — worker TS validation.
 
 ## Coding Style & Naming Conventions
 - Language: TypeScript-first (`.ts/.tsx`).
@@ -30,7 +34,12 @@ Worker (`worker/whatsapp-vm/`):
 
 ## Testing Guidelines
 - Minimum expectation: changed logic should have regression coverage or a reproducible manual test note in PR.
-- For critical flows (auth/scanner/import), validate locally with `npm run build` + smoke checks.
+- For critical flows (auth/scanner/import), validate locally with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run test`
+  - `npm run test:smoke`
+- Authenticated smoke checks rely on `E2E_EMAIL` + `E2E_PASSWORD`. Without them, public smoke still needs to pass.
 
 ## Commit & Pull Request Guidelines
 - Follow Conventional Commit style seen in history: `fix(...)`, `feat(...)`, `docs:`, `chore(...)`.
@@ -47,6 +56,7 @@ Worker (`worker/whatsapp-vm/`):
 - Do not run manual production deployments from local terminal.
 - Deployment must happen through the configured CI/CD trigger on push to `main`.
 - Before pushing, confirm build health locally from the repo root with `npm run build`.
+- CI now uses stable required-check job names: `app-quality`, `worker-typecheck`, `smoke-local`, and post-deploy `prod-smoke`.
 - If a live issue is urgent, push the fix first, then verify trigger/build/revision status.
 
 ## Communication Rule

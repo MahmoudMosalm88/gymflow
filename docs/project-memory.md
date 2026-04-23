@@ -30,12 +30,14 @@ GymFlow is a gym membership management system built for Arabic-speaking gym owne
 - **Cloud SQL**: `gymflow-pg` (PostgreSQL 15), `europe-west1-d`, tier `db-g1-small` after April 1 cost cut
 - **Artifact Registry**: `europe-west1-docker.pkg.dev/gymflow-saas-260215-251/gymflow/gymflow-web`
 - **Cloud Build trigger**: `gymflow-saas-main-autodeploy` — watches the repo root on `main` via `cloudbuild.trigger.yaml` after the April 24, 2026 flatten
+- **GitHub Actions**: release-safety workflows now live in `.github/workflows/ci.yml` and `.github/workflows/post-deploy-smoke.yml`
 - **Storage buckets**: backups (30-day lifecycle), imports, photos
 - **WhatsApp VM**: `gymflow-whatsapp-worker`, `europe-west1-b`, machine type `e2-micro` after April 1 cost cut
 - **Cloud Run runtime service account**: `gymflow-web-sa@gymflow-saas-260215-251.iam.gserviceaccount.com`
   - Roles from Terraform: `roles/cloudsql.client`, `roles/storage.objectAdmin`, `roles/secretmanager.secretAccessor`
 - **Firebase Admin service account used for token verification**: `gymflow-firebase-admin@gymflow-saas-260215-251.iam.gserviceaccount.com`
   - Used for Firebase Admin auth/session verification
+- **Release verification**: `/api/health` now returns `{ status, releaseId }`, and post-deploy smoke waits for the pushed release id before browser checks
 
 ### Local Dev (SaaS)
 ```bash
@@ -131,6 +133,7 @@ guest_passes
 | 12 | Running `next build` while a local `next dev` server is serving can invalidate dev chunks and make `_next/static/*` return 404/500 | Restart `next dev` after local builds before trusting browser tests |
 | 13 | Browser-direct member photo upload to Firebase Storage is fragile and failed with CORS in real usage | Upload member photos through server route, not browser-to-Firebase |
 | 14 | Local photo upload e2e against GCS needs Application Default Credentials | Production uses Cloud Run runtime service account; local requires `gcloud auth application-default login` or equivalent |
+| 15 | Local Playwright smoke must not reuse a random process already bound to port 3000 | Run smoke on an isolated port (`3100`) and start the standalone server explicitly |
 
 ---
 
@@ -238,6 +241,41 @@ Full visual overhaul. See `docs/design-system.md` for complete token spec.
 - Full premium redesign: 11 conversion-optimised sections
 
 **PWA migration plan**: Written (see `docs/migration-to-PWA.md`) — not yet implemented.
+
+---
+
+### 2026-04-24 — Release Safety Hardening Baseline
+
+**What changed**
+
+- Added Vitest to the repo root with first-wave unit coverage for:
+  - `lib/billing-cycle.ts`
+  - `lib/subscription-dates.ts`
+  - `lib/check-in/rules.ts`
+  - `lib/imports.ts`
+  - `lib/rate-limit.ts`
+  - `lib/whatsapp-automation.ts`
+- Added first-wave integration coverage for:
+  - `app/api/health/route.ts`
+  - `app/api/auth/login/route.ts`
+  - `app/api/imports/preview/route.ts`
+  - `app/api/backup/export/route.ts`
+  - `app/api/whatsapp/status/route.ts`
+  - `app/api/whatsapp/queue/retry/route.ts`
+- Added Playwright smoke coverage for public routes plus optional authenticated shell checks.
+- Added GitHub Actions:
+  - `app-quality`
+  - `worker-typecheck`
+  - `smoke-local`
+  - `prod-smoke`
+- Added `RELEASE_ID` env plumbing so `/api/health` can confirm which revision is live.
+- Added `scripts/wait-for-release.mjs` so post-deploy smoke waits for the pushed release instead of racing the deploy.
+- Added `sharp` because the standalone server path needs it for image optimization.
+
+**What is still intentionally not claimed as solved**
+
+- Authenticated smoke depends on `E2E_EMAIL` + `E2E_PASSWORD`.
+- Cloud Build migration execution is still not a fully blocking, safely automated step in the active trigger path.
 
 #### Desktop App: UI/UX Audit Session
 

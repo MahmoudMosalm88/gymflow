@@ -81,11 +81,46 @@ This command validates:
 - Firebase Admin bootstrap (service-account or ADC),
 - a live Admin SDK API call (`listUsers(1)`).
 
+## Release safety baseline
+
+The repo now has an enforced local/CI safety stack:
+
+- `npm run typecheck`
+- `npm run build`
+- `npm run test` for Vitest unit + integration coverage
+- `npm run test:smoke` for local Playwright smoke
+- `npm run typecheck --prefix worker/whatsapp-vm`
+
+GitHub Actions workflows:
+
+- `.github/workflows/ci.yml`
+  - `app-quality`
+  - `worker-typecheck`
+  - `smoke-local`
+- `.github/workflows/post-deploy-smoke.yml`
+  - `prod-smoke`
+
+Production smoke now waits for `/api/health` to report the pushed `RELEASE_ID` before running browser checks.
+
+### Smoke credentials
+
+Authenticated smoke coverage is optional and activates only when these secrets/env vars exist:
+
+- `E2E_EMAIL`
+- `E2E_PASSWORD`
+
+Without them, public smoke still runs and validates:
+
+- homepage shell
+- login page
+- `/api/health`
+
 ## Important gaps before production cutover
 
 - Full frontend feature parity screens are not yet migrated.
 - Desktop backup parser for raw `.db + photos` binary packages is not yet implemented in the web upload flow (current executor expects parsed artifact payload JSON).
 - Real WhatsApp send flow still needs VM runtime integration (currently dry-run ready).
 - Firebase client-side auth flow UI is still minimal.
+- Cloud Build migration execution is still not safely blocking in the active trigger path; the repo now surfaces that gap explicitly instead of treating it as covered.
 
 The active web runtime, Docker build, and Cloud Build configuration now all run from the repo root.
