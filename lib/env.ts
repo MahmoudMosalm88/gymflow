@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  RELEASE_ID: z.string().default("local"),
   APP_BASE_URL: z.string().default("http://localhost:3000"),
   DATABASE_URL: z.string().default("postgres://postgres:postgres@localhost:5432/gymflow"),
   DATABASE_SSL: z.string().default("false"),

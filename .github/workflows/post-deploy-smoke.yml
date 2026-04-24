@@ -1,0 +1,56 @@
+name: Post Deploy Smoke
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: post-deploy-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prod-smoke:
+    name: prod-smoke
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_BASE_URL: ${{ vars.PRODUCTION_BASE_URL || 'https://gymflowsystem.com' }}
+      EXPECTED_RELEASE_ID: ${{ github.sha }}
+      WAIT_TIMEOUT_MS: 1200000
+      E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Wait for the pushed release to become live
+        run: node scripts/wait-for-release.mjs
+
+      - name: Run production smoke tests
+        run: npm run test:smoke:prod
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-prod-smoke
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore

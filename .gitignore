@@ -66,6 +66,8 @@ scripts/.last-live-runtime-check.json
 # Backup files
 *.backup
 test-results/
+playwright-report/
+blob-report/
 .tmp/
 .next_after_build_*/
 .next_devreset_*/
