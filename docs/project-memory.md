@@ -282,6 +282,8 @@ Full visual overhaul. See `docs/design-system.md` for complete token spec.
   - `prod-smoke`
 - Added `RELEASE_ID` env plumbing so `/api/health` can confirm which revision is live.
 - Added `scripts/wait-for-release.mjs` so post-deploy smoke waits for the pushed release instead of racing the deploy.
+- Added `scripts/resolve-release-target.mjs` so post-deploy smoke can detect docs-only / filtered merges and avoid waiting for a deploy that was never triggered.
+- Added `npm run release:status` so agents and operators can inspect `main` workflow state plus live production health in one command.
 - Added `sharp` because the standalone server path needs it for image optimization.
 - Changed the shipping workflow from direct `main` pushes to protected branch + PR delivery.
 - Added required checks on `main`: `app-quality`, `worker-typecheck`, `smoke-local`.
@@ -306,6 +308,7 @@ Full visual overhaul. See `docs/design-system.md` for complete token spec.
 - Wait for `app-quality`, `worker-typecheck`, and `smoke-local`
 - Merge PR
 - Confirm post-merge `CI`, `Post Deploy Smoke`, and `/api/health` `releaseId`
+- Run `npm run release:status`
 - Canonical operator guide: `docs/release-workflow.md`
 
 #### Desktop App: UI/UX Audit Session
