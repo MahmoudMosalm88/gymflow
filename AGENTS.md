@@ -52,6 +52,34 @@ Worker (`worker/whatsapp-vm/`):
   - screenshots/video for UI changes,
   - deployment/config notes when relevant.
 
+## Agent Shipping Workflow
+- Treat `main` as protected. Do not push directly to `main`.
+- For every feature, fix, or doc update:
+  - branch from the latest `main`
+  - keep the branch scoped to one concern
+  - implement the work
+  - run the local verification stack
+  - push the branch
+  - open a PR into `main`
+  - wait for required checks
+  - merge only after required checks pass
+  - verify post-merge CI/deploy status
+- Required local verification for the SaaS app:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run test`
+  - `npm run test:smoke`
+  - `npm run typecheck --prefix worker/whatsapp-vm`
+- Required GitHub checks on `main`:
+  - `app-quality`
+  - `worker-typecheck`
+  - `smoke-local`
+- After merge, also verify:
+  - post-merge `CI`
+  - `prod-smoke`
+  - `/api/health` returns the expected `releaseId`
+- If asked to “ship”, “finish”, or “take it live”, agents should execute this full workflow unless the user explicitly says to stop before PR/merge.
+
 ## Deployment Workflow
 - Do not run manual production deployments from local terminal.
 - Deployment must happen through the configured CI/CD trigger on push to `main`.
