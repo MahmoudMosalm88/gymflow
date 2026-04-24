@@ -25,19 +25,31 @@ GymFlow is a gym membership management system built for Arabic-speaking gym owne
 ## Infrastructure (SaaS)
 
 - **GCP Project**: `gymflow-saas-260215-251`
-- **Cloud Run**: `gymflow-web-app`, `europe-west1`, URLs: `https://gymflow-web-app-wa77b4slkq-ew.a.run.app` and `https://gymflow-web-app-102836518373.europe-west1.run.app`, `minScale=2`
+- **Cloud Run**: `gymflow-web-app`, `europe-west1`, URLs: `https://gymflow-web-app-wa77b4slkq-ew.a.run.app` and `https://gymflow-web-app-102836518373.europe-west1.run.app`, business-hours floor `minScale=1` at `08:00-00:00` `Africa/Cairo`, overnight floor `minScale=0`, `maxScale=12`, current container limit `1 vCPU / 1 GiB`
 - **Custom domain**: `https://gymflowsystem.com`
-- **Cloud SQL**: `gymflow-pg` (PostgreSQL 15), `europe-west1-d`, tier `db-g1-small` after April 1 cost cut
+- **Cloud SQL**: `gymflow-pg` (PostgreSQL 15), `europe-west1`, tier `db-f1-micro`, `20 GB` SSD, activation policy `ALWAYS`
 - **Artifact Registry**: `europe-west1-docker.pkg.dev/gymflow-saas-260215-251/gymflow/gymflow-web`
 - **Cloud Build trigger**: `gymflow-saas-main-autodeploy` — watches the repo root on `main` via `cloudbuild.trigger.yaml` after the April 24, 2026 flatten
 - **GitHub Actions**: release-safety workflows now live in `.github/workflows/ci.yml` and `.github/workflows/post-deploy-smoke.yml`
+- **Cloud Workflow + Scheduler cost controls**:
+  - Workflow: `cloud-run-set-min-scale`
+  - Scheduler jobs: `gymflow-web-minscale-business-hours-on` (`0 8 * * *`, `Africa/Cairo`) and `gymflow-web-minscale-overnight-off` (`0 0 * * *`, `Africa/Cairo`)
 - **Storage buckets**: backups (30-day lifecycle), imports, photos
-- **WhatsApp VM**: `gymflow-whatsapp-worker`, `europe-west1-b`, machine type `e2-micro` after April 1 cost cut
+- **WhatsApp VM**: `gymflow-whatsapp-worker-spot`, `europe-west1-b`, machine type `e2-micro`, preemptible/spot, single active sender lane today
 - **Cloud Run runtime service account**: `gymflow-web-sa@gymflow-saas-260215-251.iam.gserviceaccount.com`
   - Roles from Terraform: `roles/cloudsql.client`, `roles/storage.objectAdmin`, `roles/secretmanager.secretAccessor`
 - **Firebase Admin service account used for token verification**: `gymflow-firebase-admin@gymflow-saas-260215-251.iam.gserviceaccount.com`
   - Used for Firebase Admin auth/session verification
 - **Release verification**: `/api/health` now returns `{ status, releaseId }`, and post-deploy smoke waits for the pushed release id before browser checks
+
+### Current Practical Capacity (Verified April 24, 2026)
+
+- **Green zone**: `1–5` standard gyms, or `1` heavy broadcast gym — no proactive scaling required
+- **Yellow zone**: `5–10` standard gyms, or `2` heavy broadcast gyms — start scale planning and watch queue backlog plus DB pressure closely
+- **Red zone**: `>10` standard gyms, or `>2` heavy broadcast gyms — upgrade Cloud SQL and the WhatsApp worker before adding more load
+- **WhatsApp throughput today**: roughly `257 messages/hour` (`~6.2k/day`) at current worker defaults
+- **Practical blast math**: one `5,000` recipient blast is about `19.4 hours` on the current single sender lane
+- **Likely first bottlenecks**: Cloud SQL first, then the single WhatsApp worker lane, then sender-reputation / block-risk — not Cloud Run UI capacity
 
 ### Local Dev (SaaS)
 ```bash
@@ -111,7 +123,7 @@ guest_passes
 2. **Multi-tenancy**: All DB queries hard-enforce `WHERE organization_id = $1 AND branch_id = $2`
 3. **WhatsApp**: `@whiskeysockets/baileys` (pure WebSocket) — no Puppeteer, no browser. Auth stored in `<userData>/baileys_auth/` (desktop) or filesystem path env var (worker)
 4. **Message queue**: `message_queue` table with `FOR UPDATE SKIP LOCKED` — async worker sends messages, marks `sent`/`failed`
-5. **Branches**: main (active dev) → master (original, PR target). Push to `main` auto-deploys SaaS via Cloud Build
+5. **Branches**: `main` is now the protected default branch. Ship via short-lived branch → PR → required checks → merge. Merge to `main` auto-deploys SaaS via Cloud Build.
 
 ---
 
@@ -271,11 +283,30 @@ Full visual overhaul. See `docs/design-system.md` for complete token spec.
 - Added `RELEASE_ID` env plumbing so `/api/health` can confirm which revision is live.
 - Added `scripts/wait-for-release.mjs` so post-deploy smoke waits for the pushed release instead of racing the deploy.
 - Added `sharp` because the standalone server path needs it for image optimization.
+- Changed the shipping workflow from direct `main` pushes to protected branch + PR delivery.
+- Added required checks on `main`: `app-quality`, `worker-typecheck`, `smoke-local`.
+- Switched the repo default branch to `main`.
 
 **What is still intentionally not claimed as solved**
 
 - Authenticated smoke depends on `E2E_EMAIL` + `E2E_PASSWORD`.
 - Cloud Build migration execution is still not a fully blocking, safely automated step in the active trigger path.
+
+**Operational workflow now**
+
+- Start from latest `main`
+- Create a short-lived branch for one concern
+- Run local verification:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run test`
+  - `npm run test:smoke`
+  - `npm run typecheck --prefix worker/whatsapp-vm`
+- Push branch and open PR to `main`
+- Wait for `app-quality`, `worker-typecheck`, and `smoke-local`
+- Merge PR
+- Confirm post-merge `CI`, `Post Deploy Smoke`, and `/api/health` `releaseId`
+- Canonical operator guide: `docs/release-workflow.md`
 
 #### Desktop App: UI/UX Audit Session
 
@@ -295,6 +326,38 @@ Attempts tried (all partial/failed):
 - Non-blocking connect lifecycle
 - Stale lock/process cleanup
 - UI status polling fallback
+
+---
+
+### 2026-04-24 — Infra Run-Rate Cut: Cloud Run Warm-Hours Policy
+
+**What changed**
+
+- Verified April 17-24 billing shape showed Cloud Run as the main cost driver:
+  - `Cloud Run`: `$6.02 / 7 days`
+  - `Cloud SQL`: `$2.42 / 7 days`
+  - `Compute Engine`: `$0.98 / 7 days`
+- Verified most of the Cloud Run spend was idle warm capacity, not real traffic:
+  - `Services Min Instance CPU`: `$2.84 / 7 days`
+  - `Services Min Instance Memory`: `$2.85 / 7 days`
+- Reduced live `gymflow-web-app` service floor from always-on `minScale=2` to a scheduled policy:
+  - `minScale=1` during `08:00-00:00` `Africa/Cairo`
+  - `minScale=0` overnight
+- Added GCP-native control path instead of app code:
+  - Workflow `cloud-run-set-min-scale`
+  - Scheduler jobs `gymflow-web-minscale-business-hours-on` and `gymflow-web-minscale-overnight-off`
+
+**Expected effect**
+
+- First safe cut (`2 -> 1`) saves about **`$12/month`**
+- Scheduled overnight cold floor saves about **`$4/month`** more at the current `08:00-00:00` Cairo window
+- Expected total live infra run-rate moves from roughly **`$40-42/month`** to roughly **`$24-28/month`**, assuming traffic stays similar
+
+**Verification**
+
+- Manual workflow execution to `min_instances=0` succeeded
+- Manual Cloud Scheduler trigger of the overnight job succeeded and created a workflow execution
+- Cloud Run v2 service now shows no top-level `scaling.minInstanceCount` overnight, which confirms the current live floor is `0`
 
 ---
 
