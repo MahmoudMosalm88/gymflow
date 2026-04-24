@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  checks: read
 
 concurrency:
   group: post-deploy-smoke-${{ github.ref }}
@@ -33,6 +34,12 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Resolve expected production release
+        id: release-target
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/resolve-release-target.mjs
+
       - name: Install app dependencies
         run: npm ci
 
@@ -40,6 +47,8 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Wait for the pushed release to become live
+        env:
+          EXPECTED_RELEASE_ID: ${{ steps.release-target.outputs.expected_release_id }}
         run: node scripts/wait-for-release.mjs
 
       - name: Run production smoke tests

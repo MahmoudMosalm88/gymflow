@@ -12,6 +12,7 @@
     "test:integration": "vitest run tests/integration --config vitest.config.mts",
     "test:smoke": "playwright test --config=playwright.config.ts --project=chromium-local",
     "test:smoke:prod": "PLAYWRIGHT_TARGET=prod playwright test --config=playwright.config.ts --project=chromium-prod",
+    "release:status": "node scripts/release-status.mjs",
     "firebase:audit": "tsx scripts/firebase-audit.ts",
     "db:migrate": "tsx scripts/migrate.ts",
     "backup:run": "tsx scripts/backup.ts",

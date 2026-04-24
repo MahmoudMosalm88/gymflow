@@ -49,17 +49,34 @@ Post-merge, GitHub also runs:
 - `CI`
 - `Post Deploy Smoke`
 
+Use this to inspect the current state in one command:
+
+```bash
+npm run release:status
+```
+
 ## Production verification
 
 After merge:
 
-1. verify the merged `main` CI run passes
-2. verify `Post Deploy Smoke` passes
-3. verify `/api/health` returns the merged commit SHA as `releaseId`
+1. run `npm run release:status`
+2. verify the merged `main` CI run passes
+3. verify `Post Deploy Smoke` passes
+4. if the merge triggered a deploy, verify `/api/health` returns the merged commit SHA as `releaseId`
+
+Important:
+
+- some `main` merges do not deploy because the Cloud Build trigger filters out docs-only or non-runtime changes
+- in that case, the loop is still considered closed if:
+  - `CI` passed
+  - `Post Deploy Smoke` passed
+  - production health is `ok`
+  - `npm run release:status` reports that no deploy was expected
 
 Example:
 
 ```bash
+npm run release:status
 curl -sS https://gymflowsystem.com/api/health
 ```
 
@@ -84,7 +101,7 @@ Wait for required checks:
 - worker-typecheck
 - smoke-local
 Merge only after they pass.
-Then verify post-merge CI, Post Deploy Smoke, and /api/health releaseId.
+Then run npm run release:status and verify post-merge CI, Post Deploy Smoke, and /api/health releaseId when a deploy was expected.
 Do not push directly to main.
 ```
 

@@ -15,6 +15,10 @@ if (!baseUrl) {
 const healthUrl = new URL("/api/health", baseUrl).toString();
 const deadline = Date.now() + timeoutMs;
 
+if (!expectedReleaseId) {
+  console.log(`No exact release ID is required. Waiting only for healthy production at ${healthUrl}.`);
+}
+
 async function sleep(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }

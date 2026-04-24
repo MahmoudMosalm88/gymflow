@@ -75,9 +75,19 @@ Worker (`worker/whatsapp-vm/`):
   - `worker-typecheck`
   - `smoke-local`
 - After merge, also verify:
-  - post-merge `CI`
-  - `prod-smoke`
-  - `/api/health` returns the expected `releaseId`
+  - the latest `main` branch `CI` run
+  - the latest `main` branch `Post Deploy Smoke` run
+  - `/api/health` returns `status: ok`
+  - if a deploy was expected, `/api/health` returns the expected `releaseId`
+- Agents must distinguish between pre-merge and post-merge checks:
+  - before merge, inspect the PR-required checks
+  - after merge, inspect the latest `main` branch runs, the Cloud Build outcome for that merge, and the live health endpoint
+- After merging, agents should proactively:
+  - run `npm run release:status`
+  - wait for `CI` and `Post Deploy Smoke` to finish if they are still running
+  - verify `/api/health`
+  - report the current remote status without waiting for the user to ask
+- If the merge did not trigger a production deploy because Cloud Build file filters skipped it, agents should report that clearly and treat a healthy existing production release as expected.
 - If asked to “ship”, “finish”, or “take it live”, agents should execute this full workflow unless the user explicitly says to stop before PR/merge.
 
 ## Deployment Workflow
@@ -85,6 +95,7 @@ Worker (`worker/whatsapp-vm/`):
 - Deployment must happen through the configured CI/CD trigger on push to `main`.
 - Before pushing, confirm build health locally from the repo root with `npm run build`.
 - CI now uses stable required-check job names: `app-quality`, `worker-typecheck`, `smoke-local`, and post-deploy `prod-smoke`.
+- Use `npm run release:status` after merge to confirm whether the loop is closed.
 - If a live issue is urgent, push the fix first, then verify trigger/build/revision status.
 
 ## Communication Rule

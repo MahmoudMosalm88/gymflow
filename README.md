@@ -100,7 +100,7 @@ GitHub Actions workflows:
 - `.github/workflows/post-deploy-smoke.yml`
   - `prod-smoke`
 
-Production smoke now waits for `/api/health` to report the pushed `RELEASE_ID` before running browser checks.
+Production smoke now resolves whether the merge should produce a new deploy. If Cloud Build file filters skip the merge, the workflow validates the current healthy production release instead of waiting forever for a new `RELEASE_ID`.
 
 ## Feature shipping workflow
 
@@ -124,9 +124,16 @@ The default shipping path is now:
 8. confirm post-merge:
    - GitHub `CI`
    - GitHub `Post Deploy Smoke`
-   - `/api/health` shows the merged commit as `releaseId`
+   - `npm run release:status`
+   - if a deploy was expected, `/api/health` shows the merged commit as `releaseId`
 
 Direct pushes to protected `main` are no longer the normal workflow.
+
+Quick status command:
+
+```bash
+npm run release:status
+```
 
 Full playbook: [docs/release-workflow.md](/Users/mahmoudsfiles/projects/GymFlow/gymflow/docs/release-workflow.md:1)
 
