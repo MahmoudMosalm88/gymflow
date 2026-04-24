@@ -1,8 +1,8 @@
 # GymFlow — Cost / Profit Analysis
 
-> Last updated: April 2026
+> Last updated: April 24, 2026
 > Exchange rate used: **EGP 52 per USD** (April 2026 mid-market)
-> All infra costs reflect post-April 1 cost-cut shape
+> Important: live GymFlow today sends WhatsApp through the Baileys worker, not the official Meta Cloud API. Section 1 below reflects the verified live infra shape. Sections 2+ remain planning economics for a future / optional official API path.
 
 ---
 
@@ -10,18 +10,41 @@
 
 | Service | Spec | Monthly Cost |
 |---------|------|-------------|
-| Cloud SQL | db-g1-small, 20 GB SSD | ~$30 |
-| Cloud Run | minScale=0, 1 vCPU / 512 MB | ~$1–3 |
-| WhatsApp VM | e2-micro, europe-west1 | ~$7 |
-| Cloud Storage | Photos + backups | ~$2–3 |
+| Cloud SQL | `db-f1-micro`, 20 GB SSD | **~$11–15** |
+| Cloud Run | scheduled floor: `minScale=1` at `08:00-00:00` Cairo, `0` overnight, `maxScale=12`, `1 vCPU / 1 GiB` | **~$9–12 projected** |
+| WhatsApp worker VM | `e2-micro` spot, single active lane | **~$2–5** |
+| Storage + Artifact Registry + Cloud Build + Secrets + misc GCP overhead | Current measured run-rate remainder | **~$2–5** |
 | Firebase Auth | Free tier (< 50K MAU) | $0 |
-| **Total fixed infra** | | **~$40–43/month** |
+| **Total live infra run-rate** | Verified April 17-24 billing shape, projected after the April 24 warm-hours cut | **~$24–28/month projected** |
 
-This is the **floor cost** — what GymFlow pays even with zero paying customers.
+This is the **current live run-rate target** for the verified April 24, 2026 infra shape after the Cloud Run warm-hours change:
+- Cloud Run `gymflow-web-app` is live with `minScale=1` during `08:00-00:00` `Africa/Cairo`, and `minScale=0` overnight
+- Cloud SQL `gymflow-pg` is currently `db-f1-micro`
+- WhatsApp delivery is still a single `e2-micro` spot worker lane
+
+### 1A. Current Live Capacity Policy
+
+| Zone | Practical limit | Meaning |
+|------|-----------------|---------|
+| Green | **1–5 standard gyms** or **1 heavy broadcast gym** | No proactive scaling required |
+| Yellow | **5–10 standard gyms** or **2 heavy broadcast gyms** | Start scale planning and monitor DB pressure + queue backlog closely |
+| Red | **>10 standard gyms** or **>2 heavy broadcast gyms** | Scale Cloud SQL and the WhatsApp worker before adding more load |
+
+Operational note:
+- current worker pacing is roughly **`257 messages/hour`** and **`~6.2k/day`**
+- one **`5,000` recipient blast** is roughly **`19.4 hours`** on the current single sender lane
+- the first live bottlenecks are Cloud SQL, then the single worker lane, then sender-risk / block-risk
 
 ---
 
-## 2. WhatsApp Business API Costs (Per Tenant)
+## 2. Official WhatsApp Business API Costs (Future / Optional Path)
+
+This section is **not** the current live GymFlow cost structure.
+
+Use it for:
+- pricing strategy if GymFlow migrates to the official API path
+- enterprise quoting where direct Meta-style message cost needs modeling
+- future margin planning for a broadcast-heavy product lane
 
 Meta shifted to **per-message pricing** as of July 2025. The category of the message determines the cost.
 
@@ -52,9 +75,11 @@ This is the key cost variable. A gym with 500 active members sends ~5x more mess
 
 ---
 
-## 3. Unit Economics — Cost to Serve One Gym (By Size)
+## 3. Unit Economics — Official API Scenario
 
-GymFlow uses shared-schema multi-tenancy (all tenants in one database). The marginal infra cost per tenant is small — but **WhatsApp cost scales with member count**, making gym size the real cost driver.
+This section models the **future / optional official API path**, not the current Baileys-based live system.
+
+Under that future model, GymFlow still uses shared-schema multi-tenancy (all tenants in one database), and **official WhatsApp cost would scale with member count**, making gym size the real cost driver.
 
 ### Marginal Infra Cost per Tenant (Excluding WhatsApp)
 
@@ -220,13 +245,14 @@ Total cost includes infra (scales with tenant count) + WhatsApp (scales with mem
 
 | Milestone | Trigger | Action | New monthly cost |
 |-----------|---------|--------|-----------------|
-| **10 tenants** | No action needed | Stay on db-g1-small | ~$47/month |
-| **25 tenants** | Cloud SQL CPU > 40% sustained | Consider db-custom-1-3840 | ~$130/month |
-| **50 tenants** | Cloud SQL CPU > 60%, >15 connections | Upgrade to db-custom-1-3840 | ~$160/month |
-| **100 tenants** | Cloud SQL > 30 connections, heavier reports | Stay on db-custom-1-3840 or add read replica | ~$200–275/month |
-| **250+ tenants** | Cloud SQL CPU > 60% on custom-1 | Upgrade to db-custom-2-7680 | ~$350–400/month |
+| **Current live baseline** | `1–5` standard gyms or `1` heavy broadcast gym | Stay on current live shape: Cloud SQL `db-f1-micro` + Cloud Run scheduled floor (`minScale=1` business hours, `0` overnight) + single `e2-micro` spot worker | **~$24–28/month projected** |
+| **First scale-up** | `>10` standard gyms, `>2` heavy broadcast gyms, or recurring queue backlog beyond `~24h` | Upgrade Cloud SQL first, then move off the single `e2-micro` worker baseline | **~$130–170/month** |
+| **Second scale-up** | `~25` mixed gyms or overlapping heavy campaigns across branches | Keep custom SQL, increase worker size / redundancy, revisit Cloud Run floor if traffic justifies it | **~$160–220/month** |
+| **Large scale** | `50+` mixed gyms or a true broadcast-first portfolio | Stronger DB / worker architecture; revisit official API path if broadcast becomes core GTM | **case-by-case** |
 
 ### Cost Scaling Curve (Infra Only, Excluding WhatsApp API)
+
+This curve is still a **planning model** for the scaled / official-API future state. It is not the exact current live spend; use section 1 for the verified live run-rate.
 
 | Customers | Cloud SQL | Cloud Run | WhatsApp VM | Storage | **Infra Total** |
 |-----------|----------|-----------|------------|---------|----------------|

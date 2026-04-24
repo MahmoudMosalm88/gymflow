@@ -102,6 +102,34 @@ GitHub Actions workflows:
 
 Production smoke now waits for `/api/health` to report the pushed `RELEASE_ID` before running browser checks.
 
+## Feature shipping workflow
+
+The default shipping path is now:
+
+1. branch from latest `main`
+2. implement one feature or fix only
+3. run:
+   - `npm run typecheck`
+   - `npm run build`
+   - `npm run test`
+   - `npm run test:smoke`
+   - `npm run typecheck --prefix worker/whatsapp-vm`
+4. push the branch
+5. open a PR into `main`
+6. wait for required checks:
+   - `app-quality`
+   - `worker-typecheck`
+   - `smoke-local`
+7. merge the PR
+8. confirm post-merge:
+   - GitHub `CI`
+   - GitHub `Post Deploy Smoke`
+   - `/api/health` shows the merged commit as `releaseId`
+
+Direct pushes to protected `main` are no longer the normal workflow.
+
+Full playbook: [docs/release-workflow.md](/Users/mahmoudsfiles/projects/GymFlow/gymflow/docs/release-workflow.md:1)
+
 ### Smoke credentials
 
 Authenticated smoke coverage is optional and activates only when these secrets/env vars exist:
