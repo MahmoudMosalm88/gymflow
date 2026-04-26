@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { useLang, t } from '@/lib/i18n';
 import { saveSubscriptionFreeze } from '@/lib/offline/actions';
 import { useSaveShortcut } from '@/lib/use-save-shortcut';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -80,6 +80,11 @@ export default function FreezeDialog({ subscriptionId, expectedEndDate, open, on
       >
         <DialogHeader>
           <DialogTitle className="text-[#e8e4df]">{labels.freeze_subscription}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {lang === 'ar'
+              ? 'اختر تاريخ بدء التجميد وعدد الأيام قبل تأكيد إيقاف الاشتراك مؤقتاً.'
+              : 'Choose the freeze start date and number of days before confirming the temporary subscription hold.'}
+          </DialogDescription>
         </DialogHeader>
 
         <div ref={scopeRef} className="flex flex-col gap-4 mt-2">

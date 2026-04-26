@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -173,6 +174,11 @@ export default function AddMemberModal({ open, onClose, onSuccess }: Props) {
       >
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-[#2a2a2a]">
           <DialogTitle className="text-xl font-bold">{labels.add_member}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {isRtl
+              ? 'أنشئ عضواً جديداً وأضف له الاشتراك الأول من نفس النافذة.'
+              : 'Create a new member and add their first subscription from the same dialog.'}
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>

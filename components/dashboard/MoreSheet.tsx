@@ -7,6 +7,7 @@ import type { NavKey } from '@/lib/permissions';
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
@@ -144,6 +145,11 @@ export default function MoreSheet({ open, onClose, items }: Props) {
           <SheetTitle className="text-sm font-heading text-foreground">
             {t[lang].more}
           </SheetTitle>
+          <SheetDescription className="sr-only">
+            {lang === 'ar'
+              ? 'اختر قسماً إضافياً من أقسام لوحة التحكم.'
+              : 'Choose another dashboard section from this menu.'}
+          </SheetDescription>
         </SheetHeader>
 
         {/* 2-column grid of nav items */}

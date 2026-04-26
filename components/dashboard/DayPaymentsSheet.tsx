@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 
 type Payment = {
@@ -57,6 +57,11 @@ export default function DayPaymentsSheet({ date, open, onOpenChange }: Props) {
           <SheetTitle className="text-[#e8e4df]">
             {labels.day_payments} {date ? formatDate(date, locale) : ''}
           </SheetTitle>
+          <SheetDescription className="sr-only">
+            {lang === 'ar'
+              ? 'راجع كل المدفوعات المسجلة في هذا اليوم.'
+              : 'Review every payment recorded for this day.'}
+          </SheetDescription>
         </SheetHeader>
 
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto pe-1">
