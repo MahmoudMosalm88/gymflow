@@ -126,4 +126,61 @@ describe("lib/imports", () => {
       },
     });
   });
+
+  it("creates subscriptions when sessions per month is empty", () => {
+    const payload: SpreadsheetImportArtifactPayload = {
+      kind: "spreadsheet",
+      fileFormat: "csv",
+      sheetName: "Members",
+      headers: [
+        "Name",
+        "Phone",
+        "Gender",
+        "Start",
+        "End",
+        "Plan",
+        "Sessions",
+      ],
+      rows: [
+        {
+          Name: "No Session Limit",
+          Phone: "+201444444444",
+          Gender: "male",
+          Start: "2026-04-01",
+          End: "2026-05-01",
+          Plan: "1",
+          Sessions: "",
+        },
+      ],
+      totalRows: 1,
+    };
+
+    const { rowResults, summary } = buildImportPreview(
+      payload,
+      {
+        member_name: "Name",
+        phone: "Phone",
+        gender: "Gender",
+        subscription_start: "Start",
+        subscription_end: "End",
+        plan_months: "Plan",
+        sessions_per_month: "Sessions",
+      },
+      {},
+      { phones: new Set(), cardCodes: new Set() }
+    );
+
+    expect(summary).toMatchObject({
+      validRows: 1,
+      warningRows: 0,
+      invalidRows: 0,
+      estimatedMembersToCreate: 1,
+      estimatedSubscriptionsToCreate: 1,
+    });
+    expect(rowResults[0].normalizedRow).toMatchObject({
+      subscription: {
+        sessions_per_month: null,
+      },
+    });
+  });
 });

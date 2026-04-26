@@ -28,7 +28,7 @@ const TEMPLATE_SAMPLE_ROWS = [
     subscription_start: '2026-04-01',
     subscription_end: '2026-05-01',
     plan_months: 1,
-    sessions_per_month: 12,
+    sessions_per_month: '',
     amount_paid: 500,
     notes: 'Imported from previous software'
   },
@@ -41,7 +41,7 @@ const TEMPLATE_SAMPLE_ROWS = [
     subscription_start: '2026-04-03',
     subscription_end: '2026-07-03',
     plan_months: 3,
-    sessions_per_month: 12,
+    sessions_per_month: '',
     amount_paid: 1200,
     notes: 'Example quarterly plan'
   }
