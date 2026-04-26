@@ -84,7 +84,7 @@ const post: BlogPost = {
         ],
       },
       {
-        type: 'callout', text: 'GymFlow is free to start â No credit card required. Import your members and run QR check-in on day one. Egyptian gym owners get dedicated Arabic support.',
+        type: 'callout', text: 'GymFlow is free to start — No credit card required. Import your members and run QR check-in on day one. Egyptian gym owners get dedicated Arabic support.',
       },
       {
         type: 'paragraph',

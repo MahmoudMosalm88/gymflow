@@ -32,3 +32,23 @@ test("health endpoint responds with status and release id @smoke", async ({
   });
   expect(typeof payload.data.releaseId).toBe("string");
 });
+
+test("dashboard redirects unauthenticated users without protected API noise @smoke", async ({
+  page,
+}) => {
+  const protectedApiResponses: string[] = [];
+
+  page.on("response", (response) => {
+    if (
+      response.status() >= 400 &&
+      /\/api\/(members|notifications|settings|whatsapp)\b/.test(response.url())
+    ) {
+      protectedApiResponses.push(`${response.status()} ${response.url()}`);
+    }
+  });
+
+  await page.goto("/dashboard");
+
+  await expect(page).toHaveURL(/\/login$/);
+  expect(protectedApiResponses).toEqual([]);
+});

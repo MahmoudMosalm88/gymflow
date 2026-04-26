@@ -89,7 +89,7 @@ const post: BlogPost = {
         ],
       },
       {
-        type: 'callout', text: 'GymFlow automates the entire retention stack â WhatsApp reminders, attendance alerts, freeze management, and renewal tracking — all running automatically. Egyptian gyms see 60-70% automatic renewal rates within 3 months of switching on automation.',
+        type: 'callout', text: 'GymFlow automates the entire retention stack — WhatsApp reminders, attendance alerts, freeze management, and renewal tracking — all running automatically. Egyptian gyms see 60-70% automatic renewal rates within 3 months of switching on automation.',
       },
     ],
   faq: [
