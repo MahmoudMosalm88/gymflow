@@ -29,7 +29,12 @@ export default defineConfig({
   webServer: isProdTarget
     ? undefined
     : {
-        command: "PORT=3100 node .next/standalone/server.js",
+        command:
+          "rm -rf .next/standalone/public .next/standalone/.next/static && " +
+          "mkdir -p .next/standalone/.next && " +
+          "cp -R public .next/standalone/public && " +
+          "cp -R .next/static .next/standalone/.next/static && " +
+          "PORT=3100 node .next/standalone/server.js",
         url: localBaseURL,
         reuseExistingServer: false,
         stdout: "pipe",

@@ -15,9 +15,22 @@ interface CohortRetentionBarProps {
   lang: string;
 }
 
-// Brutalist tooltip
-function BrutalistTooltip({ active, payload, label }: any) {
+type RetentionTooltipPayload = ReadonlyArray<{
+  value?: number;
+}>;
+
+function BrutalistTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: RetentionTooltipPayload;
+  label?: string | number;
+}) {
   if (!active || !payload?.length) return null;
+  const value = payload[0].value ?? 0;
+
   return (
     <div
       style={{
@@ -30,7 +43,7 @@ function BrutalistTooltip({ active, payload, label }: any) {
       }}
     >
       <p style={{ margin: 0, fontWeight: 700 }}>{label}</p>
-      <p style={{ margin: 0 }}>{payload[0].value?.toFixed(1)}%</p>
+      <p style={{ margin: 0 }}>{value.toFixed(1)}%</p>
     </div>
   );
 }

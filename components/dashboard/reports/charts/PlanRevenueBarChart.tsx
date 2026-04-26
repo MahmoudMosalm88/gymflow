@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
+import type { TooltipProps } from 'recharts';
 import {
   BRAND_RED,
   GRID_COLOR,
@@ -20,12 +21,16 @@ import {
 } from '@/components/dashboard/reports/chart-utils';
 import { formatCurrencyCompact, formatCurrency } from '@/lib/format';
 
+type PlanRevenueRow = {
+  planMonths?: number | null;
+  totalRevenue?: number | string | null;
+};
+
 interface Props {
-  data: any;
+  data: PlanRevenueRow[] | null | undefined;
   lang: string;
 }
 
-// Build plan label from planMonths
 function makePlanLabel(months: number, lang: string): string {
   if (months <= 0) return lang === 'ar' ? 'غير محدد' : 'Unspecified';
   if (lang === 'ar') return `${months} ${months === 1 ? 'شهر' : 'أشهر'}`;
@@ -33,11 +38,10 @@ function makePlanLabel(months: number, lang: string): string {
 }
 
 export default function PlanRevenueBarChart({ data, lang }: Props) {
-  const rows: any[] = Array.isArray(data) ? data : [];
+  const rows = Array.isArray(data) ? data : [];
 
   if (rows.length === 0) return null;
 
-  // Map each row to { planLabel, totalRevenue }
   const chartData = rows.map((row) => ({
     planLabel: makePlanLabel(row.planMonths ?? 0, lang),
     totalRevenue: Number(row.totalRevenue ?? 0),
@@ -46,12 +50,15 @@ export default function PlanRevenueBarChart({ data, lang }: Props) {
   const isRtl = lang === 'ar';
   const xLabel = isRtl ? 'الإيراد' : 'Revenue';
   const yLabel = isRtl ? 'نوع الخطة' : 'Plan Type';
+  const tooltipFormatter: TooltipProps<number, string>['formatter'] = (value) => [
+    formatCurrency(value ?? 0),
+    xLabel,
+  ];
 
   return (
     // dir="ltr" prevents CSS RTL from flipping the SVG — axis positions are swapped manually below
     <div dir="ltr">
       <ResponsiveContainer width="100%" height={Math.max(200, chartData.length * 48 + 40)}>
-        {/* layout="vertical" makes bars grow left-to-right (horizontal bars) */}
         <BarChart
           data={chartData}
           layout="vertical"
@@ -59,7 +66,6 @@ export default function PlanRevenueBarChart({ data, lang }: Props) {
         >
           <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} horizontal={false} />
 
-          {/* XAxis is the value axis for horizontal layout */}
           <XAxis
             type="number"
             tick={axisTickStyle}
@@ -68,7 +74,6 @@ export default function PlanRevenueBarChart({ data, lang }: Props) {
             label={{ value: xLabel, position: 'insideBottom', offset: -2, fill: '#666', fontSize: 11 }}
           />
 
-          {/* YAxis shows the plan labels */}
           <YAxis
             type="category"
             dataKey="planLabel"
@@ -82,12 +87,10 @@ export default function PlanRevenueBarChart({ data, lang }: Props) {
             contentStyle={tooltipContentStyle}
             labelStyle={tooltipLabelStyle}
             itemStyle={tooltipItemStyle}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            formatter={((value: number) => [formatCurrency(value), xLabel]) as any}
+            formatter={tooltipFormatter}
           />
 
           <Bar dataKey="totalRevenue" fill={BRAND_RED} radius={[0, 0, 0, 0]} maxBarSize={36}>
-            {/* All bars same color — the brand red */}
             {chartData.map((_, i) => (
               <Cell key={i} fill={BRAND_RED} />
             ))}

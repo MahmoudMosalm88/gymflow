@@ -9,9 +9,15 @@ interface AtRiskDonutProps {
   lang: string;
 }
 
-// Custom brutalist tooltip — dark bg, square border, no border-radius
-function BrutalistTooltip({ active, payload }: any) {
+type RiskTooltipPayload = ReadonlyArray<{
+  name?: string | number;
+  value?: string | number;
+}>;
+
+function BrutalistTooltip({ active, payload }: { active?: boolean; payload?: RiskTooltipPayload }) {
   if (!active || !payload?.length) return null;
+  const [item] = payload;
+
   return (
     <div
       style={{
@@ -23,8 +29,8 @@ function BrutalistTooltip({ active, payload }: any) {
         fontSize: 13,
       }}
     >
-      <p style={{ margin: 0, fontWeight: 700 }}>{payload[0].name}</p>
-      <p style={{ margin: 0 }}>{payload[0].value}</p>
+      <p style={{ margin: 0, fontWeight: 700 }}>{item.name}</p>
+      <p style={{ margin: 0 }}>{item.value}</p>
     </div>
   );
 }
@@ -32,14 +38,12 @@ function BrutalistTooltip({ active, payload }: any) {
 export default function AtRiskDonut({ high, medium, low, lang }: AtRiskDonutProps) {
   const total = high + medium + low;
 
-  // Chart data — only include non-zero segments
   const rawData = [
     { name: lang === 'ar' ? 'خطر مرتفع'  : 'High Risk',   value: high,   color: '#e63946' },
     { name: lang === 'ar' ? 'خطر متوسط'  : 'Medium Risk', value: medium, color: '#f59e0b' },
     { name: lang === 'ar' ? 'خطر منخفض'  : 'Low Risk',    value: low,    color: '#666'    },
   ].filter(d => d.value > 0);
 
-  // Fallback when all counts are zero
   if (total === 0) {
     return (
       <div className="flex items-center justify-center h-[220px] text-muted-foreground text-sm">
@@ -75,7 +79,6 @@ export default function AtRiskDonut({ high, medium, low, lang }: AtRiskDonutProp
       </ResponsiveContainer>
       </div>
 
-      {/* Center label showing total */}
       <div
         className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
         style={{ top: 0 }}
@@ -86,7 +89,6 @@ export default function AtRiskDonut({ high, medium, low, lang }: AtRiskDonutProp
         </span>
       </div>
 
-      {/* Legend */}
       <div className="flex justify-center gap-4 mt-2 flex-wrap">
         {rawData.map(d => (
           <div key={d.name} className="flex items-center gap-1.5">

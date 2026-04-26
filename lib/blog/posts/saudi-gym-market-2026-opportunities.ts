@@ -78,7 +78,7 @@ const post: BlogPost = {
         ],
       },
       {
-        type: 'callout', text: 'GymFlow supports Saudi gym operations end-to-end â From QR check-in at any Riyadh or Jeddah location to WhatsApp renewal reminders in Arabic — GymFlow is built for GCC gym owners.',
+        type: 'callout', text: 'GymFlow supports Saudi gym operations end-to-end — From QR check-in at any Riyadh or Jeddah location to WhatsApp renewal reminders in Arabic — GymFlow is built for GCC gym owners.',
       },
       {
         type: 'paragraph',

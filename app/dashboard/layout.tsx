@@ -97,7 +97,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Sync dashboard language with server-side settings so backend automations
   // can use the same system language.
   useEffect(() => {
-    if (loading) return;
+    if (loading || !profile) return;
     let cancelled = false;
 
     (async () => {
@@ -117,10 +117,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => {
       cancelled = true;
     };
-  }, [loading]);
+  }, [loading, profile]);
 
   // Offline bundle refresh + sync manager
   useEffect(() => {
+    if (loading || !profile) return;
+
     let mounted = true;
     let stopSync: (() => void) | null = null;
 
@@ -141,7 +143,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       mounted = false;
       stopSync?.();
     };
-  }, []);
+  }, [loading, profile]);
 
   // Persist language changes
   const setLang = (l: Lang) => {
@@ -187,6 +189,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Show spinner while auth is loading
   if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!profile) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <LoadingSpinner size="lg" />

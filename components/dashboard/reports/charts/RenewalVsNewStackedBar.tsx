@@ -10,6 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import type { TooltipProps } from 'recharts';
 import {
   BRAND_RED,
   GRID_COLOR,
@@ -20,20 +21,24 @@ import {
 } from '@/components/dashboard/reports/chart-utils';
 import { formatCurrencyCompact, formatCurrency, formatDate } from '@/lib/format';
 
+type RenewalVsNewRow = {
+  day?: number | string | Date | null;
+  renewalRevenue?: number | string | null;
+  newRevenue?: number | string | null;
+};
+
 interface Props {
-  data: any;
+  data: { rows?: RenewalVsNewRow[] } | null | undefined;
   lang: string;
 }
 
 export default function RenewalVsNewStackedBar({ data, lang }: Props) {
-  const rows: any[] = Array.isArray(data?.rows) ? data.rows : [];
+  const rows = Array.isArray(data?.rows) ? data.rows : [];
 
   if (rows.length === 0) return null;
 
-  // Locale string for date formatting
   const locale = lang === 'ar' ? 'ar-EG' : 'en-US';
 
-  // Map rows to recharts-friendly shape
   const chartData = rows.map((row) => ({
     day: formatDate(row.day, locale),
     renewal: Number(row.renewalRevenue ?? 0),
@@ -43,6 +48,10 @@ export default function RenewalVsNewStackedBar({ data, lang }: Props) {
   const isRtl = lang === 'ar';
   const renewalLabel = isRtl ? 'تجديد' : 'Renewal';
   const newLabel = isRtl ? 'جديد' : 'New';
+  const tooltipFormatter: TooltipProps<number, string>['formatter'] = (value, name) => [
+    formatCurrency(value ?? 0),
+    name === 'renewal' ? renewalLabel : newLabel,
+  ];
 
   return (
     // dir="ltr" prevents CSS RTL from flipping the SVG — axis positions are swapped manually below
@@ -67,11 +76,7 @@ export default function RenewalVsNewStackedBar({ data, lang }: Props) {
           contentStyle={tooltipContentStyle}
           labelStyle={tooltipLabelStyle}
           itemStyle={tooltipItemStyle}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          formatter={((value: number, name: string) => [
-            formatCurrency(value),
-            name === 'renewal' ? renewalLabel : newLabel,
-          ]) as any}
+          formatter={tooltipFormatter}
         />
 
         <Legend
@@ -79,7 +84,6 @@ export default function RenewalVsNewStackedBar({ data, lang }: Props) {
           formatter={(value) => (value === 'renewal' ? renewalLabel : newLabel)}
         />
 
-        {/* Renewal bar — success green via CSS variable */}
         <Bar
           dataKey="renewal"
           stackId="revenue"
@@ -87,7 +91,6 @@ export default function RenewalVsNewStackedBar({ data, lang }: Props) {
           radius={[0, 0, 0, 0]}
         />
 
-        {/* New member bar — brand red, on top of renewal */}
         <Bar
           dataKey="new"
           stackId="revenue"

@@ -9,23 +9,33 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import type { TooltipProps } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/format';
 import { getAutomationWarningLabel } from '@/lib/whatsapp-automation';
 
+type WhatsAppRevenueRow = {
+  messageType: string;
+  revenueSaved?: number | string | null;
+};
+
 interface WhatsAppRevenueBarProps {
-  data: any[];
+  data: WhatsAppRevenueRow[];
   lang: string;
 }
 
 export default function WhatsAppRevenueBar({ data, lang }: WhatsAppRevenueBarProps) {
-  // Map raw rows into chart-friendly shape with human-readable labels
   const chartData = data.map((row) => ({
     ...row,
+    revenueSaved: Number(row.revenueSaved ?? 0),
     label: getAutomationWarningLabel(row.messageType, lang === 'ar' ? 'ar' : 'en'),
   }));
 
   const isRtl = lang === 'ar';
+  const tooltipFormatter: TooltipProps<number, string>['formatter'] = (value) => [
+    formatCurrency(value ?? 0),
+    lang === 'ar' ? 'الإيراد المحفوظ' : 'Revenue Saved',
+  ];
 
   return (
     <Card>
@@ -38,7 +48,6 @@ export default function WhatsAppRevenueBar({ data, lang }: WhatsAppRevenueBarPro
         {/* dir="ltr" prevents CSS RTL from flipping the SVG — axis positions are swapped manually below */}
         <div dir="ltr" style={{ width: '100%', height: '100%' }}>
         <ResponsiveContainer width="100%" height="100%">
-          {/* Horizontal bar — message types on Y axis, revenue on X axis */}
           <BarChart
             data={chartData}
             layout="vertical"
@@ -75,9 +84,8 @@ export default function WhatsAppRevenueBar({ data, lang }: WhatsAppRevenueBarPro
               }}
               labelStyle={{ color: 'hsl(var(--foreground))' }}
               itemStyle={{ color: 'hsl(var(--foreground))' }}
-              formatter={((value: number) => [formatCurrency(value), lang === 'ar' ? 'الإيراد المحفوظ' : 'Revenue Saved']) as any}
+              formatter={tooltipFormatter}
             />
-            {/* Flat brutalist bar — no radius */}
             <Bar dataKey="revenueSaved" fill="#e63946" radius={0} />
           </BarChart>
         </ResponsiveContainer>
