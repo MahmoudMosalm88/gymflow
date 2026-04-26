@@ -21,7 +21,19 @@ declare global {
 }
 
 function isPublicRoute(pathname: string) {
-  return !pathname.startsWith("/dashboard") && !pathname.startsWith("/api");
+  const authRoutes = [
+    "/login",
+    "/forgot-password",
+    "/ar/login",
+    "/ar/forgot-password",
+    "/invite",
+  ];
+
+  return (
+    !pathname.startsWith("/dashboard") &&
+    !pathname.startsWith("/api") &&
+    !authRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+  );
 }
 
 function isArabicRoute(pathname: string) {

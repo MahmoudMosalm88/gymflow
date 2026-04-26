@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Auth, ConfirmationResult, RecaptchaVerifier } from "firebase/auth";
 import type { FirebaseClientConfig } from "@/lib/firebase-client";
@@ -375,8 +376,10 @@ function clearGoogleRecoveryState() {
 /* ---------- Component ---------- */
 
 export default function LoginPage() {
+  const pathname = usePathname();
+  const inferredLang: Lang = pathname?.startsWith("/ar") ? "ar" : "en";
   const [mode, setMode] = useState<Mode>("login");
-  const [lang, setLang] = useState<Lang>("en");
+  const [lang, setLang] = useState<Lang>(inferredLang);
   const [method, setMethod] = useState<AuthMethod>("email");
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -397,6 +400,8 @@ export default function LoginPage() {
 
   const isArabic = lang === "ar";
   const t = useMemo(() => copy[lang], [lang]);
+  const homeHref = isArabic ? "/ar" : "/";
+  const forgotPasswordHref = isArabic ? "/ar/forgot-password" : "/forgot-password";
   const passwordToggleLabels = useMemo(
     () => ({
       show: lang === "ar" ? "إظهار كلمة المرور" : "Show password",
@@ -441,6 +446,10 @@ export default function LoginPage() {
     mode: "onSubmit",
     defaultValues: { otpCode: "" }
   });
+
+  useEffect(() => {
+    setLang(inferredLang);
+  }, [inferredLang]);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -1006,7 +1015,7 @@ export default function LoginPage() {
                 AR
               </button>
             </div>
-            <Link href="/" className="text-sm text-[#555555] hover:text-white transition-colors">
+            <Link href={homeHref} className="text-sm text-[#555555] hover:text-white transition-colors">
               ← {t.backHome}
             </Link>
           </div>
@@ -1235,7 +1244,7 @@ export default function LoginPage() {
 
                   {mode === "login" && (
                     <Link
-                      href="/forgot-password"
+                      href={forgotPasswordHref}
                       className="block text-center text-sm text-[#8a8578] hover:text-[#e63946] transition-colors mt-2"
                     >
                       {t.forgotPassword}

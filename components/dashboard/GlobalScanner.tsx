@@ -57,10 +57,12 @@ export default function GlobalScanner() {
         memberName: data.memberName,
         sessionsRemaining: data.sessionsRemaining,
         reason: data.success ? undefined : data.reason,
+        reasonCode: data.reasonCode,
         memberPhoto: data.memberPhoto,
         offline: data.offline,
         timestamp: Date.now(),
       };
+      const isDuplicateCheckIn = data.reasonCode === 'already_checked_in_today';
 
       setScan(result);
 
@@ -76,6 +78,15 @@ export default function GlobalScanner() {
                 {labels.sessions_remaining.replace('{sessions}', String(result.sessionsRemaining))}
               </p>
             )}
+          </div>
+        ), { duration: 5000, position: lang === 'ar' ? 'top-left' : 'top-right' });
+      } else if (isDuplicateCheckIn) {
+        toast.custom(() => (
+          <div className="bg-[#2b2410] border-2 border-[#f59e0b]/40 px-4 py-3 shadow-[6px_6px_0_#000000] min-w-[280px]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+            <p className="text-sm font-bold text-[#f59e0b]">
+              {lang === 'ar' ? 'تم تسجيل الحضور بالفعل' : 'Already checked in'}
+            </p>
+            <p className="text-xs text-[#facc15]/80">{result.reason}</p>
           </div>
         ), { duration: 5000, position: lang === 'ar' ? 'top-left' : 'top-right' });
       } else {

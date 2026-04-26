@@ -90,6 +90,7 @@ export default function DashboardPage() {
     lang === 'ar'
       ? { allowed: 'مسموح', warning: 'تحذير', denied: 'مرفوض' }
       : { allowed: 'Allowed', warning: 'Warning', denied: 'Denied' };
+  const duplicateCheckInReason = 'already_checked_in_today';
 
   const isDesktop = useIsDesktop();
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -291,7 +292,7 @@ export default function DashboardPage() {
 
       if (resolvedResult.success) {
         playSuccessFeedback();
-      } else {
+      } else if (resolvedResult.reasonCode !== duplicateCheckInReason) {
         playDeniedFeedback();
       }
     } finally {
@@ -339,7 +340,8 @@ export default function DashboardPage() {
 
   // Derive hero status from scan state
   const heroSuccess = !scanning && scanResult?.success === true;
-  const heroDenied = !scanning && scanResult?.success === false;
+  const heroWarning = !scanning && scanResult?.success === false && scanResult?.reasonCode === duplicateCheckInReason;
+  const heroDenied = !scanning && scanResult?.success === false && !heroWarning;
 
   return (
     <div className="flex flex-col p-4 md:p-6 lg:p-8">
@@ -350,6 +352,7 @@ export default function DashboardPage() {
       <div
         className={`border-2 shadow-[6px_6px_0_#000000] transition-all duration-300 ${
           heroSuccess ? 'border-success bg-success/10' :
+          heroWarning ? 'border-warning bg-warning/10' :
           heroDenied  ? 'border-destructive bg-destructive/10' :
           'border-border bg-card'
         }`}
@@ -392,6 +395,33 @@ export default function DashboardPage() {
                   <p className="text-xs text-warning mt-0.5">{labels.offline_suffix}</p>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Warning */}
+          {heroWarning && scanResult && (
+            <div className="flex items-center gap-4 w-full animate-fade-in">
+              <div className="h-12 w-12 bg-warning flex items-center justify-center shrink-0 animate-scale-in">
+                <span className="text-black text-2xl font-bold leading-none">!</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-lg font-bold text-warning leading-tight truncate">
+                  {lang === 'ar' ? 'تم تسجيل الحضور بالفعل' : 'Already checked in'}
+                </p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {scanResult.reason}
+                </p>
+              </div>
+              {scanResult.memberId && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 border-warning text-warning hover:bg-warning hover:text-black"
+                  onClick={() => router.push(`/dashboard/members/${scanResult.memberId}`)}
+                >
+                  {lang === 'ar' ? 'عرض العضو' : 'View Member'}
+                </Button>
+              )}
             </div>
           )}
 

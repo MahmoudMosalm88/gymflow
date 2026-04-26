@@ -6,7 +6,7 @@ import { useLang } from "@/lib/i18n";
 import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -238,7 +238,8 @@ export default function TeamTab() {
 
   if (loading) return <LoadingSpinner />;
 
-  const activeRows = rows.filter(r => r.is_active);
+  const activeRows = rows.filter((row) => row.is_active && !!row.accepted_at);
+  const pendingRows = rows.filter((row) => row.is_active && !row.accepted_at);
   const inactiveRows = rows.filter(r => !r.is_active);
 
   return (
@@ -272,6 +273,19 @@ export default function TeamTab() {
             <StaffCard key={row.id} row={row} labels={labels} lang={lang} onPatch={patchMember} onDeactivate={(r) => { setDeactivateTarget(r); setReplacementTrainerId(""); }} />
           ))}
 
+          {pendingRows.length > 0 && (
+            <>
+              <div className="pt-4">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                  {labels.pending} ({pendingRows.length})
+                </p>
+              </div>
+              {pendingRows.map((row) => (
+                <StaffCard key={row.id} row={row} labels={labels} lang={lang} onPatch={patchMember} onDeactivate={(r) => { setDeactivateTarget(r); setReplacementTrainerId(""); }} />
+              ))}
+            </>
+          )}
+
           {/* Inactive staff — muted section */}
           {inactiveRows.length > 0 && (
             <>
@@ -293,6 +307,11 @@ export default function TeamTab() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{labels.addTitle}</DialogTitle>
+            <DialogDescription>
+              {lang === "ar"
+                ? "أدخل بيانات عضو الفريق وحدد الدور قبل إرسال رابط التفعيل على واتساب."
+                : "Enter the team member details, choose their role, then send the activation link on WhatsApp."}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -354,6 +373,7 @@ export default function TeamTab() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{labels.replacementTitle}</DialogTitle>
+            <DialogDescription className="sr-only">{labels.replacementHint}</DialogDescription>
           </DialogHeader>
           {deactivateTarget && (
             <div className="space-y-4">
@@ -408,7 +428,20 @@ function StaffCard({ row, labels, lang, onPatch, onDeactivate }: {
 }) {
   const inviteStatus = formatInviteStatus(row.latest_invite_status, row.accepted_at, lang as "en" | "ar");
   const roleColor = ROLE_COLORS[row.role] ?? ROLE_COLORS.staff;
+  const isPendingAcceptance = row.is_active && !row.accepted_at;
   const isInactive = !row.is_active;
+  const primaryStatus = isPendingAcceptance ? labels.pending : row.is_active ? labels.active : labels.inactive;
+  const primaryStatusColor = isPendingAcceptance
+    ? "text-warning"
+    : row.is_active
+      ? "text-success"
+      : "text-muted-foreground";
+  const statusDotClass = isPendingAcceptance
+    ? "bg-warning"
+    : row.is_active
+      ? "bg-success"
+      : "bg-muted-foreground/40";
+  const secondaryStatus = isPendingAcceptance ? null : inviteStatus.text;
 
   return (
     <div className={`border-2 bg-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between transition-colors ${
@@ -442,12 +475,12 @@ function StaffCard({ row, labels, lang, onPatch, onDeactivate }: {
         {/* Status */}
         <div className="flex flex-col items-end gap-0.5">
           <div className="flex items-center gap-1.5">
-            <span className={`inline-block w-2 h-2 rounded-full ${row.is_active ? "bg-success" : "bg-muted-foreground/40"}`} />
-            <span className={`text-xs font-medium ${row.is_active ? "text-success" : "text-muted-foreground"}`}>
-              {row.is_active ? labels.active : labels.inactive}
+            <span className={`inline-block w-2 h-2 rounded-full ${statusDotClass}`} />
+            <span className={`text-xs font-medium ${primaryStatusColor}`}>
+              {primaryStatus}
             </span>
           </div>
-          <span className={`text-[10px] ${inviteStatus.color}`}>{inviteStatus.text}</span>
+          {secondaryStatus ? <span className={`text-[10px] ${inviteStatus.color}`}>{secondaryStatus}</span> : null}
         </div>
 
         {/* Action buttons */}

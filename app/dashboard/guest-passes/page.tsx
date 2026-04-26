@@ -110,6 +110,8 @@ export default function GuestPassesPage() {
   const isDesktop = useIsDesktop();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const policySaveLabel = lang === 'ar' ? 'حفظ السياسة' : 'Save policy';
+  const createPassLabel = lang === 'ar' ? 'إنشاء تصريح' : 'Create pass';
   const inviterFromQuery = searchParams.get('inviter_member_id') || '';
   const allowanceSaveScopeRef = useRef<HTMLDivElement | null>(null);
   const createPassScopeRef = useRef<HTMLDivElement | null>(null);
@@ -408,7 +410,7 @@ export default function GuestPassesPage() {
                 : 'This sets each client\'s guest invite balance for their current cycle. Voiding an unused pass restores the balance.'}
             </p>
             <Button onClick={saveAllowance} disabled={policySaving}>
-              {policySaving ? labels.saving : labels.save}
+              {policySaving ? labels.saving : policySaveLabel}
             </Button>
           </CardContent>
         </Card>
@@ -439,7 +441,7 @@ export default function GuestPassesPage() {
             </div>
             <div className="flex items-end">
               <Button onClick={createPass} disabled={saving || !canCreateInvite}>
-                {saving ? labels.saving : labels.save}
+                {saving ? labels.saving : createPassLabel}
               </Button>
             </div>
 
