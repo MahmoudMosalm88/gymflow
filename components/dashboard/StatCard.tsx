@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useLang } from '@/lib/i18n';
 import { Sparkline } from '@derpdaderp/chartkit';
 import CountUp from 'react-countup';
@@ -42,12 +44,44 @@ function computeCollection(current: number, target: number): { pct: number; clas
   return { pct, classes };
 }
 
+// Keep card animations one-shot for the current browser runtime.
+// A full reload resets this module state, but ordinary rerenders/remounts do not.
+const animatedCardSessions = new Set<string>();
+
 export default function StatCard({ label, value, subtitle, color = 'text-brand', valueSize, rawValue, previousValue, targetValue, compareLabel, sparklineData, sparklineColor, accent, animate = true }: Props) {
+  const pathname = usePathname();
   const { lang } = useLang();
   const isRtl = lang === 'ar';
   const isDesktop = useIsDesktop();
-  // Skip CountUp animation on mobile for performance
-  const shouldAnimate = animate && isDesktop;
+  const animationKey = useMemo(
+    () => [
+      pathname,
+      label,
+      subtitle ?? '',
+      compareLabel ?? '',
+      accent ?? '',
+      targetValue ?? '',
+    ].join('::'),
+    [accent, compareLabel, label, pathname, subtitle, targetValue]
+  );
+  const [hasAnimatedThisLoad, setHasAnimatedThisLoad] = useState(() => animatedCardSessions.has(animationKey));
+
+  useEffect(() => {
+    setHasAnimatedThisLoad(animatedCardSessions.has(animationKey));
+  }, [animationKey]);
+
+  useEffect(() => {
+    if (animate && isDesktop && !hasAnimatedThisLoad) {
+      animatedCardSessions.add(animationKey);
+    }
+  }, [animate, animationKey, hasAnimatedThisLoad, isDesktop]);
+
+  const handleAnimationEnd = () => {
+    setHasAnimatedThisLoad(true);
+  };
+
+  // Skip CountUp animation on mobile for performance, and never replay it within the same page runtime.
+  const shouldAnimate = animate && isDesktop && !hasAnimatedThisLoad;
 
   const autoSize = valueSize ?? (() => {
     const len = String(value).length;
@@ -94,7 +128,13 @@ export default function StatCard({ label, value, subtitle, color = 'text-brand',
             {animatedValue ? (
               <>
                 {animatedValue.prefix}
-                <CountUp end={animatedValue.parsed} duration={1.2} separator="," decimals={animatedValue.decimals} />
+                <CountUp
+                  end={animatedValue.parsed}
+                  duration={1.2}
+                  separator=","
+                  decimals={animatedValue.decimals}
+                  onEnd={handleAnimationEnd}
+                />
                 {animatedValue.suffix}
               </>
             ) : value}
