@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
@@ -114,8 +115,11 @@ const ImportTab = dynamic(() => import('@/components/dashboard/settings/ImportTa
 });
 
 type Tab = 'general' | 'whatsapp' | 'backup' | 'import' | 'pt';
+const TAB_KEYS: Tab[] = ['general', 'whatsapp', 'backup', 'import', 'pt'];
 
 export default function SettingsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { lang } = useLang();
   const { profile } = useAuth();
   const labels = t[lang];
@@ -130,6 +134,31 @@ export default function SettingsPage() {
     { key: 'pt', label: c.tab_pt },
   ];
 
+  useEffect(() => {
+    const requestedTab = searchParams.get('tab');
+    if (!requestedTab) {
+      setActiveTab('general');
+      return;
+    }
+
+    if (TAB_KEYS.includes(requestedTab as Tab)) {
+      setActiveTab(requestedTab as Tab);
+    }
+  }, [searchParams]);
+
+  function handleTabChange(nextTab: Tab) {
+    setActiveTab(nextTab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextTab === 'general') {
+      params.delete('tab');
+    } else {
+      params.set('tab', nextTab);
+    }
+
+    const query = params.toString();
+    router.replace(query ? `/dashboard/settings?${query}` : '/dashboard/settings', { scroll: false });
+  }
+
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
       <h1 className="text-2xl font-heading font-bold tracking-tight">{labels.settings}</h1>
@@ -141,7 +170,7 @@ export default function SettingsPage() {
             key={tab.key}
             role="tab"
             aria-selected={activeTab === tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => handleTabChange(tab.key)}
             variant={activeTab === tab.key ? 'default' : 'ghost'}
             className="min-w-[100px]"
           >

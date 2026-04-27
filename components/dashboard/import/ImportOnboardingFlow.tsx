@@ -2,9 +2,27 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, Download, FileSpreadsheet, FileUp, Rocket, ShieldCheck } from 'lucide-react';
+import {
+  ArrowRight,
+  CheckCircle2,
+  CircleAlert,
+  Download,
+  FileSpreadsheet,
+  FileUp,
+  Rocket,
+  ScanLine,
+  Settings2,
+  UserPlus,
+  Users
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
+import {
+  canExecuteImportedMembers,
+  hasBlockingInvalidRows,
+  hasBlockingRows,
+  hasBlockingWarningRows,
+} from '@/lib/import-onboarding';
 import { useLang } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -27,15 +45,17 @@ import type {
 type MappingState = ImportMapping;
 type PreviewRow = ImportPreviewRowResult;
 
-type OnboardingChecklistKey =
-  | 'reviewWarnings'
-  | 'reviewPlans'
+type ChecklistKey =
+  | 'reviewImportedMembers'
+  | 'addFirstMember'
   | 'connectWhatsapp'
+  | 'addTeam'
+  | 'testCheckIn'
   | 'reviewReminders'
-  | 'testSearchAndCheckIn'
-  | 'verifySafeReminder';
+  | 'rememberImportLater';
 
-type SourceMode = 'spreadsheet' | 'desktop_backup' | 'start_fresh';
+type EntryMode = 'import' | 'manual_setup';
+type OnboardingCompletionMode = 'imported' | 'manual';
 
 type ImportOnboardingFlowProps = {
   variant?: 'import' | 'onboarding';
@@ -45,62 +65,82 @@ const NONE = '__none__';
 
 const copy = {
   en: {
-    title: 'Move Your Gym Into GymFlow',
-    subtitle:
-      'Choose your migration path, upload a spreadsheet, review exactly what will be created, then finish a controlled go-live checklist.',
-    modeTitle: 'Choose how you want to start',
+    titleOnboarding: 'Set up your gym in GymFlow',
+    titleImport: 'Import your member list',
+    subtitleOnboarding:
+      'Start by bringing over your current members. If you prefer to begin manually, you can still import later from Settings at any time.',
+    subtitleImport:
+      'Bring over your current members, review exactly what GymFlow will add, then finish a short go-live checklist.',
+    recommended: 'Recommended',
+    modeTitle: 'The fastest way to start is to import your member list',
     modeHint:
-      'Spreadsheet import is the supported v1 migration path. Desktop backup import stays in Settings because it replaces branch data.',
-    modeSpreadsheet: 'Import from spreadsheet',
-    modeSpreadsheetHint: 'Bring in members and one active subscription per row from CSV or XLSX.',
-    modeDesktop: 'Move from GymFlow desktop backup',
-    modeDesktopHint: 'Use the existing desktop backup import flow in Settings for full archive migration.',
-    modeFresh: 'Start fresh',
-    modeFreshHint: 'Skip import and add your first members manually.',
-    goToDesktopImport: 'Open desktop import tools',
-    startFreshCta: 'Add first member',
-    stepSource: 'Source',
+      'If you already have members in another sheet or system, bring them in first so this branch starts with the right people and subscriptions.',
+    modeSpreadsheetHint:
+      'Upload a CSV or Excel file, match the columns, fix blocked rows, and import only the clean rows.',
+    primaryCta: 'Import your member list',
+    secondaryCta: 'Start without importing',
+    secondaryHint: 'If you want to begin manually today, that is fine.',
+    secondaryRecovery:
+      'You can keep setting up now and import your old member list later from Settings at any time.',
+    desktopRestoreHint:
+      'Need the old desktop backup restore tool? Keep that for Settings > Backup & Restore.',
+    openBackupSettings: 'Open backup tools',
+    openImportSettings: 'Open import in Settings',
     stepUpload: 'Upload',
-    stepMap: 'Match Columns',
-    stepPreview: 'Preview',
+    stepMap: 'Match columns',
+    stepFix: 'Fix blocked rows',
     stepImport: 'Import',
-    stepGoLive: 'Go Live',
+    stepManual: 'Manual setup',
+    stepGoLive: 'Go live',
     done: 'Done',
-    active: 'Active',
-    pending: 'Pending',
-    uploadTitle: 'Upload spreadsheet',
+    uploadTitle: 'Upload your member list',
     uploadHint:
-      'Supported files: CSV and XLSX. Imported legacy members are marked safely so onboarding automations do not fire on them.',
+      'Use CSV or XLSX. GymFlow never changes your file, and nothing gets created until you review the preview.',
     templateHint:
-      'Use the template if your current list is messy. GymFlow will map the columns you provide and flag bad rows before anything is created.',
+      'Use the template if your current sheet is messy. GymFlow will match the columns you provide and show you exactly what still needs fixing.',
     templateButton: 'Download template',
-    upload: 'Upload',
+    upload: 'Upload file',
     uploading: 'Uploading...',
     uploadedFile: 'Uploaded file',
     totalRows: 'Total rows',
     headersDetected: 'Headers detected',
-    mappingTitle: 'Match Your Columns',
-    mappingHint: 'Connect your spreadsheet columns to GymFlow fields. Required fields must be matched before preview.',
-    previewTitle: 'Preview the import',
-    previewHint:
-      'Only valid and warning rows will be imported. Duplicates are skipped conservatively by exact phone or card code match.',
-    previewButton: 'Preview before importing',
-    previewing: 'Previewing...',
-    executeTitle: 'Confirm and import',
+    mappingTitle: 'Match your columns',
+    mappingHint:
+      'Connect your file columns to GymFlow fields. Required fields must be matched before the preview can run.',
+    fixIssuesTitle: 'Fix blocked rows before importing',
+    fixIssuesHint:
+      'The preview shows what is ready, what is blocked, and what GymFlow will safely skip.',
+    previewButton: 'Preview the import',
+    previewing: 'Checking your file...',
+    previewCleanTitle: 'Your sheet is clean enough to import.',
+    previewCleanBody:
+      'Warning and invalid rows are clear now. Duplicates, if any, will be skipped safely.',
+    previewBlockedTitle: 'Some rows still need to be fixed.',
+    previewBlockedBody:
+      'Rows with warnings or errors must be fixed in your sheet, then uploaded again before import can continue.',
+    duplicatesSafeTitle: 'Duplicates are safe skips',
+    duplicatesSafeBody:
+      'Exact phone or card duplicates will not be imported again. They do not block this import.',
+    noNewMembersTitle: 'There is nothing new to import yet.',
+    noNewMembersBody:
+      'GymFlow did not find any new members to create from this file. Check the duplicate rows and your column mapping.',
+    executeTitle: 'Import the clean rows',
     executeHint:
-      'Your existing members are safe — we\'ll only add what\'s new in your file. You can edit or remove any member individually after import.',
+      'Once the sheet is clean, GymFlow will add only the new members shown here. Existing members stay untouched.',
     executeChecklistTitle: 'Before you import',
-    executeCheckRows: 'I reviewed warning and duplicate rows above.',
-    executeCheckSafety: 'I understand GymFlow will add only new members and skip exact phone/card duplicates.',
-    executeButton: 'Import valid rows',
+    executeCheckRows:
+      'I reviewed the preview and understand which rows will be created versus safely skipped.',
+    executeCheckSafety:
+      'I understand GymFlow will add only new members and skip exact phone or card duplicates.',
+    executeButton: (count: number) => `Import ${count} clean members`,
     executing: 'Importing...',
     membersToCreate: 'Members to create',
     subscriptionsToCreate: 'Subscriptions to create',
-    validRows: 'Valid rows',
+    validRows: 'Ready rows',
     warningRows: 'Warning rows',
-    invalidRows: 'Invalid rows',
-    duplicateRows: 'Duplicate rows',
-    sampleRows: 'Rows with issues',
+    invalidRows: 'Blocked rows',
+    duplicateRows: 'Safe skips',
+    sampleRows: 'Rows to review',
     row: 'Row',
     status: 'Status',
     issues: 'Issues',
@@ -108,7 +148,7 @@ const copy = {
     importComplete: 'Import completed',
     importedMembers: 'Imported members',
     importedSubscriptions: 'Imported subscriptions',
-    skippedRows: 'Skipped rows',
+    skippedRows: 'Safely skipped rows',
     failedRows: 'Failed rows',
     required: 'Required',
     optional: 'Optional',
@@ -118,117 +158,168 @@ const copy = {
     sourceColumn: 'Source column',
     doNotImport: 'Do not import',
     uploadFirst: 'Upload a spreadsheet first.',
-    mapGenderOrDefault: 'Map a gender column or choose a default gender.',
+    mapGenderOrDefault: 'Match a gender column or choose a default gender.',
     successUpload: 'Spreadsheet uploaded successfully.',
     successPreview: 'Preview generated successfully.',
     successImport: 'Import completed successfully.',
-    fileRequired: 'Select a CSV or XLSX file first.',
+    fileRequired: 'Choose a CSV or XLSX file first.',
     sampleColumnsTitle: 'Template columns',
-    sampleColumnsHint: 'These are the columns GymFlow understands in v1.',
-    checklistTitle: 'Go-live checklist',
-    checklistHint: 'Finish these checks before you switch the gym over fully.',
-    checklistReviewWarnings: 'Review warning rows and confirm the missing fields are acceptable.',
-    checklistReviewPlans: 'Review imported active plans and confirm the dates look correct.',
-    checklistConnectWhatsapp: 'Connect WhatsApp on this branch before using live automation.',
-    checklistReviewReminders: 'Review WhatsApp reminder settings and keep at least one reminder day selected.',
-    checklistSearch: 'Test member search and one check-in on a safe test member.',
-    checklistReminder:
-      'Verify one renewal reminder on a safe test member before enabling full live automation.',
-    completeOnboarding: 'Your gym is ready — go live',
+    sampleColumnsHint: 'These are the spreadsheet columns GymFlow understands in this import flow.',
+    manualTitle: 'Start manually for now',
+    manualHint:
+      'You can begin operating today with a few quick setup actions, then import your old list later when you are ready.',
+    manualLaterHint:
+      'Skipping import now is not permanent. You can open Settings > Import Data later at any time.',
+    manualActionAddMemberTitle: 'Add your first member',
+    manualActionAddMemberBody:
+      'Create one real member so the front desk has something to work with immediately.',
+    manualActionWhatsappTitle: 'Connect WhatsApp in Settings',
+    manualActionWhatsappBody:
+      'Sign in to WhatsApp before you rely on reminders or automation.',
+    manualActionTeamTitle: 'Add PT or staff',
+    manualActionTeamBody:
+      'Set up the people who will actually use this branch with you.',
+    manualActionCheckInTitle: 'Test one check-in',
+    manualActionCheckInBody:
+      'Run one safe check-in so scanning and search feel normal before go-live.',
+    manualContinue: 'Continue to the go-live checklist',
+    backToImport: 'Go back to import',
+    checklistTitleImported: 'Go-live checklist',
+    checklistHintImported:
+      'Finish these checks before the branch starts running fully in GymFlow.',
+    checklistTitleManual: 'Finish manual setup',
+    checklistHintManual:
+      'Use this checklist to make sure the branch is usable now, while keeping import available later.',
+    checklistReviewMembers: 'Review your imported members',
+    checklistAddFirstMember: 'Add your first member',
+    checklistConnectWhatsapp: 'Connect WhatsApp from Settings',
+    checklistAddTeam: 'Add PT/staff who will use this branch',
+    checklistTestCheckIn: 'Test one real check-in',
+    checklistReviewReminders: 'Review reminder automation before using it live',
+    checklistImportLater:
+      'Remember you can import your old member list later from Settings at any time',
+    completeOnboarding: 'Finish onboarding',
     completingOnboarding: 'Saving...',
-    onboardingComplete: 'Your gym is live.',
-    onboardingAlreadyComplete: 'Onboarding was already completed for this branch.',
-    goToDashboard: 'Meet your members',
-    spreadsheetOnlyNotice:
-      'Spreadsheet import is the active path here. Desktop backup import stays in Settings because it is a destructive migration tool.',
+    onboardingCompleteImported: 'Your gym is ready.',
+    onboardingCompleteManual: 'You can start manually now.',
+    onboardingAlreadyComplete: 'Onboarding is already completed for this branch.',
+    importedSuccessBody: (count: number) => `${count} imported members are waiting for you.`,
+    manualSuccessBody:
+      'Keep adding members now, and remember you can import your old member list later from Settings at any time.',
+    goToMembers: 'Open members',
+    goToDashboard: 'Open dashboard',
+    openMembers: 'Open members',
+    openAddMember: 'Add member',
+    openWhatsappSettings: 'Open WhatsApp settings',
+    openTeamSetup: 'Open PT/staff setup',
+    openCheckIn: 'Open dashboard scanner',
+    openReminders: 'Open reminder settings',
     importSafetyTitle: 'Import safety rules',
     importSafety1:
-      'Legacy imported members are marked so onboarding automations do not send welcome sequences.',
+      'Imported legacy members are marked so onboarding automations do not send welcome sequences.',
     importSafety2:
       'Imported active subscriptions can still receive future renewal reminders after import.',
-    importSafety3: 'Duplicates are skipped by exact phone or card code match only.',
+    importSafety3: 'Exact phone or card duplicates are skipped safely instead of being imported again.',
     importSafety4: 'Imported amount_paid is kept for context but not posted as new live revenue.',
     templateDownloaded: 'Template downloaded.',
-    issueDownloadFailed: 'Could not download issues CSV.',
+    issueDownloadFailed: 'Could not download the issues CSV.',
     onboardingSaveFailed: 'Could not mark onboarding complete.',
     onboardingSaved: 'Onboarding marked complete.',
-    recoveryHint: 'You can return here later. The uploaded file and preview stay tied to this branch.',
     format: 'Format',
-    preImportSafetyNote: 'Your existing members are safe — we\'ll only add what\'s new in your file.',
+    preImportSafetyNote: 'GymFlow adds only new members from this file. Existing members stay safe.',
     dateFormatLabel: 'Date format in your file',
-    dateFormatHint: 'Choose the format used in your date columns (join date, subscription dates).',
+    dateFormatHint: 'Choose the format used in your date columns.',
     sendWelcomeEmailLabel: 'Send a welcome email to imported members',
-    sendWelcomeEmailHint: 'Members will receive an email to set their password. Turn off to notify them yourself.',
+    sendWelcomeEmailHint:
+      'Members will receive an email to set their password. Turn this off if you want to tell them yourself.',
     importProgress: 'Importing your members...',
-    onboardingSuccessTitle: 'Your gym is ready.',
-    onboardingSuccessBody: 'members are waiting for you.',
-    importedAt: 'Imported on',
+    active: 'Active',
   },
   ar: {
-    title: 'انقل الجيم إلى GymFlow',
-    subtitle:
-      'اختر طريقة النقل، ارفع الملف، راجع ما سيتم إنشاؤه بالضبط، ثم أنهِ قائمة التحقق قبل التشغيل الفعلي.',
-    modeTitle: 'اختر طريقة البدء',
+    titleOnboarding: 'جهّز جيمك على GymFlow',
+    titleImport: 'استورد قائمة الأعضاء',
+    subtitleOnboarding:
+      'ابدأ بنقل الأعضاء الحاليين أولاً. وإذا فضّلت البدء يدوياً، يمكنك الاستيراد لاحقاً من الإعدادات في أي وقت.',
+    subtitleImport:
+      'انقل أعضاءك الحاليين، راجع ما سيضيفه GymFlow بالضبط، ثم أنهِ قائمة تشغيل قصيرة قبل البدء.',
+    recommended: 'الاختيار المقترح',
+    modeTitle: 'أسرع طريقة للبدء هي استيراد قائمة الأعضاء',
     modeHint:
-      'استيراد الجداول هو مسار النقل المدعوم في النسخة الأولى. أما استيراد نسخة GymFlow Desktop فيبقى داخل الإعدادات لأنه يستبدل بيانات الفرع.',
-    modeSpreadsheet: 'استيراد من ملف',
-    modeSpreadsheetHint: 'استورد الأعضاء واشتراكاً نشطاً واحداً لكل صف من CSV أو XLSX.',
-    modeDesktop: 'نقل من نسخة GymFlow Desktop',
-    modeDesktopHint: 'استخدم أداة استيراد نسخة الديسكتوب من الإعدادات لاستيراد الأرشيف الكامل.',
-    modeFresh: 'ابدأ من الصفر',
-    modeFreshHint: 'تجاوز الاستيراد وابدأ بإضافة أول عضو يدوياً.',
-    goToDesktopImport: 'افتح أدوات استيراد الديسكتوب',
-    startFreshCta: 'أضف أول عضو',
-    stepSource: 'المصدر',
+      'إذا كان لديك أعضاء في ملف أو نظام آخر، استوردهم أولاً ليبدأ هذا الفرع بالأشخاص والاشتراكات الصحيحة.',
+    modeSpreadsheetHint:
+      'ارفع ملف CSV أو Excel، طابق الأعمدة، أصلح الصفوف الممنوعة، ثم استورد الصفوف النظيفة فقط.',
+    primaryCta: 'استورد قائمة الأعضاء',
+    secondaryCta: 'ابدأ بدون استيراد',
+    secondaryHint: 'إذا أردت البدء يدوياً اليوم فهذا مناسب.',
+    secondaryRecovery:
+      'يمكنك متابعة الإعداد الآن ثم استيراد قائمتك القديمة لاحقاً من الإعدادات في أي وقت.',
+    desktopRestoreHint:
+      'إذا كنت تحتاج أداة استرجاع نسخة GymFlow Desktop القديمة، اتركها لأدوات الإعدادات > النسخ الاحتياطي.',
+    openBackupSettings: 'افتح أدوات النسخ الاحتياطي',
+    openImportSettings: 'افتح الاستيراد في الإعدادات',
     stepUpload: 'الرفع',
     stepMap: 'مطابقة الأعمدة',
-    stepPreview: 'المراجعة',
+    stepFix: 'إصلاح الصفوف الممنوعة',
     stepImport: 'الاستيراد',
+    stepManual: 'الإعداد اليدوي',
     stepGoLive: 'التشغيل',
     done: 'تم',
-    active: 'نشط',
-    pending: 'قادم',
-    uploadTitle: 'رفع ملف الاستيراد',
+    uploadTitle: 'ارفع قائمة الأعضاء',
     uploadHint:
-      'الملفات المدعومة: CSV و XLSX. الأعضاء المستوردون يتم تمييزهم كبيانات قديمة حتى لا تُرسل لهم رسائل onboarding.',
+      'الملفات المدعومة CSV و XLSX. GymFlow لن يغيّر ملفك، ولن يتم إنشاء أي شيء قبل مراجعتك للمعاينة.',
     templateHint:
-      'استخدم القالب إذا كانت البيانات الحالية غير منظمة. سيقوم GymFlow بمطابقة الأعمدة وتنبيهك للصفوف الخاطئة قبل إنشاء أي سجلات.',
+      'استخدم القالب إذا كان ملفك الحالي غير مرتب. GymFlow سيطابق الأعمدة ويظهر لك ما يحتاج إلى تصحيح.',
     templateButton: 'تحميل القالب',
-    upload: 'رفع',
+    upload: 'رفع الملف',
     uploading: 'جاري الرفع...',
     uploadedFile: 'الملف المرفوع',
     totalRows: 'إجمالي الصفوف',
     headersDetected: 'الأعمدة المكتشفة',
     mappingTitle: 'طابق أعمدتك',
-    mappingHint: 'اربط أعمدة ملفك بحقول GymFlow. يجب مطابقة الحقول المطلوبة قبل المراجعة.',
-    previewTitle: 'مراجعة الاستيراد',
-    previewHint:
-      'سيتم استيراد الصفوف الصالحة وصفوف التحذيرات فقط. الصفوف المكررة يتم تخطيها بشكل محافظ حسب الهاتف أو كود الكارت.',
-    previewButton: 'معاينة قبل الاستيراد',
-    previewing: 'جاري المراجعة...',
-    executeTitle: 'تأكيد واستيراد',
+    mappingHint:
+      'اربط أعمدة ملفك بحقول GymFlow. يجب مطابقة الحقول المطلوبة قبل تشغيل المعاينة.',
+    fixIssuesTitle: 'أصلح الصفوف الممنوعة قبل الاستيراد',
+    fixIssuesHint:
+      'المعاينة توضّح ما هو جاهز، وما هو ممنوع، وما الذي سيتخطاه GymFlow بأمان.',
+    previewButton: 'معاينة الاستيراد',
+    previewing: 'جاري فحص الملف...',
+    previewCleanTitle: 'الملف أصبح جاهزاً للاستيراد.',
+    previewCleanBody:
+      'لم تعد هناك صفوف بتحذيرات أو أخطاء. أي تكرارات موجودة سيتم تخطيها بأمان.',
+    previewBlockedTitle: 'ما زالت هناك صفوف تحتاج إلى تصحيح.',
+    previewBlockedBody:
+      'الصفوف التي تحتوي على تحذيرات أو أخطاء يجب تصحيحها في الملف ثم رفعه مرة أخرى قبل الاستيراد.',
+    duplicatesSafeTitle: 'التكرارات لن تعطل الاستيراد',
+    duplicatesSafeBody:
+      'إذا كان الهاتف أو كود الكارت مطابقاً تماماً، سيتخطى GymFlow هذا الصف ولن يستورده مرة أخرى.',
+    noNewMembersTitle: 'لا يوجد أعضاء جدد للاستيراد حالياً.',
+    noNewMembersBody:
+      'GymFlow لم يجد أعضاء جدداً لإنشائهم من هذا الملف. راجع الصفوف المكررة ومطابقة الأعمدة.',
+    executeTitle: 'استورد الصفوف النظيفة',
     executeHint:
-      'أعضاؤك الحاليون في أمان — سنضيف فقط ما هو جديد في ملفك. يمكنك تعديل أو حذف أي عضو بشكل فردي بعد الاستيراد.',
+      'بعد تنظيف الملف، سيضيف GymFlow الأعضاء الجدد الظاهرين هنا فقط. الأعضاء الحاليون لن يتأثروا.',
     executeChecklistTitle: 'قبل الاستيراد',
-    executeCheckRows: 'راجعت صفوف التحذيرات والتكرارات بالأعلى.',
-    executeCheckSafety: 'أفهم أن GymFlow سيضيف الأعضاء الجدد فقط وسيتخطى التكرارات المطابقة للهاتف أو كود الكارت.',
-    executeButton: 'استيراد الصفوف الصالحة',
+    executeCheckRows:
+      'راجعت المعاينة وأفهم أي الصفوف سيتم إنشاؤها وأي الصفوف سيتم تخطيها بأمان.',
+    executeCheckSafety:
+      'أفهم أن GymFlow سيضيف الأعضاء الجدد فقط وسيتخطى التكرارات المطابقة للهاتف أو الكارت.',
+    executeButton: (count: number) => `استورد ${count} عضواً نظيفاً`,
     executing: 'جاري الاستيراد...',
     membersToCreate: 'الأعضاء الذين سيتم إنشاؤهم',
     subscriptionsToCreate: 'الاشتراكات التي سيتم إنشاؤها',
-    validRows: 'صفوف صالحة',
+    validRows: 'صفوف جاهزة',
     warningRows: 'صفوف بتحذيرات',
-    invalidRows: 'صفوف غير صالحة',
-    duplicateRows: 'صفوف مكررة',
-    sampleRows: 'صفوف بها مشكلات',
+    invalidRows: 'صفوف ممنوعة',
+    duplicateRows: 'صفوف سيتم تخطيها',
+    sampleRows: 'صفوف تحتاج مراجعة',
     row: 'الصف',
     status: 'الحالة',
     issues: 'المشكلات',
-    issueCsv: 'تحميل CSV بالمشكلات',
+    issueCsv: 'تحميل ملف المشكلات CSV',
     importComplete: 'اكتمل الاستيراد',
     importedMembers: 'الأعضاء المستوردون',
     importedSubscriptions: 'الاشتراكات المستوردة',
-    skippedRows: 'صفوف تم تخطيها',
+    skippedRows: 'صفوف تم تخطيها بأمان',
     failedRows: 'صفوف فشلت',
     required: 'مطلوب',
     optional: 'اختياري',
@@ -240,47 +331,82 @@ const copy = {
     uploadFirst: 'ارفع ملف الاستيراد أولاً.',
     mapGenderOrDefault: 'اربط عمود النوع أو اختر نوعاً افتراضياً.',
     successUpload: 'تم رفع الملف بنجاح.',
-    successPreview: 'تم إنشاء المراجعة بنجاح.',
+    successPreview: 'تم إنشاء المعاينة بنجاح.',
     successImport: 'تم الاستيراد بنجاح.',
     fileRequired: 'اختر ملف CSV أو XLSX أولاً.',
     sampleColumnsTitle: 'أعمدة القالب',
-    sampleColumnsHint: 'هذه هي الأعمدة التي يفهمها GymFlow في النسخة الأولى.',
-    checklistTitle: 'قائمة التحقق قبل التشغيل',
-    checklistHint: 'أكمل هذه المراجعات قبل تشغيل الفرع فعلياً على النظام.',
-    checklistReviewWarnings: 'راجع صفوف التحذيرات وتأكد أن البيانات الناقصة مقبولة.',
-    checklistReviewPlans: 'راجع الاشتراكات النشطة المستوردة وتأكد من صحة التواريخ.',
-    checklistConnectWhatsapp: 'قم بتوصيل واتساب لهذا الفرع قبل تشغيل الأتمتة الحية.',
-    checklistReviewReminders: 'راجع إعدادات تذكيرات واتساب واحتفظ بيوم تذكير واحد على الأقل.',
-    checklistSearch: 'اختبر البحث عن عضو وتسجيل دخول واحد لعضو تجريبي آمن.',
-    checklistReminder:
-      'تحقق من إرسال تذكير تجديد واحد لعضو تجريبي قبل تفعيل الأتمتة الكاملة.',
-    completeOnboarding: 'جيمك جاهز — ابدأ الآن',
+    sampleColumnsHint: 'هذه هي الأعمدة التي يفهمها GymFlow في مسار الاستيراد هذا.',
+    manualTitle: 'ابدأ يدوياً الآن',
+    manualHint:
+      'يمكنك تشغيل الجيم اليوم ببضع خطوات سريعة، ثم استيراد قائمتك القديمة لاحقاً عندما تكون جاهزاً.',
+    manualLaterHint:
+      'تجاوز الاستيراد الآن ليس قراراً نهائياً. يمكنك فتح الإعدادات > استيراد البيانات لاحقاً في أي وقت.',
+    manualActionAddMemberTitle: 'أضف أول عضو',
+    manualActionAddMemberBody:
+      'أنشئ عضواً حقيقياً واحداً ليبدأ الاستقبال العمل مباشرة.',
+    manualActionWhatsappTitle: 'وصّل واتساب من الإعدادات',
+    manualActionWhatsappBody:
+      'سجّل دخول واتساب قبل الاعتماد على التذكيرات أو الأتمتة.',
+    manualActionTeamTitle: 'أضف PT أو Staff',
+    manualActionTeamBody:
+      'جهّز الأشخاص الذين سيستخدمون هذا الفرع معك فعلياً.',
+    manualActionCheckInTitle: 'اختبر تسجيل دخول واحد',
+    manualActionCheckInBody:
+      'نفّذ تسجيل دخول تجريبياً واحداً حتى تتأكد أن البحث والاسكانر يعملان بشكل طبيعي.',
+    manualContinue: 'انتقل إلى قائمة التشغيل',
+    backToImport: 'ارجع إلى الاستيراد',
+    checklistTitleImported: 'قائمة التشغيل',
+    checklistHintImported:
+      'أكمل هذه المراجعات قبل تشغيل الفرع بالكامل على GymFlow.',
+    checklistTitleManual: 'أنهِ الإعداد اليدوي',
+    checklistHintManual:
+      'استخدم هذه القائمة لتتأكد أن الفرع قابل للاستخدام الآن مع بقاء الاستيراد متاحاً لاحقاً.',
+    checklistReviewMembers: 'راجع الأعضاء الذين تم استيرادهم',
+    checklistAddFirstMember: 'أضف أول عضو',
+    checklistConnectWhatsapp: 'وصّل واتساب من الإعدادات',
+    checklistAddTeam: 'أضف PT/Staff الذين سيستخدمون الفرع',
+    checklistTestCheckIn: 'اختبر تسجيل دخول حقيقياً واحداً',
+    checklistReviewReminders: 'راجع أتمتة التذكيرات قبل استخدامها فعلياً',
+    checklistImportLater:
+      'تذكّر أنك تستطيع استيراد قائمتك القديمة لاحقاً من الإعدادات في أي وقت',
+    completeOnboarding: 'أنهِ الإعداد',
     completingOnboarding: 'جاري الحفظ...',
-    onboardingComplete: 'جيمك جاهز للعمل.',
+    onboardingCompleteImported: 'جيمك جاهز.',
+    onboardingCompleteManual: 'يمكنك البدء يدوياً الآن.',
     onboardingAlreadyComplete: 'تم إكمال الإعداد لهذا الفرع بالفعل.',
-    goToDashboard: 'تعرف على أعضائك',
-    spreadsheetOnlyNotice:
-      'مسار الاستيراد النشط هنا هو الجداول فقط. استيراد نسخة الديسكتوب يبقى داخل الإعدادات لأنه أداة استبدال كاملة لبيانات الفرع.',
+    importedSuccessBody: (count: number) => `${count} عضواً مستورداً في انتظارك.`,
+    manualSuccessBody:
+      'ابدأ بإضافة الأعضاء الآن، وتذكّر أنك تستطيع استيراد قائمتك القديمة لاحقاً من الإعدادات في أي وقت.',
+    goToMembers: 'افتح الأعضاء',
+    goToDashboard: 'افتح الداشبورد',
+    openMembers: 'افتح الأعضاء',
+    openAddMember: 'أضف عضواً',
+    openWhatsappSettings: 'افتح واتساب',
+    openTeamSetup: 'افتح PT/Staff',
+    openCheckIn: 'افتح الماسح',
+    openReminders: 'افتح التذكيرات',
     importSafetyTitle: 'قواعد الأمان في الاستيراد',
-    importSafety1: 'الأعضاء المستوردون كبيانات قديمة لا تُرسل لهم رسائل onboarding التلقائية.',
-    importSafety2: 'الاشتراكات النشطة المستوردة يمكن أن تستقبل لاحقاً تذكيرات التجديد.',
-    importSafety3: 'الصفوف المكررة يتم تخطيها فقط حسب الهاتف أو كود الكارت المطابق تماماً.',
-    importSafety4: 'قيمة amount_paid تحفظ للمرجعية ولا تُحتسب كإيراد حي جديد.',
+    importSafety1:
+      'الأعضاء المستوردون يتم تعليمهم كبيانات قديمة حتى لا تُرسل لهم رسائل الترحيب التلقائية.',
+    importSafety2:
+      'الاشتراكات النشطة المستوردة يمكنها استقبال تذكيرات التجديد لاحقاً بعد الاستيراد.',
+    importSafety3:
+      'التكرارات المطابقة للهاتف أو الكارت يتم تخطيها بأمان بدلاً من استيرادها مرة أخرى.',
+    importSafety4:
+      'قيمة amount_paid تحفظ للمرجعية ولا تُحسب كإيراد حي جديد.',
     templateDownloaded: 'تم تحميل القالب.',
     issueDownloadFailed: 'تعذر تحميل ملف المشكلات.',
-    onboardingSaveFailed: 'تعذر تعليم الـ onboarding كمكتمل.',
-    onboardingSaved: 'تم تعليم الـ onboarding كمكتمل.',
-    recoveryHint: 'يمكنك العودة لاحقاً. الملف المرفوع والمراجعة يظلان مرتبطين بهذا الفرع.',
+    onboardingSaveFailed: 'تعذر تعليم الإعداد كمكتمل.',
+    onboardingSaved: 'تم تعليم الإعداد كمكتمل.',
     format: 'الصيغة',
-    preImportSafetyNote: 'أعضاؤك الحاليون في أمان — سنضيف فقط ما هو جديد في ملفك.',
+    preImportSafetyNote: 'GymFlow يضيف الأعضاء الجدد فقط من هذا الملف. الأعضاء الحاليون في أمان.',
     dateFormatLabel: 'صيغة التاريخ في ملفك',
-    dateFormatHint: 'اختر الصيغة المستخدمة في أعمدة التواريخ (تاريخ الانضمام، تواريخ الاشتراك).',
+    dateFormatHint: 'اختر الصيغة المستخدمة في أعمدة التواريخ.',
     sendWelcomeEmailLabel: 'إرسال بريد ترحيب للأعضاء المستوردين',
-    sendWelcomeEmailHint: 'سيستقبل الأعضاء بريداً إلكترونياً لتفعيل حساباتهم. يمكنك إيقاف هذا إذا أردت إخبارهم بنفسك.',
+    sendWelcomeEmailHint:
+      'سيستقبل الأعضاء بريداً إلكترونياً لتفعيل حسابهم. أوقف هذا إذا أردت إخبارهم بنفسك.',
     importProgress: 'جاري استيراد أعضائك...',
-    onboardingSuccessTitle: 'جيمك جاهز.',
-    onboardingSuccessBody: 'عضو في انتظارك.',
-    importedAt: 'تم الاستيراد في',
+    active: 'نشط',
   }
 } as const;
 
@@ -320,15 +446,6 @@ const TEMPLATE_HEADERS = [
   'sessions_per_month',
   'amount_paid',
   'notes'
-];
-
-const CHECKLIST_KEYS: OnboardingChecklistKey[] = [
-  'reviewWarnings',
-  'reviewPlans',
-  'connectWhatsapp',
-  'reviewReminders',
-  'testSearchAndCheckIn',
-  'verifySafeReminder'
 ];
 
 function normalizeHeader(value: string) {
@@ -394,7 +511,8 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
   const labels = copy[lang];
   const router = useRouter();
 
-  const [selectedSource, setSelectedSource] = useState<SourceMode>('spreadsheet');
+  const [entryMode, setEntryMode] = useState<EntryMode>('import');
+  const [completionMode, setCompletionMode] = useState<OnboardingCompletionMode | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [previewing, setPreviewing] = useState(false);
@@ -410,13 +528,14 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
     reviewedRows: false,
     understoodSafety: false,
   });
-  const [checklist, setChecklist] = useState<Record<OnboardingChecklistKey, boolean>>({
-    reviewWarnings: false,
-    reviewPlans: false,
+  const [checklist, setChecklist] = useState<Record<ChecklistKey, boolean>>({
+    reviewImportedMembers: false,
+    addFirstMember: false,
     connectWhatsapp: false,
+    addTeam: false,
+    testCheckIn: false,
     reviewReminders: false,
-    testSearchAndCheckIn: false,
-    verifySafeReminder: false
+    rememberImportLater: false,
   });
   const [dateFormat, setDateFormat] = useState<'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD'>('DD/MM/YYYY');
   const [sendWelcomeEmail, setSendWelcomeEmail] = useState(false);
@@ -435,32 +554,125 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
   }, []);
 
   const canPreview = Boolean(
-    selectedSource === 'spreadsheet' &&
-      artifact &&
+    artifact &&
       mapping.member_name &&
       mapping.phone &&
       (mapping.gender || genderDefault)
   );
 
-  const stepState = useMemo(
+  const readiness = useMemo(
     () => ({
-      source: Boolean(selectedSource),
-      upload: Boolean(artifact),
-      map: Boolean(artifact && mapping.member_name && mapping.phone),
-      preview: Boolean(preview),
-      execute: Boolean(execution),
-      goLive: Boolean(onboardingCompleted)
+      hasBlockingInvalidRows: hasBlockingInvalidRows(preview),
+      hasBlockingWarningRows: hasBlockingWarningRows(preview),
+      hasBlockingRows: hasBlockingRows(preview),
+      canExecuteImport: canExecuteImportedMembers(preview, executeChecks),
     }),
-    [selectedSource, artifact, mapping.member_name, mapping.phone, preview, execution, onboardingCompleted]
+    [preview, executeChecks]
   );
 
-  const allChecklistChecked = CHECKLIST_KEYS.every((key) => checklist[key]);
-  const canExecuteImport = Boolean(
-    preview &&
-      executeChecks.reviewedRows &&
-      executeChecks.understoodSafety &&
-      preview.summary.estimatedMembersToCreate > 0
+  const checklistMode = completionMode ?? (execution ? 'imported' : null);
+  const issueRows = useMemo(
+    () => preview?.rows.filter((row) => row.status !== 'valid') ?? [],
+    [preview]
   );
+
+  const checklistItems = useMemo(() => {
+    if (checklistMode === 'imported') {
+      return [
+        {
+          key: 'reviewImportedMembers' as const,
+          label: labels.checklistReviewMembers,
+          href: '/dashboard/members',
+          actionLabel: labels.openMembers,
+        },
+        {
+          key: 'connectWhatsapp' as const,
+          label: labels.checklistConnectWhatsapp,
+          href: '/dashboard/settings?tab=whatsapp',
+          actionLabel: labels.openWhatsappSettings,
+        },
+        {
+          key: 'addTeam' as const,
+          label: labels.checklistAddTeam,
+          href: '/dashboard/pt?tab=staff',
+          actionLabel: labels.openTeamSetup,
+        },
+        {
+          key: 'testCheckIn' as const,
+          label: labels.checklistTestCheckIn,
+          href: '/dashboard',
+          actionLabel: labels.openCheckIn,
+        },
+        {
+          key: 'reviewReminders' as const,
+          label: labels.checklistReviewReminders,
+          href: '/dashboard/whatsapp',
+          actionLabel: labels.openReminders,
+        },
+      ];
+    }
+
+    if (checklistMode === 'manual') {
+      return [
+        {
+          key: 'addFirstMember' as const,
+          label: labels.checklistAddFirstMember,
+          href: '/dashboard/members/new',
+          actionLabel: labels.openAddMember,
+        },
+        {
+          key: 'connectWhatsapp' as const,
+          label: labels.checklistConnectWhatsapp,
+          href: '/dashboard/settings?tab=whatsapp',
+          actionLabel: labels.openWhatsappSettings,
+        },
+        {
+          key: 'addTeam' as const,
+          label: labels.checklistAddTeam,
+          href: '/dashboard/pt?tab=staff',
+          actionLabel: labels.openTeamSetup,
+        },
+        {
+          key: 'testCheckIn' as const,
+          label: labels.checklistTestCheckIn,
+          href: '/dashboard',
+          actionLabel: labels.openCheckIn,
+        },
+        {
+          key: 'rememberImportLater' as const,
+          label: labels.checklistImportLater,
+          href: '/dashboard/settings?tab=import',
+          actionLabel: labels.openImportSettings,
+        },
+      ];
+    }
+
+    return [];
+  }, [checklistMode, labels]);
+
+  const allChecklistChecked = checklistItems.length > 0 && checklistItems.every((item) => checklist[item.key]);
+
+  const steps = useMemo(() => {
+    if (entryMode === 'manual_setup') {
+      return [
+        { key: 'manual', label: labels.stepManual, complete: checklistMode === 'manual' || onboardingCompleted },
+        { key: 'goLive', label: labels.stepGoLive, complete: onboardingCompleted },
+      ];
+    }
+
+    return [
+      { key: 'upload', label: labels.stepUpload, complete: Boolean(artifact) },
+      { key: 'map', label: labels.stepMap, complete: Boolean(preview || execution) },
+      { key: 'fix', label: labels.stepFix, complete: Boolean((preview && !readiness.hasBlockingRows) || execution) },
+      { key: 'execute', label: labels.stepImport, complete: Boolean(execution) },
+      { key: 'goLive', label: labels.stepGoLive, complete: onboardingCompleted },
+    ];
+  }, [artifact, entryMode, execution, labels, onboardingCompleted, preview, readiness.hasBlockingRows, checklistMode]);
+
+  const activeStepIndex = useMemo(() => {
+    const firstIncomplete = steps.findIndex((step) => !step.complete);
+    return firstIncomplete === -1 ? steps.length - 1 : firstIncomplete;
+  }, [steps]);
 
   async function handleUpload() {
     if (!file) {
@@ -468,6 +680,8 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
       return;
     }
 
+    setEntryMode('import');
+    setCompletionMode(null);
     setUploading(true);
     setPreview(null);
     setExecution(null);
@@ -500,6 +714,7 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
 
     setPreviewing(true);
     setExecution(null);
+    setCompletionMode(null);
     setExecuteChecks({ reviewedRows: false, understoodSafety: false });
     try {
       const res = await api.post<ImportPreviewResponse>('/api/imports/preview', {
@@ -511,15 +726,10 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
         }
       });
       if (!res.success || !res.data) {
-        toast.error(res.message || labels.previewHint);
+        toast.error(res.message || labels.fixIssuesHint);
         return;
       }
-      const previewData = res.data;
-      setPreview(previewData);
-      setChecklist((current) => ({
-        ...current,
-        reviewWarnings: previewData.summary.warningRows === 0
-      }));
+      setPreview(res.data);
       toast.success(labels.successPreview);
     } finally {
       setPreviewing(false);
@@ -542,12 +752,8 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
         toast.error(res.message || labels.executeHint);
         return;
       }
-      const executionData = res.data;
-      setExecution(executionData);
-      setChecklist((current) => ({
-        ...current,
-        reviewPlans: executionData.importedSubscriptions === 0 ? true : current.reviewPlans
-      }));
+      setExecution(res.data);
+      setCompletionMode('imported');
       toast.success(labels.successImport);
     } finally {
       setExecuting(false);
@@ -556,13 +762,13 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
   }
 
   async function handleCompleteOnboarding() {
-    if (!allChecklistChecked) return;
+    if (!allChecklistChecked || !checklistMode) return;
     setSavingOnboarding(true);
     try {
       const res = await api.put('/api/settings', {
         values: {
           onboarding_completed: true,
-          onboarding_mode: 'spreadsheet_import',
+          onboarding_mode: checklistMode === 'manual' ? 'manual_setup' : 'spreadsheet_import',
           onboarding_completed_at: new Date().toISOString()
         }
       });
@@ -610,32 +816,14 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
     }
   }
 
-  const sourceCards: Array<{
-    key: SourceMode;
-    icon: typeof FileSpreadsheet;
-    title: string;
-    description: string;
-  }> = [
-    { key: 'spreadsheet', icon: FileSpreadsheet, title: labels.modeSpreadsheet, description: labels.modeSpreadsheetHint },
-    { key: 'desktop_backup', icon: ShieldCheck, title: labels.modeDesktop, description: labels.modeDesktopHint },
-    { key: 'start_fresh', icon: Rocket, title: labels.modeFresh, description: labels.modeFreshHint }
-  ];
-
-  const steps = [
-    { key: 'source', label: labels.stepSource, complete: stepState.source },
-    { key: 'upload', label: labels.stepUpload, complete: stepState.upload },
-    { key: 'map', label: labels.stepMap, complete: stepState.map },
-    { key: 'preview', label: labels.stepPreview, complete: stepState.preview },
-    { key: 'execute', label: labels.stepImport, complete: stepState.execute },
-    { key: 'goLive', label: labels.stepGoLive, complete: stepState.goLive }
-  ];
-  const activeStepIndex = steps.findIndex((s) => !s.complete);
+  const title = variant === 'onboarding' ? labels.titleOnboarding : labels.titleImport;
+  const subtitle = variant === 'onboarding' ? labels.subtitleOnboarding : labels.subtitleImport;
 
   return (
     <div className="space-y-6">
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-heading font-bold tracking-tight">{labels.title}</h1>
+          <h1 className="text-2xl font-heading font-bold tracking-tight">{title}</h1>
           {variant === 'onboarding' && (
             <Badge className="bg-primary/10 text-primary border border-primary/30">Onboarding</Badge>
           )}
@@ -643,7 +831,7 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
             <Badge className="bg-success/10 text-success border border-success/30">{labels.done}</Badge>
           )}
         </div>
-        <p className="text-sm text-muted-foreground">{labels.subtitle}</p>
+        <p className="text-sm text-muted-foreground">{subtitle}</p>
       </div>
 
       <nav
@@ -692,16 +880,7 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
                       />
                     )}
                   </div>
-                  <p
-                    className={cn(
-                      'w-20 text-center text-xs',
-                      isActive
-                        ? 'font-semibold text-foreground'
-                        : isComplete
-                        ? 'text-muted-foreground'
-                        : 'text-muted-foreground'
-                    )}
-                  >
+                  <p className={cn('w-20 text-center text-xs', isActive ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
                     {step.label}
                   </p>
                 </div>
@@ -711,69 +890,197 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
         </ol>
       </nav>
 
-      <Card>
+      <Card className="border-primary/20 bg-primary/5">
         <CardHeader>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className="bg-primary text-primary-foreground">{labels.recommended}</Badge>
+            {entryMode === 'import' && !execution && (
+              <Badge className="bg-background text-foreground border border-border">{labels.active}</Badge>
+            )}
+          </div>
           <CardTitle>{labels.modeTitle}</CardTitle>
           <CardDescription>{labels.modeHint}</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 lg:grid-cols-3">
-          {sourceCards.map((source) => {
-            const Icon = source.icon;
-            const isSelected = selectedSource === source.key;
-            return (
-              <button
-                key={source.key}
-                type="button"
-                aria-pressed={isSelected}
-                onClick={() => setSelectedSource(source.key)}
-                className={cn(
-                  'border p-4 text-start transition-colors',
-                  isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'
-                )}
+        <CardContent className="grid gap-4 lg:grid-cols-[1.3fr_0.9fr]">
+          <div className="space-y-4 border border-primary/20 bg-background p-5">
+            <div className="flex items-start gap-3">
+              <div className="rounded-full bg-primary/10 p-2 text-primary">
+                <FileSpreadsheet className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-semibold text-foreground">{labels.primaryCta}</p>
+                <p className="text-sm text-muted-foreground">{labels.modeSpreadsheetHint}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                onClick={() => {
+                  setEntryMode('import');
+                  if (!execution) setCompletionMode(null);
+                }}
+                className="gap-2"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-2">
-                    <Icon className="h-5 w-5 text-primary" />
-                    <p className="font-semibold text-foreground">{source.title}</p>
-                    <p className="text-sm text-muted-foreground">{source.description}</p>
-                  </div>
-                  {isSelected && (
-                    <Badge className="bg-primary/10 text-primary border border-primary/30">{labels.active}</Badge>
-                  )}
+                {labels.primaryCta}
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" onClick={handleDownloadTemplate} className="gap-2">
+                <Download className="h-4 w-4" />
+                {labels.templateButton}
+              </Button>
+            </div>
+          </div>
+
+          {!execution && (
+            <div className={cn(
+              'space-y-4 border border-dashed p-5',
+              entryMode === 'manual_setup' ? 'border-foreground/30 bg-background' : 'border-border bg-background/60'
+            )}>
+              <div className="flex items-start gap-3">
+                <div className="rounded-full bg-muted p-2 text-muted-foreground">
+                  <Rocket className="h-5 w-5" />
                 </div>
-              </button>
-            );
-          })}
+                <div className="space-y-1">
+                  <p className="font-semibold text-foreground">{labels.secondaryCta}</p>
+                  <p className="text-sm text-muted-foreground">{labels.secondaryHint}</p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">{labels.secondaryRecovery}</p>
+              <Button
+                variant={entryMode === 'manual_setup' ? 'default' : 'outline'}
+                onClick={() => {
+                  setEntryMode('manual_setup');
+                  setCompletionMode(null);
+                }}
+              >
+                {labels.secondaryCta}
+              </Button>
+            </div>
+          )}
+        </CardContent>
+        <CardContent className="pt-0">
+          <p className="text-xs text-muted-foreground">
+            {labels.desktopRestoreHint}{' '}
+            <button
+              type="button"
+              onClick={() => router.push('/dashboard/settings?tab=backup')}
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              {labels.openBackupSettings}
+            </button>
+          </p>
         </CardContent>
       </Card>
 
-      {selectedSource === 'desktop_backup' && (
-        <Alert>
-          <AlertTitle>{labels.modeDesktop}</AlertTitle>
-          <AlertDescription className="space-y-3">
-            <p>{labels.spreadsheetOnlyNotice}</p>
-            <Button variant="outline" onClick={() => router.push('/dashboard/settings')}>
-              {labels.goToDesktopImport}
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {selectedSource === 'start_fresh' && (
-        <Alert>
-          <AlertTitle>{labels.modeFresh}</AlertTitle>
-          <AlertDescription className="space-y-3">
-            <p>{labels.recoveryHint}</p>
-            <Button variant="outline" onClick={() => router.push('/dashboard/members/new')}>
-              {labels.startFreshCta}
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {selectedSource === 'spreadsheet' && (
+      {entryMode === 'manual_setup' && !execution && (
         <>
           <Card>
+            <CardHeader>
+              <CardTitle>{labels.manualTitle}</CardTitle>
+              <CardDescription>{labels.manualHint}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <Alert>
+                <CircleAlert className="h-4 w-4" />
+                <AlertTitle>{labels.secondaryCta}</AlertTitle>
+                <AlertDescription className="space-y-3">
+                  <p>{labels.manualLaterHint}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push('/dashboard/settings?tab=import')}
+                  >
+                    {labels.openImportSettings}
+                  </Button>
+                </AlertDescription>
+              </Alert>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                {[
+                  {
+                    icon: UserPlus,
+                    title: labels.manualActionAddMemberTitle,
+                    body: labels.manualActionAddMemberBody,
+                    href: '/dashboard/members/new',
+                    actionLabel: labels.openAddMember,
+                  },
+                  {
+                    icon: Settings2,
+                    title: labels.manualActionWhatsappTitle,
+                    body: labels.manualActionWhatsappBody,
+                    href: '/dashboard/settings?tab=whatsapp',
+                    actionLabel: labels.openWhatsappSettings,
+                  },
+                  {
+                    icon: Users,
+                    title: labels.manualActionTeamTitle,
+                    body: labels.manualActionTeamBody,
+                    href: '/dashboard/pt?tab=staff',
+                    actionLabel: labels.openTeamSetup,
+                  },
+                  {
+                    icon: ScanLine,
+                    title: labels.manualActionCheckInTitle,
+                    body: labels.manualActionCheckInBody,
+                    href: '/dashboard',
+                    actionLabel: labels.openCheckIn,
+                  },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div key={item.title} className="border border-border p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="rounded-full bg-primary/10 p-2 text-primary">
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <p className="font-semibold text-foreground">{item.title}</p>
+                            <p className="text-sm text-muted-foreground">{item.body}</p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(item.href)}
+                          >
+                            {item.actionLabel}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {!checklistMode && (
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    type="button"
+                    onClick={() => setCompletionMode('manual')}
+                  >
+                    {labels.manualContinue}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setEntryMode('import');
+                      setCompletionMode(null);
+                    }}
+                  >
+                    {labels.backToImport}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {entryMode === 'import' && !execution && (
+        <>
+          <Card id="import-upload">
             <CardHeader>
               <CardTitle>{labels.uploadTitle}</CardTitle>
               <CardDescription>{labels.uploadHint}</CardDescription>
@@ -792,7 +1099,11 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
               </p>
 
               <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-                <Input type="file" accept=".csv,.xlsx" onChange={(event) => setFile(event.target.files?.[0] || null)} />
+                <Input
+                  type="file"
+                  accept=".csv,.xlsx"
+                  onChange={(event) => setFile(event.target.files?.[0] || null)}
+                />
                 <Button onClick={handleUpload} disabled={!file || uploading} className="gap-2">
                   <FileUp className="h-4 w-4" />
                   {uploading ? labels.uploading : labels.upload}
@@ -823,7 +1134,7 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
           </Card>
 
           {artifact && (
-            <>
+            <div className="grid gap-4 xl:grid-cols-2">
               <Card>
                 <CardHeader>
                   <CardTitle>{labels.sampleColumnsTitle}</CardTitle>
@@ -849,7 +1160,7 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
                   <p>4. {labels.importSafety4}</p>
                 </CardContent>
               </Card>
-            </>
+            </div>
           )}
 
           {artifact && (
@@ -939,10 +1250,32 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
             <>
               <Card>
                 <CardHeader>
-                  <CardTitle>{labels.previewTitle}</CardTitle>
-                  <CardDescription>{labels.previewHint}</CardDescription>
+                  <CardTitle>{labels.fixIssuesTitle}</CardTitle>
+                  <CardDescription>{labels.fixIssuesHint}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {readiness.hasBlockingRows ? (
+                    <Alert variant="warning">
+                      <CircleAlert className="h-4 w-4" />
+                      <AlertTitle>{labels.previewBlockedTitle}</AlertTitle>
+                      <AlertDescription>{labels.previewBlockedBody}</AlertDescription>
+                    </Alert>
+                  ) : (
+                    <Alert variant="success">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <AlertTitle>{labels.previewCleanTitle}</AlertTitle>
+                      <AlertDescription>{labels.previewCleanBody}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {preview.summary.duplicateRows > 0 && (
+                    <Alert>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <AlertTitle>{labels.duplicatesSafeTitle}</AlertTitle>
+                      <AlertDescription>{labels.duplicatesSafeBody}</AlertDescription>
+                    </Alert>
+                  )}
+
                   <div className="grid grid-cols-2 border border-border divide-x divide-y divide-border md:grid-cols-3 lg:grid-cols-6 lg:divide-y-0">
                     <div className="px-4 py-3">
                       <p className="text-xs text-muted-foreground">{labels.validRows}</p>
@@ -978,212 +1311,229 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
                     </Button>
                   </div>
 
-                  <Table aria-label={lang === 'ar' ? 'صفوف بها مشكلات' : 'Rows with issues'}>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{labels.row}</TableHead>
-                        <TableHead>{labels.status}</TableHead>
-                        <TableHead>{labels.issues}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {preview.rows.map((row) => (
-                        <TableRow key={row.rowNumber}>
-                          <TableCell className="tabular-nums">{row.rowNumber}</TableCell>
-                          <TableCell>
-                            <Badge className={statusBadgeClass(row.status)}>{row.status}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              {row.issues.map((issue, index) => (
-                                <p key={`${row.rowNumber}-${issue.code}-${index}`} className="text-xs text-muted-foreground">
-                                  {issue.message}
-                                </p>
-                              ))}
-                            </div>
-                          </TableCell>
+                  {issueRows.length > 0 ? (
+                    <Table aria-label={lang === 'ar' ? 'صفوف تحتاج مراجعة' : 'Rows that need review'}>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{labels.row}</TableHead>
+                          <TableHead>{labels.status}</TableHead>
+                          <TableHead>{labels.issues}</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>{labels.executeTitle}</CardTitle>
-                  <CardDescription>{labels.executeHint}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3 border border-border bg-muted/20 p-4">
-                    <p className="text-sm font-medium text-foreground">{labels.executeChecklistTitle}</p>
-                    <div className="flex items-start gap-3">
-                      <Checkbox
-                        id="confirm-import-rows"
-                        checked={executeChecks.reviewedRows}
-                        onCheckedChange={(checked) =>
-                          setExecuteChecks((current) => ({ ...current, reviewedRows: Boolean(checked) }))
-                        }
-                      />
-                      <Label htmlFor="confirm-import-rows" className="cursor-pointer font-normal leading-6">
-                        {labels.executeCheckRows}
-                      </Label>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <Checkbox
-                        id="confirm-import-safety"
-                        checked={executeChecks.understoodSafety}
-                        onCheckedChange={(checked) =>
-                          setExecuteChecks((current) => ({ ...current, understoodSafety: Boolean(checked) }))
-                        }
-                      />
-                      <Label htmlFor="confirm-import-safety" className="cursor-pointer font-normal leading-6">
-                        {labels.executeCheckSafety}
-                      </Label>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <Checkbox
-                      id="send-welcome-email"
-                      checked={sendWelcomeEmail}
-                      onCheckedChange={(checked) => setSendWelcomeEmail(Boolean(checked))}
-                    />
-                    <div className="space-y-1">
-                      <Label htmlFor="send-welcome-email" className="cursor-pointer font-normal">
-                        {labels.sendWelcomeEmailLabel}
-                      </Label>
-                      <p className="text-xs text-muted-foreground">{labels.sendWelcomeEmailHint}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Button
-                      onClick={handleExecute}
-                      disabled={executing || !canExecuteImport}
-                    >
-                      {executing
-                        ? labels.executing
-                        : lang === 'ar'
-                        ? `استيراد ${preview.summary.estimatedMembersToCreate} عضو`
-                        : `Import ${preview.summary.estimatedMembersToCreate} members`}
-                    </Button>
-                    {executing && importingStatus && (
-                      <p className="text-sm text-muted-foreground animate-pulse">{importingStatus}</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          )}
-
-          {execution && (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle>{labels.importComplete}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-0 p-0">
-                  <div className="grid grid-cols-2 border-b border-border divide-x divide-border md:grid-cols-4">
-                    <div className="px-6 py-4">
-                      <p className="text-xs text-muted-foreground">{labels.importedMembers}</p>
-                      <p className="font-stat tracking-wide text-3xl tabular-nums text-destructive">{execution.importedMembers}</p>
-                    </div>
-                    <div className="px-6 py-4">
-                      <p className="text-xs text-muted-foreground">{labels.importedSubscriptions}</p>
-                      <p className="font-stat tracking-wide text-3xl tabular-nums">{execution.importedSubscriptions}</p>
-                    </div>
-                    <div className="px-6 py-4">
-                      <p className="text-xs text-muted-foreground">{labels.skippedRows}</p>
-                      <p className="font-stat tracking-wide text-3xl tabular-nums">{execution.skippedRows}</p>
-                    </div>
-                    <div className="px-6 py-4">
-                      <p className="text-xs text-muted-foreground">{labels.failedRows}</p>
-                      <p className="font-stat tracking-wide text-3xl tabular-nums">{execution.failedRows}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>{labels.checklistTitle}</CardTitle>
-                  <CardDescription>{labels.checklistHint}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    {[
-                      { key: 'reviewWarnings', label: labels.checklistReviewWarnings },
-                      { key: 'reviewPlans', label: labels.checklistReviewPlans },
-                      { key: 'connectWhatsapp', label: labels.checklistConnectWhatsapp },
-                      { key: 'reviewReminders', label: labels.checklistReviewReminders },
-                      { key: 'testSearchAndCheckIn', label: labels.checklistSearch },
-                      { key: 'verifySafeReminder', label: labels.checklistReminder }
-                    ].map((item) => (
-                      <div key={item.key} className="flex items-start gap-3 border border-border p-3">
-                        <Checkbox
-                          id={`checklist-${item.key}`}
-                          checked={checklist[item.key as OnboardingChecklistKey]}
-                          onCheckedChange={(checked) =>
-                            setChecklist((current) => ({
-                              ...current,
-                              [item.key]: Boolean(checked)
-                            }))
-                          }
-                          className="mt-0.5"
-                        />
-                        <Label
-                          htmlFor={`checklist-${item.key}`}
-                          className="text-sm text-foreground cursor-pointer font-normal"
-                        >
-                          {item.label}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-
-                  {!onboardingCompleted && (
-                    <Button onClick={handleCompleteOnboarding} disabled={!allChecklistChecked || savingOnboarding}>
-                      {savingOnboarding ? labels.completingOnboarding : labels.completeOnboarding}
-                    </Button>
+                      </TableHeader>
+                      <TableBody>
+                        {issueRows.map((row) => (
+                          <TableRow key={row.rowNumber}>
+                            <TableCell className="tabular-nums">{row.rowNumber}</TableCell>
+                            <TableCell>
+                              <Badge className={statusBadgeClass(row.status)}>{row.status}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1">
+                                {row.issues.map((issue, index) => (
+                                  <p key={`${row.rowNumber}-${issue.code}-${index}`} className="text-xs text-muted-foreground">
+                                    {issue.message}
+                                  </p>
+                                ))}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">{labels.previewCleanBody}</p>
                   )}
                 </CardContent>
               </Card>
 
-              {onboardingCompleted && (
-                <Card className="border-destructive/40 bg-destructive/5">
-                  <CardContent className="flex flex-col gap-4 py-8 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-start gap-4">
-                      <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-destructive" />
-                      <div className="space-y-1">
-                        <p className="font-heading text-xl font-bold tracking-tight text-foreground">
-                          {labels.onboardingComplete}
-                        </p>
-                        {execution && (
-                          <p className="text-muted-foreground">
-                            <span className="font-stat tracking-wide text-2xl text-foreground tabular-nums">
-                              {execution.importedMembers}
-                            </span>{' '}
-                            {labels.onboardingSuccessBody}
-                          </p>
-                        )}
-                        {!execution && (
-                          <p className="text-sm text-muted-foreground">{labels.onboardingAlreadyComplete}</p>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      onClick={() => router.push('/dashboard/members')}
-                      className="shrink-0"
-                    >
-                      {labels.goToDashboard}
-                    </Button>
+              {readiness.hasBlockingRows ? null : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{labels.executeTitle}</CardTitle>
+                    <CardDescription>{labels.executeHint}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {preview.summary.estimatedMembersToCreate <= 0 ? (
+                      <Alert variant="warning">
+                        <CircleAlert className="h-4 w-4" />
+                        <AlertTitle>{labels.noNewMembersTitle}</AlertTitle>
+                        <AlertDescription>{labels.noNewMembersBody}</AlertDescription>
+                      </Alert>
+                    ) : (
+                      <>
+                        <div className="space-y-3 border border-border bg-muted/20 p-4">
+                          <p className="text-sm font-medium text-foreground">{labels.executeChecklistTitle}</p>
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              id="confirm-import-rows"
+                              checked={executeChecks.reviewedRows}
+                              onCheckedChange={(checked) =>
+                                setExecuteChecks((current) => ({ ...current, reviewedRows: Boolean(checked) }))
+                              }
+                            />
+                            <Label htmlFor="confirm-import-rows" className="cursor-pointer font-normal leading-6">
+                              {labels.executeCheckRows}
+                            </Label>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              id="confirm-import-safety"
+                              checked={executeChecks.understoodSafety}
+                              onCheckedChange={(checked) =>
+                                setExecuteChecks((current) => ({ ...current, understoodSafety: Boolean(checked) }))
+                              }
+                            />
+                            <Label htmlFor="confirm-import-safety" className="cursor-pointer font-normal leading-6">
+                              {labels.executeCheckSafety}
+                            </Label>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            id="send-welcome-email"
+                            checked={sendWelcomeEmail}
+                            onCheckedChange={(checked) => setSendWelcomeEmail(Boolean(checked))}
+                          />
+                          <div className="space-y-1">
+                            <Label htmlFor="send-welcome-email" className="cursor-pointer font-normal">
+                              {labels.sendWelcomeEmailLabel}
+                            </Label>
+                            <p className="text-xs text-muted-foreground">{labels.sendWelcomeEmailHint}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3">
+                          <Button
+                            onClick={handleExecute}
+                            disabled={executing || !readiness.canExecuteImport}
+                          >
+                            {executing ? labels.executing : labels.executeButton(preview.summary.estimatedMembersToCreate)}
+                          </Button>
+                          {executing && importingStatus && (
+                            <p className="text-sm text-muted-foreground animate-pulse">{importingStatus}</p>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               )}
             </>
           )}
         </>
+      )}
+
+      {execution && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{labels.importComplete}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-0 p-0">
+            <div className="grid grid-cols-2 border-b border-border divide-x divide-border md:grid-cols-4">
+              <div className="px-6 py-4">
+                <p className="text-xs text-muted-foreground">{labels.importedMembers}</p>
+                <p className="font-stat tracking-wide text-3xl tabular-nums text-destructive">{execution.importedMembers}</p>
+              </div>
+              <div className="px-6 py-4">
+                <p className="text-xs text-muted-foreground">{labels.importedSubscriptions}</p>
+                <p className="font-stat tracking-wide text-3xl tabular-nums">{execution.importedSubscriptions}</p>
+              </div>
+              <div className="px-6 py-4">
+                <p className="text-xs text-muted-foreground">{labels.skippedRows}</p>
+                <p className="font-stat tracking-wide text-3xl tabular-nums">{execution.skippedRows}</p>
+              </div>
+              <div className="px-6 py-4">
+                <p className="text-xs text-muted-foreground">{labels.failedRows}</p>
+                <p className="font-stat tracking-wide text-3xl tabular-nums">{execution.failedRows}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {checklistMode && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {checklistMode === 'imported' ? labels.checklistTitleImported : labels.checklistTitleManual}
+            </CardTitle>
+            <CardDescription>
+              {checklistMode === 'imported' ? labels.checklistHintImported : labels.checklistHintManual}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              {checklistItems.map((item) => (
+                <div key={item.key} className="border border-border p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id={`checklist-${item.key}`}
+                        checked={checklist[item.key]}
+                        onCheckedChange={(checked) =>
+                          setChecklist((current) => ({
+                            ...current,
+                            [item.key]: Boolean(checked)
+                          }))
+                        }
+                        className="mt-0.5"
+                      />
+                      <Label
+                        htmlFor={`checklist-${item.key}`}
+                        className="text-sm text-foreground cursor-pointer font-normal leading-6"
+                      >
+                        {item.label}
+                      </Label>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => router.push(item.href)}
+                    >
+                      {item.actionLabel}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {!onboardingCompleted && (
+              <Button onClick={handleCompleteOnboarding} disabled={!allChecklistChecked || savingOnboarding}>
+                {savingOnboarding ? labels.completingOnboarding : labels.completeOnboarding}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {checklistMode && onboardingCompleted && (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardContent className="flex flex-col gap-4 py-8 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4">
+              <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-destructive" />
+              <div className="space-y-1">
+                <p className="font-heading text-xl font-bold tracking-tight text-foreground">
+                  {checklistMode === 'manual' ? labels.onboardingCompleteManual : labels.onboardingCompleteImported}
+                </p>
+                {checklistMode === 'imported' && execution ? (
+                  <p className="text-muted-foreground">{labels.importedSuccessBody(execution.importedMembers)}</p>
+                ) : checklistMode === 'manual' ? (
+                  <p className="text-sm text-muted-foreground">{labels.manualSuccessBody}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{labels.onboardingAlreadyComplete}</p>
+                )}
+              </div>
+            </div>
+            <Button
+              onClick={() => router.push(checklistMode === 'manual' ? '/dashboard' : '/dashboard/members')}
+              className="shrink-0"
+            >
+              {checklistMode === 'manual' ? labels.goToDashboard : labels.goToMembers}
+            </Button>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
