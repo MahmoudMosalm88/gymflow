@@ -8,6 +8,8 @@ import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Terminal, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -20,6 +22,27 @@ import type {
 type ValidateResult = DesktopImportValidationResponse;
 type ExecuteResult = DesktopImportExecuteResponse;
 type StatusResult = DesktopImportJobStatusResponse;
+
+const IMPORT_CONFIRMATION_TEXT = "IMPORT";
+
+const safetyCopy = {
+  en: {
+    importReviewTitle: "Import review",
+    importFile: "File",
+    importAutoSnapshot: "GymFlow will create a pre-import backup before replacing the current branch data.",
+    importConfirmLabel: `Type ${IMPORT_CONFIRMATION_TEXT} to continue`,
+    importConfirmHint: "This import will replace the branch data currently in GymFlow.",
+    importSuccessSnapshot: "A safety backup was created before this import ran.",
+  },
+  ar: {
+    importReviewTitle: "مراجعة الاستيراد",
+    importFile: "الملف",
+    importAutoSnapshot: "سيقوم GymFlow بإنشاء نسخة أمان قبل استبدال بيانات الفرع الحالية.",
+    importConfirmLabel: `اكتب ${IMPORT_CONFIRMATION_TEXT} للمتابعة`,
+    importConfirmHint: "سيؤدي هذا الاستيراد إلى استبدال بيانات الفرع الموجودة حالياً في GymFlow.",
+    importSuccessSnapshot: "تم إنشاء نسخة أمان قبل تنفيذ هذا الاستيراد.",
+  },
+} as const;
 
 function StepIndicator({ current }: { current: number }) {
   const { lang } = useLang();
@@ -65,6 +88,7 @@ function ImportRow({ label, value, color }: { label: string; value: string; colo
 export default function ImportTab() {
   const { lang } = useLang();
   const labels = t[lang];
+  const safetyLabels = safetyCopy[lang];
   const router = useRouter();
 
   const [step, setStep] = useState(1);
@@ -79,6 +103,7 @@ export default function ImportTab() {
   const [validation, setValidation] = useState<ValidateResult | null>(null);
 
   const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmImportText, setConfirmImportText] = useState('');
   const [executing, setExecuting] = useState(false);
   const [result, setResult] = useState<StatusResult | null>(null);
 
@@ -133,7 +158,10 @@ export default function ImportTab() {
     setExecuting(true);
     setError('');
     try {
-      const res = await api.post<ExecuteResult>('/api/migration/execute', { artifactId });
+      const res = await api.post<ExecuteResult>('/api/migration/execute', {
+        artifactId,
+        confirmImportText: confirmImportText.trim(),
+      });
       if (!res.success || !res.data) { setError(res.message || labels.execution_failed); setExecuting(false); return; }
       const jobId = res.data.jobId;
       const poll = async () => {
@@ -141,6 +169,7 @@ export default function ImportTab() {
         if (s.data && (s.data.status === 'completed' || s.data.status === 'failed')) {
           setResult(s.data);
           setExecuting(false);
+          setConfirmImportText('');
         } else {
           setTimeout(poll, 2000);
         }
@@ -150,7 +179,7 @@ export default function ImportTab() {
       setError(e instanceof Error ? e.message : labels.execution_failed);
       setExecuting(false);
     }
-  }, [artifactId, labels.execution_failed]);
+  }, [artifactId, confirmImportText, labels.execution_failed]);
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
@@ -235,6 +264,18 @@ export default function ImportTab() {
                   <AlertTitle>{labels.warning_title}</AlertTitle>
                   <AlertDescription>{labels.warning_replace_data}</AlertDescription>
                 </Alert>
+                {validation ? (
+                  <div className="border-2 border-border bg-muted/20 p-4 space-y-3">
+                    <p className="text-sm font-semibold text-foreground">{safetyLabels.importReviewTitle}</p>
+                    <div className="grid gap-2 text-sm md:grid-cols-2">
+                      <p>{safetyLabels.importFile}: <span className="font-medium text-foreground">{validation.fileName}</span></p>
+                      <p>{labels.schema_version}: <span className="font-medium text-foreground">{validation.schemaVersion}</span></p>
+                      <p>{labels.members_count}: <span className="font-stat text-foreground">{validation.members}</span></p>
+                      <p>{labels.subscriptions_count}: <span className="font-stat text-foreground">{validation.subscriptions}</span></p>
+                    </div>
+                    <p className="text-xs text-warning">{safetyLabels.importAutoSnapshot}</p>
+                  </div>
+                ) : null}
                 <div className="flex gap-3 justify-end">
                   <Button variant="outline" onClick={() => { setStep(2); setError(''); }}>{labels.back}</Button>
                   <Button onClick={() => setShowConfirm(true)}>{labels.execute_import_button}</Button>
@@ -246,10 +287,22 @@ export default function ImportTab() {
               <Alert variant="destructive">
                 <Terminal className="h-4 w-4" />
                 <AlertTitle>{labels.confirm_action}</AlertTitle>
-                <AlertDescription>{labels.confirm_replace_data}</AlertDescription>
+                <AlertDescription>{safetyLabels.importConfirmHint}</AlertDescription>
+                <div className="mt-4 space-y-2">
+                  <Label htmlFor="import-confirmation">{safetyLabels.importConfirmLabel}</Label>
+                  <Input
+                    id="import-confirmation"
+                    value={confirmImportText}
+                    onChange={(event) => setConfirmImportText(event.target.value)}
+                    placeholder={IMPORT_CONFIRMATION_TEXT}
+                    dir="ltr"
+                  />
+                </div>
                 <div className="flex gap-3 justify-end mt-4">
-                  <Button variant="outline" onClick={() => setShowConfirm(false)}>{labels.cancel}</Button>
-                  <Button variant="destructive" onClick={handleExecute}>{labels.yes_execute}</Button>
+                  <Button variant="outline" onClick={() => { setShowConfirm(false); setConfirmImportText(''); }}>{labels.cancel}</Button>
+                  <Button variant="destructive" onClick={handleExecute} disabled={confirmImportText.trim() !== IMPORT_CONFIRMATION_TEXT}>
+                    {labels.yes_execute}
+                  </Button>
                 </div>
               </Alert>
             )}
@@ -270,6 +323,7 @@ export default function ImportTab() {
                           {JSON.stringify(result.result as Record<string, unknown>, null, 2)}
                         </pre>
                       )}
+                      <p className="mt-2 text-xs text-success">{safetyLabels.importSuccessSnapshot}</p>
                     </AlertDescription>
                   </Alert>
                 ) : (

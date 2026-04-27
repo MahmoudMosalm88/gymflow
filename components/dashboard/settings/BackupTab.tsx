@@ -43,6 +43,41 @@ type BackupEntry = {
   artifact_id: string;
 };
 
+type BackupRowCounts = Record<string, number>;
+
+const RESTORE_CONFIRMATION_TEXT = "RESTORE";
+
+const safetyCopy = {
+  en: {
+    restoreConfirmLabel: `Type ${RESTORE_CONFIRMATION_TEXT} to continue`,
+    restoreConfirmHint: "This action replaces the current branch data. GymFlow will create one automatic pre-restore snapshot first.",
+    restorePreviewTitle: "Selected backup",
+    restoreCountsTitle: "Backup contents",
+    restoreCreatedAt: "Created",
+    restoreSource: "Source",
+    restoreMembers: "Members",
+    restoreSubscriptions: "Subscriptions",
+    restorePayments: "Payments",
+    restoreLogs: "Attendance logs",
+    restoreAutoSnapshot: "A pre-restore backup will be created automatically before anything is replaced.",
+    restoreSuccessWithSnapshot: "Restore completed. A safety snapshot was created before the restore started.",
+  },
+  ar: {
+    restoreConfirmLabel: `اكتب ${RESTORE_CONFIRMATION_TEXT} للمتابعة`,
+    restoreConfirmHint: "هذا الإجراء سيستبدل بيانات الفرع الحالية. سيقوم GymFlow بإنشاء نسخة أمان تلقائية قبل الاستعادة.",
+    restorePreviewTitle: "النسخة المحددة",
+    restoreCountsTitle: "محتوى النسخة",
+    restoreCreatedAt: "تاريخ الإنشاء",
+    restoreSource: "المصدر",
+    restoreMembers: "الأعضاء",
+    restoreSubscriptions: "الاشتراكات",
+    restorePayments: "المدفوعات",
+    restoreLogs: "سجلات الحضور",
+    restoreAutoSnapshot: "سيتم إنشاء نسخة أمان تلقائية قبل استبدال أي بيانات.",
+    restoreSuccessWithSnapshot: "تمت الاستعادة. تم إنشاء نسخة أمان قبل بدء الاستعادة.",
+  },
+} as const;
+
 function triggerDownload(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
@@ -63,9 +98,23 @@ function getDownloadFileName(contentDisposition: string | null, fallback: string
   return fallback;
 }
 
+function getRowCountsFromMetadata(metadata: unknown): BackupRowCounts {
+  if (!metadata || typeof metadata !== "object") return {};
+  const rowCounts = (metadata as { rowCounts?: unknown }).rowCounts;
+  if (!rowCounts || typeof rowCounts !== "object") return {};
+
+  return Object.fromEntries(
+    Object.entries(rowCounts).flatMap(([key, value]) => {
+      const count = Number(value);
+      return Number.isFinite(count) ? [[key, count]] : [];
+    })
+  );
+}
+
 export default function BackupTab() {
   const { lang } = useLang();
   const labels = t[lang];
+  const safetyLabels = safetyCopy[lang];
   const [cardCount, setCardCount] = useState('500');
   const [cardFormat, setCardFormat] = useState<'pdf' | 'csv'>('pdf');
   const [cardNextPreview, setCardNextPreview] = useState('');
@@ -77,6 +126,7 @@ export default function BackupTab() {
   const [exportResult, setExportResult] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
   const [selectedId, setSelectedId] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [restoreConfirmationText, setRestoreConfirmationText] = useState('');
   const [restoring, setRestoring] = useState(false);
   const [restoreResult, setRestoreResult] = useState<{ type: 'success' | 'destructive'; text: string } | null>(null);
   const [autoEnabled, setAutoEnabled] = useState(false);
@@ -186,9 +236,13 @@ export default function BackupTab() {
     setRestoring(true);
     setRestoreResult(null);
     try {
-      const res = await api.post('/api/backup/restore', { artifactId: selectedId });
+      const res = await api.post('/api/backup/restore', {
+        artifactId: selectedId,
+        confirmRestoreText: restoreConfirmationText.trim(),
+      });
       if (res.success) {
-        setRestoreResult({ type: 'success', text: labels.restore_successful });
+        setRestoreResult({ type: 'success', text: safetyLabels.restoreSuccessWithSnapshot });
+        setRestoreConfirmationText('');
       } else {
         setRestoreResult({ type: 'destructive', text: res.message ?? labels.restore_failed });
       }
@@ -237,6 +291,8 @@ export default function BackupTab() {
   if (loading) return <LoadingSpinner />;
 
   const completedBackups = history.filter((b) => b.status === 'completed');
+  const selectedBackup = completedBackups.find((backup) => backup.artifact_id === selectedId) ?? null;
+  const selectedBackupRowCounts = getRowCountsFromMetadata(selectedBackup?.metadata);
 
   return (
     <div className="flex flex-col gap-6">
@@ -392,7 +448,7 @@ export default function BackupTab() {
             <>
               <div>
                 <Label htmlFor="backup-select">{labels.select_a_backup}</Label>
-                <Select value={selectedId} onValueChange={setSelectedId} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                <Select value={selectedId} onValueChange={(value) => { setSelectedId(value); setRestoreConfirmationText(''); }} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                   <SelectTrigger id="backup-select" className="max-w-md mt-1">
                     <SelectValue placeholder={labels.select_placeholder} />
                   </SelectTrigger>
@@ -405,6 +461,27 @@ export default function BackupTab() {
                   </SelectContent>
                 </Select>
               </div>
+              {selectedBackup ? (
+                <div className="border-2 border-border bg-muted/20 p-4 space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{safetyLabels.restorePreviewTitle}</p>
+                    <div className="mt-2 grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
+                      <p>{safetyLabels.restoreCreatedAt}: <span className="font-medium text-foreground">{formatDateTime(selectedBackup.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')}</span></p>
+                      <p>{safetyLabels.restoreSource}: <span className="font-medium text-foreground">{selectedBackup.source}</span></p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{safetyLabels.restoreCountsTitle}</p>
+                    <div className="mt-2 grid gap-2 text-sm md:grid-cols-2">
+                      <p>{safetyLabels.restoreMembers}: <span className="font-stat text-foreground">{selectedBackupRowCounts.members ?? 0}</span></p>
+                      <p>{safetyLabels.restoreSubscriptions}: <span className="font-stat text-foreground">{selectedBackupRowCounts.subscriptions ?? 0}</span></p>
+                      <p>{safetyLabels.restorePayments}: <span className="font-stat text-foreground">{selectedBackupRowCounts.payments ?? 0}</span></p>
+                      <p>{safetyLabels.restoreLogs}: <span className="font-stat text-foreground">{selectedBackupRowCounts.logs ?? 0}</span></p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-warning">{safetyLabels.restoreAutoSnapshot}</p>
+                </div>
+              ) : null}
               <Button onClick={() => setConfirmOpen(true)} disabled={!selectedId || restoring} variant="destructive" className="min-w-[120px]">
                 {restoring ? labels.restoring : labels.restore}
               </Button>
@@ -419,15 +496,35 @@ export default function BackupTab() {
             </Alert>
           )}
 
-          <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <Dialog open={confirmOpen} onOpenChange={(open) => { setConfirmOpen(open); if (!open) setRestoreConfirmationText(''); }}>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{labels.confirm_restore}</DialogTitle>
-                <DialogDescription>{labels.confirm_restore_description}</DialogDescription>
+                <DialogDescription>{safetyLabels.restoreConfirmHint}</DialogDescription>
               </DialogHeader>
+              {selectedBackup ? (
+                <div className="space-y-3">
+                  <div className="border-2 border-border bg-muted/20 p-3 text-sm">
+                    <p className="font-medium text-foreground">{formatDateTime(selectedBackup.created_at, lang === 'ar' ? 'ar-EG' : 'en-US')}</p>
+                    <p className="text-muted-foreground">{selectedBackup.source}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="restore-confirmation">{safetyLabels.restoreConfirmLabel}</Label>
+                    <Input
+                      id="restore-confirmation"
+                      value={restoreConfirmationText}
+                      onChange={(event) => setRestoreConfirmationText(event.target.value)}
+                      placeholder={RESTORE_CONFIRMATION_TEXT}
+                      dir="ltr"
+                    />
+                  </div>
+                </div>
+              ) : null}
               <DialogFooter>
-                <Button onClick={() => setConfirmOpen(false)} variant="outline">{labels.cancel}</Button>
-                <Button onClick={handleRestore} variant="destructive">{labels.yes_restore}</Button>
+                <Button onClick={() => { setConfirmOpen(false); setRestoreConfirmationText(''); }} variant="outline">{labels.cancel}</Button>
+                <Button onClick={handleRestore} variant="destructive" disabled={restoreConfirmationText.trim() !== RESTORE_CONFIRMATION_TEXT}>
+                  {labels.yes_restore}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

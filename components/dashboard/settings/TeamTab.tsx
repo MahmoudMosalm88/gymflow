@@ -52,9 +52,11 @@ const copy = {
     active: "Active",
     inactive: "Inactive",
     pending: "Invite Sent",
+    opened: "Opened",
     accepted: "Accepted",
     cancelled: "Cancelled",
     expired: "Expired",
+    expires: "Expires",
     manager: "Manager",
     staff: "Staff",
     trainer: "Trainer",
@@ -97,9 +99,11 @@ const copy = {
     active: "نشط",
     inactive: "غير نشط",
     pending: "تم الإرسال",
+    opened: "تم فتح الرابط",
     accepted: "تم التفعيل",
     cancelled: "ملغية",
     expired: "منتهية",
+    expires: "تنتهي",
     manager: "مدير",
     staff: "موظف",
     trainer: "مدرب",
@@ -135,9 +139,10 @@ function formatInviteStatus(status: string | null, acceptedAt: string | null, la
   if (acceptedAt) return { text: labels.accepted, color: "text-success" };
   switch (status) {
     case "sent":
-    case "opened":
     case "pending":
       return { text: labels.pending, color: "text-warning" };
+    case "opened":
+      return { text: labels.opened, color: "text-warning" };
     case "cancelled":
       return { text: labels.cancelled, color: "text-muted-foreground" };
     case "expired":
@@ -145,6 +150,16 @@ function formatInviteStatus(status: string | null, acceptedAt: string | null, la
     default:
       return { text: labels.pending, color: "text-warning" };
   }
+}
+
+function formatInviteExpiry(value: string | null, lang: "en" | "ar") {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(lang === "ar" ? "ar-EG" : "en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(date);
 }
 
 function normalizePhoneInput(value: string) {
@@ -441,7 +456,12 @@ function StaffCard({ row, labels, lang, onPatch, onDeactivate }: {
     : row.is_active
       ? "bg-success"
       : "bg-muted-foreground/40";
-  const secondaryStatus = isPendingAcceptance ? null : inviteStatus.text;
+  const inviteExpiry = formatInviteExpiry(row.latest_invite_expires_at, lang as "en" | "ar");
+  const secondaryStatus = isPendingAcceptance
+    ? inviteExpiry
+      ? `${labels.expires} ${inviteExpiry}`
+      : inviteStatus.text
+    : inviteStatus.text;
 
   return (
     <div className={`border-2 bg-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between transition-colors ${
@@ -488,12 +508,13 @@ function StaffCard({ row, labels, lang, onPatch, onDeactivate }: {
           {!row.accepted_at && row.is_active && (
             <Button
               variant="outline"
-              size="icon"
-              className="h-8 w-8"
+              size="sm"
+              className="h-8 gap-1.5 px-2"
               title={labels.resend}
               onClick={() => onPatch(row.id, { resend_invite: true })}
             >
               <RotateCw size={14} />
+              <span className="text-[11px]">{labels.resend}</span>
             </Button>
           )}
           {row.is_active ? (

@@ -515,6 +515,12 @@ export default function DashboardPage() {
             inputRef.current?.focus();
           }}
           onDetect={handleCameraScan}
+          onUseManualEntry={() => {
+            setCameraOpen(false);
+            setScanResult(null);
+            setScanning(false);
+            window.setTimeout(() => inputRef.current?.focus(), 0);
+          }}
           labels={{
             closeCamera: labels.close_camera,
             cameraTitle: labels.camera_title,

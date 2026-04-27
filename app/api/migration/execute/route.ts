@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { query, withTransaction } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRoles } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { createSnapshotBackup, replaceBranchFromArchive } from "@/lib/archive-engine";
 import type { DesktopImportExecuteResponse } from "@/lib/migration-contracts";
@@ -14,15 +14,21 @@ type ImportArtifactRow = {
   file_name: string;
 };
 
+const IMPORT_CONFIRMATION_TEXT = "IMPORT";
+
 export async function POST(request: NextRequest) {
   const jobId = uuidv4();
   let artifactId = "";
 
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner"]);
     const body = await request.json();
     artifactId = String(body.artifactId || "");
+    const confirmationText = typeof body.confirmImportText === "string" ? body.confirmImportText.trim() : "";
     if (!artifactId) return fail("artifactId is required", 400);
+    if (confirmationText !== IMPORT_CONFIRMATION_TEXT) {
+      return fail(`Type ${IMPORT_CONFIRMATION_TEXT} to confirm replacing the current branch data.`, 400);
+    }
 
     const artifactRows = await query<ImportArtifactRow>(
       `SELECT payload, status, file_name
@@ -50,7 +56,7 @@ export async function POST(request: NextRequest) {
         jobId,
         auth.organizationId,
         auth.branchId,
-        JSON.stringify({ artifactId, fileName: artifact.file_name })
+        JSON.stringify({ artifactId, fileName: artifact.file_name, confirmationText })
       ]
     );
 
@@ -192,7 +198,7 @@ export async function POST(request: NextRequest) {
     const message = error instanceof Error ? error.message : String(error);
 
     try {
-      const auth = await requireAuth(request);
+      const auth = await requireRoles(request, ["owner"]);
       await query(
         `UPDATE migration_jobs
             SET status = 'failed',
