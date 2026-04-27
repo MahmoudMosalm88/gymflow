@@ -1,5 +1,5 @@
-import OnboardingWizard from '@/components/dashboard/onboarding/OnboardingWizard';
+import ImportOnboardingFlow from '@/components/dashboard/import/ImportOnboardingFlow';
 
 export default function OnboardingPage() {
-  return <OnboardingWizard />;
+  return <ImportOnboardingFlow variant="onboarding" />;
 }
