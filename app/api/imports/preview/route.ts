@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { v4 as uuidv4 } from "uuid";
 import { query, withTransaction } from "@/lib/db";
 import { requireRoles } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
@@ -8,6 +7,7 @@ import {
   type ImportPreviewResponse,
   type SpreadsheetImportArtifactPayload
 } from "@/lib/imports";
+import { replaceImportRowResults } from "@/lib/import-batches";
 import { importPreviewSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -80,33 +80,12 @@ export async function POST(request: NextRequest) {
     );
 
     await withTransaction(async (client) => {
-      await client.query(`DELETE FROM import_row_results WHERE artifact_id = $1`, [body.artifactId]);
-
-      for (const row of rowResults) {
-        await client.query(
-          `INSERT INTO import_row_results (
-              id, artifact_id, organization_id, branch_id, row_number,
-              raw_row, normalized_row, status, issues,
-              matched_member_id, created_member_id, created_subscription_id
-           ) VALUES (
-              $1, $2, $3, $4, $5,
-              $6::jsonb, $7::jsonb, $8, $9::jsonb,
-              $10, NULL, NULL
-           )`,
-          [
-            uuidv4(),
-            body.artifactId,
-            auth.organizationId,
-            auth.branchId,
-            row.rowNumber,
-            JSON.stringify(row.rawRow),
-            row.normalizedRow ? JSON.stringify(row.normalizedRow) : null,
-            row.status,
-            JSON.stringify(row.issues),
-            null
-          ]
-        );
-      }
+      await replaceImportRowResults(client, {
+        artifactId: body.artifactId,
+        organizationId: auth.organizationId,
+        branchId: auth.branchId,
+        rows: rowResults,
+      });
 
       await client.query(
         `UPDATE import_artifacts
