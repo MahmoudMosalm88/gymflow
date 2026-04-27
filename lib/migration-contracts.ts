@@ -6,6 +6,7 @@ export type DesktopImportUploadResponse = {
 };
 
 export type DesktopImportValidationResponse = {
+  fileName: string;
   schemaVersion: string;
   members: number;
   subscriptions: number;

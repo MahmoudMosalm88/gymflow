@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRoles } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import type { DesktopImportJobStatusResponse } from "@/lib/migration-contracts";
 
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner"]);
     const url = new URL(request.url);
     const jobId = url.searchParams.get("jobId");
 

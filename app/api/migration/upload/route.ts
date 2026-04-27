@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { query } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRoles } from "@/lib/auth";
 import { ok, fail, routeError } from "@/lib/http";
 import { parseDesktopDbToArchive } from "@/lib/desktop-db-to-archive";
 import type { DesktopImportUploadResponse } from "@/lib/migration-contracts";
@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner"]);
 
     // Read the uploaded .db file from FormData
     const formData = await request.formData();

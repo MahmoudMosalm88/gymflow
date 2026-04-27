@@ -89,6 +89,9 @@ const copy = {
     executeTitle: 'Confirm and import',
     executeHint:
       'Your existing members are safe — we\'ll only add what\'s new in your file. You can edit or remove any member individually after import.',
+    executeChecklistTitle: 'Before you import',
+    executeCheckRows: 'I reviewed warning and duplicate rows above.',
+    executeCheckSafety: 'I understand GymFlow will add only new members and skip exact phone/card duplicates.',
     executeButton: 'Import valid rows',
     executing: 'Importing...',
     membersToCreate: 'Members to create',
@@ -206,6 +209,9 @@ const copy = {
     executeTitle: 'تأكيد واستيراد',
     executeHint:
       'أعضاؤك الحاليون في أمان — سنضيف فقط ما هو جديد في ملفك. يمكنك تعديل أو حذف أي عضو بشكل فردي بعد الاستيراد.',
+    executeChecklistTitle: 'قبل الاستيراد',
+    executeCheckRows: 'راجعت صفوف التحذيرات والتكرارات بالأعلى.',
+    executeCheckSafety: 'أفهم أن GymFlow سيضيف الأعضاء الجدد فقط وسيتخطى التكرارات المطابقة للهاتف أو كود الكارت.',
     executeButton: 'استيراد الصفوف الصالحة',
     executing: 'جاري الاستيراد...',
     membersToCreate: 'الأعضاء الذين سيتم إنشاؤهم',
@@ -400,6 +406,10 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
   const [preview, setPreview] = useState<ImportPreviewResponse | null>(null);
   const [execution, setExecution] = useState<ImportExecuteResponse | null>(null);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
+  const [executeChecks, setExecuteChecks] = useState({
+    reviewedRows: false,
+    understoodSafety: false,
+  });
   const [checklist, setChecklist] = useState<Record<OnboardingChecklistKey, boolean>>({
     reviewWarnings: false,
     reviewPlans: false,
@@ -445,6 +455,12 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
   );
 
   const allChecklistChecked = CHECKLIST_KEYS.every((key) => checklist[key]);
+  const canExecuteImport = Boolean(
+    preview &&
+      executeChecks.reviewedRows &&
+      executeChecks.understoodSafety &&
+      preview.summary.estimatedMembersToCreate > 0
+  );
 
   async function handleUpload() {
     if (!file) {
@@ -455,6 +471,7 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
     setUploading(true);
     setPreview(null);
     setExecution(null);
+    setExecuteChecks({ reviewedRows: false, understoodSafety: false });
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -483,6 +500,7 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
 
     setPreviewing(true);
     setExecution(null);
+    setExecuteChecks({ reviewedRows: false, understoodSafety: false });
     try {
       const res = await api.post<ImportPreviewResponse>('/api/imports/preview', {
         artifactId: artifact.id,
@@ -997,6 +1015,34 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
                   <CardDescription>{labels.executeHint}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div className="space-y-3 border border-border bg-muted/20 p-4">
+                    <p className="text-sm font-medium text-foreground">{labels.executeChecklistTitle}</p>
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="confirm-import-rows"
+                        checked={executeChecks.reviewedRows}
+                        onCheckedChange={(checked) =>
+                          setExecuteChecks((current) => ({ ...current, reviewedRows: Boolean(checked) }))
+                        }
+                      />
+                      <Label htmlFor="confirm-import-rows" className="cursor-pointer font-normal leading-6">
+                        {labels.executeCheckRows}
+                      </Label>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="confirm-import-safety"
+                        checked={executeChecks.understoodSafety}
+                        onCheckedChange={(checked) =>
+                          setExecuteChecks((current) => ({ ...current, understoodSafety: Boolean(checked) }))
+                        }
+                      />
+                      <Label htmlFor="confirm-import-safety" className="cursor-pointer font-normal leading-6">
+                        {labels.executeCheckSafety}
+                      </Label>
+                    </div>
+                  </div>
+
                   <div className="flex items-start gap-3">
                     <Checkbox
                       id="send-welcome-email"
@@ -1014,7 +1060,7 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
                   <div className="flex flex-wrap items-center gap-3">
                     <Button
                       onClick={handleExecute}
-                      disabled={executing || preview.summary.estimatedMembersToCreate === 0}
+                      disabled={executing || !canExecuteImport}
                     >
                       {executing
                         ? labels.executing

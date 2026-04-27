@@ -48,22 +48,24 @@ export default function ForgotPasswordPage() {
   const pathname = usePathname();
   const isArabic = pathname?.startsWith("/ar") ?? false;
   const t = copy[isArabic ? "ar" : "en"];
+  const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
     setMessage("");
     setError("");
+    setEmailError("");
 
     try {
-      const formData = new FormData(event.currentTarget);
-      const email = String(formData.get("email") || "").trim();
+      const trimmedEmail = email.trim();
 
-      if (!email) {
-        setError(t.required);
+      if (!trimmedEmail) {
+        setEmailError(t.required);
         setLoading(false);
         return;
       }
@@ -71,7 +73,7 @@ export default function ForgotPasswordPage() {
       const response = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email: trimmedEmail })
       });
 
       const payload = await response.json().catch(() => null);
@@ -112,7 +114,24 @@ export default function ForgotPasswordPage() {
         <form className="space-y-4" onSubmit={onSubmit}>
           <div className="grid gap-2">
             <Label htmlFor="email" className="text-[#e8e4df] font-medium">{t.email}</Label>
-            <Input id="email" name="email" type="email" autoComplete="email" required />
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                if (emailError) setEmailError("");
+              }}
+              aria-invalid={emailError ? "true" : "false"}
+              aria-describedby={emailError ? "forgot-password-email-error" : undefined}
+            />
+            {emailError ? (
+              <p id="forgot-password-email-error" className="text-xs text-[#e63946]">
+                {emailError}
+              </p>
+            ) : null}
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? t.sending : t.send}

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRoles } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import type { DesktopImportValidationResponse } from "@/lib/migration-contracts";
 
@@ -8,13 +8,13 @@ export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner"]);
     const body = await request.json();
     const artifactId = String(body.artifactId || "");
     if (!artifactId) return fail("artifactId is required", 400);
 
-    const rows = await query<{ payload: Record<string, unknown> }>(
-      `SELECT payload
+    const rows = await query<{ payload: Record<string, unknown>; file_name: string }>(
+      `SELECT payload, file_name
          FROM import_artifacts
         WHERE id = $1
           AND organization_id = $2
@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
     if (!rows[0]) return fail("Artifact not found", 404);
 
     const payload = rows[0].payload;
+    const fileName = rows[0].file_name || "upload.db";
     const members = Array.isArray(payload.members) ? payload.members.length : 0;
     const subscriptions = Array.isArray(payload.subscriptions) ? payload.subscriptions.length : 0;
     const schemaVersion = typeof payload.schemaVersion === "string" ? payload.schemaVersion : "unknown";
@@ -45,11 +46,11 @@ export async function POST(request: NextRequest) {
         auth.organizationId,
         auth.branchId,
         isValid ? "validated" : "invalid",
-        JSON.stringify({ schemaVersion, members, subscriptions, isValid })
+        JSON.stringify({ fileName, schemaVersion, members, subscriptions, isValid })
       ]
     );
 
-    const response: DesktopImportValidationResponse = { schemaVersion, members, subscriptions, isValid };
+    const response: DesktopImportValidationResponse = { fileName, schemaVersion, members, subscriptions, isValid };
     return ok(response);
   } catch (error) {
     return routeError(error);

@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
-import { Camera, X } from 'lucide-react';
+import { Camera, RotateCcw, Keyboard, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { prepareZXingModule } from 'barcode-detector';
 
@@ -40,6 +40,7 @@ type CameraScannerProps = {
   result: ScanResult | null;
   onClose: () => void;
   onDetect: (value: string) => void;
+  onUseManualEntry: () => void;
 };
 
 function getCameraErrorMessage(error: unknown, labels: CameraScannerProps['labels']) {
@@ -64,12 +65,14 @@ export default function CameraScanner({
   processing,
   result,
   onClose,
-  onDetect
+  onDetect,
+  onUseManualEntry,
 }: CameraScannerProps) {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [lastValue, setLastValue] = useState('');
   const [preferEnvironmentCamera, setPreferEnvironmentCamera] = useState(true);
   const [scannerReady, setScannerReady] = useState(false);
+  const [scannerEpoch, setScannerEpoch] = useState(0);
 
   const isRtl = lang === 'ar';
 
@@ -92,6 +95,7 @@ export default function CameraScanner({
       setCameraError(null);
       setLastValue('');
       setPreferEnvironmentCamera(true);
+      setScannerEpoch(0);
     }
   }, [active]);
 
@@ -101,11 +105,19 @@ export default function CameraScanner({
     }
   }, [processing, result]);
 
+  function retryCamera() {
+    setCameraError(null);
+    setLastValue('');
+    setPreferEnvironmentCamera(true);
+    setScannerEpoch((value) => value + 1);
+  }
+
   const scannerBody = useMemo(() => {
     if (!active || !scannerReady) return null;
 
     return (
       <Scanner
+        key={scannerEpoch}
         onScan={(codes) => {
           const value = codes[0]?.rawValue?.trim();
           if (!value || value === lastValue || processing || result) return;
@@ -162,7 +174,7 @@ export default function CameraScanner({
         }}
       />
     );
-  }, [active, labels, lastValue, onDetect, preferEnvironmentCamera, processing, result, scannerReady]);
+  }, [active, labels, lastValue, onDetect, preferEnvironmentCamera, processing, result, scannerEpoch, scannerReady]);
 
   if (!active) {
     return null;
@@ -196,8 +208,30 @@ export default function CameraScanner({
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-4 py-5 sm:px-6">
         {cameraError ? (
           <div className="pointer-events-auto max-w-xl border-2 border-destructive/80 bg-black/70 p-4 shadow-[6px_6px_0_#000000]">
-            <p className="text-sm font-semibold text-destructive">{labels.entryDenied}</p>
+            <p className="text-sm font-semibold text-destructive">
+              {lang === 'ar' ? 'الكاميرا غير جاهزة' : 'Camera not ready'}
+            </p>
             <p className="mt-2 text-sm text-white/85">{cameraError}</p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={retryCamera}
+                className="pointer-events-auto border-white/30 bg-black/40 text-white hover:bg-black/70 hover:text-white"
+              >
+                <RotateCcw className="me-2 h-4 w-4" />
+                {lang === 'ar' ? 'إعادة المحاولة' : 'Try again'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onUseManualEntry}
+                className="pointer-events-auto border-white/30 bg-black/40 text-white hover:bg-black/70 hover:text-white"
+              >
+                <Keyboard className="me-2 h-4 w-4" />
+                {lang === 'ar' ? 'استخدم الإدخال اليدوي' : 'Use manual entry'}
+              </Button>
+            </div>
           </div>
         ) : processing ? (
           <div className="max-w-sm border-2 border-white/20 bg-black/60 p-4 shadow-[6px_6px_0_#000000]">

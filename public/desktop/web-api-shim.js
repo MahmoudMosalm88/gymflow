@@ -849,6 +849,14 @@
             return { success: false, error: "Restore canceled" };
           }
 
+          const confirmationText = window.prompt(
+            "Type RESTORE to confirm replacing the current branch data.",
+            ""
+          );
+          if ((confirmationText || "").trim() !== "RESTORE") {
+            return { success: false, error: "Restore canceled" };
+          }
+
           const headers = new Headers();
           const token = getToken();
           const branchId = getBranchId();
@@ -857,6 +865,7 @@
 
           const body = new FormData();
           body.append("file", file, file.name);
+          body.append("confirmRestoreText", confirmationText.trim());
 
           const response = await fetch("/api/backup/restore-db", {
             method: "POST",

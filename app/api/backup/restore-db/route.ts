@@ -8,13 +8,23 @@ import { parseDesktopDbToArchive } from "@/lib/desktop-db-to-archive";
 
 export const runtime = "nodejs";
 
+const RESTORE_CONFIRMATION_TEXT = "RESTORE";
+
 export async function POST(request: NextRequest) {
   const jobId = uuidv4();
 
   try {
     const auth = await requireRoles(request, ["owner"]);
     const formData = await request.formData();
+    const confirmationText =
+      typeof formData.get("confirmRestoreText") === "string"
+        ? String(formData.get("confirmRestoreText")).trim()
+        : "";
     const uploaded = formData.get("file");
+
+    if (confirmationText !== RESTORE_CONFIRMATION_TEXT) {
+      return fail(`Type ${RESTORE_CONFIRMATION_TEXT} to confirm restoring this backup.`, 400);
+    }
 
     if (!(uploaded instanceof File)) {
       return fail("Attach a .db file in `file` field.", 400);
@@ -44,7 +54,8 @@ export async function POST(request: NextRequest) {
         JSON.stringify({
           source: "restore_db",
           fileName: uploaded.name,
-          fileSize: uploaded.size
+          fileSize: uploaded.size,
+          confirmationText,
         })
       ]
     );

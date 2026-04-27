@@ -11,12 +11,19 @@ type BackupArtifactRow = {
   archive: unknown;
 };
 
+const RESTORE_CONFIRMATION_TEXT = "RESTORE";
+
 export async function POST(request: NextRequest) {
   const restoreJobId = uuidv4();
 
   try {
     const auth = await requireRoles(request, ["owner"]);
     const payload = await request.json();
+    const confirmationText = typeof payload?.confirmRestoreText === "string" ? payload.confirmRestoreText.trim() : "";
+
+    if (confirmationText !== RESTORE_CONFIRMATION_TEXT) {
+      return fail(`Type ${RESTORE_CONFIRMATION_TEXT} to confirm restoring this backup.`, 400);
+    }
 
     let archivePayload: unknown = payload?.archive;
 
@@ -48,7 +55,12 @@ export async function POST(request: NextRequest) {
         restoreJobId,
         auth.organizationId,
         auth.branchId,
-        JSON.stringify({ requested_at: new Date().toISOString(), source: "api", artifactId: artifactId || null })
+        JSON.stringify({
+          requested_at: new Date().toISOString(),
+          source: "api",
+          artifactId: artifactId || null,
+          confirmationText,
+        })
       ]
     );
 
