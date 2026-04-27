@@ -1,7 +1,7 @@
 # GymFlow — Project Memory (Source of Truth)
 
 > Single living document. Combines git history, session logs, and all docs into one timeline.
-> Any new task should start here. Last updated: **April 24, 2026**.
+> Any new task should start here. Last updated: **April 27, 2026**.
 
 ---
 
@@ -361,6 +361,101 @@ Attempts tried (all partial/failed):
 - Manual workflow execution to `min_instances=0` succeeded
 - Manual Cloud Scheduler trigger of the overnight job succeeded and created a workflow execution
 - Cloud Run v2 service now shows no top-level `scaling.minInstanceCount` overnight, which confirms the current live floor is `0`
+
+---
+
+### 2026-04-25 — VPS Migration Planning
+
+**Context**
+
+- Evaluated whether GymFlow should move from the current lean GCP setup to a self-managed VPS.
+- Current recommendation is not a full infrastructure exit in one move.
+- Phase-one target is:
+  - move the Next.js app to a VPS
+  - move the WhatsApp worker to the same VPS
+  - keep Postgres managed
+  - keep Firebase Auth
+  - keep object storage managed
+
+**Why**
+
+- The WhatsApp worker is a better fit for a persistent VPS process than a serverless runtime.
+- Postgres remains the main operational risk: backups, restore testing, disk growth, upgrades, and recovery.
+- Keeping the database managed avoids taking on the riskiest part of infrastructure operations while still moving the app and worker closer together.
+
+**Cost model**
+
+- Current optimized GCP run-rate remains roughly **`$24-28/month`** after the Cloud Run warm-hours policy.
+- First VPS model is estimated at roughly **`$17-33/month`** depending on VPS price and whether Cloud SQL is kept or later replaced with a lower-cost managed Postgres provider such as Neon.
+- The first VPS move is therefore mainly about control and worker fit, not guaranteed large savings.
+
+**Plan doc**
+
+- Detailed phased plan saved at `docs/technical/vps-infra-migration-plan.md`.
+- The plan includes target architecture, before/after cost table, phased migration steps, worker migration notes, rollback plan, and explicit phase-one exclusions.
+
+**Decision rule**
+
+- Use VPS for app + worker if the goal is more runtime control and a cleaner home for the WhatsApp process.
+- Do not self-host Postgres until there is a clear reason and a tested backup/restore workflow.
+
+---
+
+### 2026-04-27 — Repo Sync: Import-First Onboarding + Live Demo Data
+
+**Current repo state**
+
+- `main` / `origin/main` is synced at `53fb5dc` (`Merge pull request #12 from MahmoudMosalm88/feat/import-first-onboarding`).
+- Import-first onboarding is now the default setup path:
+  - `app/dashboard/onboarding/page.tsx`
+  - `components/dashboard/import/ImportOnboardingFlow.tsx`
+  - `lib/import-onboarding.ts`
+  - `tests/unit/import-onboarding.test.ts`
+- Settings import remains available through `app/dashboard/settings/page.tsx`.
+
+**Import template decisions**
+
+- User-facing import template now intentionally excludes `date_of_birth`.
+- `sessions_per_month` remains in the template so gyms with monthly session quotas can map it.
+- `sessions_per_month` is optional:
+  - blank cells do not fail preview/import
+  - subscriptions are still created
+  - imported subscription quota is stored as `null`
+- Template headers that map cleanly today:
+  - required: `member_name`, `phone`
+  - recommended: `gender`
+  - optional member data: `joined_at`, `card_code`, `notes`
+  - subscription data: `subscription_start`, `subscription_end`, `plan_months`, `sessions_per_month`, `amount_paid`
+- Subscription creation requires `subscription_start`, `subscription_end`, and `plan_months`; `sessions_per_month` and `amount_paid` are optional.
+- Coverage added:
+  - `tests/integration/api-imports-template.test.ts`
+  - unit coverage in `tests/unit/imports.test.ts` for empty `sessions_per_month`.
+
+**Live production import test**
+
+- Production onboarding import was tested against `https://gymflowsystem.com` with a new demo account:
+  - `live-demo-5k-20260426145950@gymflow.app`
+  - organization: `Live Demo 5K 20260426145950`
+  - branch: `Production Demo Branch`
+- Uploaded a fake-data CSV with exactly `5,000` members.
+- Preview showed `5,000` clients ready and `5,000` subscriptions.
+- Import completed with `5,000` members added, `0` skipped, `0` failed.
+- Production overview API confirmed `totalMembers: 5000`.
+- First and last imported members were verified through members UI/API search.
+
+**Demo account passwords**
+
+- `demosales@gymflow.app` was re-enabled and reset to the standard demo password used by repo scripts.
+- `localdemo-20260427-163540@gymflow.app` was re-enabled and reset to the same standard demo password.
+- Both accounts were verified with Firebase email/password sign-in and live `/api/auth/login`.
+
+**Release status**
+
+- Import template PRs shipped:
+  - `#6` removed `date_of_birth` from the template.
+  - `#7` made the sample `sessions_per_month` values blank and locked optional quota behavior.
+- Both release loops closed after Cloud Build, main CI, Post Deploy Smoke, and `/api/health`.
+- Later hardening/import-first PRs through `#12` are merged into current `main`.
 
 ---
 
