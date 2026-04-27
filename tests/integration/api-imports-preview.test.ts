@@ -126,6 +126,7 @@ describe("app/api/imports/preview", () => {
       invalidRows: 1,
     });
     expect(payload.data.rows).toHaveLength(2);
-    expect(mockClientQuery).toHaveBeenCalledTimes(4);
+    expect(mockClientQuery).toHaveBeenCalledTimes(3);
+    expect(mockClientQuery.mock.calls[1]?.[0]).toContain("jsonb_to_recordset");
   });
 });

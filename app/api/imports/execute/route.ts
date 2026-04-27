@@ -3,6 +3,15 @@ import { v4 as uuidv4 } from "uuid";
 import { query, withTransaction } from "@/lib/db";
 import { requireRoles } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
+import {
+  insertImportedMembers,
+  insertImportedSubscriptions,
+  markImportRowsFailed,
+  markImportRowsImported,
+  markImportRowsSkipped,
+  type BatchedImportedMemberSeed,
+  type BatchedImportedSubscriptionSeed,
+} from "@/lib/import-batches";
 import { importExecuteSchema } from "@/lib/validation";
 import { toUnixSeconds } from "@/lib/subscription-dates";
 import type { ImportExecuteResponse } from "@/lib/imports";
@@ -15,8 +24,6 @@ type ImportArtifactRow = {
 
 type ImportRowResultRow = {
   id: string;
-  row_number: number;
-  raw_row: Record<string, string>;
   normalized_row: {
     member?: {
       name: string;
@@ -36,7 +43,6 @@ type ImportRowResultRow = {
     } | null;
   } | null;
   status: "valid" | "warning" | "invalid" | "duplicate" | "imported" | "skipped" | "failed";
-  issues: Array<Record<string, unknown>>;
 };
 
 type ExistingMemberRef = {
@@ -69,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     const rowResults = await query<ImportRowResultRow>(
-      `SELECT id, row_number, raw_row, normalized_row, status, issues
+      `SELECT id, normalized_row, status
          FROM import_row_results
         WHERE artifact_id = $1
           AND organization_id = $2
@@ -119,36 +125,28 @@ export async function POST(request: NextRequest) {
       let importedSubscriptions = 0;
       let skippedRows = 0;
       let failedRows = 0;
+      const createdAt = new Date().toISOString();
+      const duplicateRowIds: string[] = [];
+      const failedRowUpdates: Array<{ id: string; issues: Array<Record<string, unknown>> }> = [];
+      const importedMembersPayload: BatchedImportedMemberSeed[] = [];
+      const importedSubscriptionsPayload: BatchedImportedSubscriptionSeed[] = [];
+      const importedRowUpdates: Array<{ id: string; createdMemberId: string }> = [];
 
       for (const row of rowResults) {
         if (!row.normalized_row || !["valid", "warning"].includes(row.status)) {
-          await client.query(
-            `UPDATE import_row_results
-                SET status = CASE
-                    WHEN status = 'duplicate' THEN 'skipped'
-                    ELSE status
-                  END,
-                    updated_at = NOW()
-              WHERE id = $1`,
-            [row.id]
-          );
-          if (row.status === "duplicate") skippedRows += 1;
+          if (row.status === "duplicate") {
+            duplicateRowIds.push(row.id);
+            skippedRows += 1;
+          }
           continue;
         }
 
         const member = row.normalized_row.member;
         if (!member) {
-          await client.query(
-            `UPDATE import_row_results
-                SET status = 'failed',
-                    issues = issues || $2::jsonb,
-                    updated_at = NOW()
-              WHERE id = $1`,
-            [
-              row.id,
-              JSON.stringify([{ severity: "error", field: "member", message: "Normalized member payload is missing.", code: "missing_normalized_member" }])
-            ]
-          );
+          failedRowUpdates.push({
+            id: row.id,
+            issues: [{ severity: "error", field: "member", message: "Normalized member payload is missing.", code: "missing_normalized_member" }],
+          });
           failedRows += 1;
           continue;
         }
@@ -156,90 +154,71 @@ export async function POST(request: NextRequest) {
         const duplicateByPhone = existingPhones.has(member.phone);
         const duplicateByCardCode = member.card_code ? existingCardCodes.has(member.card_code) : false;
         if (duplicateByPhone || duplicateByCardCode) {
-          await client.query(
-            `UPDATE import_row_results
-                SET status = 'skipped',
-                    updated_at = NOW()
-              WHERE id = $1`,
-            [row.id]
-          );
+          duplicateRowIds.push(row.id);
           skippedRows += 1;
           continue;
         }
 
         const memberId = uuidv4();
-        const createdAt = new Date();
         const joinedAt = member.joined_at ? new Date(member.joined_at) : null;
-
-        await client.query(
-          `INSERT INTO members (
-              id, organization_id, branch_id, name, phone, gender, photo_path,
-              access_tier, card_code, address, notes, created_at, updated_at,
-              source, import_job_id, is_legacy_import, joined_at
-           ) VALUES (
-              $1, $2, $3, $4, $5, $6, NULL,
-              'full', $7, NULL, $8, $9, $9,
-              'import_csv', $10, true, $11
-           )`,
-          [
-            memberId,
-            auth.organizationId,
-            auth.branchId,
-            member.name,
-            member.phone,
-            member.gender,
-            member.card_code || null,
-            member.notes || null,
-            createdAt,
-            jobId,
-            joinedAt
-          ]
-        );
 
         importedMembers += 1;
         existingPhones.add(member.phone);
         if (member.card_code) existingCardCodes.add(member.card_code);
 
-        let createdSubscriptionId: number | null = null;
+        importedMembersPayload.push({
+          id: memberId,
+          organizationId: auth.organizationId,
+          branchId: auth.branchId,
+          name: member.name,
+          phone: member.phone,
+          gender: member.gender,
+          cardCode: member.card_code || null,
+          notes: member.notes || null,
+          createdAt,
+          importJobId: jobId,
+          joinedAt: joinedAt ? joinedAt.toISOString() : null,
+        });
+        importedRowUpdates.push({
+          id: row.id,
+          createdMemberId: memberId,
+        });
+
         if (row.normalized_row.subscription) {
           const subscription = row.normalized_row.subscription;
-          const inserted = await client.query<{ id: number }>(
-            `INSERT INTO subscriptions (
-                organization_id, branch_id, member_id, renewed_from_subscription_id,
-                start_date, end_date, plan_months, price_paid, payment_method,
-                sessions_per_month, is_active, source, import_job_id, is_legacy_import
-             ) VALUES (
-                $1, $2, $3, NULL,
-                $4, $5, $6, $7, NULL,
-                $8, true, 'import_csv', $9, true
-             )
-             RETURNING id`,
-            [
-              auth.organizationId,
-              auth.branchId,
-              memberId,
-              toUnixSeconds(new Date(subscription.start_date)),
-              toUnixSeconds(new Date(subscription.end_date)),
-              subscription.plan_months,
-              subscription.amount_paid ?? null,
-              subscription.sessions_per_month ?? null,
-              jobId
-            ]
-          );
-          createdSubscriptionId = inserted.rows[0]?.id ?? null;
-          importedSubscriptions += 1;
+          importedSubscriptionsPayload.push({
+            rowId: row.id,
+            memberId,
+            organizationId: auth.organizationId,
+            branchId: auth.branchId,
+            startDate: toUnixSeconds(new Date(subscription.start_date)),
+            endDate: toUnixSeconds(new Date(subscription.end_date)),
+            planMonths: subscription.plan_months,
+            amountPaid: subscription.amount_paid ?? null,
+            sessionsPerMonth: subscription.sessions_per_month ?? null,
+            importJobId: jobId,
+          });
         }
-
-        await client.query(
-          `UPDATE import_row_results
-              SET status = 'imported',
-                  created_member_id = $2,
-                  created_subscription_id = $3,
-                  updated_at = NOW()
-            WHERE id = $1`,
-          [row.id, memberId, createdSubscriptionId]
-        );
       }
+
+      await insertImportedMembers(client, importedMembersPayload);
+      const insertedSubscriptions = await insertImportedSubscriptions(client, importedSubscriptionsPayload);
+      importedSubscriptions = insertedSubscriptions.length;
+
+      await markImportRowsSkipped(client, duplicateRowIds);
+      await markImportRowsFailed(client, failedRowUpdates);
+
+      const subscriptionIdsByRowId = new Map(
+        insertedSubscriptions.map((row) => [row.rowId, row.subscriptionId])
+      );
+      await markImportRowsImported(
+        client,
+        importedRowUpdates.map((row) => ({
+          id: row.id,
+          createdMemberId: row.createdMemberId,
+          createdSubscriptionId: subscriptionIdsByRowId.get(row.id) ?? null,
+        }))
+      );
 
       const result = {
         artifactId: body.artifactId,
