@@ -12,22 +12,45 @@ export async function loginWithSmokeUser(page: Page) {
     throw new Error("Missing E2E_EMAIL or E2E_PASSWORD.");
   }
 
-  await page.goto("/login");
+  const authBaseURL =
+    process.env.PLAYWRIGHT_AUTH_BASE_URL ||
+    process.env.PLAYWRIGHT_BASE_URL ||
+    process.env.PRODUCTION_BASE_URL ||
+    "https://gymflowsystem.com";
 
-  const emailLabel = /Email|البريد الإلكتروني/i;
-  const passwordLabel = /Password|كلمة المرور/i;
-  const submitLabel = /Sign in|تسجيل الدخول/i;
+  const response = await fetch(`${authBaseURL}/api/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const payload = await response.json().catch(() => null);
 
-  await page.getByLabel(emailLabel).fill(email);
-  await page.getByLabel(passwordLabel).fill(password);
+  if (!response.ok || !payload?.success) {
+    throw new Error(`Smoke login failed with status ${response.status}.`);
+  }
 
-  const emailForm = page
-    .locator("form")
-    .filter({ has: page.getByLabel(emailLabel) })
-    .first();
+  const data = payload.data && typeof payload.data === "object" ? payload.data : payload;
+  const session = data?.session;
+  const profile = data?.user || data?.owner;
 
-  await emailForm.getByRole("button", { name: submitLabel }).click();
+  if (typeof session?.idToken !== "string" || typeof session?.branchId !== "string" || !profile) {
+    throw new Error("Smoke login response was missing session data.");
+  }
 
+  await page.addInitScript(
+    ({ token, branchId, profile }) => {
+      localStorage.setItem("session_token", token);
+      localStorage.setItem("branch_id", branchId);
+      localStorage.setItem("owner_profile", JSON.stringify(profile));
+    },
+    {
+      token: session.idToken,
+      branchId: session.branchId,
+      profile,
+    }
+  );
+
+  await page.goto("/dashboard");
   await page.waitForURL(/\/dashboard(?:$|[/?#])/, { timeout: 30_000 });
   await expect(page.locator("main")).toBeVisible();
 }

@@ -587,12 +587,6 @@ export default function ProfilePage() {
     }
   }
 
-  if (loading) return <LoadingSpinner />;
-
-  // Derived display values for the identity banner
-  const initials = (form.name || '?')[0].toUpperCase();
-  const orgLine = [form.organization_name, form.branch_name].filter(Boolean).join(' · ') || '—';
-
   // Dirty = any field differs from the last saved snapshot
   const isDirty = (Object.keys(form) as (keyof ProfileData)[]).some(
     (k) => form[k] !== saved[k]
@@ -620,6 +614,12 @@ export default function ProfilePage() {
     disabled: availabilitySaving,
     enterMode: 'all',
   });
+
+  if (loading) return <LoadingSpinner />;
+
+  // Derived display values for the identity banner
+  const initials = (form.name || '?')[0].toUpperCase();
+  const orgLine = [form.organization_name, form.branch_name].filter(Boolean).join(' · ') || '—';
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8">
