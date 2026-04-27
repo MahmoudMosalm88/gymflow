@@ -8,6 +8,7 @@ test("authenticated dashboard shells load @smoke", async ({ page }) => {
 
   for (const path of [
     "/dashboard",
+    "/dashboard/profile",
     "/dashboard/members",
     "/dashboard/members/new",
     "/dashboard/subscriptions",
