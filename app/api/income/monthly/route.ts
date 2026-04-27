@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRoles } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
 import { ensurePaymentsTable, incomeEventsCte } from "@/lib/income-events";
 
@@ -18,7 +18,7 @@ type MonthRow = {
 
 export async function GET(request: NextRequest) {
   try {
-    const { organizationId, branchId } = await requireAuth(request);
+    const { organizationId, branchId } = await requireRoles(request, ["owner"]);
     await ensurePaymentsTable();
     const rows = await query<MonthRow>(
       `${incomeEventsCte}

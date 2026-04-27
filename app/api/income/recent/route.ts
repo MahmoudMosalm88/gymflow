@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRoles } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
 import { ensurePaymentsTable, incomeEventsCte, type IncomeEventRow } from "@/lib/income-events";
 import { toIsoString, toMillis } from "@/lib/coerce";
@@ -21,7 +21,7 @@ type PaymentItem = {
 
 export async function GET(request: NextRequest) {
   try {
-    const { organizationId, branchId } = await requireAuth(request);
+    const { organizationId, branchId } = await requireRoles(request, ["owner"]);
     await ensurePaymentsTable();
     const url = new URL(request.url);
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") || 10)));

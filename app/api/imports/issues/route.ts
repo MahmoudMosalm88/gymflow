@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { requireAuth } from '@/lib/auth';
+import { requireRoles } from '@/lib/auth';
 import { fail, routeError } from '@/lib/http';
 
 export const runtime = 'nodejs';
@@ -23,7 +23,7 @@ function escapeCsv(value: unknown) {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ['owner']);
     const artifactId = request.nextUrl.searchParams.get('artifactId');
     if (!artifactId) return fail('artifactId is required', 400);
 

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRoles } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { ensurePaymentsTable, incomeEventsCte } from "@/lib/income-events";
 import { getCairoDayStartUnix } from "@/lib/cairo-time";
@@ -162,7 +162,7 @@ function readThresholdParam(url: URL, fallback = 3) {
 
 export async function GET(request: NextRequest, { params }: { params: { report: string } }) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner"]);
     await ensurePaymentsTable();
     const report = params.report;
     const url = new URL(request.url);

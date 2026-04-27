@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { query, withTransaction } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRoles } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { ensurePaymentsTable } from "@/lib/income-events";
 
@@ -64,7 +64,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner"]);
     await ensurePaymentsTable();
     const parsedId = parsePaymentId(String(params.id || ""));
     if (!parsedId) return fail("Invalid payment id.", 400);
@@ -220,7 +220,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner"]);
     await ensurePaymentsTable();
     const parsedId = parsePaymentId(String(params.id || ""));
     if (!parsedId) return fail("Invalid payment id.", 400);

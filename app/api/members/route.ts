@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 import { query, withTransaction } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, requireRoles } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { memberSchema } from "@/lib/validation";
 import { deactivateExpiredSubscriptions } from "@/lib/subscription-status";
@@ -74,6 +74,11 @@ const initialSubscriptionSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
+    if (auth.role === "trainer" && !auth.staffUserId) {
+      return fail("Forbidden", 403);
+    }
+
+    const trainerScopeId = auth.role === "trainer" ? auth.staffUserId : null;
     const url = new URL(request.url);
     const q = (url.searchParams.get("q") || "").trim();
     const accessNow = getCurrentSubscriptionAccessReferenceUnix();
@@ -127,7 +132,7 @@ export async function GET(request: NextRequest) {
             AND ($4::uuid IS NULL OR ta.trainer_staff_user_id = $4::uuid)
           ORDER BY m.created_at DESC
           LIMIT 500`,
-        [auth.organizationId, auth.branchId, accessNow, null]
+        [auth.organizationId, auth.branchId, accessNow, trainerScopeId]
       );
       return ok(rows);
     }
@@ -180,7 +185,7 @@ export async function GET(request: NextRequest) {
           AND (m.name ILIKE $5 OR m.phone ILIKE $5 OR COALESCE(m.card_code, '') ILIKE $5)
         ORDER BY m.created_at DESC
         LIMIT 500`,
-      [auth.organizationId, auth.branchId, accessNow, null, `%${q}%`]
+      [auth.organizationId, auth.branchId, accessNow, trainerScopeId, `%${q}%`]
     );
 
     return ok(rows);
@@ -191,7 +196,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner", "manager", "staff"]);
     const body = await request.json();
     const payload = memberSchema.parse(body);
     const initialSubscription = initialSubscriptionSchema.parse((body as { initial_subscription?: unknown }).initial_subscription);
@@ -442,7 +447,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner", "manager", "staff"]);
     const body = await request.json();
     const id = String(body.id || "");
     if (!id) return fail("Member id is required", 400);
@@ -503,7 +508,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner", "manager", "staff"]);
     const body = await request.json();
     const id = String(body.id || "");
     if (!id) return fail("Member id is required", 400);

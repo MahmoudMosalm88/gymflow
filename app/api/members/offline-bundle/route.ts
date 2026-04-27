@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRoles } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
 import { ensurePaymentsTable } from "@/lib/income-events";
 import { getCurrentSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
@@ -230,7 +230,7 @@ async function getMembers(auth: { organizationId: string; branchId: string }, no
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner", "manager", "staff"]);
     const now = getCurrentSubscriptionAccessReferenceUnix();
     await ensurePaymentsTable();
 

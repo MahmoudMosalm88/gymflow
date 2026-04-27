@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { query, withTransaction } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRoles } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
 import { buildBranchArchive, countArchiveRows } from "@/lib/archive-engine";
 import { toBoolean, toFiniteNumber } from "@/lib/coerce";
@@ -18,7 +18,7 @@ function isWithinWindow(hour: number, start: number, end: number) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner"]);
 
     const settingsRows = await query<{ key: string; value: unknown }>(
       `SELECT key, value

@@ -1,12 +1,12 @@
 import { createJsonRequest, readJson } from "@/tests/helpers/http";
 
-const mockRequireAuth = vi.fn();
+const mockRequireRoles = vi.fn();
 const mockWithTransaction = vi.fn();
 const mockBuildBranchArchive = vi.fn();
 const mockCountArchiveRows = vi.fn();
 
 vi.mock("@/lib/auth", () => ({
-  requireAuth: mockRequireAuth,
+  requireRoles: mockRequireRoles,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -21,14 +21,14 @@ vi.mock("@/lib/archive-engine", () => ({
 describe("app/api/backup/export", () => {
   beforeEach(() => {
     vi.resetModules();
-    mockRequireAuth.mockReset();
+    mockRequireRoles.mockReset();
     mockWithTransaction.mockReset();
     mockBuildBranchArchive.mockReset();
     mockCountArchiveRows.mockReset();
   });
 
   it("creates a backup artifact inside one transaction and returns row counts", async () => {
-    mockRequireAuth.mockResolvedValue({
+    mockRequireRoles.mockResolvedValue({
       organizationId: "22222222-2222-4222-8222-222222222222",
       branchId: "11111111-1111-4111-8111-111111111111",
     });

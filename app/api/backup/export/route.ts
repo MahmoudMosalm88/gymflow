@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { withTransaction } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRoles } from "@/lib/auth";
 import { ok, routeError } from "@/lib/http";
 import { buildBranchArchive, countArchiveRows, type BranchArchive } from "@/lib/archive-engine";
 
@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner"]);
 
     const backupId = uuidv4();
     const artifactId = uuidv4();
