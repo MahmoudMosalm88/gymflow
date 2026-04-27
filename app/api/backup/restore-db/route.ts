@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { query, withTransaction } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRoles } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { createSnapshotBackup, replaceBranchFromArchive } from "@/lib/archive-engine";
 import { parseDesktopDbToArchive } from "@/lib/desktop-db-to-archive";
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   const jobId = uuidv4();
 
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner"]);
     const formData = await request.formData();
     const uploaded = formData.get("file");
 
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     const message = error instanceof Error ? error.message : String(error);
 
     try {
-      const auth = await requireAuth(request);
+      const auth = await requireRoles(request, ["owner"]);
       await query(
         `UPDATE migration_jobs
             SET status = 'failed',

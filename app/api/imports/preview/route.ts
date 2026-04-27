@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { query, withTransaction } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRoles } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import {
   buildImportPreview,
@@ -36,7 +36,7 @@ function isSpreadsheetPayload(value: unknown): value is SpreadsheetImportArtifac
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner"]);
     const body = importPreviewSchema.parse(await request.json());
 
     const artifactRows = await query<ImportArtifactRow>(

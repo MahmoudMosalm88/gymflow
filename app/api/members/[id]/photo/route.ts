@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest } from "next/server";
 import { Storage } from "@google-cloud/storage";
 import { query } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRoles } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { fail, ok, routeError } from "@/lib/http";
 import { getFirebaseAdminDiagnostics } from "@/lib/firebase-admin";
@@ -23,7 +23,7 @@ function getPhotoBucketName() {
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner", "manager", "staff"]);
     const diagnostics = getFirebaseAdminDiagnostics();
     if (!diagnostics.configured || !env.FIREBASE_PROJECT_ID) {
       return fail("Firebase admin credentials are not configured", 500);

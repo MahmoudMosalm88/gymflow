@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { query, withTransaction } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRoles } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { importExecuteSchema } from "@/lib/validation";
 import { toUnixSeconds } from "@/lib/subscription-dates";
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
   const jobId = uuidv4();
 
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner"]);
     const body = importExecuteSchema.parse(await request.json());
 
     const artifactRows = await query<ImportArtifactRow>(
@@ -283,7 +283,7 @@ export async function POST(request: NextRequest) {
     return ok(response, { status: 201 });
   } catch (error) {
     try {
-      const auth = await requireAuth(request);
+      const auth = await requireRoles(request, ["owner"]);
       await query(
         `UPDATE migration_jobs
             SET status = 'failed',

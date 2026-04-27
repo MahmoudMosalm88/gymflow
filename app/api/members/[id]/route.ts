@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { query } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, requireRoles } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
+import { trainerHasMemberAccess } from "@/lib/trainers";
 import { memberSchema } from "@/lib/validation";
 import { toNullableUnixSeconds } from "@/lib/coerce";
 
@@ -11,6 +12,18 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const auth = await requireAuth(request);
+    if (auth.role === "trainer") {
+      if (!auth.staffUserId) return fail("Forbidden", 403);
+
+      const allowed = await trainerHasMemberAccess({
+        organizationId: auth.organizationId,
+        branchId: auth.branchId,
+        trainerStaffUserId: auth.staffUserId,
+        memberId: params.id,
+      });
+      if (!allowed) return fail("Member not found", 404);
+    }
+
     const rows = await query(
       `SELECT m.*,
               ta.trainer_staff_user_id,
@@ -49,7 +62,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner", "manager", "staff"]);
     const body = await request.json();
     const payload = memberSchema.partial().parse(body);
     const baseUpdatedAt = toNullableUnixSeconds((body as { base_updated_at?: unknown })?.base_updated_at);
@@ -128,7 +141,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const auth = await requireAuth(request);
+    const auth = await requireRoles(request, ["owner", "manager", "staff"]);
     const rows = await query(
       `UPDATE members
           SET deleted_at = NOW(),
