@@ -11,7 +11,13 @@ import Header from '@/components/dashboard/Header';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 import { ScanProvider } from '@/lib/scan-context';
 import { canAccessPath, getDefaultPathForRole } from '@/lib/permissions';
-import { fetchOnboardingRedirectTarget } from '@/lib/onboarding-client';
+import {
+  clearOnboardingChecklistNavLock,
+  fetchOnboardingRedirectTarget,
+  hasCompletedRequiredOnboardingChecklist,
+  hasOnboardingNavigationBypass,
+  syncOnboardingChecklistProgress,
+} from '@/lib/onboarding-client';
 
 const InstallPrompt = dynamic(() => import('@/components/dashboard/InstallPrompt'), { ssr: false });
 const GlobalScanner = dynamic(() => import('@/components/dashboard/GlobalScanner'), { ssr: false });
@@ -164,6 +170,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (loading || !profile || profile.role !== 'owner') return;
     if (pathname.startsWith('/dashboard/onboarding') || pathname.startsWith('/dashboard/import')) return;
+    if (hasOnboardingNavigationBypass()) return;
 
     let cancelled = false;
 
@@ -177,6 +184,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       cancelled = true;
     };
   }, [loading, pathname, profile, router]);
+
+  useEffect(() => {
+    if (loading || !profile || profile.role !== 'owner') return;
+
+    const checklistUpdates: Record<string, boolean> = {};
+
+    if (pathname.startsWith('/dashboard/members')) {
+      checklistUpdates.reviewImportedMembers = true;
+      checklistUpdates.addFirstMember = true;
+    }
+
+    const searchParams = typeof window === 'undefined'
+      ? null
+      : new URLSearchParams(window.location.search);
+
+    if (pathname.startsWith('/dashboard/settings') && searchParams?.get('tab') === 'whatsapp') {
+      checklistUpdates.connectWhatsapp = true;
+    }
+
+    if (pathname.startsWith('/dashboard/pt') && searchParams?.get('tab') === 'staff') {
+      checklistUpdates.addTeam = true;
+    }
+
+    if (Object.keys(checklistUpdates).length === 0) return;
+
+    syncOnboardingChecklistProgress(checklistUpdates);
+
+    if (hasCompletedRequiredOnboardingChecklist('imported') || hasCompletedRequiredOnboardingChecklist('manual')) {
+      clearOnboardingChecklistNavLock();
+    }
+  }, [loading, pathname, profile]);
 
   useEffect(() => {
     document.documentElement.style.fontSize = '16px';

@@ -1,19 +1,20 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowRight,
+  ArrowLeft,
+  Check,
   CheckCircle2,
   CircleAlert,
   Download,
   FileSpreadsheet,
-  FileUp,
-  Rocket,
   ScanLine,
   Settings2,
+  Upload,
   UserPlus,
-  Users
+  Users,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
@@ -23,6 +24,12 @@ import {
   hasBlockingRows,
   hasBlockingWarningRows,
 } from '@/lib/import-onboarding';
+import {
+  clearOnboardingChecklistNavLock,
+  clearOnboardingNavigationBypass,
+  setOnboardingChecklistNavLock,
+  setOnboardingNavigationBypass,
+} from '@/lib/onboarding-client';
 import { useLang } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -30,7 +37,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -56,32 +62,87 @@ type ChecklistKey =
 
 type EntryMode = 'import' | 'manual_setup';
 type OnboardingCompletionMode = 'imported' | 'manual';
+type ImportStep = 'upload' | 'map' | 'review' | 'success';
+type ManualStep = 'setup' | 'checklist';
+type Step = ImportStep | ManualStep;
 
 type ImportOnboardingFlowProps = {
   variant?: 'import' | 'onboarding';
 };
 
 const NONE = '__none__';
+const ONBOARDING_RESUME_STATE_VERSION = 1;
+
+type PersistedOnboardingState = {
+  version: number;
+  step: Step;
+  entryMode: EntryMode;
+  completionMode: OnboardingCompletionMode | null;
+  artifact: ImportUploadResponse | null;
+  mapping: MappingState;
+  genderDefault: 'male' | 'female';
+  preview: ImportPreviewResponse | null;
+  execution: ImportExecuteResponse | null;
+  onboardingCompleted: boolean;
+  executeChecks: {
+    reviewedRows: boolean;
+    understoodSafety: boolean;
+  };
+  checklist: Record<ChecklistKey, boolean>;
+  dateFormat: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD';
+};
+
+function getResumeStorageKey(variant: ImportOnboardingFlowProps['variant']) {
+  if (typeof window === 'undefined') return null;
+  const branchId = window.localStorage.getItem('branch_id');
+  if (!branchId) return null;
+  return `gymflow:onboarding-resume:${variant}:${branchId}`;
+}
+
+function readPersistedOnboardingState(storageKey: string): PersistedOnboardingState | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.sessionStorage.getItem(storageKey);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as PersistedOnboardingState;
+    if (parsed.version !== ONBOARDING_RESUME_STATE_VERSION) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function clearPersistedOnboardingState(storageKey: string | null) {
+  if (!storageKey || typeof window === 'undefined') return;
+  window.sessionStorage.removeItem(storageKey);
+}
+
+function persistOnboardingState(storageKey: string | null, snapshot: PersistedOnboardingState) {
+  if (!storageKey || typeof window === 'undefined') return;
+  window.sessionStorage.setItem(storageKey, JSON.stringify(snapshot));
+}
 
 const copy = {
   en: {
     titleOnboarding: 'Set up your gym in GymFlow',
-    titleImport: 'Import your member list',
+    titleImport: 'Import your client list',
     subtitleOnboarding:
-      'Start by bringing over your current members. If you prefer to begin manually, you can still import later from Settings at any time.',
+      'Start by bringing over your current clients. If you prefer to begin manually, you can still import later from Settings at any time.',
     subtitleImport:
-      'Bring over your current members, review exactly what GymFlow will add, then finish a short go-live checklist.',
+      'Bring over your current clients, review exactly what GymFlow will add, then finish a short go-live checklist.',
     recommended: 'Recommended',
-    modeTitle: 'The fastest way to start is to import your member list',
+    modeTitle: 'The fastest way to start is to import your client list',
     modeHint:
-      'If you already have members in another sheet or system, bring them in first so this branch starts with the right people and subscriptions.',
+      'If you already have clients in another sheet or system, bring them in first so this branch starts with the right people and subscriptions.',
     modeSpreadsheetHint:
       'Upload a CSV or Excel file, match the columns, fix blocked rows, and import only the clean rows.',
-    primaryCta: 'Import your member list',
+    primaryCta: 'Import your client list',
     secondaryCta: 'Start without importing',
     secondaryHint: 'If you want to begin manually today, that is fine.',
     secondaryRecovery:
-      'You can keep setting up now and import your old member list later from Settings at any time.',
+      'You can keep setting up now and import your old client list later from Settings at any time.',
     desktopRestoreHint:
       'Need the old desktop backup restore tool? Keep that for Settings > Backup & Restore.',
     openBackupSettings: 'Open backup tools',
@@ -93,7 +154,7 @@ const copy = {
     stepManual: 'Manual setup',
     stepGoLive: 'Go live',
     done: 'Done',
-    uploadTitle: 'Upload your member list',
+    uploadTitle: 'Upload your client list',
     uploadHint:
       'Use CSV or XLSX. GymFlow never changes your file, and nothing gets created until you review the preview.',
     templateHint:
@@ -123,18 +184,18 @@ const copy = {
       'Exact phone or card duplicates will not be imported again. They do not block this import.',
     noNewMembersTitle: 'There is nothing new to import yet.',
     noNewMembersBody:
-      'GymFlow did not find any new members to create from this file. Check the duplicate rows and your column mapping.',
+      'GymFlow did not find any new clients to create from this file. Check the duplicate rows and your column mapping.',
     executeTitle: 'Import the clean rows',
     executeHint:
-      'Once the sheet is clean, GymFlow will add only the new members shown here. Existing members stay untouched.',
+      'Once the sheet is clean, GymFlow will add only the new clients shown here. Existing clients stay untouched.',
     executeChecklistTitle: 'Before you import',
     executeCheckRows:
       'I reviewed the preview and understand which rows will be created versus safely skipped.',
     executeCheckSafety:
-      'I understand GymFlow will add only new members and skip exact phone or card duplicates.',
-    executeButton: (count: number) => `Import ${count} clean members`,
+      'I understand GymFlow will add only new clients and skip exact phone or card duplicates.',
+    executeButton: (count: number) => `Import ${count} clean clients`,
     executing: 'Importing...',
-    membersToCreate: 'Members to create',
+    membersToCreate: 'Clients to create',
     subscriptionsToCreate: 'Subscriptions to create',
     validRows: 'Ready rows',
     warningRows: 'Warning rows',
@@ -146,7 +207,7 @@ const copy = {
     issues: 'Issues',
     issueCsv: 'Download issues CSV',
     importComplete: 'Import completed',
-    importedMembers: 'Imported members',
+    importedMembers: 'Imported clients',
     importedSubscriptions: 'Imported subscriptions',
     skippedRows: 'Safely skipped rows',
     failedRows: 'Failed rows',
@@ -170,9 +231,9 @@ const copy = {
       'You can begin operating today with a few quick setup actions, then import your old list later when you are ready.',
     manualLaterHint:
       'Skipping import now is not permanent. You can open Settings > Import Data later at any time.',
-    manualActionAddMemberTitle: 'Add your first member',
+    manualActionAddMemberTitle: 'Add your first client',
     manualActionAddMemberBody:
-      'Create one real member so the front desk has something to work with immediately.',
+      'Create one real client so the front desk has something to work with immediately.',
     manualActionWhatsappTitle: 'Connect WhatsApp in Settings',
     manualActionWhatsappBody:
       'Sign in to WhatsApp before you rely on reminders or automation.',
@@ -190,33 +251,33 @@ const copy = {
     checklistTitleManual: 'Finish manual setup',
     checklistHintManual:
       'Use this checklist to make sure the branch is usable now, while keeping import available later.',
-    checklistReviewMembers: 'Review your imported members',
-    checklistAddFirstMember: 'Add your first member',
+    checklistReviewMembers: 'Review your imported clients',
+    checklistAddFirstMember: 'Add your first client',
     checklistConnectWhatsapp: 'Connect WhatsApp from Settings',
     checklistAddTeam: 'Add PT/staff who will use this branch',
     checklistTestCheckIn: 'Test one real check-in',
     checklistReviewReminders: 'Review reminder automation before using it live',
     checklistImportLater:
-      'Remember you can import your old member list later from Settings at any time',
+      'Remember you can import your old client list later from Settings at any time',
     completeOnboarding: 'Finish onboarding',
     completingOnboarding: 'Saving...',
     onboardingCompleteImported: 'Your gym is ready.',
     onboardingCompleteManual: 'You can start manually now.',
     onboardingAlreadyComplete: 'Onboarding is already completed for this branch.',
-    importedSuccessBody: (count: number) => `${count} imported members are waiting for you.`,
+    importedSuccessBody: (count: number) => `${count} imported clients are waiting for you.`,
     manualSuccessBody:
-      'Keep adding members now, and remember you can import your old member list later from Settings at any time.',
-    goToMembers: 'Open members',
+      'Keep adding clients now, and remember you can import your old client list later from Settings at any time.',
+    goToMembers: 'Open clients',
     goToDashboard: 'Open dashboard',
-    openMembers: 'Open members',
-    openAddMember: 'Add member',
+    openMembers: 'Open clients',
+    openAddMember: 'Open clients',
     openWhatsappSettings: 'Open WhatsApp settings',
     openTeamSetup: 'Open PT/staff setup',
     openCheckIn: 'Open dashboard scanner',
     openReminders: 'Open reminder settings',
     importSafetyTitle: 'Import safety rules',
     importSafety1:
-      'Imported legacy members are marked so onboarding automations do not send welcome sequences.',
+      'Imported legacy clients are marked so onboarding automations do not send welcome sequences.',
     importSafety2:
       'Imported active subscriptions can still receive future renewal reminders after import.',
     importSafety3: 'Exact phone or card duplicates are skipped safely instead of being imported again.',
@@ -226,29 +287,54 @@ const copy = {
     onboardingSaveFailed: 'Could not mark onboarding complete.',
     onboardingSaved: 'Onboarding marked complete.',
     format: 'Format',
-    preImportSafetyNote: 'GymFlow adds only new members from this file. Existing members stay safe.',
+    preImportSafetyNote: 'GymFlow adds only new clients from this file. Existing clients stay safe.',
     dateFormatLabel: 'Date format in your file',
     dateFormatHint: 'Choose the format used in your date columns.',
-    sendWelcomeEmailLabel: 'Send a welcome email to imported members',
-    sendWelcomeEmailHint:
-      'Members will receive an email to set their password. Turn this off if you want to tell them yourself.',
-    importProgress: 'Importing your members...',
-    active: 'Active',
+confirmTitle: (count: number) => `Import ${count} clients?`,
+    confirmBody: 'Review your data one more time. You can edit or remove any client after import.',
+    confirmCancel: 'Cancel',
+    confirmExecute: 'Import clients',
+    welcomeTitle: "Let's bring your clients in.",
+    welcomeSub: 'Your file is never changed. You will review before anything is added.',
+    dropHint: 'Drop your file here, or',
+    browse: 'choose a file',
+    accept: 'Excel or CSV',
+    skipLink: "I'll add clients manually",
+    removeFile: 'Remove',
+    back: 'Back',
+    continueBtn: 'Continue',
+    moreFields: 'More fields (optional)',
+    hideFields: 'Hide extra fields',
+    importOptions: 'Import options',
+    errNamePhone: 'Client name and phone are required.',
+    errUploadFail: 'Upload failed. Please try again.',
+    errPreviewFail: 'Could not check your file. Please try again.',
+    errImportFail: 'Import failed. Please try again.',
+    downloadedTemplate: 'Template downloaded.',
+    membersReady: 'ready to import',
+    importingLabel: 'Importing...',
+    stepReview: 'Review',
+    stepReviewAlt: 'Fix blocked rows',
+    safetyNote: 'GymFlow adds only new clients. Existing clients stay untouched.',
+    showSafety: 'Show safety rules',
+    hideSafety: 'Hide safety rules',
+    showTemplate: 'Show template columns',
+    hideTemplate: 'Hide template columns',
   },
   ar: {
     titleOnboarding: 'جهّز جيمك على GymFlow',
-    titleImport: 'استورد قائمة الأعضاء',
+    titleImport: 'استورد قائمة العملاء',
     subtitleOnboarding:
-      'ابدأ بنقل الأعضاء الحاليين أولاً. وإذا فضّلت البدء يدوياً، يمكنك الاستيراد لاحقاً من الإعدادات في أي وقت.',
+      'ابدأ بنقل العملاء الحاليين أولاً. وإذا فضّلت البدء يدوياً، يمكنك الاستيراد لاحقاً من الإعدادات في أي وقت.',
     subtitleImport:
       'انقل أعضاءك الحاليين، راجع ما سيضيفه GymFlow بالضبط، ثم أنهِ قائمة تشغيل قصيرة قبل البدء.',
     recommended: 'الاختيار المقترح',
-    modeTitle: 'أسرع طريقة للبدء هي استيراد قائمة الأعضاء',
+    modeTitle: 'أسرع طريقة للبدء هي استيراد قائمة العملاء',
     modeHint:
-      'إذا كان لديك أعضاء في ملف أو نظام آخر، استوردهم أولاً ليبدأ هذا الفرع بالأشخاص والاشتراكات الصحيحة.',
+      'إذا كان لديك عملاء في ملف أو نظام آخر، استوردهم أولاً ليبدأ هذا الفرع بالأشخاص والاشتراكات الصحيحة.',
     modeSpreadsheetHint:
       'ارفع ملف CSV أو Excel، طابق الأعمدة، أصلح الصفوف الممنوعة، ثم استورد الصفوف النظيفة فقط.',
-    primaryCta: 'استورد قائمة الأعضاء',
+    primaryCta: 'استورد قائمة العملاء',
     secondaryCta: 'ابدأ بدون استيراد',
     secondaryHint: 'إذا أردت البدء يدوياً اليوم فهذا مناسب.',
     secondaryRecovery:
@@ -264,7 +350,7 @@ const copy = {
     stepManual: 'الإعداد اليدوي',
     stepGoLive: 'التشغيل',
     done: 'تم',
-    uploadTitle: 'ارفع قائمة الأعضاء',
+    uploadTitle: 'ارفع قائمة العملاء',
     uploadHint:
       'الملفات المدعومة CSV و XLSX. GymFlow لن يغيّر ملفك، ولن يتم إنشاء أي شيء قبل مراجعتك للمعاينة.',
     templateHint:
@@ -292,20 +378,20 @@ const copy = {
     duplicatesSafeTitle: 'التكرارات لن تعطل الاستيراد',
     duplicatesSafeBody:
       'إذا كان الهاتف أو كود الكارت مطابقاً تماماً، سيتخطى GymFlow هذا الصف ولن يستورده مرة أخرى.',
-    noNewMembersTitle: 'لا يوجد أعضاء جدد للاستيراد حالياً.',
+    noNewMembersTitle: 'لا يوجد عملاء جدد للاستيراد حالياً.',
     noNewMembersBody:
-      'GymFlow لم يجد أعضاء جدداً لإنشائهم من هذا الملف. راجع الصفوف المكررة ومطابقة الأعمدة.',
+      'GymFlow لم يجد عملاء جدداً لإنشائهم من هذا الملف. راجع الصفوف المكررة ومطابقة الأعمدة.',
     executeTitle: 'استورد الصفوف النظيفة',
     executeHint:
-      'بعد تنظيف الملف، سيضيف GymFlow الأعضاء الجدد الظاهرين هنا فقط. الأعضاء الحاليون لن يتأثروا.',
+      'بعد تنظيف الملف، سيضيف GymFlow العملاء الجدد الظاهرين هنا فقط. العملاء الحاليون لن يتأثروا.',
     executeChecklistTitle: 'قبل الاستيراد',
     executeCheckRows:
       'راجعت المعاينة وأفهم أي الصفوف سيتم إنشاؤها وأي الصفوف سيتم تخطيها بأمان.',
     executeCheckSafety:
-      'أفهم أن GymFlow سيضيف الأعضاء الجدد فقط وسيتخطى التكرارات المطابقة للهاتف أو الكارت.',
-    executeButton: (count: number) => `استورد ${count} عضواً نظيفاً`,
+      'أفهم أن GymFlow سيضيف العملاء الجدد فقط وسيتخطى التكرارات المطابقة للهاتف أو الكارت.',
+    executeButton: (count: number) => `استورد ${count} عميلاً جاهزاً`,
     executing: 'جاري الاستيراد...',
-    membersToCreate: 'الأعضاء الذين سيتم إنشاؤهم',
+    membersToCreate: 'العملاء الذين سيتم إنشاؤهم',
     subscriptionsToCreate: 'الاشتراكات التي سيتم إنشاؤها',
     validRows: 'صفوف جاهزة',
     warningRows: 'صفوف بتحذيرات',
@@ -317,7 +403,7 @@ const copy = {
     issues: 'المشكلات',
     issueCsv: 'تحميل ملف المشكلات CSV',
     importComplete: 'اكتمل الاستيراد',
-    importedMembers: 'الأعضاء المستوردون',
+    importedMembers: 'العملاء المستوردون',
     importedSubscriptions: 'الاشتراكات المستوردة',
     skippedRows: 'صفوف تم تخطيها بأمان',
     failedRows: 'صفوف فشلت',
@@ -341,9 +427,9 @@ const copy = {
       'يمكنك تشغيل الجيم اليوم ببضع خطوات سريعة، ثم استيراد قائمتك القديمة لاحقاً عندما تكون جاهزاً.',
     manualLaterHint:
       'تجاوز الاستيراد الآن ليس قراراً نهائياً. يمكنك فتح الإعدادات > استيراد البيانات لاحقاً في أي وقت.',
-    manualActionAddMemberTitle: 'أضف أول عضو',
+    manualActionAddMemberTitle: 'أضف أول عميل',
     manualActionAddMemberBody:
-      'أنشئ عضواً حقيقياً واحداً ليبدأ الاستقبال العمل مباشرة.',
+      'أنشئ عميلاً حقيقياً واحداً ليبدأ الاستقبال العمل مباشرة.',
     manualActionWhatsappTitle: 'وصّل واتساب من الإعدادات',
     manualActionWhatsappBody:
       'سجّل دخول واتساب قبل الاعتماد على التذكيرات أو الأتمتة.',
@@ -361,8 +447,8 @@ const copy = {
     checklistTitleManual: 'أنهِ الإعداد اليدوي',
     checklistHintManual:
       'استخدم هذه القائمة لتتأكد أن الفرع قابل للاستخدام الآن مع بقاء الاستيراد متاحاً لاحقاً.',
-    checklistReviewMembers: 'راجع الأعضاء الذين تم استيرادهم',
-    checklistAddFirstMember: 'أضف أول عضو',
+    checklistReviewMembers: 'راجع العملاء الذين تم استيرادهم',
+    checklistAddFirstMember: 'أضف أول عميل',
     checklistConnectWhatsapp: 'وصّل واتساب من الإعدادات',
     checklistAddTeam: 'أضف PT/Staff الذين سيستخدمون الفرع',
     checklistTestCheckIn: 'اختبر تسجيل دخول حقيقياً واحداً',
@@ -374,20 +460,20 @@ const copy = {
     onboardingCompleteImported: 'جيمك جاهز.',
     onboardingCompleteManual: 'يمكنك البدء يدوياً الآن.',
     onboardingAlreadyComplete: 'تم إكمال الإعداد لهذا الفرع بالفعل.',
-    importedSuccessBody: (count: number) => `${count} عضواً مستورداً في انتظارك.`,
+    importedSuccessBody: (count: number) => `${count} عميلاً مستورداً في انتظارك.`,
     manualSuccessBody:
-      'ابدأ بإضافة الأعضاء الآن، وتذكّر أنك تستطيع استيراد قائمتك القديمة لاحقاً من الإعدادات في أي وقت.',
-    goToMembers: 'افتح الأعضاء',
+      'ابدأ بإضافة العملاء الآن، وتذكّر أنك تستطيع استيراد قائمتك القديمة لاحقاً من الإعدادات في أي وقت.',
+    goToMembers: 'افتح العملاء',
     goToDashboard: 'افتح الداشبورد',
-    openMembers: 'افتح الأعضاء',
-    openAddMember: 'أضف عضواً',
+    openMembers: 'افتح العملاء',
+    openAddMember: 'افتح العملاء',
     openWhatsappSettings: 'افتح واتساب',
     openTeamSetup: 'افتح PT/Staff',
     openCheckIn: 'افتح الماسح',
     openReminders: 'افتح التذكيرات',
     importSafetyTitle: 'قواعد الأمان في الاستيراد',
     importSafety1:
-      'الأعضاء المستوردون يتم تعليمهم كبيانات قديمة حتى لا تُرسل لهم رسائل الترحيب التلقائية.',
+      'العملاء المستوردون يتم تعليمهم كبيانات قديمة حتى لا تُرسل لهم رسائل الترحيب التلقائية.',
     importSafety2:
       'الاشتراكات النشطة المستوردة يمكنها استقبال تذكيرات التجديد لاحقاً بعد الاستيراد.',
     importSafety3:
@@ -399,15 +485,40 @@ const copy = {
     onboardingSaveFailed: 'تعذر تعليم الإعداد كمكتمل.',
     onboardingSaved: 'تم تعليم الإعداد كمكتمل.',
     format: 'الصيغة',
-    preImportSafetyNote: 'GymFlow يضيف الأعضاء الجدد فقط من هذا الملف. الأعضاء الحاليون في أمان.',
+    preImportSafetyNote: 'GymFlow يضيف العملاء الجدد فقط من هذا الملف. العملاء الحاليون في أمان.',
     dateFormatLabel: 'صيغة التاريخ في ملفك',
     dateFormatHint: 'اختر الصيغة المستخدمة في أعمدة التواريخ.',
-    sendWelcomeEmailLabel: 'إرسال بريد ترحيب للأعضاء المستوردين',
-    sendWelcomeEmailHint:
-      'سيستقبل الأعضاء بريداً إلكترونياً لتفعيل حسابهم. أوقف هذا إذا أردت إخبارهم بنفسك.',
-    importProgress: 'جاري استيراد أعضائك...',
-    active: 'نشط',
-  }
+confirmTitle: (count: number) => `استورد ${count} عميلاً؟`,
+    confirmBody: 'راجع بياناتك مرة أخرى. يمكنك تعديل أو حذف أي عميل بعد الاستيراد.',
+    confirmCancel: 'إلغاء',
+    confirmExecute: 'استورد العملاء',
+    welcomeTitle: 'لنجلب عملاءك.',
+    welcomeSub: 'ملفك لن يتغير. ستراجع كل شيء قبل أي إضافة.',
+    dropHint: 'أسقط الملف هنا، أو',
+    browse: 'اختر ملفاً',
+    accept: 'Excel أو CSV',
+    skipLink: 'سأضيف العملاء يدوياً',
+    removeFile: 'حذف',
+    back: 'رجوع',
+    continueBtn: 'تابع',
+    moreFields: 'حقول إضافية (اختيارية)',
+    hideFields: 'إخفاء الحقول الإضافية',
+    importOptions: 'خيارات الاستيراد',
+    errNamePhone: 'اسم العميل ورقم الهاتف مطلوبان.',
+    errUploadFail: 'فشل الرفع. حاول مجدداً.',
+    errPreviewFail: 'تعذر التحقق من الملف. حاول مجدداً.',
+    errImportFail: 'فشل الاستيراد. حاول مجدداً.',
+    downloadedTemplate: 'تم تحميل القالب.',
+    membersReady: 'جاهز للاستيراد',
+    importingLabel: 'جاري الاستيراد...',
+    stepReview: 'مراجعة',
+    stepReviewAlt: 'إصلاح الصفوف الممنوعة',
+    safetyNote: 'GymFlow يضيف العملاء الجدد فقط. العملاء الحاليون في أمان.',
+    showSafety: 'عرض قواعد الأمان',
+    hideSafety: 'إخفاء قواعد الأمان',
+    showTemplate: 'عرض أعمدة القالب',
+    hideTemplate: 'إخفاء أعمدة القالب',
+  },
 } as const;
 
 const FIELD_CONFIG: Array<{
@@ -415,7 +526,7 @@ const FIELD_CONFIG: Array<{
   required: boolean;
   label: { en: string; ar: string };
 }> = [
-  { key: 'member_name', required: true, label: { en: 'Member name', ar: 'اسم العضو' } },
+  { key: 'member_name', required: true, label: { en: 'Client name', ar: 'اسم العميل' } },
   { key: 'phone', required: true, label: { en: 'Phone', ar: 'الهاتف' } },
   { key: 'gender', required: false, label: { en: 'Gender', ar: 'النوع' } },
   { key: 'joined_at', required: false, label: { en: 'Join date', ar: 'تاريخ الانضمام' } },
@@ -425,27 +536,14 @@ const FIELD_CONFIG: Array<{
   { key: 'subscription_start', required: false, label: { en: 'Subscription start', ar: 'بداية الاشتراك' } },
   { key: 'subscription_end', required: false, label: { en: 'Subscription end', ar: 'نهاية الاشتراك' } },
   { key: 'plan_months', required: false, label: { en: 'Plan months', ar: 'عدد الشهور' } },
-  {
-    key: 'sessions_per_month',
-    required: false,
-    label: { en: 'Sessions per month', ar: 'الجلسات لكل شهر' }
-  },
-  { key: 'amount_paid', required: false, label: { en: 'Amount paid', ar: 'المبلغ المدفوع' } }
+  { key: 'sessions_per_month', required: false, label: { en: 'Sessions per month', ar: 'الجلسات لكل شهر' } },
+  { key: 'amount_paid', required: false, label: { en: 'Amount paid', ar: 'المبلغ المدفوع' } },
 ];
 
 const TEMPLATE_HEADERS = [
-  'member_name',
-  'phone',
-  'gender',
-  'joined_at',
-  'date_of_birth',
-  'card_code',
-  'subscription_start',
-  'subscription_end',
-  'plan_months',
-  'sessions_per_month',
-  'amount_paid',
-  'notes'
+  'member_name', 'phone', 'gender', 'joined_at', 'date_of_birth',
+  'card_code', 'subscription_start', 'subscription_end', 'plan_months',
+  'sessions_per_month', 'amount_paid', 'notes',
 ];
 
 function normalizeHeader(value: string) {
@@ -454,10 +552,7 @@ function normalizeHeader(value: string) {
 
 function setMappingFieldValue(current: MappingState, field: keyof MappingState, value?: string): MappingState {
   const nextValue = value ?? (field === 'member_name' || field === 'phone' ? '' : undefined);
-  return {
-    ...current,
-    [field]: nextValue
-  } as MappingState;
+  return { ...current, [field]: nextValue } as MappingState;
 }
 
 function suggestMapping(headers: string[]): ImportMapping {
@@ -473,14 +568,11 @@ function suggestMapping(headers: string[]): ImportMapping {
     subscription_end: ['subscription end', 'plan end', 'expiry', 'end'],
     plan_months: ['plan months', 'months', 'duration'],
     sessions_per_month: ['sessions per month', 'sessions', 'quota'],
-    amount_paid: ['amount paid', 'paid', 'price', 'amount']
+    amount_paid: ['amount paid', 'paid', 'price', 'amount'],
   };
 
   const byNormalized = new Map(headers.map((header) => [normalizeHeader(header), header]));
-  let mapping: ImportMapping = {
-    member_name: '',
-    phone: ''
-  };
+  let mapping: ImportMapping = { member_name: '', phone: '' };
 
   for (const field of FIELD_CONFIG) {
     const match = aliases[field.key].find((alias) => byNormalized.has(alias));
@@ -506,11 +598,27 @@ function statusBadgeClass(status: PreviewRow['status']) {
   }
 }
 
+const IMPORT_STEPS = [
+  { key: 'upload', labelKey: 'stepUpload' as const },
+  { key: 'map', labelKey: 'stepMap' as const },
+  { key: 'review', labelKey: 'stepFix' as const },
+  { key: 'import', labelKey: 'stepImport' as const },
+  { key: 'golive', labelKey: 'stepGoLive' as const },
+];
+
+const MANUAL_STEPS = [
+  { key: 'setup', labelKey: 'stepManual' as const },
+  { key: 'checklist', labelKey: 'stepGoLive' as const },
+];
+
 export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportOnboardingFlowProps) {
   const { lang } = useLang();
   const labels = copy[lang];
   const router = useRouter();
+  const resumeStorageKeyRef = useRef<string | null>(null);
 
+  const [step, setStep] = useState<Step>('upload');
+  const [fading, setFading] = useState(false);
   const [entryMode, setEntryMode] = useState<EntryMode>('import');
   const [completionMode, setCompletionMode] = useState<OnboardingCompletionMode | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -519,7 +627,7 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
   const [executing, setExecuting] = useState(false);
   const [savingOnboarding, setSavingOnboarding] = useState(false);
   const [artifact, setArtifact] = useState<ImportUploadResponse | null>(null);
-  const [mapping, setMapping] = useState<ImportMapping>({ member_name: '', phone: '' });
+  const [mapping, setMapping] = useState<MappingState>({ member_name: '', phone: '' });
   const [genderDefault, setGenderDefault] = useState<'male' | 'female'>('male');
   const [preview, setPreview] = useState<ImportPreviewResponse | null>(null);
   const [execution, setExecution] = useState<ImportExecuteResponse | null>(null);
@@ -538,8 +646,48 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
     rememberImportLater: false,
   });
   const [dateFormat, setDateFormat] = useState<'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD'>('DD/MM/YYYY');
-  const [sendWelcomeEmail, setSendWelcomeEmail] = useState(false);
-  const [importingStatus, setImportingStatus] = useState('');
+  
+  const [dragging, setDragging] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showOptionalFields, setShowOptionalFields] = useState(false);
+  const [showSafety, setShowSafety] = useState(false);
+  const [showTemplate, setShowTemplate] = useState(false);
+  const [successVisible, setSuccessVisible] = useState(false);
+  const [step4Visible, setStep4Visible] = useState(false);
+  const [previewPhase, setPreviewPhase] = useState(0);
+  const [resumeReady, setResumeReady] = useState(false);
+
+  const PREVIEW_PHASES = useMemo(() => [
+    { key: 'parsing', label: lang === 'ar' ? 'جاري تحليل الملف...' : 'Parsing your spreadsheet...' },
+    { key: 'matching', label: lang === 'ar' ? 'جاري مطابقة الأعمدة...' : 'Matching columns to fields...' },
+    { key: 'validating', label: lang === 'ar' ? 'جاري التحقق من بيانات العملاء...' : 'Validating client data...' },
+    { key: 'checking', label: lang === 'ar' ? 'جاري فحص التكرارات...' : 'Checking for duplicates...' },
+  ], [lang]);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const storageKey = getResumeStorageKey(variant);
+    resumeStorageKeyRef.current = storageKey;
+
+    const persisted = storageKey ? readPersistedOnboardingState(storageKey) : null;
+    if (persisted) {
+      setStep(persisted.step);
+      setEntryMode(persisted.entryMode);
+      setCompletionMode(persisted.completionMode);
+      setArtifact(persisted.artifact);
+      setMapping(persisted.mapping);
+      setGenderDefault(persisted.genderDefault);
+      setPreview(persisted.preview);
+      setExecution(persisted.execution);
+      setOnboardingCompleted(persisted.onboardingCompleted);
+      setExecuteChecks(persisted.executeChecks);
+      setChecklist(persisted.checklist);
+      setDateFormat(persisted.dateFormat);
+    }
+
+    setResumeReady(true);
+  }, [variant]);
 
   useEffect(() => {
     let cancelled = false;
@@ -548,16 +696,91 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
       if (cancelled || !res?.success || !res.data) return;
       setOnboardingCompleted(Boolean(res.data.onboarding_completed));
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    if (!resumeReady) return;
+
+    const storageKey = resumeStorageKeyRef.current;
+    const hasProgressToPersist =
+      step !== 'upload' ||
+      entryMode !== 'import' ||
+      completionMode !== null ||
+      Boolean(artifact) ||
+      Boolean(preview) ||
+      Boolean(execution);
+
+    if (!hasProgressToPersist || onboardingCompleted) {
+      clearPersistedOnboardingState(storageKey);
+      return;
+    }
+
+    persistOnboardingState(storageKey, {
+      version: ONBOARDING_RESUME_STATE_VERSION,
+      step,
+      entryMode,
+      completionMode,
+      artifact,
+      mapping,
+      genderDefault,
+      preview,
+      execution,
+      onboardingCompleted,
+      executeChecks,
+      checklist,
+      dateFormat,
+    });
+  }, [
+    artifact,
+    checklist,
+    completionMode,
+    dateFormat,
+    entryMode,
+    executeChecks,
+    execution,
+    genderDefault,
+    mapping,
+    onboardingCompleted,
+    preview,
+    resumeReady,
+    step,
+  ]);
+
+  useEffect(() => {
+    if (step === 'success') {
+      const t = setTimeout(() => { setSuccessVisible(true); }, 80);
+      return () => clearTimeout(t);
+    }
+    setSuccessVisible(false);
+  }, [step]);
+
+  useEffect(() => {
+    if (step === 'checklist') {
+      const t = setTimeout(() => { setStep4Visible(true); }, 80);
+      return () => clearTimeout(t);
+    }
+    setStep4Visible(false);
+  }, [step]);
+
+  useEffect(() => {
+    if (!previewing) {
+      setPreviewPhase(0);
+      return;
+    }
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const phaseDurations = [2000, 3000, 2500];
+    let cumulative = 0;
+    for (let i = 0; i < PREVIEW_PHASES.length; i++) {
+      const delay = cumulative;
+      timers.push(setTimeout(() => { setPreviewPhase(i); }, delay));
+      cumulative += phaseDurations[i] || 2000;
+    }
+    return () => { timers.forEach(clearTimeout); };
+  }, [previewing, PREVIEW_PHASES]);
+
   const canPreview = Boolean(
-    artifact &&
-      mapping.member_name &&
-      mapping.phone &&
-      (mapping.gender || genderDefault)
+    artifact && mapping.member_name && mapping.phone && (mapping.gender || genderDefault),
   );
 
   const readiness = useMemo(
@@ -567,119 +790,73 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
       hasBlockingRows: hasBlockingRows(preview),
       canExecuteImport: canExecuteImportedMembers(preview, executeChecks),
     }),
-    [preview, executeChecks]
+    [preview, executeChecks],
   );
 
   const checklistMode = completionMode ?? (execution ? 'imported' : null);
   const issueRows = useMemo(
     () => preview?.rows.filter((row) => row.status !== 'valid') ?? [],
-    [preview]
+    [preview],
   );
 
   const checklistItems = useMemo(() => {
     if (checklistMode === 'imported') {
       return [
-        {
-          key: 'reviewImportedMembers' as const,
-          label: labels.checklistReviewMembers,
-          href: '/dashboard/members',
-          actionLabel: labels.openMembers,
-        },
-        {
-          key: 'connectWhatsapp' as const,
-          label: labels.checklistConnectWhatsapp,
-          href: '/dashboard/settings?tab=whatsapp',
-          actionLabel: labels.openWhatsappSettings,
-        },
-        {
-          key: 'addTeam' as const,
-          label: labels.checklistAddTeam,
-          href: '/dashboard/pt?tab=staff',
-          actionLabel: labels.openTeamSetup,
-        },
-        {
-          key: 'testCheckIn' as const,
-          label: labels.checklistTestCheckIn,
-          href: '/dashboard',
-          actionLabel: labels.openCheckIn,
-        },
-        {
-          key: 'reviewReminders' as const,
-          label: labels.checklistReviewReminders,
-          href: '/dashboard/whatsapp',
-          actionLabel: labels.openReminders,
-        },
+        { key: 'reviewImportedMembers' as const, label: labels.checklistReviewMembers, href: '/dashboard/members', actionLabel: labels.openMembers },
+        { key: 'connectWhatsapp' as const, label: labels.checklistConnectWhatsapp, href: '/dashboard/settings?tab=whatsapp', actionLabel: labels.openWhatsappSettings },
+        { key: 'addTeam' as const, label: labels.checklistAddTeam, href: '/dashboard/pt?tab=staff', actionLabel: labels.openTeamSetup },
+        { key: 'testCheckIn' as const, label: labels.checklistTestCheckIn, href: '/dashboard', actionLabel: labels.openCheckIn },
+        { key: 'reviewReminders' as const, label: labels.checklistReviewReminders, href: '/dashboard/whatsapp', actionLabel: labels.openReminders },
       ];
     }
-
     if (checklistMode === 'manual') {
       return [
-        {
-          key: 'addFirstMember' as const,
-          label: labels.checklistAddFirstMember,
-          href: '/dashboard/members/new',
-          actionLabel: labels.openAddMember,
-        },
-        {
-          key: 'connectWhatsapp' as const,
-          label: labels.checklistConnectWhatsapp,
-          href: '/dashboard/settings?tab=whatsapp',
-          actionLabel: labels.openWhatsappSettings,
-        },
-        {
-          key: 'addTeam' as const,
-          label: labels.checklistAddTeam,
-          href: '/dashboard/pt?tab=staff',
-          actionLabel: labels.openTeamSetup,
-        },
-        {
-          key: 'testCheckIn' as const,
-          label: labels.checklistTestCheckIn,
-          href: '/dashboard',
-          actionLabel: labels.openCheckIn,
-        },
-        {
-          key: 'rememberImportLater' as const,
-          label: labels.checklistImportLater,
-          href: '/dashboard/settings?tab=import',
-          actionLabel: labels.openImportSettings,
-        },
+        { key: 'addFirstMember' as const, label: labels.checklistAddFirstMember, href: '/dashboard/members', actionLabel: labels.openAddMember },
+        { key: 'connectWhatsapp' as const, label: labels.checklistConnectWhatsapp, href: '/dashboard/settings?tab=whatsapp', actionLabel: labels.openWhatsappSettings },
+        { key: 'addTeam' as const, label: labels.checklistAddTeam, href: '/dashboard/pt?tab=staff', actionLabel: labels.openTeamSetup },
+        { key: 'testCheckIn' as const, label: labels.checklistTestCheckIn, href: '/dashboard', actionLabel: labels.openCheckIn },
+        { key: 'rememberImportLater' as const, label: labels.checklistImportLater, href: '/dashboard/settings?tab=import', actionLabel: labels.openImportSettings },
       ];
     }
-
     return [];
   }, [checklistMode, labels]);
 
-  const allChecklistChecked = checklistItems.length > 0 && checklistItems.every((item) => checklist[item.key]);
-
-  const steps = useMemo(() => {
-    if (entryMode === 'manual_setup') {
-      return [
-        { key: 'manual', label: labels.stepManual, complete: checklistMode === 'manual' || onboardingCompleted },
-        { key: 'goLive', label: labels.stepGoLive, complete: onboardingCompleted },
-      ];
+  const requiredChecklistKeys = useMemo(() => {
+    if (checklistMode === 'manual') {
+      return ['addFirstMember', 'connectWhatsapp', 'addTeam'] as const;
     }
+    if (checklistMode === 'imported') {
+      return ['reviewImportedMembers', 'connectWhatsapp', 'addTeam'] as const;
+    }
+    return [] as const;
+  }, [checklistMode]);
 
-    return [
-      { key: 'upload', label: labels.stepUpload, complete: Boolean(artifact) },
-      { key: 'map', label: labels.stepMap, complete: Boolean(preview || execution) },
-      { key: 'fix', label: labels.stepFix, complete: Boolean((preview && !readiness.hasBlockingRows) || execution) },
-      { key: 'execute', label: labels.stepImport, complete: Boolean(execution) },
-      { key: 'goLive', label: labels.stepGoLive, complete: onboardingCompleted },
-    ];
-  }, [artifact, entryMode, execution, labels, onboardingCompleted, preview, readiness.hasBlockingRows, checklistMode]);
+  const autoTrackedChecklistKeys = useMemo(
+    () => new Set<ChecklistKey>(['reviewImportedMembers', 'addFirstMember', 'connectWhatsapp', 'addTeam']),
+    []
+  );
 
-  const activeStepIndex = useMemo(() => {
-    const firstIncomplete = steps.findIndex((step) => !step.complete);
-    return firstIncomplete === -1 ? steps.length - 1 : firstIncomplete;
-  }, [steps]);
+  const readyToFinishOnboarding =
+    requiredChecklistKeys.length > 0 &&
+    requiredChecklistKeys.every((key) => checklist[key]);
+
+  function handleChecklistActionClick(item: (typeof checklistItems)[number]) {
+    navigateToChecklistTarget(item.href);
+  }
+
+  function navigate(to: Step) {
+    setFading(true);
+    setTimeout(() => {
+      setStep(to);
+      setFading(false);
+    }, 180);
+  }
 
   async function handleUpload() {
     if (!file) {
       toast.error(labels.fileRequired);
       return;
     }
-
     setEntryMode('import');
     setCompletionMode(null);
     setUploading(true);
@@ -697,6 +874,7 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
       setArtifact(res.data);
       setMapping(suggestMapping(res.data.headers));
       toast.success(labels.successUpload);
+      navigate('map');
     } finally {
       setUploading(false);
     }
@@ -711,7 +889,6 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
       toast.error(labels.mapGenderOrDefault);
       return;
     }
-
     setPreviewing(true);
     setExecution(null);
     setCompletionMode(null);
@@ -722,8 +899,8 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
         mapping,
         defaults: {
           gender_default: mapping.gender ? undefined : genderDefault,
-          duplicate_mode: 'skip_duplicates'
-        }
+          duplicate_mode: 'skip_duplicates',
+        },
       });
       if (!res.success || !res.data) {
         toast.error(res.message || labels.fixIssuesHint);
@@ -731,6 +908,7 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
       }
       setPreview(res.data);
       toast.success(labels.successPreview);
+      navigate('review');
     } finally {
       setPreviewing(false);
     }
@@ -738,15 +916,14 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
 
   async function handleExecute() {
     if (!artifact || !preview) return;
+    setShowConfirmModal(false);
     setExecuting(true);
-    setImportingStatus(labels.importProgress);
     try {
       const res = await api.post<ImportExecuteResponse>('/api/imports/execute', {
         artifactId: artifact.id,
         duplicate_mode: 'skip_duplicates',
         suppressImportedAutomations: true,
         dateFormat,
-        sendWelcomeEmail
       });
       if (!res.success || !res.data) {
         toast.error(res.message || labels.executeHint);
@@ -755,32 +932,45 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
       setExecution(res.data);
       setCompletionMode('imported');
       toast.success(labels.successImport);
+      navigate('success');
     } finally {
       setExecuting(false);
-      setImportingStatus('');
     }
   }
 
   async function handleCompleteOnboarding() {
-    if (!allChecklistChecked || !checklistMode) return;
+    if (!readyToFinishOnboarding || !checklistMode) return;
     setSavingOnboarding(true);
     try {
       const res = await api.put('/api/settings', {
         values: {
           onboarding_completed: true,
           onboarding_mode: checklistMode === 'manual' ? 'manual_setup' : 'spreadsheet_import',
-          onboarding_completed_at: new Date().toISOString()
-        }
+          onboarding_completed_at: new Date().toISOString(),
+        },
       });
       if (!res.success) {
         toast.error(res.message || labels.onboardingSaveFailed);
         return;
       }
+      clearOnboardingNavigationBypass();
+      clearOnboardingChecklistNavLock();
       setOnboardingCompleted(true);
       toast.success(labels.onboardingSaved);
     } finally {
       setSavingOnboarding(false);
     }
+  }
+
+  function navigateFromOnboarding(href: string) {
+    setOnboardingNavigationBypass();
+    router.push(href);
+  }
+
+  function navigateToChecklistTarget(href: string) {
+    setOnboardingNavigationBypass();
+    setOnboardingChecklistNavLock(href);
+    router.push(href);
   }
 
   function handleDownloadTemplate() {
@@ -800,8 +990,8 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
       const response = await fetch(`/api/imports/issues?artifactId=${encodeURIComponent(artifact.id)}`, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          ...(branchId ? { 'x-branch-id': branchId } : {})
-        }
+          ...(branchId ? { 'x-branch-id': branchId } : {}),
+        },
       });
       if (!response.ok) throw new Error('download_failed');
       const blob = await response.blob();
@@ -816,392 +1006,418 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
     }
   }
 
+  function handleStartFresh() {
+    setEntryMode('manual_setup');
+    navigate('setup');
+  }
+
+  function handleBackToImport() {
+    setEntryMode('import');
+    setCompletionMode(null);
+    navigate('upload');
+  }
+
+  const isDarkStep = step === 'upload';
   const title = variant === 'onboarding' ? labels.titleOnboarding : labels.titleImport;
   const subtitle = variant === 'onboarding' ? labels.subtitleOnboarding : labels.subtitleImport;
 
-  return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-heading font-bold tracking-tight">{title}</h1>
-          {variant === 'onboarding' && (
-            <Badge className="bg-primary/10 text-primary border border-primary/30">Onboarding</Badge>
-          )}
-          {onboardingCompleted && (
-            <Badge className="bg-success/10 text-success border border-success/30">{labels.done}</Badge>
-          )}
-        </div>
-        <p className="text-sm text-muted-foreground">{subtitle}</p>
-      </div>
+  const importStepIndex = useMemo(() => {
+    if (step === 'upload') return 0;
+    if (step === 'map') return 1;
+    if (step === 'review') return 2;
+    if (executing) return 3;
+    if (step === 'success') return 4;
+    return 0;
+  }, [step, executing]);
 
-      <nav
-        aria-label={lang === 'ar' ? 'خطوات الإعداد' : 'Setup progress'}
-        className="overflow-x-auto pb-1"
+  const importStepComplete = useMemo(() => [
+    Boolean(artifact),
+    Boolean(preview || execution),
+    Boolean((preview && !readiness.hasBlockingRows) || execution),
+    Boolean(execution),
+    onboardingCompleted,
+  ], [artifact, preview, execution, readiness.hasBlockingRows, onboardingCompleted]);
+
+  const manualStepComplete = useMemo(() => [
+    completionMode === 'manual' || onboardingCompleted,
+    onboardingCompleted,
+  ], [completionMode, onboardingCompleted]);
+
+  return (
+    <>
+      <style>{`
+        @keyframes gf-drift-a {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-22px) rotate(6deg); }
+        }
+        @keyframes gf-drift-b {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-16px) rotate(-7deg); }
+        }
+        @keyframes gf-drift-c {
+          0%, 100% { transform: translateY(0px) rotate(45deg); }
+          50% { transform: translateY(-18px) rotate(54deg); }
+        }
+        @keyframes gf-check-in {
+          0% { transform: scale(0.3); opacity: 0; }
+          60% { transform: scale(1.05); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes gf-slide-up {
+          0% { transform: translateY(12px); opacity: 0; }
+          100% { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes gf-slide-up-delay-1 {
+          0%, 20% { transform: translateY(12px); opacity: 0; }
+          100% { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes gf-slide-up-delay-2 {
+          0%, 40% { transform: translateY(12px); opacity: 0; }
+          100% { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes gf-slide-up-delay-3 {
+          0%, 60% { transform: translateY(12px); opacity: 0; }
+          100% { transform: translateY(0); opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .gf-deco, .gf-animate { animation: none !important; transition: none !important; }
+        }
+      `}</style>
+
+      <div
+        className={cn(
+          'relative min-h-screen overflow-hidden transition-colors duration-500',
+          isDarkStep ? 'bg-[#0a0a0a]' : 'bg-background',
+        )}
+        style={isDarkStep ? {
+          backgroundImage: 'radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+        } : undefined}
       >
-        <ol className="flex min-w-max items-start">
-          {steps.map((step, index) => {
-            const isComplete = step.complete;
-            const isActive = index === activeStepIndex;
-            return (
-              <li
-                key={step.key}
-                className="flex items-start"
-                aria-current={isActive ? 'step' : undefined}
-                aria-label={`${lang === 'ar' ? 'الخطوة' : 'Step'} ${index + 1} ${lang === 'ar' ? 'من' : 'of'} ${steps.length}: ${step.label}${isComplete ? (lang === 'ar' ? ' — مكتملة' : ' — completed') : isActive ? (lang === 'ar' ? ' — الحالية' : ' — current') : ''}`}
+        {isDarkStep && (
+          <>
+            <div aria-hidden="true" className="gf-deco pointer-events-none select-none absolute top-[7%] left-[5%] h-36 w-36 border border-white/[0.06]" style={{ animation: 'gf-drift-a 11s ease-in-out infinite' }} />
+            <div aria-hidden="true" className="gf-deco pointer-events-none select-none absolute top-[38%] right-[4%] h-20 w-14 border border-white/[0.04]" style={{ animation: 'gf-drift-b 14s ease-in-out infinite 1.5s' }} />
+            <div aria-hidden="true" className="gf-deco pointer-events-none select-none absolute bottom-[18%] left-[8%] h-12 w-12 bg-destructive/[0.12]" style={{ animation: 'gf-drift-c 9s ease-in-out infinite 3s' }} />
+            <div aria-hidden="true" className="gf-deco pointer-events-none select-none absolute top-[22%] right-[22%] h-6 w-6 bg-destructive/[0.18]" style={{ animation: 'gf-drift-a 7s ease-in-out infinite 0.8s' }} />
+            <div aria-hidden="true" className="gf-deco pointer-events-none select-none absolute bottom-[30%] right-[8%] h-8 w-20 border border-white/[0.03]" style={{ animation: 'gf-drift-b 12s ease-in-out infinite 2s' }} />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none select-none absolute -bottom-16 -right-10 font-heading leading-none"
+              style={{ fontSize: '22rem', fontWeight: 900, color: 'hsl(var(--destructive))', opacity: 0.04, letterSpacing: '-0.04em' }}
+            >
+              GF
+            </div>
+          </>
+        )}
+
+        <div
+          className={cn(
+            'relative flex min-h-screen flex-col items-center justify-center px-6 py-16 transition-opacity duration-200',
+            fading && 'opacity-0',
+          )}
+        >
+          <div className={cn('w-full', isDarkStep ? 'max-w-lg' : step === 'review' ? 'max-w-2xl' : 'max-w-lg')}>
+
+            {/* ── GymFlow wordmark (upload step only) ── */}
+            {isDarkStep && (
+              <div className="mb-12 flex items-center gap-4">
+                <div className="flex h-16 w-16 items-center justify-center bg-destructive shrink-0">
+                  <span className="font-heading text-white leading-none" style={{ fontSize: '28px', letterSpacing: '3px', fontWeight: 900 }}>GF</span>
+                </div>
+                <span className="font-heading font-black text-white tracking-tight" style={{ fontSize: '2rem', letterSpacing: '-0.02em' }}>GymFlow</span>
+              </div>
+            )}
+
+            {/* ── Stepper (not on upload step) ── */}
+            {!isDarkStep && entryMode === 'import' && step !== 'success' && (
+              <nav
+                role="navigation"
+                aria-label={lang === 'ar' ? 'خطوات الاستيراد' : 'Import steps'}
+                className="mb-10"
               >
-                <div className="flex flex-col items-center gap-2">
-                  <div className="flex items-center">
-                    {index > 0 && (
-                      <div
-                        className={cn(
-                          'h-0.5 w-8 sm:w-14',
-                          isComplete || isActive ? 'bg-destructive' : 'bg-border'
-                        )}
-                      />
-                    )}
-                    <div
-                      className={cn(
-                        'flex h-8 w-8 shrink-0 items-center justify-center text-xs font-bold',
-                        isComplete
-                          ? 'bg-destructive text-white'
-                          : isActive
-                          ? 'border-2 border-destructive text-destructive'
-                          : 'border-2 border-input text-muted-foreground'
-                      )}
-                    >
-                      {isComplete ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
+                <ol className="flex items-start">
+                  {IMPORT_STEPS.map((s, i) => {
+                    const isComplete = importStepComplete[i];
+                    const isActive = i === importStepIndex;
+                    const connectorColor = isComplete ? 'bg-destructive' : 'bg-border';
+                    return (
+                      <li
+                        key={s.key}
+                        aria-current={isActive ? 'step' : undefined}
+                        aria-label={`${lang === 'ar' ? 'الخطوة' : 'Step'} ${i + 1} ${lang === 'ar' ? 'من' : 'of'} ${IMPORT_STEPS.length}: ${labels[s.labelKey]}${isComplete ? (lang === 'ar' ? ' — مكتملة' : ' — completed') : isActive ? (lang === 'ar' ? ' — الحالية' : ' — current') : ''}`}
+                        className={cn('flex flex-col items-center', i < IMPORT_STEPS.length - 1 && 'flex-1')}
+                      >
+                        <div className="flex w-full items-center">
+                          {i > 0 && (
+                            <div className={cn('h-0.5 flex-1 min-w-4', isComplete || isActive ? 'bg-destructive' : 'bg-border')} />
+                          )}
+                          <div
+                            className={cn(
+                              'flex h-8 w-8 shrink-0 items-center justify-center text-xs font-bold transition-colors',
+                              isComplete
+                                ? 'bg-destructive text-white'
+                                : isActive
+                                ? 'border-2 border-destructive text-destructive'
+                                : 'border-2 border-border text-muted-foreground',
+                            )}
+                          >
+                            {isComplete ? <Check className="h-4 w-4" /> : i + 1}
+                          </div>
+                          {i < IMPORT_STEPS.length - 1 && (
+                            <div className={cn('h-0.5 flex-1 min-w-4', connectorColor)} />
+                          )}
+                        </div>
+                        <p className={cn('mt-2 text-center text-xs whitespace-nowrap', isActive ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
+                          {labels[s.labelKey]}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </nav>
+            )}
+
+            {/* ── Manual stepper ── */}
+            {!isDarkStep && entryMode === 'manual_setup' && step !== 'checklist' && (
+              <nav
+                role="navigation"
+                aria-label={lang === 'ar' ? 'خطوات الإعداد' : 'Setup steps'}
+                className="mb-10"
+              >
+                <ol className="flex items-start">
+                  {MANUAL_STEPS.map((s, i) => {
+                    const isComplete = manualStepComplete[i];
+                    const isActive = i === (step === 'setup' ? 0 : 1);
+                    const connectorColor = isComplete ? 'bg-destructive' : 'bg-border';
+                    return (
+                      <li
+                        key={s.key}
+                        aria-current={isActive ? 'step' : undefined}
+                        className={cn('flex flex-col items-center', i < MANUAL_STEPS.length - 1 && 'flex-1')}
+                      >
+                        <div className="flex w-full items-center">
+                          {i > 0 && (
+                            <div className={cn('h-0.5 flex-1 min-w-4', isComplete || isActive ? 'bg-destructive' : 'bg-border')} />
+                          )}
+                          <div
+                            className={cn(
+                              'flex h-8 w-8 shrink-0 items-center justify-center text-xs font-bold transition-colors',
+                              isComplete ? 'bg-destructive text-white' : isActive ? 'border-2 border-destructive text-destructive' : 'border-2 border-border text-muted-foreground',
+                            )}
+                          >
+                            {isComplete ? <Check className="h-4 w-4" /> : i + 1}
+                          </div>
+                          {i < MANUAL_STEPS.length - 1 && (
+                            <div className={cn('h-0.5 flex-1 min-w-4', connectorColor)} />
+                          )}
+                        </div>
+                        <p className={cn('mt-2 text-center text-xs whitespace-nowrap', isActive ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
+                          {labels[s.labelKey]}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </nav>
+            )}
+
+            {/* ── Confirmation modal ── */}
+            {showConfirmModal && preview && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+                <div
+                  className="absolute inset-0 bg-black/60"
+                  onClick={executing ? undefined : (() => setShowConfirmModal(false))}
+                />
+                <div
+                  className="relative w-full max-w-sm border-2 border-border bg-background"
+                  style={{ boxShadow: '6px 6px 0 hsl(var(--foreground) / 0.15)' }}
+                >
+                  <div className="h-1 w-full bg-destructive" />
+                  <div className="p-6 space-y-4">
+                    <h2 className="font-heading text-xl font-bold tracking-tight">
+                      {labels.confirmTitle(preview.summary.estimatedMembersToCreate)}
+                    </h2>
+                    <p className="text-sm text-muted-foreground">{labels.confirmBody}</p>
+                    <div className="flex flex-col gap-2 pt-2">
+                      <Button
+                        onClick={handleExecute}
+                        disabled={executing}
+                        className={cn('w-full py-4 text-base', executing && 'animate-pulse')}
+                      >
+                        {executing ? labels.importingLabel : labels.confirmExecute}
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={executing ? undefined : (() => setShowConfirmModal(false))}
+                        disabled={executing}
+                        className={cn('w-full border-2 border-border py-2 text-sm transition-colors', executing ? 'text-muted-foreground/50 cursor-not-allowed' : 'text-muted-foreground hover:text-foreground')}
+                      >
+                        {labels.confirmCancel}
+                      </button>
                     </div>
-                    {index < steps.length - 1 && (
-                      <div
-                        className={cn(
-                          'h-0.5 w-8 sm:w-14',
-                          isComplete ? 'bg-destructive' : 'bg-border'
-                        )}
-                      />
-                    )}
                   </div>
-                  <p className={cn('w-20 text-center text-xs', isActive ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
-                    {step.label}
+                </div>
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════ */}
+            {/* STEP: UPLOAD (dark background)                           */}
+            {/* ══════════════════════════════════════════════════════════ */}
+            {step === 'upload' && (
+              <div className="space-y-6">
+                <div>
+                  <h1 className={cn(
+                    'font-heading font-bold tracking-tight',
+                    isDarkStep ? 'text-3xl text-white' : 'text-2xl text-foreground',
+                  )}>
+                    {variant === 'onboarding' ? labels.welcomeTitle : labels.uploadTitle}
+                  </h1>
+                  <p className={cn('mt-2 text-sm', isDarkStep ? 'text-[#aaaaaa]' : 'text-muted-foreground')}>
+                    {variant === 'onboarding' ? labels.welcomeSub : labels.uploadHint}
                   </p>
                 </div>
-              </li>
-            );
-          })}
-        </ol>
-      </nav>
 
-      <Card className="border-primary/20 bg-primary/5">
-        <CardHeader>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge className="bg-primary text-primary-foreground">{labels.recommended}</Badge>
-            {entryMode === 'import' && !execution && (
-              <Badge className="bg-background text-foreground border border-border">{labels.active}</Badge>
-            )}
-          </div>
-          <CardTitle>{labels.modeTitle}</CardTitle>
-          <CardDescription>{labels.modeHint}</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 lg:grid-cols-[1.3fr_0.9fr]">
-          <div className="space-y-4 border border-primary/20 bg-background p-5">
-            <div className="flex items-start gap-3">
-              <div className="rounded-full bg-primary/10 p-2 text-primary">
-                <FileSpreadsheet className="h-5 w-5" />
-              </div>
-              <div className="space-y-1">
-                <p className="font-semibold text-foreground">{labels.primaryCta}</p>
-                <p className="text-sm text-muted-foreground">{labels.modeSpreadsheetHint}</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button
-                onClick={() => {
-                  setEntryMode('import');
-                  if (!execution) setCompletionMode(null);
-                }}
-                className="gap-2"
-              >
-                {labels.primaryCta}
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" onClick={handleDownloadTemplate} className="gap-2">
-                <Download className="h-4 w-4" />
-                {labels.templateButton}
-              </Button>
-            </div>
-          </div>
-
-          {!execution && (
-            <div className={cn(
-              'space-y-4 border border-dashed p-5',
-              entryMode === 'manual_setup' ? 'border-foreground/30 bg-background' : 'border-border bg-background/60'
-            )}>
-              <div className="flex items-start gap-3">
-                <div className="rounded-full bg-muted p-2 text-muted-foreground">
-                  <Rocket className="h-5 w-5" />
+                {/* Drop zone */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label={lang === 'ar' ? 'منطقة رفع الملف' : 'File upload area'}
+                  className={cn(
+                    'border-2 border-dashed flex flex-col items-center justify-center gap-3 py-14 px-6 text-center cursor-pointer transition-colors',
+                    isDarkStep
+                      ? cn('border-white/20', dragging && 'border-white/40 bg-white/5', file && 'py-10')
+                      : cn('border-border', dragging && 'border-foreground/40 bg-muted/30', file && 'py-10'),
+                  )}
+                  onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragging(false);
+                    const f = e.dataTransfer.files[0];
+                    if (f) setFile(f);
+                  }}
+                  onClick={() => !file && fileInputRef.current?.click()}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+                >
+                  {file ? (
+                    <>
+                      <FileSpreadsheet className={cn('h-8 w-8', isDarkStep ? 'text-[#888888]' : 'text-muted-foreground')} />
+                      <p className={cn('text-sm font-medium break-all max-w-xs', isDarkStep ? 'text-white' : 'text-foreground')}>
+                        {file.name}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setFile(null); }}
+                        className={cn('flex items-center gap-1 text-xs transition-colors', isDarkStep ? 'text-[#666666] hover:text-[#aaaaaa]' : 'text-muted-foreground hover:text-foreground')}
+                      >
+                        <X className="h-3 w-3" />
+                        {labels.removeFile}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className={cn('h-7 w-7', isDarkStep ? 'text-[#555555]' : 'text-muted-foreground')} />
+                      <p className={cn('text-sm', isDarkStep ? 'text-[#888888]' : 'text-muted-foreground')}>
+                        {labels.dropHint}{' '}
+                        <span className={cn('underline underline-offset-2', isDarkStep ? 'text-white' : 'text-foreground')}>
+                          {labels.browse}
+                        </span>
+                      </p>
+                      <p className={cn('text-xs', isDarkStep ? 'text-[#555555]' : 'text-muted-foreground')}>
+                        {labels.accept}
+                      </p>
+                    </>
+                  )}
                 </div>
-                <div className="space-y-1">
-                  <p className="font-semibold text-foreground">{labels.secondaryCta}</p>
-                  <p className="text-sm text-muted-foreground">{labels.secondaryHint}</p>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground">{labels.secondaryRecovery}</p>
-              <Button
-                variant={entryMode === 'manual_setup' ? 'default' : 'outline'}
-                onClick={() => {
-                  setEntryMode('manual_setup');
-                  setCompletionMode(null);
-                }}
-              >
-                {labels.secondaryCta}
-              </Button>
-            </div>
-          )}
-        </CardContent>
-        <CardContent className="pt-0">
-          <p className="text-xs text-muted-foreground">
-            {labels.desktopRestoreHint}{' '}
-            <button
-              type="button"
-              onClick={() => router.push('/dashboard/settings?tab=backup')}
-              className="font-medium text-foreground underline underline-offset-4"
-            >
-              {labels.openBackupSettings}
-            </button>
-          </p>
-        </CardContent>
-      </Card>
 
-      {entryMode === 'manual_setup' && !execution && (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle>{labels.manualTitle}</CardTitle>
-              <CardDescription>{labels.manualHint}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <Alert>
-                <CircleAlert className="h-4 w-4" />
-                <AlertTitle>{labels.secondaryCta}</AlertTitle>
-                <AlertDescription className="space-y-3">
-                  <p>{labels.manualLaterHint}</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push('/dashboard/settings?tab=import')}
-                  >
-                    {labels.openImportSettings}
-                  </Button>
-                </AlertDescription>
-              </Alert>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                {[
-                  {
-                    icon: UserPlus,
-                    title: labels.manualActionAddMemberTitle,
-                    body: labels.manualActionAddMemberBody,
-                    href: '/dashboard/members/new',
-                    actionLabel: labels.openAddMember,
-                  },
-                  {
-                    icon: Settings2,
-                    title: labels.manualActionWhatsappTitle,
-                    body: labels.manualActionWhatsappBody,
-                    href: '/dashboard/settings?tab=whatsapp',
-                    actionLabel: labels.openWhatsappSettings,
-                  },
-                  {
-                    icon: Users,
-                    title: labels.manualActionTeamTitle,
-                    body: labels.manualActionTeamBody,
-                    href: '/dashboard/pt?tab=staff',
-                    actionLabel: labels.openTeamSetup,
-                  },
-                  {
-                    icon: ScanLine,
-                    title: labels.manualActionCheckInTitle,
-                    body: labels.manualActionCheckInBody,
-                    href: '/dashboard',
-                    actionLabel: labels.openCheckIn,
-                  },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <div key={item.title} className="border border-border p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="rounded-full bg-primary/10 p-2 text-primary">
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        <div className="space-y-3">
-                          <div className="space-y-1">
-                            <p className="font-semibold text-foreground">{item.title}</p>
-                            <p className="text-sm text-muted-foreground">{item.body}</p>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => router.push(item.href)}
-                          >
-                            {item.actionLabel}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {!checklistMode && (
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    type="button"
-                    onClick={() => setCompletionMode('manual')}
-                  >
-                    {labels.manualContinue}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      setEntryMode('import');
-                      setCompletionMode(null);
-                    }}
-                  >
-                    {labels.backToImport}
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </>
-      )}
-
-      {entryMode === 'import' && !execution && (
-        <>
-          <Card id="import-upload">
-            <CardHeader>
-              <CardTitle>{labels.uploadTitle}</CardTitle>
-              <CardDescription>{labels.uploadHint}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
-                <p className="text-sm text-muted-foreground">{labels.templateHint}</p>
-                <Button variant="outline" onClick={handleDownloadTemplate} className="gap-2">
-                  <Download className="h-4 w-4" />
-                  {labels.templateButton}
-                </Button>
-              </div>
-
-              <p className="text-sm text-muted-foreground border-s-2 border-destructive ps-3">
-                {labels.preImportSafetyNote}
-              </p>
-
-              <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-                <Input
+                <input
+                  ref={fileInputRef}
                   type="file"
                   accept=".csv,.xlsx"
-                  onChange={(event) => setFile(event.target.files?.[0] || null)}
+                  className="hidden"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 />
-                <Button onClick={handleUpload} disabled={!file || uploading} className="gap-2">
-                  <FileUp className="h-4 w-4" />
-                  {uploading ? labels.uploading : labels.upload}
-                </Button>
-              </div>
 
-              {artifact && (
-                <div className="grid gap-3 md:grid-cols-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground">{labels.uploadedFile}</p>
-                    <p className="font-medium break-all">{artifact.file_name}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">{labels.totalRows}</p>
-                    <p className="font-medium">{artifact.totalRows}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">{labels.format}</p>
-                    <p className="font-medium uppercase">{artifact.fileFormat}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">{labels.headersDetected}</p>
-                    <p className="font-medium">{artifact.headers.length}</p>
-                  </div>
+                {/* Upload button */}
+                {file && (
+                  <Button
+                    onClick={handleUpload}
+                    disabled={uploading}
+                    className={cn('w-full py-6 text-base', isDarkStep && 'bg-destructive text-white hover:bg-destructive/90')}
+                  >
+                    {uploading ? labels.uploading : labels.upload}
+                  </Button>
+                )}
+
+                {/* Template link */}
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={handleDownloadTemplate}
+                    className={cn('text-xs underline underline-offset-2 transition-colors', isDarkStep ? 'text-[#555555] hover:text-[#888888]' : 'text-muted-foreground hover:text-foreground')}
+                  >
+                    {labels.templateButton}
+                  </button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
 
-          {artifact && (
-            <div className="grid gap-4 xl:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>{labels.sampleColumnsTitle}</CardTitle>
-                  <CardDescription>{labels.sampleColumnsHint}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-wrap gap-2">
-                  {TEMPLATE_HEADERS.map((column) => (
-                    <Badge key={column} className="bg-muted text-muted-foreground border border-border">
-                      {column}
-                    </Badge>
-                  ))}
-                </CardContent>
-              </Card>
+                {/* Skip link (onboarding only) */}
+                {variant === 'onboarding' && (
+                  <div className={cn('pt-4 text-center border-t', isDarkStep ? 'border-white/10' : 'border-border')}>
+                    <button
+                      type="button"
+                      onClick={handleStartFresh}
+                      className={cn('text-xs transition-colors', isDarkStep ? 'text-[#444444] hover:text-[#777777]' : 'text-muted-foreground hover:text-foreground')}
+                    >
+                      {labels.skipLink}
+                    </button>
+                  </div>
+                )}
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>{labels.importSafetyTitle}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm text-muted-foreground">
-                  <p>1. {labels.importSafety1}</p>
-                  <p>2. {labels.importSafety2}</p>
-                  <p>3. {labels.importSafety3}</p>
-                  <p>4. {labels.importSafety4}</p>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                {/* Non-onboarding skip link (import variant) */}
+                {variant === 'import' && (
+                  <div className={cn('pt-4 text-center border-t', isDarkStep ? 'border-white/10' : 'border-border')}>
+                    <button
+                      type="button"
+                      onClick={handleStartFresh}
+                      className={cn('text-xs transition-colors', isDarkStep ? 'text-[#444444] hover:text-[#777777]' : 'text-muted-foreground hover:text-foreground')}
+                    >
+                      {labels.secondaryCta}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
-          {artifact && (
-            <Card>
-              <CardHeader>
-                <CardTitle>{labels.mappingTitle}</CardTitle>
-                <CardDescription>{labels.mappingHint}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {FIELD_CONFIG.map((field) => (
-                    <div key={field.key} className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Label>{field.label[lang]}</Label>
-                        <Badge
-                          className={
-                            field.required
-                              ? 'bg-primary/10 text-primary border border-primary/30'
-                              : 'bg-muted text-muted-foreground border border-border'
-                          }
-                        >
-                          {field.required ? labels.required : labels.optional}
-                        </Badge>
+            {/* ══════════════════════════════════════════════════════════ */}
+            {/* STEP: MAP COLUMNS                                       */}
+            {/* ══════════════════════════════════════════════════════════ */}
+            {step === 'map' && artifact && (
+              <div className="space-y-6">
+                <div>
+                  <h1 className="font-heading text-3xl font-bold tracking-tight">{labels.mappingTitle}</h1>
+                  <p className="mt-2 text-sm text-muted-foreground">{labels.mappingHint}</p>
+                </div>
+
+                {/* Required fields */}
+                <div className="space-y-0 divide-y divide-border border border-border">
+                  {FIELD_CONFIG.filter((f) => f.required).map((field) => (
+                    <div key={field.key} className="flex items-center justify-between gap-4 px-4 py-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm text-foreground truncate">{field.label[lang]}</span>
+                        <span className="shrink-0 text-xs font-medium text-destructive">{labels.required}</span>
                       </div>
                       <Select
                         value={mapping[field.key] || NONE}
-                        onValueChange={(value) =>
-                          setMapping((current) =>
-                            setMappingFieldValue(current, field.key, value === NONE ? undefined : value)
-                          )
-                        }
+                        onValueChange={(v) => setMapping((current) => setMappingFieldValue(current, field.key, v === NONE ? undefined : v))}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="w-40 shrink-0">
                           <SelectValue placeholder={labels.sourceColumn} />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value={NONE}>{labels.doNotImport}</SelectItem>
-                          {artifact.headers.map((header) => (
-                            <SelectItem key={`${field.key}-${header}`} value={header}>
-                              {header}
-                            </SelectItem>
+                          {artifact.headers.map((h) => (
+                            <SelectItem key={`${field.key}-${h}`} value={h}>{h}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -1209,109 +1425,262 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
                   ))}
                 </div>
 
-                {!mapping.gender && (
-                  <div className="space-y-2">
-                    <Label>{labels.genderDefault}</Label>
-                    <Select value={genderDefault} onValueChange={(value: 'male' | 'female') => setGenderDefault(value)}>
-                      <SelectTrigger className="max-w-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="male">{labels.male}</SelectItem>
-                        <SelectItem value="female">{labels.female}</SelectItem>
-                      </SelectContent>
-                    </Select>
+                {/* Import options */}
+                <div className="space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                    {labels.importOptions}
+                  </p>
+                  <div className="space-y-0 divide-y divide-border border border-border">
+                    <div className="flex items-center justify-between gap-4 px-4 py-3">
+                      <span className="text-sm text-foreground truncate">{labels.dateFormatLabel}</span>
+                      <Select value={dateFormat} onValueChange={(v: typeof dateFormat) => setDateFormat(v)}>
+                        <SelectTrigger className="w-40 shrink-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
+                          <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
+                          <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {!mapping.gender && (
+                      <div className="flex items-center justify-between gap-4 px-4 py-3">
+                        <span className="text-sm text-foreground truncate">{labels.genderDefault}</span>
+                        <Select value={genderDefault} onValueChange={(v: 'male' | 'female') => setGenderDefault(v)}>
+                          <SelectTrigger className="w-40 shrink-0">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="male">{labels.male}</SelectItem>
+                            <SelectItem value="female">{labels.female}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Optional fields toggle */}
+                <button
+                  type="button"
+                  onClick={() => setShowOptionalFields(!showOptionalFields)}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showOptionalFields ? labels.hideFields : labels.moreFields}
+                </button>
+
+                {showOptionalFields && (
+                  <div className="space-y-0 divide-y divide-border border border-border">
+                    {FIELD_CONFIG.filter((f) => !f.required).map((field) => (
+                      <div key={field.key} className="flex items-center justify-between gap-4 px-4 py-3">
+                        <span className="text-sm text-muted-foreground truncate">{field.label[lang]}</span>
+                        <Select
+                          value={mapping[field.key] || NONE}
+                          onValueChange={(v) => setMapping((current) => setMappingFieldValue(current, field.key, v === NONE ? undefined : v))}
+                        >
+                          <SelectTrigger className="w-40 shrink-0">
+                            <SelectValue placeholder={labels.doNotImport} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={NONE}>{labels.doNotImport}</SelectItem>
+                            {artifact.headers.map((h) => (
+                              <SelectItem key={`${field.key}-${h}`} value={h}>{h}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <Label>{labels.dateFormatLabel}</Label>
-                  <p className="text-xs text-muted-foreground">{labels.dateFormatHint}</p>
-                  <Select value={dateFormat} onValueChange={(value: typeof dateFormat) => setDateFormat(value)}>
-                    <SelectTrigger className="max-w-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
-                      <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
-                      <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
-                    </SelectContent>
-                  </Select>
+                {/* Safety note — progressive disclosure */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setShowSafety(!showSafety)}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showSafety ? labels.hideSafety : labels.showSafety}
+                  </button>
+                  {showSafety && (
+                    <div className="mt-2 border border-border p-4 space-y-1 text-sm text-muted-foreground">
+                      <p>1. {labels.importSafety1}</p>
+                      <p>2. {labels.importSafety2}</p>
+                      <p>3. {labels.importSafety3}</p>
+                      <p>4. {labels.importSafety4}</p>
+                    </div>
+                  )}
                 </div>
 
-                <Button onClick={handlePreview} disabled={!canPreview || previewing}>
-                  {previewing ? labels.previewing : labels.previewButton}
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {preview && (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle>{labels.fixIssuesTitle}</CardTitle>
-                  <CardDescription>{labels.fixIssuesHint}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {readiness.hasBlockingRows ? (
-                    <Alert variant="warning">
-                      <CircleAlert className="h-4 w-4" />
-                      <AlertTitle>{labels.previewBlockedTitle}</AlertTitle>
-                      <AlertDescription>{labels.previewBlockedBody}</AlertDescription>
-                    </Alert>
-                  ) : (
-                    <Alert variant="success">
-                      <CheckCircle2 className="h-4 w-4" />
-                      <AlertTitle>{labels.previewCleanTitle}</AlertTitle>
-                      <AlertDescription>{labels.previewCleanBody}</AlertDescription>
-                    </Alert>
+                {/* Template columns toggle */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setShowTemplate(!showTemplate)}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showTemplate ? labels.hideTemplate : labels.showTemplate}
+                  </button>
+                  {showTemplate && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {TEMPLATE_HEADERS.map((column) => (
+                        <Badge key={column} className="bg-muted text-muted-foreground border border-border">
+                          {column}
+                        </Badge>
+                      ))}
+                    </div>
                   )}
+                </div>
 
-                  {preview.summary.duplicateRows > 0 && (
-                    <Alert>
-                      <CheckCircle2 className="h-4 w-4" />
-                      <AlertTitle>{labels.duplicatesSafeTitle}</AlertTitle>
-                      <AlertDescription>{labels.duplicatesSafeBody}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="grid grid-cols-2 border border-border divide-x divide-y divide-border md:grid-cols-3 lg:grid-cols-6 lg:divide-y-0">
-                    <div className="px-4 py-3">
-                      <p className="text-xs text-muted-foreground">{labels.validRows}</p>
-                      <p className="font-stat tracking-wide text-2xl tabular-nums">{preview.summary.validRows}</p>
+                {previewing ? (
+                  <div className="border-2 border-border p-6 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-3 w-3 rounded-full bg-destructive animate-pulse shrink-0" />
+                      <p className="font-heading font-bold tracking-tight">{labels.previewing}</p>
                     </div>
-                    <div className="px-4 py-3">
-                      <p className="text-xs text-muted-foreground">{labels.warningRows}</p>
-                      <p className="font-stat tracking-wide text-2xl tabular-nums">{preview.summary.warningRows}</p>
-                    </div>
-                    <div className="px-4 py-3">
-                      <p className="text-xs text-muted-foreground">{labels.invalidRows}</p>
-                      <p className="font-stat tracking-wide text-2xl tabular-nums">{preview.summary.invalidRows}</p>
-                    </div>
-                    <div className="px-4 py-3">
-                      <p className="text-xs text-muted-foreground">{labels.duplicateRows}</p>
-                      <p className="font-stat tracking-wide text-2xl tabular-nums">{preview.summary.duplicateRows}</p>
-                    </div>
-                    <div className="px-4 py-3">
-                      <p className="text-xs text-muted-foreground">{labels.membersToCreate}</p>
-                      <p className="font-stat tracking-wide text-2xl tabular-nums text-destructive">{preview.summary.estimatedMembersToCreate}</p>
-                    </div>
-                    <div className="px-4 py-3">
-                      <p className="text-xs text-muted-foreground">{labels.subscriptionsToCreate}</p>
-                      <p className="font-stat tracking-wide text-2xl tabular-nums">{preview.summary.estimatedSubscriptionsToCreate}</p>
+                    <div className="space-y-3">
+                      {PREVIEW_PHASES.map((phase, i) => (
+                        <div
+                          key={phase.key}
+                          className={cn(
+                            'flex items-center gap-3 transition-all duration-300',
+                            i <= previewPhase ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden',
+                          )}
+                        >
+                          <div className={cn(
+                            'flex h-5 w-5 shrink-0 items-center justify-center',
+                            i < previewPhase
+                              ? 'text-destructive'
+                              : i === previewPhase
+                              ? 'text-foreground'
+                              : 'text-muted-foreground',
+                          )}>
+                            {i < previewPhase ? (
+                              <Check className="h-4 w-4" />
+                            ) : i === previewPhase ? (
+                              <div className="h-2.5 w-2.5 rounded-full bg-destructive animate-pulse" />
+                            ) : (
+                              <div className="h-2 w-2 rounded-full bg-border" />
+                            )}
+                          </div>
+                          <span className={cn(
+                            'text-sm',
+                            i < previewPhase ? 'text-muted-foreground line-through' : i === previewPhase ? 'text-foreground font-medium' : 'text-muted-foreground',
+                          )}>
+                            {phase.label}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
+                ) : (
+                  <Button
+                    onClick={handlePreview}
+                    disabled={!canPreview}
+                    className="w-full py-6 text-base"
+                  >
+                    {labels.previewButton}
+                  </Button>
+                )}
 
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="font-semibold">{labels.sampleRows}</h3>
-                    <Button variant="outline" onClick={handleDownloadIssuesCsv} className="gap-2">
-                      <Download className="h-4 w-4" />
-                      {labels.issueCsv}
-                    </Button>
+                {!previewing && (
+                  <button
+                    type="button"
+                    onClick={() => navigate('upload')}
+                    className="block text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {lang === 'ar' ? '→' : '←'} {labels.back}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════ */}
+            {/* STEP: REVIEW                                             */}
+            {/* ══════════════════════════════════════════════════════════ */}
+            {step === 'review' && preview && (
+              <div className="space-y-6">
+                <div>
+                  <h1 className="font-heading text-3xl font-bold tracking-tight">
+                    {readiness.hasBlockingRows ? labels.fixIssuesTitle : labels.stepReview}
+                  </h1>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {readiness.hasBlockingRows ? labels.fixIssuesHint : labels.preImportSafetyNote}
+                  </p>
+                </div>
+
+                {/* Alerts */}
+                {readiness.hasBlockingRows ? (
+                  <Alert variant="warning">
+                    <CircleAlert className="h-4 w-4" />
+                    <AlertTitle>{labels.previewBlockedTitle}</AlertTitle>
+                    <AlertDescription>{labels.previewBlockedBody}</AlertDescription>
+                  </Alert>
+                ) : (
+                  <Alert variant="success">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <AlertTitle>{labels.previewCleanTitle}</AlertTitle>
+                    <AlertDescription>{labels.previewCleanBody}</AlertDescription>
+                  </Alert>
+                )}
+
+                {preview.summary.duplicateRows > 0 && (
+                  <Alert>
+                    <CheckCircle2 className="h-4 w-4" />
+                    <AlertTitle>{labels.duplicatesSafeTitle}</AlertTitle>
+                    <AlertDescription>{labels.duplicatesSafeBody}</AlertDescription>
+                  </Alert>
+                )}
+
+                {preview.summary.estimatedMembersToCreate <= 0 && (
+                  <Alert variant="warning">
+                    <CircleAlert className="h-4 w-4" />
+                    <AlertTitle>{labels.noNewMembersTitle}</AlertTitle>
+                    <AlertDescription>{labels.noNewMembersBody}</AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Hero stat */}
+                <div className="py-4">
+                  <p className="font-stat tracking-wide text-8xl tabular-nums text-foreground leading-none">
+                    {preview.summary.estimatedMembersToCreate}
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">{labels.membersReady}</p>
+                </div>
+
+                {/* Supporting stats */}
+                <div className="grid grid-cols-3 divide-x divide-border border border-border">
+                  <div className="px-4 py-3 text-center">
+                    <p className="font-stat tracking-wide text-2xl tabular-nums">
+                      {preview.summary.estimatedSubscriptionsToCreate}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">{labels.subscriptionsToCreate}</p>
                   </div>
+                  <div className="px-4 py-3 text-center">
+                    <p className="font-stat tracking-wide text-2xl tabular-nums">
+                      {preview.summary.duplicateRows}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">{labels.duplicateRows}</p>
+                  </div>
+                  <div className="px-4 py-3 text-center">
+                    <p className={cn('font-stat tracking-wide text-2xl tabular-nums', preview.summary.warningRows > 0 && 'text-warning')}>
+                      {preview.summary.warningRows + preview.summary.invalidRows}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">{labels.issues}</p>
+                  </div>
+                </div>
 
-                  {issueRows.length > 0 ? (
+                {/* Issue table */}
+                {issueRows.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h3 className="font-semibold">{labels.sampleRows}</h3>
+                      <Button variant="outline" onClick={handleDownloadIssuesCsv} className="gap-2">
+                        <Download className="h-4 w-4" />
+                        {labels.issueCsv}
+                      </Button>
+                    </div>
                     <Table aria-label={lang === 'ar' ? 'صفوف تحتاج مراجعة' : 'Rows that need review'}>
                       <TableHeader>
                         <TableRow>
@@ -1340,201 +1709,400 @@ export default function ImportOnboardingFlow({ variant = 'onboarding' }: ImportO
                         ))}
                       </TableBody>
                     </Table>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">{labels.previewCleanBody}</p>
-                  )}
-                </CardContent>
-              </Card>
+                  </div>
+                )}
 
-              {readiness.hasBlockingRows ? null : (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{labels.executeTitle}</CardTitle>
-                    <CardDescription>{labels.executeHint}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {preview.summary.estimatedMembersToCreate <= 0 ? (
-                      <Alert variant="warning">
-                        <CircleAlert className="h-4 w-4" />
-                        <AlertTitle>{labels.noNewMembersTitle}</AlertTitle>
-                        <AlertDescription>{labels.noNewMembersBody}</AlertDescription>
-                      </Alert>
-                    ) : (
-                      <>
-                        <div className="space-y-3 border border-border bg-muted/20 p-4">
-                          <p className="text-sm font-medium text-foreground">{labels.executeChecklistTitle}</p>
-                          <div className="flex items-start gap-3">
-                            <Checkbox
-                              id="confirm-import-rows"
-                              checked={executeChecks.reviewedRows}
-                              onCheckedChange={(checked) =>
-                                setExecuteChecks((current) => ({ ...current, reviewedRows: Boolean(checked) }))
-                              }
-                            />
-                            <Label htmlFor="confirm-import-rows" className="cursor-pointer font-normal leading-6">
-                              {labels.executeCheckRows}
-                            </Label>
+                {/* Execute section */}
+                {!readiness.hasBlockingRows && (
+                  <>
+                    <div className="border border-border p-4 space-y-3">
+                      <p className="text-sm font-medium text-foreground">{labels.executeChecklistTitle}</p>
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          id="confirm-import-rows"
+                          checked={executeChecks.reviewedRows}
+                          onCheckedChange={(checked) =>
+                            setExecuteChecks((current) => ({ ...current, reviewedRows: Boolean(checked) }))
+                          }
+                        />
+                        <Label htmlFor="confirm-import-rows" className="cursor-pointer font-normal leading-6">
+                          {labels.executeCheckRows}
+                        </Label>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          id="confirm-import-safety"
+                          checked={executeChecks.understoodSafety}
+                          onCheckedChange={(checked) =>
+                            setExecuteChecks((current) => ({ ...current, understoodSafety: Boolean(checked) }))
+                          }
+                        />
+                        <Label htmlFor="confirm-import-safety" className="cursor-pointer font-normal leading-6">
+                          {labels.executeCheckSafety}
+                        </Label>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={() => setShowConfirmModal(true)}
+                      disabled={!readiness.canExecuteImport || executing}
+                      className={cn('w-full py-6 text-base', executing && 'animate-pulse')}
+                    >
+                      {executing ? labels.importingLabel : labels.executeButton(preview.summary.estimatedMembersToCreate)}
+                    </Button>
+                    {executing && (
+                      <div className="border-2 border-border p-4 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="h-3 w-3 rounded-full bg-destructive animate-pulse shrink-0" />
+                          <p className="font-heading font-bold tracking-tight text-sm">{labels.importingLabel}</p>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-5 w-5 shrink-0 items-center justify-center text-destructive">
+                              <Check className="h-4 w-4" />
+                            </div>
+                            <span className="text-sm text-muted-foreground line-through">
+                              {lang === 'ar' ? 'إرسال البيانات...' : 'Sending data...'}
+                            </span>
                           </div>
-                          <div className="flex items-start gap-3">
-                            <Checkbox
-                              id="confirm-import-safety"
-                              checked={executeChecks.understoodSafety}
-                              onCheckedChange={(checked) =>
-                                setExecuteChecks((current) => ({ ...current, understoodSafety: Boolean(checked) }))
-                              }
-                            />
-                            <Label htmlFor="confirm-import-safety" className="cursor-pointer font-normal leading-6">
-                              {labels.executeCheckSafety}
-                            </Label>
+                          <div className="flex items-center gap-3">
+                            <div className="h-2.5 w-2.5 rounded-full bg-destructive animate-pulse" />
+                            <span className="text-sm font-medium text-foreground">
+                              {lang === 'ar' ? 'جاري الاستيراد...' : 'Importing clients...'}
+                            </span>
                           </div>
                         </div>
+                      </div>
+                    )}
+                  </>
+                )}
 
-                        <div className="flex items-start gap-3">
-                          <Checkbox
-                            id="send-welcome-email"
-                            checked={sendWelcomeEmail}
-                            onCheckedChange={(checked) => setSendWelcomeEmail(Boolean(checked))}
-                          />
-                          <div className="space-y-1">
-                            <Label htmlFor="send-welcome-email" className="cursor-pointer font-normal">
-                              {labels.sendWelcomeEmailLabel}
-                            </Label>
-                            <p className="text-xs text-muted-foreground">{labels.sendWelcomeEmailHint}</p>
+                <button
+                  type="button"
+                  onClick={() => navigate('map')}
+                  className="block text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {lang === 'ar' ? '→' : '←'} {labels.back}
+                </button>
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════ */}
+            {/* STEP: SUCCESS + GO-LIVE CHECKLIST                        */}
+            {/* ══════════════════════════════════════════════════════════ */}
+            {step === 'success' && (
+              <div
+                className={cn(
+                  'space-y-6 transition-all duration-500 ease-out',
+                  successVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3',
+                )}
+              >
+                {/* Import results */}
+                {execution && (
+                  <>
+                    <div className="gf-animate" style={{ animation: successVisible ? 'gf-check-in 0.4s cubic-bezier(0.25, 1, 0.5, 1) both' : 'none' }}>
+                      <div className="flex h-20 w-20 items-center justify-center bg-destructive">
+                        <Check className="h-10 w-10 text-white" />
+                      </div>
+                    </div>
+
+                    <div className="gf-animate" style={{ animation: successVisible ? 'gf-slide-up 0.4s cubic-bezier(0.25, 1, 0.5, 1) 0.15s both' : 'none' }}>
+                      <h1 className="font-heading text-3xl font-bold tracking-tight">{labels.importComplete}</h1>
+                      <p className="mt-2 text-muted-foreground">
+                        {labels.importedSuccessBody(execution.importedMembers)}
+                      </p>
+                    </div>
+
+                    <div
+                      className="grid grid-cols-3 divide-x divide-border border border-border gf-animate"
+                      style={{ animation: successVisible ? 'gf-slide-up-delay-1 0.4s cubic-bezier(0.25, 1, 0.5, 1) both' : 'none' }}
+                    >
+                      <div className="px-4 py-3 text-center">
+                        <p className="font-stat tracking-wide text-2xl tabular-nums text-foreground">
+                          {execution.importedMembers}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{labels.importedMembers}</p>
+                      </div>
+                      <div className="px-4 py-3 text-center">
+                        <p className="font-stat tracking-wide text-2xl tabular-nums">
+                          {execution.skippedRows}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{labels.skippedRows}</p>
+                      </div>
+                      <div className="px-4 py-3 text-center">
+                        <p className={cn('font-stat tracking-wide text-2xl tabular-nums', execution.failedRows > 0 && 'text-warning')}>
+                          {execution.failedRows}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{labels.failedRows}</p>
+                      </div>
+                    </div>
+
+                    {execution.failedRows > 0 && (
+                      <div className="border-2 border-border p-4 space-y-2">
+                        <p className="text-sm text-foreground">{labels.importedSuccessBody(execution.failedRows)}</p>
+                        <button
+                          type="button"
+                          onClick={handleDownloadIssuesCsv}
+                          className="text-xs text-foreground underline underline-offset-2 hover:text-muted-foreground transition-colors"
+                        >
+                          {labels.issueCsv}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Go-live checklist */}
+                {checklistMode && (
+                  <Card className={cn('gf-animate', !onboardingCompleted && 'mt-2')} style={{ animation: successVisible ? 'gf-slide-up-delay-2 0.4s cubic-bezier(0.25, 1, 0.5, 1) both' : 'none' }}>
+                    <CardHeader>
+                      <CardTitle>
+                        {checklistMode === 'imported' ? labels.checklistTitleImported : labels.checklistTitleManual}
+                      </CardTitle>
+                      <CardDescription>
+                        {checklistMode === 'imported' ? labels.checklistHintImported : labels.checklistHintManual}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-3">
+                        {checklistItems.map((item) => (
+                          <div key={item.key} className="border border-border p-4">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="flex items-start gap-3">
+                                <Checkbox
+                                  id={`checklist-${item.key}`}
+                                  checked={checklist[item.key]}
+                                  disabled={autoTrackedChecklistKeys.has(item.key)}
+                                  onCheckedChange={(checked) => {
+                                    if (autoTrackedChecklistKeys.has(item.key)) return;
+                                    setChecklist((current) => ({ ...current, [item.key]: Boolean(checked) }));
+                                  }}
+                                  className="mt-0.5"
+                                />
+                                <Label
+                                  htmlFor={`checklist-${item.key}`}
+                                  className="text-sm text-foreground cursor-pointer font-normal leading-6"
+                                >
+                                  {item.label}
+                                </Label>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleChecklistActionClick(item)}
+                              >
+                                {item.actionLabel}
+                              </Button>
+                            </div>
                           </div>
-                        </div>
+                        ))}
+                      </div>
 
-                        <div className="flex flex-wrap items-center gap-3">
-                          <Button
-                            onClick={handleExecute}
-                            disabled={executing || !readiness.canExecuteImport}
-                          >
-                            {executing ? labels.executing : labels.executeButton(preview.summary.estimatedMembersToCreate)}
-                          </Button>
-                          {executing && importingStatus && (
-                            <p className="text-sm text-muted-foreground animate-pulse">{importingStatus}</p>
+                      {!onboardingCompleted && readyToFinishOnboarding && (
+                        <Button onClick={handleCompleteOnboarding} disabled={savingOnboarding} className="w-full py-6 text-base">
+                          {savingOnboarding ? labels.completingOnboarding : labels.completeOnboarding}
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {checklistMode && onboardingCompleted && (
+                  <Card className="border-destructive/40 bg-destructive/5 gf-animate" style={{ animation: successVisible ? 'gf-slide-up-delay-3 0.4s cubic-bezier(0.25, 1, 0.5, 1) both' : 'none' }}>
+                    <CardContent className="flex flex-col gap-4 py-8 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-start gap-4">
+                        <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-destructive" />
+                        <div className="space-y-1">
+                          <p className="font-heading text-xl font-bold tracking-tight text-foreground">
+                            {checklistMode === 'manual' ? labels.onboardingCompleteManual : labels.onboardingCompleteImported}
+                          </p>
+                          {checklistMode === 'imported' && execution ? (
+                            <p className="text-muted-foreground">{labels.importedSuccessBody(execution.importedMembers)}</p>
+                          ) : checklistMode === 'manual' ? (
+                            <p className="text-sm text-muted-foreground">{labels.manualSuccessBody}</p>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">{labels.onboardingAlreadyComplete}</p>
                           )}
                         </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-            </>
-          )}
-        </>
-      )}
-
-      {execution && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{labels.importComplete}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-0 p-0">
-            <div className="grid grid-cols-2 border-b border-border divide-x divide-border md:grid-cols-4">
-              <div className="px-6 py-4">
-                <p className="text-xs text-muted-foreground">{labels.importedMembers}</p>
-                <p className="font-stat tracking-wide text-3xl tabular-nums text-destructive">{execution.importedMembers}</p>
-              </div>
-              <div className="px-6 py-4">
-                <p className="text-xs text-muted-foreground">{labels.importedSubscriptions}</p>
-                <p className="font-stat tracking-wide text-3xl tabular-nums">{execution.importedSubscriptions}</p>
-              </div>
-              <div className="px-6 py-4">
-                <p className="text-xs text-muted-foreground">{labels.skippedRows}</p>
-                <p className="font-stat tracking-wide text-3xl tabular-nums">{execution.skippedRows}</p>
-              </div>
-              <div className="px-6 py-4">
-                <p className="text-xs text-muted-foreground">{labels.failedRows}</p>
-                <p className="font-stat tracking-wide text-3xl tabular-nums">{execution.failedRows}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {checklistMode && (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {checklistMode === 'imported' ? labels.checklistTitleImported : labels.checklistTitleManual}
-            </CardTitle>
-            <CardDescription>
-              {checklistMode === 'imported' ? labels.checklistHintImported : labels.checklistHintManual}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-3">
-              {checklistItems.map((item) => (
-                <div key={item.key} className="border border-border p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex items-start gap-3">
-                      <Checkbox
-                        id={`checklist-${item.key}`}
-                        checked={checklist[item.key]}
-                        onCheckedChange={(checked) =>
-                          setChecklist((current) => ({
-                            ...current,
-                            [item.key]: Boolean(checked)
-                          }))
-                        }
-                        className="mt-0.5"
-                      />
-                      <Label
-                        htmlFor={`checklist-${item.key}`}
-                        className="text-sm text-foreground cursor-pointer font-normal leading-6"
+                      </div>
+                      <Button
+                        onClick={() => router.push(checklistMode === 'manual' ? '/dashboard' : '/dashboard/members')}
+                        className="shrink-0"
                       >
-                        {item.label}
-                      </Label>
-                    </div>
+                        {checklistMode === 'manual' ? labels.goToDashboard : labels.goToMembers}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════ */}
+            {/* STEP: MANUAL SETUP                                       */}
+            {/* ══════════════════════════════════════════════════════════ */}
+            {step === 'setup' && (
+              <div className="space-y-6">
+                <div>
+                  <h1 className="font-heading text-2xl font-bold tracking-tight">{labels.manualTitle}</h1>
+                  <p className="mt-2 text-sm text-muted-foreground">{labels.manualHint}</p>
+                </div>
+
+                <Alert>
+                  <CircleAlert className="h-4 w-4" />
+                  <AlertTitle>{labels.secondaryCta}</AlertTitle>
+                  <AlertDescription className="space-y-3">
+                    <p>{labels.manualLaterHint}</p>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => router.push(item.href)}
+                      onClick={() => navigateFromOnboarding('/dashboard/settings?tab=import')}
                     >
-                      {item.actionLabel}
+                      {labels.openImportSettings}
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  {[
+                    { icon: UserPlus, title: labels.manualActionAddMemberTitle, body: labels.manualActionAddMemberBody, href: '/dashboard/members', actionLabel: labels.openAddMember },
+                    { icon: Settings2, title: labels.manualActionWhatsappTitle, body: labels.manualActionWhatsappBody, href: '/dashboard/settings?tab=whatsapp', actionLabel: labels.openWhatsappSettings },
+                    { icon: Users, title: labels.manualActionTeamTitle, body: labels.manualActionTeamBody, href: '/dashboard/pt?tab=staff', actionLabel: labels.openTeamSetup },
+                    { icon: ScanLine, title: labels.manualActionCheckInTitle, body: labels.manualActionCheckInBody, href: '/dashboard', actionLabel: labels.openCheckIn },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <div key={item.title} className="border border-border p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="rounded-none bg-primary/10 p-2 text-primary">
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              <p className="font-semibold text-foreground">{item.title}</p>
+                              <p className="text-sm text-muted-foreground">{item.body}</p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => navigateFromOnboarding(item.href)}
+                            >
+                              {item.actionLabel}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {!checklistMode && (
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      type="button"
+                      onClick={() => { setCompletionMode('manual'); navigate('checklist'); }}
+                      className="gap-2"
+                    >
+                      {labels.manualContinue}
+                      <ArrowLeft className="h-4 w-4 rotate-180" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={handleBackToImport}
+                    >
+                      {labels.backToImport}
                     </Button>
                   </div>
-                </div>
-              ))}
-            </div>
-
-            {!onboardingCompleted && (
-              <Button onClick={handleCompleteOnboarding} disabled={!allChecklistChecked || savingOnboarding}>
-                {savingOnboarding ? labels.completingOnboarding : labels.completeOnboarding}
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {checklistMode && onboardingCompleted && (
-        <Card className="border-destructive/40 bg-destructive/5">
-          <CardContent className="flex flex-col gap-4 py-8 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-4">
-              <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-destructive" />
-              <div className="space-y-1">
-                <p className="font-heading text-xl font-bold tracking-tight text-foreground">
-                  {checklistMode === 'manual' ? labels.onboardingCompleteManual : labels.onboardingCompleteImported}
-                </p>
-                {checklistMode === 'imported' && execution ? (
-                  <p className="text-muted-foreground">{labels.importedSuccessBody(execution.importedMembers)}</p>
-                ) : checklistMode === 'manual' ? (
-                  <p className="text-sm text-muted-foreground">{labels.manualSuccessBody}</p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">{labels.onboardingAlreadyComplete}</p>
                 )}
               </div>
-            </div>
-            <Button
-              onClick={() => router.push(checklistMode === 'manual' ? '/dashboard' : '/dashboard/members')}
-              className="shrink-0"
-            >
-              {checklistMode === 'manual' ? labels.goToDashboard : labels.goToMembers}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════ */}
+            {/* STEP: MANUAL CHECKLIST                                   */}
+            {/* ══════════════════════════════════════════════════════════ */}
+            {step === 'checklist' && (
+              <div
+                className={cn(
+                  'space-y-6 transition-all duration-500 ease-out',
+                  step4Visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3',
+                )}
+              >
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{labels.checklistTitleManual}</CardTitle>
+                    <CardDescription>{labels.checklistHintManual}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-3">
+                      {checklistItems.map((item) => (
+                        <div key={item.key} className="border border-border p-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex items-start gap-3">
+                              <Checkbox
+                                id={`checklist-${item.key}`}
+                                checked={checklist[item.key]}
+                                disabled={autoTrackedChecklistKeys.has(item.key)}
+                                onCheckedChange={(checked) => {
+                                  if (autoTrackedChecklistKeys.has(item.key)) return;
+                                  setChecklist((current) => ({ ...current, [item.key]: Boolean(checked) }));
+                                }}
+                                className="mt-0.5"
+                              />
+                              <Label
+                                htmlFor={`checklist-${item.key}`}
+                                className="text-sm text-foreground cursor-pointer font-normal leading-6"
+                              >
+                                {item.label}
+                              </Label>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleChecklistActionClick(item)}
+                            >
+                              {item.actionLabel}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {!onboardingCompleted && readyToFinishOnboarding && (
+                      <Button onClick={handleCompleteOnboarding} disabled={savingOnboarding} className="w-full py-6 text-base">
+                        {savingOnboarding ? labels.completingOnboarding : labels.completeOnboarding}
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {onboardingCompleted && (
+                  <Card className="border-destructive/40 bg-destructive/5">
+                    <CardContent className="flex flex-col gap-4 py-8 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-start gap-4">
+                        <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-destructive" />
+                        <div className="space-y-1">
+                          <p className="font-heading text-xl font-bold tracking-tight text-foreground">
+                            {labels.onboardingCompleteManual}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{labels.manualSuccessBody}</p>
+                        </div>
+                      </div>
+                      <Button onClick={() => router.push('/dashboard')} className="shrink-0">
+                        {labels.goToDashboard}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
