@@ -1,7 +1,7 @@
 # GymFlow — Project Memory (Source of Truth)
 
 > Single living document. Combines git history, session logs, and all docs into one timeline.
-> Any new task should start here. Last updated: **April 27, 2026**.
+> Any new task should start here. Last updated: **April 28, 2026**.
 
 ---
 
@@ -456,6 +456,38 @@ Attempts tried (all partial/failed):
   - `#7` made the sample `sessions_per_month` values blank and locked optional quota behavior.
 - Both release loops closed after Cloud Build, main CI, Post Deploy Smoke, and `/api/health`.
 - Later hardening/import-first PRs through `#12` are merged into current `main`.
+
+---
+
+### 2026-04-28 — Onboarding Checklist Lock + Live Release `c8c405f`
+
+**What shipped**
+
+- PR `#16` merged to `main` as commit `c8c405f4caa5a1e0964603de4005f5ef6d8d7014`.
+- Production release loop closed:
+  - Cloud Build `68fc0a55-702a-4cc0-8344-f168b6306bca` succeeded
+  - `CI` passed on `main`
+  - `Post Deploy Smoke` passed on `main`
+  - `/api/health` now returns `releaseId=c8c405f4caa5a1e0964603de4005f5ef6d8d7014`
+
+**Onboarding behavior**
+
+- The first successful onboarding import now lands owners in a guided go-live checklist instead of dropping them into a normal dashboard escape path.
+- The onboarding copy now consistently uses `Clients` / `العملاء` instead of mixing `members` and `clients` in the setup flow.
+- Checklist progress is persisted in browser session state so refreshes/remounts do not throw the owner back to the upload step.
+- Leaving the checklist through a checklist action now creates a temporary glowing `Checklist` tab and dims the rest of the navigation until the required setup steps are visited.
+- The first three required setup tasks are auto-detected from real page visits:
+  - clients
+  - WhatsApp settings
+  - PT/staff setup
+- After those three are completed, `Finish onboarding` becomes available and the temporary nav lock clears.
+
+**Supporting fixes bundled into the same release**
+
+- Removed the dead `components/dashboard/onboarding/OnboardingWizard.tsx` path; onboarding now lives entirely through `components/dashboard/import/ImportOnboardingFlow.tsx`.
+- `components/ui/sonner.tsx` now mirrors GymFlow’s brutalist toast treatment and places Arabic toasts on the top-left.
+- `db/schema.sql` now defines `idx_members_branch_card_code` with `deleted_at IS NULL`, matching the import logic that treats soft-deleted members as safely replaceable.
+- `app/dashboard/layout.tsx` no longer uses `useSearchParams()` in the layout-level redirect logic, which fixed the production build/prerender blocker for the onboarding release.
 
 ---
 
