@@ -134,9 +134,11 @@ CREATE TABLE IF NOT EXISTS members (
   deleted_at timestamptz
 );
 
+DROP INDEX IF EXISTS idx_members_branch_card_code;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_members_branch_card_code
   ON members (organization_id, branch_id, card_code)
-  WHERE card_code IS NOT NULL;
+  WHERE card_code IS NOT NULL AND deleted_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_members_branch_phone ON members (organization_id, branch_id, phone);
 

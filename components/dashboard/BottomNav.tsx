@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { type MouseEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { useLang, t } from '@/lib/i18n';
 import { useAuth } from '@/lib/use-auth';
 import { getNavKeysForRole, type NavKey } from '@/lib/permissions';
 import MoreSheet from './MoreSheet';
+import { getOnboardingChecklistNavLock, subscribeToOnboardingStateChanges } from '@/lib/onboarding-client';
 
 /* ── Role-based bottom bar items ── */
 // Each role gets up to 4 nav items + the center Scan button + More
@@ -107,6 +109,7 @@ export default function BottomNav() {
   const { lang } = useLang();
   const { profile } = useAuth();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [checklistLockPath, setChecklistLockPath] = useState<string | null>(null);
 
   const role = profile?.role || 'owner';
   const allKeys = getNavKeysForRole(role);
@@ -125,6 +128,33 @@ export default function BottomNav() {
     return isActive(href);
   });
 
+  useEffect(() => {
+    const syncLock = () => setChecklistLockPath(getOnboardingChecklistNavLock()?.path ?? null);
+    syncLock();
+    return subscribeToOnboardingStateChanges(syncLock);
+  }, [pathname]);
+
+  const showChecklistNav = checklistLockPath !== null && !pathname.startsWith('/dashboard/onboarding');
+  const blockOtherTabs = showChecklistNav;
+
+  function showChecklistMessage() {
+    toast.message(
+      lang === 'ar'
+        ? 'أكمِل قائمة التشغيل أولاً ثم افتح باقي التبويبات.'
+        : 'Finish the checklist first, then the rest of the tabs will open up.'
+    );
+  }
+
+  function handleBlockedClick(event: MouseEvent, href: string) {
+    const navPath = href.split('?')[0];
+    if (!blockOtherTabs || navPath === checklistLockPath || href === '/dashboard/onboarding') {
+      return;
+    }
+
+    event.preventDefault();
+    showChecklistMessage();
+  }
+
   return (
     <>
       {/* Fixed bottom bar — only visible on mobile (hidden on lg+) */}
@@ -135,13 +165,15 @@ export default function BottomNav() {
         {/* Left items */}
         {bottomItems.slice(0, 2).map((item) => {
           const active = isActive(item.href);
+          const dimmed = blockOtherTabs && item.href.split('?')[0] !== checklistLockPath;
           return (
             <Link
               key={item.key}
               href={item.href}
+              onClick={(event) => handleBlockedClick(event, item.href)}
               className={`relative flex flex-1 flex-col items-center gap-0.5 pt-2 pb-[3px] text-[10px] font-medium transition-colors ${
                 active ? 'text-destructive' : 'text-muted-foreground'
-              }`}
+              } ${dimmed ? 'opacity-35' : ''}`}
             >
               {/* Animated active indicator bar */}
               {active && (
@@ -161,6 +193,13 @@ export default function BottomNav() {
         <Link
           href="/dashboard"
           onClick={(e) => {
+            if (blockOtherTabs) {
+              if ('/dashboard' !== checklistLockPath) {
+                e.preventDefault();
+                showChecklistMessage();
+                return;
+              }
+            }
             e.preventDefault();
             // Navigate to dashboard and click the camera button
             if (pathname === '/dashboard') {
@@ -174,7 +213,7 @@ export default function BottomNav() {
             // Navigate to dashboard with scan flag
             window.location.href = '/dashboard?scan=1';
           }}
-          className="relative -mt-5 flex flex-col items-center gap-0.5"
+          className={`relative -mt-5 flex flex-col items-center gap-0.5 ${blockOtherTabs && checklistLockPath !== '/dashboard' ? 'opacity-35' : ''}`}
         >
           <span className="flex h-14 w-14 items-center justify-center bg-destructive text-white shadow-[4px_4px_0_#000000]">
             {scanIcon}
@@ -185,13 +224,15 @@ export default function BottomNav() {
         {/* Right items */}
         {bottomItems.slice(2).map((item) => {
           const active = isActive(item.href);
+          const dimmed = blockOtherTabs && item.href.split('?')[0] !== checklistLockPath;
           return (
             <Link
               key={item.key}
               href={item.href}
+              onClick={(event) => handleBlockedClick(event, item.href)}
               className={`relative flex flex-1 flex-col items-center gap-0.5 pt-2 pb-[3px] text-[10px] font-medium transition-colors ${
                 active ? 'text-destructive' : 'text-muted-foreground'
-              }`}
+              } ${dimmed ? 'opacity-35' : ''}`}
             >
               {active && (
                 <motion.div
@@ -207,22 +248,45 @@ export default function BottomNav() {
         })}
 
         {/* More button */}
-        <button
-          onClick={() => setMoreOpen(true)}
-          className={`relative flex flex-1 flex-col items-center gap-0.5 pt-2 pb-[3px] text-[10px] font-medium transition-colors ${
-            moreActive ? 'text-destructive' : 'text-muted-foreground'
-          }`}
-        >
-          {moreActive && (
+        {showChecklistNav ? (
+          <Link
+            href="/dashboard/onboarding"
+            className="relative flex flex-1 flex-col items-center gap-0.5 pt-2 pb-[3px] text-[10px] font-medium text-destructive"
+          >
             <motion.div
               layoutId="bottomnav-indicator"
               className="absolute bottom-0 start-0 end-0 h-[3px] bg-destructive"
               transition={{ type: 'spring', stiffness: 500, damping: 35 }}
             />
-          )}
-          <span aria-hidden="true" className={moreActive ? 'text-destructive' : 'text-muted-foreground'}>{moreIcon}</span>
-          {t[lang].more}
-        </button>
+            <span
+              aria-hidden="true"
+              className="text-destructive drop-shadow-[0_0_10px_rgba(220,68,68,0.45)] animate-pulse"
+            >
+              <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" strokeLinejoin="miter">
+                <path d="M4 10l4 4 8-8" />
+                <rect x="3" y="3" width="14" height="14" rx="0" />
+              </svg>
+            </span>
+            {lang === 'ar' ? 'قائمة التشغيل' : 'Checklist'}
+          </Link>
+        ) : (
+          <button
+            onClick={() => setMoreOpen(true)}
+            className={`relative flex flex-1 flex-col items-center gap-0.5 pt-2 pb-[3px] text-[10px] font-medium transition-colors ${
+              moreActive ? 'text-destructive' : 'text-muted-foreground'
+            }`}
+          >
+            {moreActive && (
+              <motion.div
+                layoutId="bottomnav-indicator"
+                className="absolute bottom-0 start-0 end-0 h-[3px] bg-destructive"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+              />
+            )}
+            <span aria-hidden="true" className={moreActive ? 'text-destructive' : 'text-muted-foreground'}>{moreIcon}</span>
+            {t[lang].more}
+          </button>
+        )}
       </nav>
 
       {/* More sheet */}

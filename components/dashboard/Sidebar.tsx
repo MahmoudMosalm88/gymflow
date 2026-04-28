@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { type MouseEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { toast } from 'sonner';
 import { useLang, t } from '@/lib/i18n';
 import GymFlowLogo from '@/components/GymFlowLogo';
 import { useAuth } from '@/lib/use-auth';
 import { getNavKeysForRole } from '@/lib/permissions';
 import { api } from '@/lib/api-client';
 import type { EntityRef } from '@/lib/entities';
+import { getOnboardingChecklistNavLock, subscribeToOnboardingStateChanges } from '@/lib/onboarding-client';
 
 type Props = {
   open: boolean;
@@ -161,6 +163,7 @@ export default function Sidebar({ open, onClose }: Props) {
   const { lang } = useLang();
   const { profile } = useAuth();
   const visibleKeys = getNavKeysForRole(profile?.role || 'owner');
+  const [checklistLockPath, setChecklistLockPath] = useState<string | null>(null);
 
   // WhatsApp connection indicator — fetch once on mount
   const [waConnected, setWaConnected] = useState(true); // default true to avoid flash
@@ -186,6 +189,12 @@ export default function Sidebar({ open, onClose }: Props) {
     });
   }, [profile?.role]);
 
+  useEffect(() => {
+    const syncLock = () => setChecklistLockPath(getOnboardingChecklistNavLock()?.path ?? null);
+    syncLock();
+    return subscribeToOnboardingStateChanges(syncLock);
+  }, [pathname]);
+
   function switchBranch(branchId: string) {
     localStorage.setItem('branch_id', branchId);
     setBranchOpen(false);
@@ -195,20 +204,59 @@ export default function Sidebar({ open, onClose }: Props) {
   const isActive = (href: string) =>
     href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
 
+  const showChecklistNav = checklistLockPath !== null && !pathname.startsWith('/dashboard/onboarding');
+  const blockOtherTabs = showChecklistNav;
+
+  function handleBlockedNavigation(event: MouseEvent, href: string) {
+    if (!blockOtherTabs) {
+      onClose();
+      return;
+    }
+
+    const navPath = href.split('?')[0];
+    if (navPath === checklistLockPath || href === '/dashboard/onboarding') {
+      onClose();
+      return;
+    }
+
+    event.preventDefault();
+    toast.message(
+      lang === 'ar'
+        ? 'أكمِل قائمة التشغيل أولاً ثم افتح باقي التبويبات.'
+        : 'Finish the checklist first, then the rest of the tabs will open up.'
+    );
+  }
+
   const nav = (
     <nav className="flex flex-col gap-1 mt-6 px-3">
+      {showChecklistNav && (
+        <Link
+          href="/dashboard/onboarding"
+          onClick={onClose}
+          className="mb-2 flex items-center gap-3 px-3 py-3 text-sm font-medium border-s-[4px] border-destructive bg-destructive/10 text-destructive shadow-[0_0_24px_rgba(220,68,68,0.18)] animate-pulse"
+        >
+          <span aria-hidden="true" className="text-destructive">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" strokeLinejoin="miter">
+              <path d="M4 10l4 4 8-8" />
+              <rect x="3" y="3" width="14" height="14" rx="0" />
+            </svg>
+          </span>
+          {lang === 'ar' ? 'قائمة التشغيل' : 'Checklist'}
+        </Link>
+      )}
       {navItems.filter((item) => visibleKeys.includes(item.key)).map((item) => {
         const active = isActive(item.href);
+        const dimmed = blockOtherTabs && item.href.split('?')[0] !== checklistLockPath;
         return (
           <Link
             key={item.key}
             href={item.href}
-            onClick={onClose}
+            onClick={(event) => handleBlockedNavigation(event, item.href)}
             className={`flex items-center gap-3 px-3 py-3 text-sm font-medium transition-colors ${
               active
                 ? 'border-s-[4px] border-destructive text-destructive bg-destructive/10'
                 : 'border-s-[4px] border-transparent text-muted-foreground hover:text-foreground hover:bg-white/5'
-            }`}
+            } ${dimmed ? 'opacity-35' : ''}`}
           >
             <span className={active ? 'text-destructive' : 'text-muted-foreground'} aria-hidden="true">{item.icon}</span>
             {t[lang][item.key]}
