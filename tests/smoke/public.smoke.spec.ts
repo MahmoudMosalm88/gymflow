@@ -17,6 +17,24 @@ test("login page loads @smoke", async ({ page }) => {
   await expect(page.getByLabel(/Password|كلمة المرور/i)).toBeVisible();
 });
 
+test("start trial router loads and routes demo intent @smoke", async ({ page }) => {
+  await page.goto("/start-trial");
+
+  await expect(
+    page.getByRole("heading", { name: /Tell GymFlow a little about your gym/i })
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "2–4 branches" }).click();
+  await page.getByRole("button", { name: "5,000+" }).click();
+  await page.getByRole("button", { name: "Another gym system" }).click();
+  await page.getByRole("button", { name: "I want help from your team" }).click();
+  await page.getByRole("button", { name: "Book a Demo" }).click();
+
+  await expect(page).toHaveURL(/\/contact\?/);
+  await expect(page.getByRole("heading", { name: /Send a message/i })).toBeVisible();
+  await expect(page.getByLabel("What do you need?")).toHaveValue("demo");
+});
+
 test("health endpoint responds with status and release id @smoke", async ({
   request,
 }) => {

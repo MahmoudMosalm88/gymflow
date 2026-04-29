@@ -5,9 +5,16 @@ import { FormEvent, ReactNode, useMemo, useState } from 'react';
 type Locale = 'en' | 'ar';
 type RequestType = 'pricing' | 'demo' | 'onboarding' | 'migration' | 'legal' | 'data' | 'support' | 'other';
 
+type ContactFormPrefill = {
+  requestType?: RequestType;
+  message?: string;
+  branchCount?: string;
+};
+
 type ContactFormProps = {
   locale: Locale;
   fallbackEmail: string;
+  prefill?: ContactFormPrefill;
 };
 
 type FormState = {
@@ -129,9 +136,18 @@ function Field({
 const fieldClassName =
   'w-full border-2 border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary';
 
-export default function ContactForm({ locale, fallbackEmail }: ContactFormProps) {
+export default function ContactForm({ locale, fallbackEmail, prefill }: ContactFormProps) {
   const t = copy[locale];
-  const [form, setForm] = useState<FormState>(initialState);
+  const initialFormState = useMemo<FormState>(
+    () => ({
+      ...initialState,
+      requestType: prefill?.requestType ?? initialState.requestType,
+      message: prefill?.message ?? initialState.message,
+      branchCount: prefill?.branchCount ?? initialState.branchCount
+    }),
+    [prefill?.branchCount, prefill?.message, prefill?.requestType]
+  );
+  const [form, setForm] = useState<FormState>(initialFormState);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -171,7 +187,7 @@ export default function ContactForm({ locale, fallbackEmail }: ContactFormProps)
         throw new Error(payload?.message || 'Unable to send your message right now.');
       }
 
-      setForm(initialState);
+      setForm(initialFormState);
       setSuccess(payload.data?.message || t.success);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unable to send your message right now.';

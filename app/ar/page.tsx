@@ -22,7 +22,7 @@ export default function ArabicHomePage() {
       <HowItWorks t={t} />
       <Features t={t} />
       <FAQ t={t} />
-      <CTA t={t} />
+      <CTA t={t} lang="ar" />
       <Footer t={t} />
     </main>
   );

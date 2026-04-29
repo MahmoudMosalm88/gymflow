@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
 import ContactForm from '@/app/components/legal/ContactForm';
+import type { ContactPrefill } from '@/app/components/legal/contact-prefill';
 import legalContent from '@/lib/legal-content.json';
 
 type Locale = 'en' | 'ar';
@@ -53,11 +54,12 @@ interface LegalPageProps {
   slug: string;
   /** Server-detected locale — avoids flash of wrong language */
   initialLocale?: Locale;
+  contactPrefill?: ContactPrefill;
 }
 
 /* ── component ───────────────────────────────────────── */
 
-export default function LegalPage({ slug, initialLocale }: LegalPageProps) {
+export default function LegalPage({ slug, initialLocale, contactPrefill }: LegalPageProps) {
   const [locale, setLocale] = useState<Locale>(initialLocale ?? 'en');
   const ui = legalContent.ui[locale];
   const page = legalContent.pages[slug as keyof typeof legalContent.pages];
@@ -243,7 +245,12 @@ export default function LegalPage({ slug, initialLocale }: LegalPageProps) {
                 }}
                 className="scroll-mt-20"
               >
-                <ContactForm locale={locale} fallbackEmail={legalContent.defaults.supportEmail} />
+                <ContactForm
+                  key={`${locale}:${contactPrefill?.requestType ?? 'default'}:${contactPrefill?.message ?? ''}`}
+                  locale={locale}
+                  fallbackEmail={legalContent.defaults.supportEmail}
+                  prefill={contactPrefill}
+                />
               </section>
             )}
 
