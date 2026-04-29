@@ -198,7 +198,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const searchParams = typeof window === 'undefined'
       ? null
       : new URLSearchParams(window.location.search);
-
     if (pathname.startsWith('/dashboard/settings') && searchParams?.get('tab') === 'whatsapp') {
       checklistUpdates.connectWhatsapp = true;
     }
