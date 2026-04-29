@@ -1993,3 +1993,55 @@ The reports revamp roadmap is now implemented for all owner-facing report items 
 
 **Files changed**:
 - `saas-web/app/dashboard/members/[id]/page.tsx` — replaced `InfoRow` for sessions with progress bar widget
+
+---
+
+### April 29, 2026 — Hybrid landing funnel shipped live
+
+**Live release**:
+- Merge commit: `06565fddf552fe0c287fb19ad2482a07afb54e14`
+- PR: `#19` — `feat(marketing): add hybrid trial funnel`
+- Production verification:
+  - `CI` on `main`: passed
+  - `Post Deploy Smoke`: passed
+  - `https://gymflowsystem.com/api/health`: `releaseId=06565fddf552fe0c287fb19ad2482a07afb54e14`
+
+**What changed**:
+- The public landing is no longer quote-led on the main CTA.
+- Primary CTA is now `Start Free Trial` / `ابدأ تجربتك المجانية`.
+- Hero and final CTA now also expose `Book a Demo` / `احجز عرضًا توضيحيًا` as the assisted path.
+- Added dedicated hybrid routing pages:
+  - `/start-trial`
+  - `/ar/start-trial`
+- The router asks 4 short questions:
+  - branch count
+  - client count
+  - migration source
+  - setup preference
+- Routing behavior:
+  - smaller/simple gyms keep self-serve trial as primary
+  - larger or migration-heavy gyms get `Book a Demo` as primary, with self-serve still available as secondary
+
+**Assisted-path details**:
+- `/contact` is now a real dedicated route again, not just a planned future split.
+- `/contact-and-data-requests` is also restored as a real route.
+- Trial-router answers prefill the demo request context on the contact form so sales sees:
+  - branch complexity
+  - client-size band
+  - migration source
+  - setup preference
+
+**UX hardening included in the same ship**:
+- The public analytics consent banner is suppressed on `/start-trial` and `/ar/start-trial` so it does not block the routing choices.
+- Structured data / pricing FAQ wording was updated from quote-first language to the new hybrid trial/demo model.
+
+**Regression coverage added**:
+- `tests/unit/contact-prefill.test.ts`
+- `tests/smoke/public.smoke.spec.ts`
+  - new smoke path covers `/start-trial` into the demo route
+
+**Important product meaning**:
+- GymFlow is now running a true hybrid acquisition motion:
+  - self-serve trial for straightforward gyms
+  - guided demo path for bigger, more complex rollouts
+- This keeps the landing faster for smaller operators without forcing large gyms into a blind signup flow.
