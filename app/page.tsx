@@ -24,7 +24,7 @@ export default function HomePage() {
       <HowItWorks t={t} />
       <Features t={t} />
       <FAQ t={t} />
-      <CTA t={t} />
+      <CTA t={t} lang="en" />
       <Footer t={t} />
     </main>
   );
