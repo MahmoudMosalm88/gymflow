@@ -750,6 +750,35 @@
   gap: 0.75rem;
 }
 
+.ctaSecondaryOnAccent {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  padding: 0.875rem 1.5rem;
+  border: 2px solid #fff;
+  border-radius: 0;
+  transition: background 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.ctaSecondaryOnAccent:hover {
+  background: #fff;
+  color: var(--accent);
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.3);
+}
+
+.ctaSecondaryOnAccent:active {
+  background: #fff;
+  color: var(--accent);
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
 /* CTA button in inverted section — white on dark */
 .ctaInverted {
   text-decoration: none;
