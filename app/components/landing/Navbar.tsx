@@ -20,6 +20,7 @@ export default function Navbar({ lang, t }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const isArabic = lang === 'ar';
   const otherLangHref = isArabic ? '/' : '/ar';
+  const trialHref = isArabic ? '/ar/start-trial' : '/start-trial';
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {
@@ -50,7 +51,7 @@ export default function Navbar({ lang, t }: NavbarProps) {
               <Link href="/" className={`${styles.langBtn} ${lang === 'en' ? styles.langActive : ''}`} aria-current={lang === 'en' ? 'page' : undefined}>EN</Link>
               <Link href={otherLangHref} className={`${styles.langBtn} ${lang === 'ar' ? styles.langActive : ''}`} aria-current={lang === 'ar' ? 'page' : undefined}>AR</Link>
             </div>
-            <Link href="/contact" className={styles.navCta}>{t.navCta}</Link>
+            <Link href={trialHref} className={styles.navCta}>{t.navCta}</Link>
 
             {/* Hamburger — visible on mobile only */}
             <button
@@ -72,7 +73,7 @@ export default function Navbar({ lang, t }: NavbarProps) {
         <a href="#features" className={styles.mobileNavLink} onClick={closeMenu}>{t.navFeatures}</a>
         <Link href="/blog" className={styles.mobileNavLink} onClick={closeMenu}>{t.navBlog}</Link>
         <a href="#faq" className={styles.mobileNavLink} onClick={closeMenu}>{t.navFaq}</a>
-        <Link href="/contact" className={styles.ctaPrimary} onClick={closeMenu}>{t.navCta}</Link>
+        <Link href={trialHref} className={styles.ctaPrimary} onClick={closeMenu}>{t.navCta}</Link>
         <Link href="/login" className={styles.ctaSecondary} onClick={closeMenu}>{t.navSignin}</Link>
       </div>
     </>

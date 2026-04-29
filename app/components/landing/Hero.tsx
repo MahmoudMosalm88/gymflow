@@ -16,7 +16,11 @@ interface HeroProps {
   lang?: 'en' | 'ar';
 }
 
-export default function Hero({ t }: HeroProps) {
+export default function Hero({ t, lang = 'en' }: HeroProps) {
+  const isArabic = lang === 'ar';
+  const trialHref = isArabic ? '/ar/start-trial' : '/start-trial';
+  const demoHref = isArabic ? '/contact?lang=ar&request=demo' : '/contact?request=demo';
+
   return (
     <section className={styles.hero}>
       <div className={styles.heroInner}>
@@ -28,11 +32,11 @@ export default function Hero({ t }: HeroProps) {
           <p className={styles.heroSub}>{t.heroSub}</p>
 
           <div className={styles.heroCtas}>
-            <Link href="/contact" className={styles.ctaPrimary}>
+            <Link href={trialHref} className={styles.ctaPrimary}>
               {t.heroCta}
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
             </Link>
-            <Link href="/login?mode=login" className={styles.ctaSecondary}>
+            <Link href={demoHref} className={styles.ctaSecondary}>
               {t.heroCtaSecondary}
             </Link>
           </div>

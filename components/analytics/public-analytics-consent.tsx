@@ -27,6 +27,8 @@ function isPublicRoute(pathname: string) {
     "/ar/login",
     "/ar/forgot-password",
     "/invite",
+    "/start-trial",
+    "/ar/start-trial",
   ];
 
   return (

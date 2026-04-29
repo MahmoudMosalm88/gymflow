@@ -95,7 +95,7 @@ const faqPage = {
       "name": "How does pricing work?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "GymFlow uses a quote-first business model. Pricing depends on gym size, branches, rollout needs, and support scope, and the final terms are confirmed in writing with each customer."
+        "text": "Single-branch gyms can start with a free trial. Larger, multi-branch, or migration-heavy rollouts can book a demo and get assisted setup before pricing is finalized."
       },
     },
     {

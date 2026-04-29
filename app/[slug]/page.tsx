@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
 import LegalPage from "@/app/components/legal/LegalPage";
+import { buildContactPrefill } from "@/app/components/legal/contact-prefill";
 import legalContent from "@/lib/legal-content.json";
 
 export const dynamicParams = false;
@@ -33,7 +34,7 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
 
 export default function LegalRoutePage({ params, searchParams }: {
   params: { slug: string };
-  searchParams: { lang?: string };
+  searchParams: { lang?: string; request?: string; source?: string; branches?: string; clients?: string; migration?: string; setup?: string };
 }) {
   if (!legalContent.pages[params.slug as keyof typeof legalContent.pages]) {
     notFound();
@@ -41,6 +42,7 @@ export default function LegalRoutePage({ params, searchParams }: {
 
   // Detect locale server-side from query param to prevent flash of wrong language
   const initialLocale = searchParams.lang === "ar" ? "ar" : "en";
+  const contactPrefill = params.slug === "contact" ? buildContactPrefill(initialLocale, searchParams) : undefined;
 
-  return <LegalPage slug={params.slug} initialLocale={initialLocale} />;
+  return <LegalPage slug={params.slug} initialLocale={initialLocale} contactPrefill={contactPrefill} />;
 }
