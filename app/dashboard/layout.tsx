@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/use-auth';
 import { LangContext, Lang } from '@/lib/i18n';
 import { api } from '@/lib/api-client';
@@ -45,7 +45,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { loading, profile } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const isOnboarding = pathname.startsWith('/dashboard/onboarding');
 
   // Language state, persisted to localStorage
@@ -196,11 +195,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       checklistUpdates.addFirstMember = true;
     }
 
-if (pathname.startsWith('/dashboard/settings') && searchParams.get('tab') === 'whatsapp') {
+    const searchParams = typeof window === 'undefined'
+      ? null
+      : new URLSearchParams(window.location.search);
+    if (pathname.startsWith('/dashboard/settings') && searchParams?.get('tab') === 'whatsapp') {
       checklistUpdates.connectWhatsapp = true;
     }
 
-    if (pathname.startsWith('/dashboard/pt') && searchParams.get('tab') === 'staff') {
+    if (pathname.startsWith('/dashboard/pt') && searchParams?.get('tab') === 'staff') {
       checklistUpdates.addTeam = true;
     }
 
@@ -211,7 +213,7 @@ if (pathname.startsWith('/dashboard/settings') && searchParams.get('tab') === 'w
     if (hasCompletedRequiredOnboardingChecklist('imported') || hasCompletedRequiredOnboardingChecklist('manual')) {
       clearOnboardingChecklistNavLock();
     }
-}, [loading, pathname, profile, searchParams]);
+  }, [loading, pathname, profile]);
 
   useEffect(() => {
     document.documentElement.style.fontSize = '16px';
