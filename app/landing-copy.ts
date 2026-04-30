@@ -49,9 +49,9 @@ export const landingCopy = {
     ] as const,
     ctaTitle: "Ready to get your time back?",
     ctaSub: "Join gym owners across the region who run their operations with GymFlow.",
-    ctaBtn: "Get pricing",
+    ctaBtn: "Start Free Trial",
     ctaSecondary: "Book a Demo",
-    ctaMicro: "Invoice-first rollout · Manual payment options available in Egypt",
+    ctaMicro: "Start on your own today · Get guided setup for bigger rollouts",
     previewLabel: "SEE IT IN ACTION",
     previewTitle: "A real look at the dashboard.",
     previewTabs: [
@@ -135,9 +135,9 @@ export const landingCopy = {
     ] as const,
     ctaTitle: "هل أنت مستعد لاستعادة وقتك؟",
     ctaSub: "انضم إلى صالات رياضية في المنطقة تدير أعمالها باحترافية مع GymFlow.",
-    ctaBtn: "اطلب السعر",
+    ctaBtn: "ابدأ تجربتك المجانية",
     ctaSecondary: "احجز عرضًا توضيحيًا",
-    ctaMicro: "إطلاق بنظام الفاتورة · وسائل دفع محلية متاحة في مصر",
+    ctaMicro: "ابدأ بنفسك اليوم · واحصل على مساعدة موجهة إذا كان الإطلاق أكبر",
     previewLabel: "شاهده بنفسك",
     previewTitle: "نظرة حقيقية على لوحة التحكم.",
     previewTabs: [
