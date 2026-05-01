@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, UserX, RotateCw, UserCheck } from "lucide-react";
 
 type StaffMember = {
@@ -71,6 +72,9 @@ const copy = {
     activePackages: "Active PT packages",
     futureSessions: "Future PT sessions",
     assignedMembers: "Assigned members",
+    chooseReplacementFirst: "Choose a replacement trainer first.",
+    noReplacementTrainer: "This trainer still owns active PT work. Add or reactivate another trainer before deactivation.",
+    deactivateFailed: "Could not deactivate trainer.",
     namePlaceholder: "Ahmed Hassan",
     phonePlaceholder: "+2010...",
     emailPlaceholder: "optional@email.com",
@@ -118,6 +122,9 @@ const copy = {
     activePackages: "باقات PT نشطة",
     futureSessions: "جلسات قادمة",
     assignedMembers: "أعضاء مُسندون",
+    chooseReplacementFirst: "اختر مدرباً بديلاً أولاً.",
+    noReplacementTrainer: "هذا المدرب ما زال لديه عمل PT نشط. أضف أو أعد تفعيل مدرب آخر قبل الإيقاف.",
+    deactivateFailed: "تعذر إيقاف المدرب.",
     namePlaceholder: "أحمد حسن",
     phonePlaceholder: "+2010...",
     emailPlaceholder: "optional@email.com",
@@ -185,6 +192,8 @@ export default function TeamTab() {
   const [addOpen, setAddOpen] = useState(false);
   const [deactivateTarget, setDeactivateTarget] = useState<StaffMember | null>(null);
   const [replacementTrainerId, setReplacementTrainerId] = useState("");
+  const [deactivationError, setDeactivationError] = useState("");
+  const [deactivating, setDeactivating] = useState(false);
   const [form, setForm] = useState({
     name: "",
     title: "",
@@ -240,15 +249,45 @@ export default function TeamTab() {
   const replacementOptions = rows.filter(
     (row) => row.role === "trainer" && row.is_active && row.id !== deactivateTarget?.id
   );
+  const deactivateTargetHasWorkload = deactivateTarget
+    ? Number(deactivateTarget.active_packages_count || 0) > 0 ||
+      Number(deactivateTarget.future_sessions_count || 0) > 0 ||
+      Number(deactivateTarget.assigned_members_count || 0) > 0
+    : false;
 
   async function confirmDeactivateTrainer() {
-    if (!deactivateTarget) return;
-    await patchMember(deactivateTarget.id, {
-      is_active: false,
-      replacement_trainer_staff_user_id: replacementTrainerId || undefined,
-    });
-    setDeactivateTarget(null);
-    setReplacementTrainerId("");
+    if (!deactivateTarget || deactivating) return;
+
+    if (deactivateTargetHasWorkload && replacementOptions.length === 0) {
+      setDeactivationError(labels.noReplacementTrainer);
+      return;
+    }
+
+    if (deactivateTargetHasWorkload && !replacementTrainerId) {
+      setDeactivationError(labels.chooseReplacementFirst);
+      return;
+    }
+
+    setDeactivating(true);
+    setDeactivationError("");
+    try {
+      const res = await api.patch(`/api/staff/${deactivateTarget.id}`, {
+        is_active: false,
+        replacement_trainer_staff_user_id: replacementTrainerId || undefined,
+      });
+      if (!res.success) {
+        setDeactivationError(res.message || labels.deactivateFailed);
+        return;
+      }
+      setMessage(labels.updated);
+      await load();
+      setDeactivateTarget(null);
+      setReplacementTrainerId("");
+    } catch (error) {
+      setDeactivationError(error instanceof Error ? error.message : labels.deactivateFailed);
+    } finally {
+      setDeactivating(false);
+    }
   }
 
   if (loading) return <LoadingSpinner />;
@@ -285,7 +324,7 @@ export default function TeamTab() {
         <div className="space-y-3">
           {/* Active staff */}
           {activeRows.map((row) => (
-            <StaffCard key={row.id} row={row} labels={labels} lang={lang} onPatch={patchMember} onDeactivate={(r) => { setDeactivateTarget(r); setReplacementTrainerId(""); }} />
+            <StaffCard key={row.id} row={row} labels={labels} lang={lang} onPatch={patchMember} onDeactivate={(r) => { setDeactivateTarget(r); setReplacementTrainerId(""); setDeactivationError(""); }} />
           ))}
 
           {pendingRows.length > 0 && (
@@ -296,7 +335,7 @@ export default function TeamTab() {
                 </p>
               </div>
               {pendingRows.map((row) => (
-                <StaffCard key={row.id} row={row} labels={labels} lang={lang} onPatch={patchMember} onDeactivate={(r) => { setDeactivateTarget(r); setReplacementTrainerId(""); }} />
+                <StaffCard key={row.id} row={row} labels={labels} lang={lang} onPatch={patchMember} onDeactivate={(r) => { setDeactivateTarget(r); setReplacementTrainerId(""); setDeactivationError(""); }} />
               ))}
             </>
           )}
@@ -310,7 +349,7 @@ export default function TeamTab() {
                 </p>
               </div>
               {inactiveRows.map((row) => (
-                <StaffCard key={row.id} row={row} labels={labels} lang={lang} onPatch={patchMember} onDeactivate={(r) => { setDeactivateTarget(r); setReplacementTrainerId(""); }} />
+                <StaffCard key={row.id} row={row} labels={labels} lang={lang} onPatch={patchMember} onDeactivate={(r) => { setDeactivateTarget(r); setReplacementTrainerId(""); setDeactivationError(""); }} />
               ))}
             </>
           )}
@@ -384,7 +423,7 @@ export default function TeamTab() {
       </Dialog>
 
       {/* ── Deactivate Trainer Dialog ── */}
-      <Dialog open={!!deactivateTarget} onOpenChange={(open) => { if (!open) { setDeactivateTarget(null); setReplacementTrainerId(""); } }}>
+      <Dialog open={!!deactivateTarget} onOpenChange={(open) => { if (!open) { setDeactivateTarget(null); setReplacementTrainerId(""); setDeactivationError(""); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{labels.replacementTitle}</DialogTitle>
@@ -401,7 +440,12 @@ export default function TeamTab() {
                   <p>{labels.assignedMembers}: <span className="text-foreground font-stat">{Number(deactivateTarget.assigned_members_count || 0)}</span></p>
                 </div>
               </div>
-              {replacementOptions.length > 0 && (
+              {deactivateTargetHasWorkload && replacementOptions.length === 0 ? (
+                <Alert variant="warning">
+                  <AlertDescription>{labels.noReplacementTrainer}</AlertDescription>
+                </Alert>
+              ) : null}
+              {deactivateTargetHasWorkload && replacementOptions.length > 0 ? (
                 <div className="space-y-2">
                   <Label>{labels.replacementTrainer}</Label>
                   <Select value={replacementTrainerId} onValueChange={setReplacementTrainerId} dir={lang === "ar" ? "rtl" : "ltr"}>
@@ -414,14 +458,29 @@ export default function TeamTab() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {!replacementTrainerId ? (
+                    <p className="text-xs text-muted-foreground">{labels.chooseReplacementFirst}</p>
+                  ) : null}
                 </div>
-              )}
+              ) : null}
+              {deactivationError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{deactivationError}</AlertDescription>
+                </Alert>
+              ) : null}
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setDeactivateTarget(null)}>
+                <Button variant="outline" onClick={() => setDeactivateTarget(null)} disabled={deactivating}>
                   {lang === "ar" ? "إلغاء" : "Cancel"}
                 </Button>
-                <Button variant="destructive" onClick={confirmDeactivateTrainer}>
-                  {labels.confirmDeactivate}
+                <Button
+                  variant="destructive"
+                  onClick={confirmDeactivateTrainer}
+                  disabled={
+                    deactivating ||
+                    (deactivateTargetHasWorkload && (!replacementTrainerId || replacementOptions.length === 0))
+                  }
+                >
+                  {deactivating ? labels.saving : labels.confirmDeactivate}
                 </Button>
               </div>
             </div>
