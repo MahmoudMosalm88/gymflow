@@ -49,7 +49,7 @@ export default function Pricing({ t }: PricingProps) {
                   </li>
                 ))}
               </ul>
-              <Link href="/login" className={`${styles.pricingCta} ${plan.highlighted ? styles.pricingCtaHighlighted : styles.pricingCtaDefault}`}>
+              <Link href="/login?mode=login" className={`${styles.pricingCta} ${plan.highlighted ? styles.pricingCtaHighlighted : styles.pricingCtaDefault}`}>
                 {plan.cta}
               </Link>
             </div>
