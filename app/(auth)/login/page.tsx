@@ -27,11 +27,13 @@ import { Check, Eye, EyeOff, Terminal } from "lucide-react";
 type Mode = "login" | "register";
 type AuthMethod = "email" | "phone";
 type Lang = "en" | "ar";
+type BranchCountIntent = "one" | "two_to_four" | "five_plus";
 type Feedback = { kind: "error" | "success"; text: string } | null;
 type SetupSnapshot = {
   ownerName: string;
   organizationName: string;
   branchName: string;
+  branchCountIntent?: BranchCountIntent;
 };
 type GooglePendingState = {
   mode: Mode;
@@ -390,6 +392,7 @@ export default function LoginPage() {
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [pendingGoogleRegistration, setPendingGoogleRegistration] = useState<PendingGoogleRegistration | null>(null);
+  const [branchCountIntent, setBranchCountIntent] = useState<BranchCountIntent | undefined>(undefined);
 
   const authRef = useRef<Auth | null>(null);
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
@@ -454,8 +457,11 @@ export default function LoginPage() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const paramMode = searchParams.get("mode");
-    // register mode is disabled — signups are invite-only
-    if (paramMode === "login" && paramMode !== mode) {
+    const branches = searchParams.get("branches");
+    if (branches === "one" || branches === "two_to_four" || branches === "five_plus") {
+      setBranchCountIntent(branches);
+    }
+    if ((paramMode === "login" || paramMode === "register") && paramMode !== mode) {
       setMode(paramMode);
       setFeedback(null);
       setOtpSent(false);
@@ -605,7 +611,8 @@ export default function LoginPage() {
     const setup: SetupSnapshot = {
       ownerName: values.ownerName.trim(),
       organizationName: values.organizationName.trim(),
-      branchName: values.branchName.trim()
+      branchName: values.branchName.trim(),
+      branchCountIntent
     };
     if (!setup.ownerName || !setup.organizationName || !setup.branchName) {
       return null;
@@ -651,6 +658,7 @@ export default function LoginPage() {
       ownerName: setup.ownerName,
       organizationName: setup.organizationName,
       branchName: setup.branchName,
+      branchCountIntent: setup.branchCountIntent,
       email
     });
     if (!register.response.ok && register.response.status !== 409) {
@@ -737,14 +745,16 @@ export default function LoginPage() {
       // Register mode
       const setupValid = await setupForm.trigger();
       if (!setupValid) { setFeedback({ kind: "error", text: t.requiredSetupFields }); return; }
+      const setup = getSetupSnapshot();
+      if (!setup) { setFeedback({ kind: "error", text: t.requiredSetupFields }); return; }
 
       const d = data as z.infer<typeof emailRegisterSchema>;
-      const s = setupForm.getValues();
       const register = await postJson("/api/auth/register", {
         authMethod: "email",
-        ownerName: s.ownerName.trim(),
-        organizationName: s.organizationName.trim(),
-        branchName: s.branchName.trim(),
+        ownerName: setup.ownerName,
+        organizationName: setup.organizationName,
+        branchName: setup.branchName,
+        branchCountIntent: setup.branchCountIntent,
         email: d.email.trim(),
         password: d.password,
         phone: d.phone?.trim() || undefined
@@ -887,13 +897,18 @@ export default function LoginPage() {
       const idToken = await result.user.getIdToken(true);
 
       if (mode === "register") {
-        const s = setupForm.getValues();
+        const setup = getSetupSnapshot();
+        if (!setup) {
+          setFeedback({ kind: "error", text: t.requiredSetupFields });
+          return;
+        }
         const register = await postJson("/api/auth/register", {
           authMethod: "phone",
           idToken,
-          ownerName: s.ownerName.trim(),
-          organizationName: s.organizationName.trim(),
-          branchName: s.branchName.trim(),
+          ownerName: setup.ownerName,
+          organizationName: setup.organizationName,
+          branchName: setup.branchName,
+          branchCountIntent: setup.branchCountIntent,
           phone: phoneTarget
         });
         if (!register.response.ok && register.response.status !== 409) {

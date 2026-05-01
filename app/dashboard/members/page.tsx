@@ -269,18 +269,20 @@ export default function MembersPage() {
         ) : null}
       </div>
 
-      {/* Stat cards — clickable, filter the table. Horizontal scroll on mobile */}
-      <div className="flex gap-3 mt-5 overflow-x-auto snap-x snap-mandatory no-scrollbar lg:grid lg:grid-cols-3 lg:overflow-visible">
-        <button className="text-start min-w-[140px] snap-start flex-shrink-0 lg:min-w-0" onClick={() => setStatusFilter('all')}>
-          <StatCard label={c.total_members} value={stats.total} color="text-foreground" />
-        </button>
-        <button className="text-start min-w-[140px] snap-start flex-shrink-0 lg:min-w-0" onClick={() => setStatusFilter('active')}>
-          <StatCard label={c.active_members} value={stats.active} color="text-success" />
-        </button>
-        <button className="text-start min-w-[140px] snap-start flex-shrink-0 lg:min-w-0" onClick={() => setStatusFilter('no_sub')}>
-          <StatCard label={c.no_sub_members} value={stats.noSub} color={stats.noSub > 0 ? 'text-warning' : 'text-foreground'} />
-        </button>
-      </div>
+      {/* Stat cards — owner/manager/staff only. Trainers should see a direct assigned-client list. */}
+      {!isTrainer && (
+        <div className="flex gap-3 mt-5 overflow-x-auto snap-x snap-mandatory no-scrollbar lg:grid lg:grid-cols-3 lg:overflow-visible">
+          <button className="text-start min-w-[140px] snap-start flex-shrink-0 lg:min-w-0" onClick={() => setStatusFilter('all')}>
+            <StatCard label={c.total_members} value={stats.total} color="text-foreground" />
+          </button>
+          <button className="text-start min-w-[140px] snap-start flex-shrink-0 lg:min-w-0" onClick={() => setStatusFilter('active')}>
+            <StatCard label={c.active_members} value={stats.active} color="text-success" />
+          </button>
+          <button className="text-start min-w-[140px] snap-start flex-shrink-0 lg:min-w-0" onClick={() => setStatusFilter('no_sub')}>
+            <StatCard label={c.no_sub_members} value={stats.noSub} color={stats.noSub > 0 ? 'text-warning' : 'text-foreground'} />
+          </button>
+        </div>
+      )}
 
       {/* Search + filters row */}
       <div className="flex flex-col gap-3 mt-4">

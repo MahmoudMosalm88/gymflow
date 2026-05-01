@@ -17,7 +17,8 @@ const e164PhoneSchema = z
 const registerBaseSchema = z.object({
   ownerName: z.string().trim().min(2),
   organizationName: z.string().trim().min(2),
-  branchName: z.string().trim().min(2)
+  branchName: z.string().trim().min(2),
+  branchCountIntent: z.enum(["one", "two_to_four", "five_plus"]).optional()
 });
 
 const emailRegisterSchema = registerBaseSchema.extend({
@@ -102,6 +103,7 @@ export const subscriptionSchema = z.object({
   member_id: z.string().uuid(),
   start_date: z.number().int().positive(),
   end_date: z.number().int().positive().optional(),
+  plan_template_id: z.string().uuid().optional().nullable(),
   plan_months: z.number().int().positive(),
   price_paid: z.number().optional().nullable(),
   sessions_per_month: z.number().int().positive().optional().nullable(),
@@ -122,10 +124,43 @@ export const subscriptionPatchSchema = z.object({
 export const subscriptionRenewSchema = z.object({
   member_id: z.string().uuid(),
   previous_subscription_id: z.coerce.number().int().positive(),
+  plan_template_id: z.string().uuid().optional().nullable(),
   plan_months: z.number().int().positive(),
   price_paid: z.number().min(0).optional().nullable(),
   sessions_per_month: z.number().int().positive().optional().nullable(),
   payment_method: paymentMethodSchema.optional().nullable()
+});
+
+const planPerksSchema = z.array(z.string().trim().min(1).max(160)).max(20);
+
+export const planTemplateCreateSchema = z.object({
+  name: z.string().trim().min(2, "Plan name is required").max(120),
+  duration_months: z.coerce.number().int().positive(),
+  price: z.coerce.number().min(0),
+  sessions_per_month: z.coerce.number().int().positive().nullable().optional(),
+  perks: planPerksSchema.default([]),
+  freeze_days_per_cycle: z.coerce.number().int().min(0).default(0),
+  guest_invites_per_cycle: z.coerce.number().int().min(0).default(0)
+});
+
+export const planTemplatePatchSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().trim().min(2, "Plan name is required").max(120).optional(),
+  duration_months: z.coerce.number().int().positive().optional(),
+  price: z.coerce.number().min(0).optional(),
+  sessions_per_month: z.coerce.number().int().positive().nullable().optional(),
+  perks: planPerksSchema.optional(),
+  freeze_days_per_cycle: z.coerce.number().int().min(0).optional(),
+  guest_invites_per_cycle: z.coerce.number().int().min(0).optional(),
+  is_archived: z.boolean().optional(),
+  sort_order: z.coerce.number().int().min(0).optional()
+});
+
+export const planTemplateReorderSchema = z.object({
+  reorder: z.array(z.object({
+    id: z.string().uuid(),
+    sort_order: z.coerce.number().int().min(0)
+  })).min(1)
 });
 
 export const attendanceSchema = z.object({
@@ -163,6 +198,15 @@ export const settingsPutSchema = z.object({
       message: "Select at least one WhatsApp reminder day"
     });
   }
+});
+
+export const branchCreateSchema = z.object({
+  name: z.string().trim().min(2, "Branch name is required").max(120)
+});
+
+export const branchPatchSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().trim().min(2, "Branch name is required").max(120)
 });
 
 export const staffCreateSchema = z.object({
@@ -247,13 +291,6 @@ export const trainerAvailabilityPutSchema = z.object({
       is_active: z.boolean().optional()
     })
   ).max(70),
-  time_off: z.array(
-    z.object({
-      starts_at: z.string().trim().min(1),
-      ends_at: z.string().trim().min(1),
-      reason: z.string().trim().max(500).optional().nullable()
-    })
-  ).max(100).optional()
 });
 
 export const whatsappQueueRetrySchema = z.object({

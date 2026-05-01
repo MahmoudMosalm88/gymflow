@@ -21,7 +21,18 @@ export function routeError(error: unknown) {
     typeof error === "object" && error && "code" in error
       ? String((error as { code?: string }).code || "")
       : "";
+  const statusCode =
+    typeof error === "object" &&
+    error &&
+    "statusCode" in error &&
+    Number.isInteger((error as { statusCode?: number }).statusCode)
+      ? (error as { statusCode: number }).statusCode
+      : null;
   console.error("Route error:", msg, error instanceof Error ? error.stack : "");
+
+  if (statusCode && statusCode >= 400 && statusCode < 600) {
+    return fail(msg, statusCode);
+  }
 
   // Return helpful messages for common errors instead of hiding everything
   if (msg.includes("ECONNREFUSED") || code === "ECONNREFUSED") {

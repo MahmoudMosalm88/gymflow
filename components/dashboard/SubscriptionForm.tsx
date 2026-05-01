@@ -34,10 +34,12 @@ import { addCalendarMonths, toUnixSeconds } from '@/lib/subscription-dates';
 import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-method-ui';
 import type { EntityRef } from '@/lib/entities';
 import { useSaveShortcut } from '@/lib/use-save-shortcut';
+import PlanTemplateSelector, { type PlanTemplateOption } from '@/components/dashboard/PlanTemplateSelector';
 
 export type SubscriptionFormValues = {
   member_id: string;
   start_date: Date; // Using Date object for react-hook-form
+  plan_template_id?: string | null;
   plan_months: number;
   price_paid?: number;
   payment_method: 'cash';
@@ -100,6 +102,7 @@ const subscriptionFormSchema = z.object({
     required_error: "Start date is required.",
     invalid_type_error: "Invalid date.",
   }),
+  plan_template_id: z.string().uuid().optional().nullable(),
   plan_months: z.coerce.number().min(1, { message: "Plan months must be at least 1." }),
   price_paid: z.coerce.number().optional().refine((val) => val === undefined || val === null || val >= 0, {
     message: "Price paid must be a positive number.",
@@ -115,12 +118,17 @@ export default function SubscriptionForm({ members, preselectedMemberId, onSubmi
   const { lang } = useLang();
   const labels = { ...t[lang], ...formLabels[lang] };
   const formRef = useRef<HTMLFormElement | null>(null);
+  const [templateCount, setTemplateCount] = useState<number | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [manualMode, setManualMode] = useState(false);
 
   const form = useForm<SubscriptionFormInput, undefined, SubscriptionFormOutput>({
     resolver: zodResolver(subscriptionFormSchema),
+    mode: 'onChange',
     defaultValues: {
       member_id: preselectedMemberId || '',
       start_date: new Date(),
+      plan_template_id: null,
       plan_months: 1,
       price_paid: undefined,
       payment_method: DEFAULT_PAYMENT_METHOD,
@@ -137,8 +145,27 @@ export default function SubscriptionForm({ members, preselectedMemberId, onSubmi
     return addCalendarMonths(watchStartDate, watchPlanMonths);
   }, [watchStartDate, watchPlanMonths]);
 
+  const hasTemplates = (templateCount ?? 0) > 0;
+  const showManualFields = manualMode || templateCount === 0;
+  const needsTemplateChoice = hasTemplates && !manualMode && !selectedTemplateId;
+
+  function applyTemplate(template: PlanTemplateOption) {
+    setSelectedTemplateId(template.id);
+    setManualMode(false);
+    form.setValue("plan_template_id", template.id, { shouldDirty: true, shouldValidate: true });
+    form.setValue("plan_months", template.duration_months, { shouldDirty: true, shouldValidate: true });
+    form.setValue("price_paid", template.price, { shouldDirty: true, shouldValidate: true });
+    form.setValue("sessions_per_month", template.sessions_per_month ?? undefined, { shouldDirty: true, shouldValidate: true });
+  }
+
+  function selectManual() {
+    setManualMode(true);
+    setSelectedTemplateId(null);
+    form.setValue("plan_template_id", null, { shouldDirty: true, shouldValidate: true });
+  }
 
   function handleSubmit(values: SubscriptionFormOutput) {
+    if (needsTemplateChoice) return;
     const dataToSubmit = {
       ...values,
       start_date: toUnixSeconds(values.start_date),
@@ -187,6 +214,14 @@ export default function SubscriptionForm({ members, preselectedMemberId, onSubmi
               )}
             />
 
+            <PlanTemplateSelector
+              selectedId={selectedTemplateId}
+              manualSelected={manualMode}
+              onSelectTemplate={applyTemplate}
+              onSelectManual={selectManual}
+              onAvailabilityChange={setTemplateCount}
+            />
+
             {/* Start date */}
             <FormField
               control={form.control}
@@ -229,29 +264,33 @@ export default function SubscriptionForm({ members, preselectedMemberId, onSubmi
               )}
             />
 
-            {/* Plan months */}
-            <FormField
-              control={form.control}
-              name="plan_months"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{labels.planMonths}</FormLabel>
-                  <Select onValueChange={value => field.onChange(parseInt(value))} defaultValue={field.value.toString()}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="1" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {Array.from({ length: 24 }, (_, i) => i + 1).map((n) => (
-                        <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {showManualFields ? (
+              <>
+                {/* Plan months */}
+                <FormField
+                  control={form.control}
+                  name="plan_months"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{labels.planMonths}</FormLabel>
+                      <Select onValueChange={value => field.onChange(parseInt(value))} defaultValue={field.value.toString()}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="1" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Array.from({ length: 24 }, (_, i) => i + 1).map((n) => (
+                            <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            ) : null}
 
             {/* Auto-calculated end date (read only) */}
             <div className="space-y-2">
@@ -264,42 +303,46 @@ export default function SubscriptionForm({ members, preselectedMemberId, onSubmi
               />
             </div>
 
-            {/* Price Paid */}
-            <FormField
-              control={form.control}
-              name="price_paid"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{labels.pricePaid}</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === "" ? undefined : parseFloat(e.target.value))} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {showManualFields ? (
+              <>
+                {/* Price Paid */}
+                <FormField
+                  control={form.control}
+                  name="price_paid"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{labels.pricePaid}</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === "" ? undefined : parseFloat(e.target.value))} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            {/* Sessions Per Month */}
-            <FormField
-              control={form.control}
-              name="sessions_per_month"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{labels.sessionsPerMonth}</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="—" {...field} onChange={e => field.onChange(e.target.value === "" ? undefined : parseInt(e.target.value))} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                {/* Sessions Per Month */}
+                <FormField
+                  control={form.control}
+                  name="sessions_per_month"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{labels.sessionsPerMonth}</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="—" {...field} onChange={e => field.onChange(e.target.value === "" ? undefined : parseInt(e.target.value))} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            ) : null}
 
             {/* Action buttons */}
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
                 {labels.cancel}
               </Button>
-              <Button type="submit" disabled={loading || !form.formState.isValidating && !form.formState.isValid}>
+              <Button type="submit" disabled={loading || needsTemplateChoice || (!form.formState.isValidating && !form.formState.isValid)}>
                 {loading ? labels.loading : labels.create}
               </Button>
             </div>

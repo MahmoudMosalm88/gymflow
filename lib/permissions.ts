@@ -18,7 +18,7 @@ const roleNav: Record<AppRole, NavKey[]> = {
   owner: ["dashboard", "members", "guest_passes", "pt", "subscriptions", "reports", "income", "whatsapp", "notifications", "help", "settings", "profile"],
   manager: ["dashboard", "members", "guest_passes", "pt", "subscriptions", "whatsapp", "notifications", "help", "profile"],
   staff: ["dashboard", "members", "guest_passes", "pt", "subscriptions", "notifications", "help", "profile"],
-  trainer: ["pt", "members", "help", "profile"],
+  trainer: ["pt", "members", "notifications", "help", "profile"],
 };
 
 const navPaths: Record<NavKey, string> = {

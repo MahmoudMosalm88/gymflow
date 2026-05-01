@@ -89,13 +89,6 @@ export type TrainerAvailabilitySlot = {
   is_active: boolean;
 };
 
-export type TrainerTimeOffRow = {
-  id: string;
-  starts_at: string;
-  ends_at: string;
-  reason: string | null;
-};
-
 const PT_SETTING_DEFAULTS: PtSettings = {
   sessionDefaultMinutes: 60,
   noShowDeducts: true,
@@ -145,6 +138,82 @@ async function loadTrainerRow(
     throw new Error("Trainer not found");
   }
   return trainer;
+}
+
+export async function assignPackageMemberToTrainer(
+  client: PoolClient,
+  input: {
+    organizationId: string;
+    branchId: string;
+    memberId: string;
+    trainerStaffUserId: string;
+    assignedByActorType: "owner" | "staff";
+    assignedByActorId: string;
+  }
+) {
+  const existingRows = await client.query<{ assignment_id: string; trainer_staff_user_id: string }>(
+    `SELECT id AS assignment_id, trainer_staff_user_id
+       FROM member_trainer_assignments
+      WHERE organization_id = $1
+        AND branch_id = $2
+        AND member_id = $3
+        AND is_active = true
+      ORDER BY assigned_at DESC
+      LIMIT 1
+      FOR UPDATE`,
+    [input.organizationId, input.branchId, input.memberId]
+  );
+  const current = existingRows.rows[0] || null;
+
+  if (current?.trainer_staff_user_id === input.trainerStaffUserId) return;
+
+  if (current) {
+    await client.query(
+      `UPDATE member_trainer_assignments
+          SET is_active = false,
+              unassigned_at = NOW(),
+              updated_at = NOW()
+        WHERE id = $1`,
+      [current.assignment_id]
+    );
+  }
+
+  await client.query(
+    `INSERT INTO member_trainer_assignments (
+        id,
+        organization_id,
+        branch_id,
+        member_id,
+        trainer_staff_user_id,
+        assigned_by_actor_type,
+        assigned_by_actor_id,
+        assigned_at,
+        is_active,
+        created_at,
+        updated_at
+     ) VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        NOW(),
+        true,
+        NOW(),
+        NOW()
+     )`,
+    [
+      randomUUID(),
+      input.organizationId,
+      input.branchId,
+      input.memberId,
+      input.trainerStaffUserId,
+      input.assignedByActorType,
+      input.assignedByActorId,
+    ]
+  );
 }
 
 async function enqueuePtLowBalanceIfNeeded(
@@ -303,20 +372,6 @@ async function ensureTrainerAvailability(
   );
   if (overlapRows.rows[0]) {
     throw new Error("Trainer already has a session in this slot");
-  }
-
-  const timeOffRows = await client.query<{ id: string }>(
-    `SELECT id
-       FROM trainer_time_off
-      WHERE organization_id = $1
-        AND branch_id = $2
-        AND trainer_staff_user_id = $3
-        AND tstzrange(starts_at, ends_at, '[)') && tstzrange($4::timestamptz, $5::timestamptz, '[)')
-      LIMIT 1`,
-    [input.organizationId, input.branchId, input.trainerStaffUserId, input.scheduledStart, input.scheduledEnd]
-  );
-  if (timeOffRows.rows[0]) {
-    throw new Error("Trainer is marked unavailable for this time");
   }
 
   const start = new Date(input.scheduledStart);
@@ -640,6 +695,15 @@ export async function createPtPackage(input: {
       ]
     );
 
+    await assignPackageMemberToTrainer(client, {
+      organizationId: input.organizationId,
+      branchId: input.branchId,
+      memberId: input.memberId,
+      trainerStaffUserId: input.assignedTrainerStaffUserId,
+      assignedByActorType: input.soldByActorType,
+      assignedByActorId: input.soldByActorId,
+    });
+
     return rows.rows[0];
   });
 }
@@ -953,27 +1017,16 @@ export async function listBranchPtSessions(input: {
 }
 
 export async function getTrainerAvailability(organizationId: string, branchId: string, trainerStaffUserId: string) {
-  const [slots, timeOff] = await Promise.all([
-    query<TrainerAvailabilitySlot>(
-      `SELECT id, weekday, start_minute, end_minute, is_active
-         FROM trainer_availability
-        WHERE organization_id = $1
-          AND branch_id = $2
-          AND trainer_staff_user_id = $3
-        ORDER BY weekday ASC, start_minute ASC`,
-      [organizationId, branchId, trainerStaffUserId]
-    ),
-    query<TrainerTimeOffRow>(
-      `SELECT id, starts_at::text, ends_at::text, reason
-         FROM trainer_time_off
-        WHERE organization_id = $1
-          AND branch_id = $2
-          AND trainer_staff_user_id = $3
-        ORDER BY starts_at ASC`,
-      [organizationId, branchId, trainerStaffUserId]
-    ),
-  ]);
-  return { slots, timeOff };
+  const slots = await query<TrainerAvailabilitySlot>(
+    `SELECT id, weekday, start_minute, end_minute, is_active
+       FROM trainer_availability
+      WHERE organization_id = $1
+        AND branch_id = $2
+        AND trainer_staff_user_id = $3
+      ORDER BY weekday ASC, start_minute ASC`,
+    [organizationId, branchId, trainerStaffUserId]
+  );
+  return { slots, timeOff: [] };
 }
 
 export async function replaceTrainerAvailability(input: {
@@ -981,7 +1034,6 @@ export async function replaceTrainerAvailability(input: {
   branchId: string;
   trainerStaffUserId: string;
   slots: Array<{ weekday: number; start_minute: number; end_minute: number; is_active?: boolean }>;
-  timeOff?: Array<{ starts_at: string; ends_at: string; reason?: string | null }>;
 }) {
   return withTransaction(async (client) => {
     await loadTrainerRow(client, input.organizationId, input.branchId, input.trainerStaffUserId);
@@ -1014,23 +1066,6 @@ export async function replaceTrainerAvailability(input: {
           slot.start_minute,
           slot.end_minute,
           slot.is_active ?? true,
-        ]
-      );
-    }
-
-    for (const entry of input.timeOff ?? []) {
-      await client.query(
-        `INSERT INTO trainer_time_off (
-            id, organization_id, branch_id, trainer_staff_user_id, starts_at, ends_at, reason, created_at
-         ) VALUES ($1, $2, $3, $4, $5::timestamptz, $6::timestamptz, $7, NOW())`,
-        [
-          randomUUID(),
-          input.organizationId,
-          input.branchId,
-          input.trainerStaffUserId,
-          toIsoOrThrow(entry.starts_at, "starts_at"),
-          toIsoOrThrow(entry.ends_at, "ends_at"),
-          entry.reason || null,
         ]
       );
     }

@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { query } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
+import { getMemberCheckInCode } from "@/lib/check-in-code";
 import {
   getDefaultWelcomeTemplate,
   getTemplateKey,
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
           [auth.organizationId, auth.branchId]
         );
         const systemLanguage = normalizeSystemLanguage(settingsRows[0]?.value, "en");
-        const code = String(member.card_code || member.id);
+        const code = getMemberCheckInCode(member);
         const message =
           systemLanguage === "ar"
             ? `مرحباً ${member.name || "عميل"}.\nرمز الدخول الخاص بك: ${code}\nقدّمه عند تسجيل الدخول في الصالة.`

@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
 import { createPtPackage, listBranchPtPackages, listMemberPtPackages, listTrainerPtPackages } from "@/lib/pt";
 import { ptPackageCreateSchema } from "@/lib/validation";
+import { createNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +55,22 @@ export async function POST(request: NextRequest) {
       validUntil: payload.valid_until,
       notes: payload.notes ?? null,
     });
+    await createNotification(
+      {
+        source: "system",
+        type: "pt_package_assigned",
+        title: "New PT package assigned",
+        body: `${data.title || "A PT package"} was assigned to you.`,
+        severity: "info",
+        actionUrl: `/dashboard/members/${payload.member_id}`,
+        metadata: {
+          member_id: payload.member_id,
+          pt_package_id: data.id,
+          trainer_staff_user_id: payload.assigned_trainer_staff_user_id,
+        },
+      },
+      [{ organizationId: auth.organizationId, branchId: auth.branchId }]
+    ).catch(() => undefined);
     return ok(data, { status: 201 });
   } catch (error) {
     return routeError(error);

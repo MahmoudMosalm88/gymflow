@@ -141,6 +141,7 @@ export async function saveSubscriptionCreate(input: {
   memberId: string;
   memberName: string | null;
   startDate: number;
+  planTemplateId?: string | null;
   planMonths: number;
   pricePaid: number | null;
   paymentMethod: "cash" | "digital" | null;
@@ -152,6 +153,7 @@ export async function saveSubscriptionCreate(input: {
       const response = await api.post("/api/subscriptions", {
         member_id: input.memberId,
         start_date: input.startDate,
+        plan_template_id: input.planTemplateId ?? null,
         plan_months: input.planMonths,
         price_paid: input.pricePaid,
         payment_method: input.paymentMethod,
@@ -176,6 +178,7 @@ export async function saveSubscriptionRenew(input: {
   previousSubscriptionId: number;
   expectedPreviousEndDate: number;
   expectedPreviousIsActive: boolean;
+  planTemplateId?: string | null;
   planMonths: number;
   pricePaid: number | null;
   paymentMethod: "cash" | "digital" | null;
@@ -188,6 +191,7 @@ export async function saveSubscriptionRenew(input: {
       const response = await api.post("/api/subscriptions/renew", {
         member_id: input.memberId,
         previous_subscription_id: input.previousSubscriptionId,
+        plan_template_id: input.planTemplateId ?? null,
         plan_months: input.planMonths,
         price_paid: input.pricePaid,
         payment_method: input.paymentMethod,

@@ -26,6 +26,8 @@ const copy = {
     tab_backup: 'Backup & Restore',
     tab_import: 'Import Data',
     tab_pt: 'PT',
+    tab_branches: 'Branches',
+    tab_plans: 'Plans',
 
     // Language toggle
     lang_en: 'English',
@@ -64,6 +66,8 @@ const copy = {
     tab_backup: 'النسخ الاحتياطي',
     tab_import: 'استيراد البيانات',
     tab_pt: 'التدريب الشخصي',
+    tab_branches: 'الفروع',
+    tab_plans: 'الخطط',
 
     // Language toggle
     lang_en: 'English',
@@ -113,9 +117,15 @@ const BackupTab = dynamic(() => import('@/components/dashboard/settings/BackupTa
 const ImportTab = dynamic(() => import('@/components/dashboard/settings/ImportTab'), {
   loading: () => <TabLoading />,
 });
+const BranchesTab = dynamic(() => import('@/components/dashboard/settings/BranchesTab'), {
+  loading: () => <TabLoading />,
+});
+const PlansTab = dynamic(() => import('@/components/dashboard/settings/PlansTab'), {
+  loading: () => <TabLoading />,
+});
 
-type Tab = 'general' | 'whatsapp' | 'backup' | 'import' | 'pt';
-const TAB_KEYS: Tab[] = ['general', 'whatsapp', 'backup', 'import', 'pt'];
+type Tab = 'general' | 'whatsapp' | 'backup' | 'import' | 'pt' | 'branches' | 'plans';
+const TAB_KEYS: Tab[] = ['general', 'whatsapp', 'backup', 'import', 'pt', 'branches', 'plans'];
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -128,6 +138,8 @@ export default function SettingsPage() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'general', label: c.tab_general },
+    ...(profile?.role === 'owner' ? [{ key: 'branches' as const, label: c.tab_branches }] : []),
+    ...(profile?.role === 'owner' ? [{ key: 'plans' as const, label: c.tab_plans }] : []),
     { key: 'whatsapp', label: c.tab_whatsapp },
     { key: 'backup', label: c.tab_backup },
     { key: 'import', label: c.tab_import },
@@ -141,10 +153,10 @@ export default function SettingsPage() {
       return;
     }
 
-    if (TAB_KEYS.includes(requestedTab as Tab)) {
+    if (TAB_KEYS.includes(requestedTab as Tab) && ((requestedTab !== 'branches' && requestedTab !== 'plans') || profile?.role === 'owner')) {
       setActiveTab(requestedTab as Tab);
     }
-  }, [searchParams]);
+  }, [searchParams, profile?.role]);
 
   function handleTabChange(nextTab: Tab) {
     setActiveTab(nextTab);
@@ -184,6 +196,8 @@ export default function SettingsPage() {
       {activeTab === 'backup' && <BackupTab />}
       {activeTab === 'import' && <ImportTab />}
       {activeTab === 'pt' && <PtSettingsTab />}
+      {activeTab === 'branches' && profile?.role === 'owner' && <BranchesTab />}
+      {activeTab === 'plans' && profile?.role === 'owner' && <PlansTab />}
     </div>
   );
 }

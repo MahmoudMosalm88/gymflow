@@ -147,9 +147,11 @@ export default function StartTrialRouter({ locale = 'en' }: StartTrialRouterProp
     [branchCount, clientCount, migrationSource, setupPreference]
   );
 
+  const trialParams = new URLSearchParams({ mode: 'register', source: 'start-trial' });
+  if (branchCount) trialParams.set('branches', branchCount);
   const trialHref = isArabic
-    ? '/ar/login?mode=register&source=start-trial'
-    : '/login?mode=register&source=start-trial';
+    ? `/ar/login?${trialParams.toString()}`
+    : `/login?${trialParams.toString()}`;
   const demoHref = encodePrefill(locale, branchCount, clientCount, migrationSource, setupPreference);
 
   function goToPrimary() {
