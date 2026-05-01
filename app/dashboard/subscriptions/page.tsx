@@ -327,6 +327,7 @@ export default function SubscriptionsPage() {
         memberId: data.member_id,
         memberName: members.find((member) => member.id === data.member_id)?.name || null,
         startDate: data.start_date,
+        planTemplateId: data.plan_template_id ?? null,
         planMonths: data.plan_months,
         pricePaid: data.price_paid ?? null,
         paymentMethod: DEFAULT_PAYMENT_METHOD,
@@ -670,7 +671,7 @@ export default function SubscriptionsPage() {
         setModalOpen(open);
         if (!open) setCreateError('');
       }}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[520px]">
           <DialogHeader>
             <DialogTitle>{labels.newSubscription}</DialogTitle>
             <DialogDescription>

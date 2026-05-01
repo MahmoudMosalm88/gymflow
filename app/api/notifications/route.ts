@@ -48,6 +48,8 @@ export async function GET(request: NextRequest) {
     if (!["all", "system", "broadcast"].includes(source)) return fail("Invalid source filter", 400);
 
     const cursor = decodeCursor(url.searchParams.get("cursor"));
+    const trainerStaffUserId =
+      auth.role === "trainer" ? auth.staffUserId || "00000000-0000-0000-0000-000000000000" : null;
 
     const rows = await query<NotificationListItem & { metadata: Record<string, unknown> }>(
       `SELECT
@@ -70,11 +72,25 @@ export async function GET(request: NextRequest) {
         AND ($3::text = 'all' OR ($3::text = 'unread' AND r.read_at IS NULL))
         AND ($4::text = 'all' OR n.source = $4)
         AND (
+          (
+            $7::uuid IS NULL
+            AND n.metadata->>'trainer_staff_user_id' IS NULL
+            AND n.metadata->>'target_staff_user_id' IS NULL
+          )
+          OR (
+            $7::uuid IS NOT NULL
+            AND (
+              n.metadata->>'trainer_staff_user_id' = $7::text
+              OR n.metadata->>'target_staff_user_id' = $7::text
+            )
+          )
+        )
+        AND (
           $5::timestamptz IS NULL
           OR (r.delivered_at, n.id) < ($5::timestamptz, $6::uuid)
         )
       ORDER BY r.delivered_at DESC, n.id DESC
-      LIMIT $7`,
+      LIMIT $8`,
       [
         auth.organizationId,
         auth.branchId,
@@ -82,6 +98,7 @@ export async function GET(request: NextRequest) {
         source,
         cursor?.deliveredAt || null,
         cursor?.notificationId || null,
+        trainerStaffUserId,
         limit + 1,
       ]
     );

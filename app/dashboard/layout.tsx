@@ -23,6 +23,7 @@ const InstallPrompt = dynamic(() => import('@/components/dashboard/InstallPrompt
 const GlobalScanner = dynamic(() => import('@/components/dashboard/GlobalScanner'), { ssr: false });
 const BottomNav = dynamic(() => import('@/components/dashboard/BottomNav'), { ssr: false });
 const PageTransition = dynamic(() => import('@/components/dashboard/PageTransition'), { ssr: false });
+const BranchExpansionPrompt = dynamic(() => import('@/components/dashboard/BranchExpansionPrompt'), { ssr: false });
 const Toaster = dynamic(
   () => import('@/components/ui/sonner').then((mod) => mod.Toaster),
   { ssr: false }
@@ -272,6 +273,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Header onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
             <InstallPrompt />
             <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] lg:pb-6 no-scrollbar">
+              <BranchExpansionPrompt />
               <PageTransition>{children}</PageTransition>
             </main>
           </div>

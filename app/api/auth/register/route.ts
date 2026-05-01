@@ -5,6 +5,7 @@ import { withTransaction } from "@/lib/db";
 import { getFirebaseAdminAuth, getFirebaseAdminDiagnostics } from "@/lib/firebase-admin";
 import { fail, ok, routeError } from "@/lib/http";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { upsertSetting } from "@/lib/tenant";
 import { registerSchema } from "@/lib/validation";
 import { sendNewSignupNotification } from "@/lib/signup-notifications";
 
@@ -229,6 +230,14 @@ export async function POST(request: NextRequest) {
          VALUES ($1, $2, 'owner')`,
         [ownerId, branchId]
       );
+
+      if (payload.branchCountIntent) {
+        await upsertSetting(client, organizationId, branchId, "signup_branch_count_intent", payload.branchCountIntent);
+      }
+
+      if (payload.branchCountIntent && payload.branchCountIntent !== "one") {
+        await upsertSetting(client, organizationId, branchId, "branch_expansion_prompt_dismissed", false);
+      }
     });
 
     try {

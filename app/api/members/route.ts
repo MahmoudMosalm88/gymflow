@@ -7,6 +7,7 @@ import { fail, ok, routeError } from "@/lib/http";
 import { memberSchema } from "@/lib/validation";
 import { deactivateExpiredSubscriptions } from "@/lib/subscription-status";
 import { calculateSubscriptionEndDateUnix, getCurrentSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
+import { getMemberCheckInCode } from "@/lib/check-in-code";
 import {
   getDefaultWelcomeTemplate,
   getTemplateKey,
@@ -238,7 +239,7 @@ export async function POST(request: NextRequest) {
               payload.gender,
               payload.photo_path || null,
               payload.access_tier,
-              payload.card_code || null,
+              requestedCardCode || null,
               payload.address || null,
               payload.whatsapp_do_not_contact ?? false,
               now
@@ -262,7 +263,7 @@ export async function POST(request: NextRequest) {
               payload.gender,
               payload.photo_path || null,
               payload.access_tier,
-              payload.card_code || null,
+              requestedCardCode || null,
               payload.address || null,
               now
             ]
@@ -379,7 +380,7 @@ export async function POST(request: NextRequest) {
             ]
           );
 
-          const qrCodeValue = String(member.card_code || member.id);
+          const qrCodeValue = getMemberCheckInCode(member);
           const qrMessage =
             systemLanguage === "ar"
               ? `مرحباً ${member.name || "عميل"}.\nهذا رمز الدخول الخاص بك. يرجى إبرازه عند تسجيل الدخول.`

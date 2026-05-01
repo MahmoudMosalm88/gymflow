@@ -5,11 +5,13 @@ import { fail, ok, routeError } from "@/lib/http";
 import { subscriptionRenewSchema } from "@/lib/validation";
 import { calculateSubscriptionEndDateUnix, getCurrentSubscriptionAccessReferenceUnix } from "@/lib/subscription-dates";
 import { deactivateExpiredSubscriptions } from "@/lib/subscription-status";
+import { ensurePlanTemplateSchema, loadPlanTemplateSnapshot } from "@/lib/plan-templates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 async function ensureSubscriptionPaymentMethodColumn() {
+  await ensurePlanTemplateSchema({ query: async (text, values = []) => ({ rows: await query(text, values as unknown[]) }) });
   await query(`ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS payment_method TEXT`);
   await query(`ALTER TABLE subscriptions DROP CONSTRAINT IF EXISTS subscriptions_payment_method_check`);
   await query(`
@@ -33,6 +35,14 @@ export async function POST(request: NextRequest) {
     await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, accessNow);
 
     const output = await withTransaction(async (client) => {
+      await ensurePlanTemplateSchema(client);
+      const templateSnapshot = await loadPlanTemplateSnapshot(
+        client,
+        auth.organizationId,
+        auth.branchId,
+        payload.plan_template_id
+      );
+
       const memberRows = await client.query<{ id: string }>(
         `SELECT id
            FROM members
@@ -134,9 +144,15 @@ export async function POST(request: NextRequest) {
             price_paid,
             payment_method,
             sessions_per_month,
+            plan_template_id,
+            plan_template_name,
+            plan_perks,
+            freeze_days_allowed,
+            guest_invites_allowed,
             is_active
          ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+            $11, $12, $13::jsonb, $14, $15, true
          )
          RETURNING *`,
         [
@@ -149,7 +165,12 @@ export async function POST(request: NextRequest) {
           payload.plan_months,
           payload.price_paid ?? null,
           payload.payment_method ?? null,
-          payload.sessions_per_month ?? previous.sessions_per_month ?? null
+          payload.sessions_per_month ?? previous.sessions_per_month ?? null,
+          templateSnapshot?.planTemplateId ?? null,
+          templateSnapshot?.planTemplateName ?? null,
+          templateSnapshot ? JSON.stringify(templateSnapshot.planPerks) : null,
+          templateSnapshot?.freezeDaysAllowed ?? null,
+          templateSnapshot?.guestInvitesAllowed ?? null
         ]
       );
 

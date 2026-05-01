@@ -39,7 +39,6 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
       branchId: auth.branchId,
       trainerStaffUserId: id,
       slots: payload.slots,
-      timeOff: payload.time_off,
     });
     return ok(data);
   } catch (error) {

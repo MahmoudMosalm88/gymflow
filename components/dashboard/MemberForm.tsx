@@ -169,6 +169,11 @@ export default function MemberForm({ initialData, onSubmit, onCancel, loading, h
                   <FormControl>
                     <Input placeholder={labels.card_code_placeholder} {...field} />
                   </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    {lang === 'ar'
+                      ? 'اتركه فارغاً للعمل بالـ QR الرقمي فقط. سيستخدم GymFlow رمز دخول تلقائياً لهذا العميل.'
+                      : 'Leave empty for digital-only QR. GymFlow will use an automatic check-in code for this client.'}
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

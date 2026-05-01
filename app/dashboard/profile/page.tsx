@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api-client';
-import { formatDateTime } from '@/lib/format';
 import { useLang, t } from '@/lib/i18n';
 import { useAuth, logout } from '@/lib/use-auth';
 import { useSaveShortcut } from '@/lib/use-save-shortcut';
@@ -13,7 +12,6 @@ import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -41,12 +39,6 @@ type AvailabilitySlot = {
   start_minute: number;
   end_minute: number;
   is_active?: boolean;
-};
-
-type TimeOffEntry = {
-  starts_at: string;
-  ends_at: string;
-  reason?: string | null;
 };
 
 type FirebaseRuntime = {
@@ -77,7 +69,7 @@ async function loadFirebaseRuntime(): Promise<FirebaseRuntime> {
 }
 
 export default function ProfilePage() {
-  const { lang } = useLang();
+  const { lang, setLang } = useLang();
   const { profile } = useAuth();
   const canEditTenantNames = profile?.role === 'owner';
   const isTrainer = profile?.role === 'trainer';
@@ -130,9 +122,6 @@ export default function ProfilePage() {
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
   const [availabilityMessage, setAvailabilityMessage] = useState('');
   const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([]);
-  const [timeOff, setTimeOff] = useState<TimeOffEntry[]>([]);
-  const [showTimeOffDialog, setShowTimeOffDialog] = useState(false);
-  const [timeOffDraft, setTimeOffDraft] = useState<TimeOffEntry>({ starts_at: '', ends_at: '', reason: '' });
 
   const [form, setForm] = useState<ProfileData>({
     name: '',
@@ -217,7 +206,7 @@ export default function ProfilePage() {
       if (!isTrainer || !profile?.id) return;
       setAvailabilityLoading(true);
       try {
-        const res = await api.get<{ slots: AvailabilitySlot[]; timeOff: TimeOffEntry[] }>(`/api/trainers/${profile.id}/availability`);
+        const res = await api.get<{ slots: AvailabilitySlot[] }>(`/api/trainers/${profile.id}/availability`);
         if (res.success && res.data) {
           setAvailabilitySlots(
             res.data.slots?.length
@@ -232,7 +221,6 @@ export default function ProfilePage() {
                   { weekday: 6, start_minute: 540, end_minute: 1020, is_active: false },
                 ]
           );
-          setTimeOff(res.data.timeOff || []);
         }
       } catch (err) {
         setAvailabilityMessage(err instanceof Error ? err.message : labels.error);
@@ -385,7 +373,6 @@ export default function ProfilePage() {
           end_minute: slot.end_minute,
           is_active: Boolean(slot.is_active),
         })),
-        time_off: timeOff,
       });
       if (res.success) {
         setAvailabilityMessage(lang === 'ar' ? 'تم حفظ المواعيد.' : 'Availability saved.');
@@ -680,6 +667,43 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        <Card className="shadow-[6px_6px_0_#000000]">
+          <CardHeader>
+            <CardTitle>{labels.language}</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {lang === 'ar'
+                ? 'غيّر لغة واجهة GymFlow على هذا الجهاز.'
+                : 'Change the GymFlow interface language on this device.'}
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="flex w-fit border-2 border-border">
+              <button
+                type="button"
+                onClick={() => setLang('en')}
+                className={`px-4 py-2 text-sm font-bold transition-colors ${
+                  lang === 'en'
+                    ? 'bg-destructive text-white'
+                    : 'bg-card text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => setLang('ar')}
+                className={`px-4 py-2 text-sm font-bold transition-colors ${
+                  lang === 'ar'
+                    ? 'bg-destructive text-white'
+                    : 'bg-card text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                عربي
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* ── Two-column grid: Personal Info + Organization ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
@@ -933,7 +957,7 @@ export default function ProfilePage() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="active">{lang === 'ar' ? 'متاح' : 'Available'}</SelectItem>
-                            <SelectItem value="off">{lang === 'ar' ? 'إجازة' : 'Off'}</SelectItem>
+                            <SelectItem value="off">{lang === 'ar' ? 'غير متاح' : 'Unavailable'}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -941,34 +965,6 @@ export default function ProfilePage() {
                   ))}
               </div>
             )}
-            <div className="space-y-3 rounded-md border border-border p-4">
-              <div className="flex items-center justify-between">
-                <div className="font-medium">{lang === 'ar' ? 'إجازات واستثناءات' : 'Time Off'}</div>
-                <Button type="button" variant="outline" size="sm" onClick={() => setShowTimeOffDialog(true)}>
-                  {lang === 'ar' ? 'إضافة استثناء' : 'Add time off'}
-                </Button>
-              </div>
-              {timeOff.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{lang === 'ar' ? 'لا توجد استثناءات.' : 'No time off entries yet.'}</p>
-              ) : (
-                <div className="space-y-2">
-                  {timeOff.map((entry, index) => (
-                    <div key={`${entry.starts_at}-${index}`} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
-                      <div>
-                        <div className="text-sm font-medium">{formatDateTime(entry.starts_at, lang === 'ar' ? 'ar-EG' : 'en-US')}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {formatDateTime(entry.ends_at, lang === 'ar' ? 'ar-EG' : 'en-US')}
-                          {entry.reason ? ` · ${entry.reason}` : ''}
-                        </div>
-                      </div>
-                      <Button type="button" variant="outline" size="sm" onClick={() => setTimeOff((current) => current.filter((_, rowIndex) => rowIndex !== index))}>
-                        {lang === 'ar' ? 'حذف' : 'Remove'}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
             <div className="flex justify-end">
               <Button type="button" onClick={saveAvailability} disabled={availabilitySaving}>
                 {availabilitySaving ? labels.saving : labels.save}
@@ -996,51 +992,6 @@ export default function ProfilePage() {
           </Button>
         </div>
       </div>
-
-      <Dialog open={showTimeOffDialog} onOpenChange={setShowTimeOffDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{lang === 'ar' ? 'إضافة إجازة' : 'Add Time Off'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{lang === 'ar' ? 'من' : 'From'}</Label>
-              <Input type="datetime-local" value={timeOffDraft.starts_at} onChange={(e) => setTimeOffDraft((current) => ({ ...current, starts_at: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>{lang === 'ar' ? 'إلى' : 'To'}</Label>
-              <Input type="datetime-local" value={timeOffDraft.ends_at} onChange={(e) => setTimeOffDraft((current) => ({ ...current, ends_at: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>{lang === 'ar' ? 'السبب' : 'Reason'}</Label>
-              <Input value={timeOffDraft.reason || ''} onChange={(e) => setTimeOffDraft((current) => ({ ...current, reason: e.target.value }))} />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setShowTimeOffDialog(false)}>
-                {lang === 'ar' ? 'إلغاء' : 'Cancel'}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => {
-                  if (!timeOffDraft.starts_at || !timeOffDraft.ends_at) return;
-                  setTimeOff((current) => [
-                    ...current,
-                    {
-                      starts_at: new Date(timeOffDraft.starts_at).toISOString(),
-                      ends_at: new Date(timeOffDraft.ends_at).toISOString(),
-                      reason: timeOffDraft.reason || null,
-                    },
-                  ]);
-                  setTimeOffDraft({ starts_at: '', ends_at: '', reason: '' });
-                  setShowTimeOffDialog(false);
-                }}
-              >
-                {lang === 'ar' ? 'إضافة' : 'Add'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
     </div>
   );

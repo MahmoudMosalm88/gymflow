@@ -2,8 +2,9 @@ import { NextRequest } from "next/server";
 import { query, withTransaction } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { fail, ok, routeError } from "@/lib/http";
-import { syncPtPackageState } from "@/lib/pt";
+import { assignPackageMemberToTrainer, syncPtPackageState } from "@/lib/pt";
 import { ptPackagePatchSchema } from "@/lib/validation";
+import { createNotification } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,13 +18,16 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 
     const { id } = await context.params;
     const payload = ptPackagePatchSchema.parse(await request.json());
+    let previousTrainerStaffUserId: string | null = null;
     const data = await withTransaction(async (client) => {
       const currentRows = await client.query<{
         id: string;
         organization_id: string;
         branch_id: string;
+        member_id: string;
+        assigned_trainer_staff_user_id: string;
       }>(
-        `SELECT id, organization_id, branch_id
+        `SELECT id, organization_id, branch_id, member_id, assigned_trainer_staff_user_id
            FROM pt_packages
           WHERE id = $1
             AND organization_id = $2
@@ -33,6 +37,8 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
         [id, auth.organizationId, auth.branchId]
       );
       if (!currentRows.rows[0]) throw new Error("PT package not found");
+      const current = currentRows.rows[0];
+      previousTrainerStaffUserId = current.assigned_trainer_staff_user_id;
 
       await client.query(
         `UPDATE pt_packages
@@ -67,6 +73,15 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
       );
 
       if (payload.assigned_trainer_staff_user_id) {
+        await assignPackageMemberToTrainer(client, {
+          organizationId: auth.organizationId,
+          branchId: auth.branchId,
+          memberId: current.member_id,
+          trainerStaffUserId: payload.assigned_trainer_staff_user_id,
+          assignedByActorType: auth.actorType,
+          assignedByActorId: auth.actorId,
+        });
+
         await client.query(
           `UPDATE pt_sessions
               SET trainer_staff_user_id = $4,
@@ -82,6 +97,28 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 
       return syncPtPackageState(client, id, auth.organizationId, auth.branchId);
     });
+
+    if (
+      payload.assigned_trainer_staff_user_id &&
+      payload.assigned_trainer_staff_user_id !== previousTrainerStaffUserId
+    ) {
+      await createNotification(
+        {
+          source: "system",
+          type: "pt_package_assigned",
+          title: "PT package reassigned",
+          body: `${data.title || "A PT package"} was assigned to you.`,
+          severity: "info",
+          actionUrl: `/dashboard/members/${data.member_id}`,
+          metadata: {
+            member_id: data.member_id,
+            pt_package_id: data.id,
+            trainer_staff_user_id: payload.assigned_trainer_staff_user_id,
+          },
+        },
+        [{ organizationId: auth.organizationId, branchId: auth.branchId }]
+      ).catch(() => undefined);
+    }
 
     return ok(data);
   } catch (error) {

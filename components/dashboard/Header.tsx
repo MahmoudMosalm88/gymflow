@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/use-auth';
 import Link from 'next/link';
 import SyncStatus from './SyncStatus';
 import NotificationBell from './NotificationBell';
+import BranchSwitcher from './BranchSwitcher';
 
 type Props = {
   onMenuToggle: () => void;
@@ -25,6 +26,7 @@ export default function Header({ onMenuToggle }: Props) {
       </div>
 
       <div className="flex items-center gap-2">
+        <BranchSwitcher />
         {/* SyncStatus hidden on mobile — bottom nav takes priority */}
         <span className="hidden lg:inline-flex"><SyncStatus /></span>
         <NotificationBell />

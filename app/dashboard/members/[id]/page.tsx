@@ -7,11 +7,13 @@ import { api } from '@/lib/api-client';
 import { useLang, t } from '@/lib/i18n';
 import { useAuth } from '@/lib/use-auth';
 import { formatDate, formatDateTime, formatCurrency } from '@/lib/format';
+import { getMemberCheckInCode } from '@/lib/check-in-code';
 import { getCachedMemberDetail } from '@/lib/offline/read-model';
 import { saveSubscriptionRenew } from '@/lib/offline/actions';
 import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-method-ui';
 import { useSaveShortcut } from '@/lib/use-save-shortcut';
 import LoadingSpinner from '@/components/dashboard/LoadingSpinner';
+import PlanTemplateSelector, { type PlanTemplateOption } from '@/components/dashboard/PlanTemplateSelector';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -67,6 +69,7 @@ const copy = {
     whatsapp_dnc_off: 'Allowed',
     whatsapp_dnc_save_failed: 'Could not update WhatsApp contact preference.',
     send_checkin_code: 'Send Check-in Code',
+    checkin_code: 'Check-in code',
     send_welcome: 'Send Welcome Message',
     assigned_trainer: 'Assigned Trainer',
     assigned_date: 'Assigned:',
@@ -121,6 +124,7 @@ const copy = {
     whatsapp_dnc_off: 'مسموح',
     whatsapp_dnc_save_failed: 'تعذر تحديث تفضيل التواصل عبر واتساب.',
     send_checkin_code: 'إرسال رمز الدخول',
+    checkin_code: 'رمز الدخول',
     send_welcome: 'إرسال رسالة ترحيب',
     assigned_trainer: 'المدرب المسؤول',
     assigned_date: 'تاريخ الإسناد:',
@@ -286,7 +290,9 @@ export default function MemberDetailPage() {
   const [updatingWhatsappDnc, setUpdatingWhatsappDnc] = useState(false);
   const [freezeSubId, setFreezeSubId] = useState<string | null>(null);
   const [renewSub, setRenewSub] = useState<Subscription | null>(null);
-  const [renewForm, setRenewForm] = useState({ plan_months: '1', sessions_per_month: '', price_paid: '' });
+  const [renewForm, setRenewForm] = useState({ plan_template_id: null as string | null, plan_months: '1', sessions_per_month: '', price_paid: '' });
+  const [renewTemplateCount, setRenewTemplateCount] = useState<number | null>(null);
+  const [renewManualMode, setRenewManualMode] = useState(false);
   const [renewing, setRenewing] = useState(false);
   const [renewError, setRenewError] = useState('');
   const [showSubscriptionHistory, setShowSubscriptionHistory] = useState(false);
@@ -491,16 +497,20 @@ export default function MemberDetailPage() {
 
   function openRenewModal(sub: Subscription) {
     setRenewSub(sub);
-      setRenewForm({
-        plan_months: String(sub.plan_months || 1),
-        sessions_per_month: sub.sessions_per_month != null ? String(sub.sessions_per_month) : '',
-        price_paid: '',
-      });
+    setRenewManualMode(false);
+    setRenewTemplateCount(null);
+    setRenewForm({
+      plan_template_id: null,
+      plan_months: String(sub.plan_months || 1),
+      sessions_per_month: sub.sessions_per_month != null ? String(sub.sessions_per_month) : '',
+      price_paid: '',
+    });
     setRenewError('');
   }
 
   async function handleRenew() {
     if (!member || !renewSub || renewing) return;
+    if ((renewTemplateCount ?? 0) > 0 && !renewManualMode && !renewForm.plan_template_id) return;
     setRenewing(true);
     setRenewError('');
     try {
@@ -511,6 +521,7 @@ export default function MemberDetailPage() {
         previousSubscriptionId: Number(renewSub.id),
         expectedPreviousEndDate: renewSub.end_date,
         expectedPreviousIsActive: renewSub.is_active,
+        planTemplateId: renewForm.plan_template_id,
         planMonths: parseInt(renewForm.plan_months, 10) || 1,
         pricePaid: renewalAmount,
         paymentMethod: DEFAULT_PAYMENT_METHOD,
@@ -537,6 +548,22 @@ export default function MemberDetailPage() {
     disabled: renewing,
     enterMode: 'all',
   });
+
+  function applyRenewTemplate(template: PlanTemplateOption) {
+    setRenewManualMode(false);
+    setRenewForm((form) => ({
+      ...form,
+      plan_template_id: template.id,
+      plan_months: String(template.duration_months),
+      sessions_per_month: template.sessions_per_month == null ? '' : String(template.sessions_per_month),
+      price_paid: String(template.price),
+    }));
+  }
+
+  function selectManualRenewal() {
+    setRenewManualMode(true);
+    setRenewForm((form) => ({ ...form, plan_template_id: null }));
+  }
 
   if (loading || authLoading) return <LoadingSpinner size="lg" />;
 
@@ -653,7 +680,7 @@ export default function MemberDetailPage() {
               {/* Expandable extra info */}
               {showMoreInfo && (
                 <div className="space-y-2 text-sm border-t border-border pt-3">
-                  {member.card_code && <InfoRow label={labels.card_code} value={member.card_code} />}
+                  <InfoRow label={c.checkin_code} value={<span dir="ltr">{getMemberCheckInCode(member)}</span>} />
                   {member.address && <InfoRow label={labels.address} value={member.address} />}
                   <InfoRow label={c.whatsapp_dnc_label} value={member.whatsapp_do_not_contact ? c.whatsapp_dnc_on : c.whatsapp_dnc_off} />
                   <InfoRow label={labels.created_at} value={formatDate(member.created_at, locale)} />
@@ -1031,7 +1058,7 @@ export default function MemberDetailPage() {
       {/* Renew subscription modal */}
       {!isTrainer ? (
         <Dialog open={!!renewSub} onOpenChange={(o) => { if (!o) setRenewSub(null); }}>
-          <DialogContent className="max-w-md" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+          <DialogContent className="max-h-[90dvh] max-w-md overflow-y-auto" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
             <DialogHeader>
               <DialogTitle>{c.renew_subscription}</DialogTitle>
             </DialogHeader>
@@ -1050,44 +1077,55 @@ export default function MemberDetailPage() {
                   </Alert>
                 );
               })()}
-              {/* Plan duration radio buttons */}
-              <div className="space-y-2">
-                <Label>{c.add_duration}</Label>
-                <div className="flex flex-wrap gap-0">
-                  {planOptions.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      className={radioOption(renewForm.plan_months === m)}
-                      onClick={() => setRenewForm((f) => ({ ...f, plan_months: m }))}
-                    >
-                      {labels[`month_${m}` as keyof typeof labels]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {/* Sessions per month */}
-              <div className="space-y-2">
-                <Label>{labels.sessionsPerMonth}</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  placeholder="e.g. 12"
-                  value={renewForm.sessions_per_month}
-                  onChange={(e) => setRenewForm((f) => ({ ...f, sessions_per_month: e.target.value }))}
-                />
-              </div>
-              {/* Price */}
-              <div className="space-y-2">
-                <Label>{labels.pricePaid}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="e.g. 500"
-                  value={renewForm.price_paid}
-                  onChange={(e) => setRenewForm((f) => ({ ...f, price_paid: e.target.value }))}
-                />
-              </div>
+              <PlanTemplateSelector
+                selectedId={renewForm.plan_template_id}
+                manualSelected={renewManualMode}
+                onSelectTemplate={applyRenewTemplate}
+                onSelectManual={selectManualRenewal}
+                onAvailabilityChange={setRenewTemplateCount}
+              />
+              {(renewManualMode || renewTemplateCount === 0) ? (
+                <>
+                  {/* Plan duration radio buttons */}
+                  <div className="space-y-2">
+                    <Label>{c.add_duration}</Label>
+                    <div className="flex flex-wrap gap-0">
+                      {planOptions.map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          className={radioOption(renewForm.plan_months === m)}
+                          onClick={() => setRenewForm((f) => ({ ...f, plan_months: m }))}
+                        >
+                          {labels[`month_${m}` as keyof typeof labels]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Sessions per month */}
+                  <div className="space-y-2">
+                    <Label>{labels.sessionsPerMonth}</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      placeholder="e.g. 12"
+                      value={renewForm.sessions_per_month}
+                      onChange={(e) => setRenewForm((f) => ({ ...f, sessions_per_month: e.target.value }))}
+                    />
+                  </div>
+                  {/* Price */}
+                  <div className="space-y-2">
+                    <Label>{labels.pricePaid}</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="e.g. 500"
+                      value={renewForm.price_paid}
+                      onChange={(e) => setRenewForm((f) => ({ ...f, price_paid: e.target.value }))}
+                    />
+                  </div>
+                </>
+              ) : null}
               {renewError && (
                 <Alert variant="destructive">
                   <AlertDescription>{renewError}</AlertDescription>
@@ -1097,7 +1135,7 @@ export default function MemberDetailPage() {
                 <Button variant="outline" onClick={() => setRenewSub(null)} disabled={renewing}>
                   {labels.cancel}
                 </Button>
-                <Button onClick={handleRenew} disabled={renewing}>
+                <Button onClick={handleRenew} disabled={renewing || ((renewTemplateCount ?? 0) > 0 && !renewManualMode && !renewForm.plan_template_id)}>
                   {renewing ? labels.loading : c.renew}
                 </Button>
               </div>
