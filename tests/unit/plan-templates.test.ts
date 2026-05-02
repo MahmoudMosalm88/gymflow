@@ -12,6 +12,8 @@ describe("plan template schema", () => {
     expect(migration).toBeTruthy();
     expect(migration).toContain("data_type = 'ARRAY'");
     expect(migration).toContain("udt_name = '_text'");
+    expect(migration).toContain("ALTER COLUMN plan_perks DROP DEFAULT");
     expect(migration).toContain("USING COALESCE(to_jsonb(plan_perks), '[]'::jsonb)");
+    expect(migration).toContain("ALTER COLUMN plan_perks SET DEFAULT '[]'::jsonb");
   });
 });
