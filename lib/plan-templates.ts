@@ -27,7 +27,6 @@ export type PlanTemplate = {
   duration_months: number;
   price: number;
   sessions_per_month: number | null;
-  perks: string[];
   freeze_days_per_cycle: number;
   guest_invites_per_cycle: number;
   is_archived: boolean;
@@ -39,27 +38,25 @@ export type PlanTemplate = {
 export type PlanTemplateSnapshot = {
   planTemplateId: string;
   planTemplateName: string;
-  planPerks: string[];
   freezeDaysAllowed: number;
   guestInvitesAllowed: number;
 };
 
-function normalizePerks(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
-}
-
 export function normalizePlanTemplate(row: PlanTemplateRow): PlanTemplate {
   return {
-    ...row,
+    id: row.id,
+    organization_id: row.organization_id,
+    branch_id: row.branch_id,
+    name: row.name,
     duration_months: Number(row.duration_months),
     price: Number(row.price),
     sessions_per_month: row.sessions_per_month == null ? null : Number(row.sessions_per_month),
-    perks: normalizePerks(row.perks),
     freeze_days_per_cycle: Number(row.freeze_days_per_cycle || 0),
     guest_invites_per_cycle: Number(row.guest_invites_per_cycle || 0),
     is_archived: Boolean(row.is_archived),
-    sort_order: Number(row.sort_order || 0)
+    sort_order: Number(row.sort_order || 0),
+    created_at: row.created_at,
+    updated_at: row.updated_at
   };
 }
 
@@ -171,7 +168,6 @@ export async function loadPlanTemplateSnapshot(
   return {
     planTemplateId: template.id,
     planTemplateName: template.name,
-    planPerks: template.perks,
     freezeDaysAllowed: template.freeze_days_per_cycle,
     guestInvitesAllowed: template.guest_invites_per_cycle
   };

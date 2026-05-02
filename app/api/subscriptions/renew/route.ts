@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
           payload.sessions_per_month ?? previous.sessions_per_month ?? null,
           templateSnapshot?.planTemplateId ?? null,
           templateSnapshot?.planTemplateName ?? null,
-          JSON.stringify(templateSnapshot?.planPerks ?? []),
+          JSON.stringify([]),
           templateSnapshot?.freezeDaysAllowed ?? null,
           templateSnapshot?.guestInvitesAllowed ?? null
         ]

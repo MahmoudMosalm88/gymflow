@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
           payload.duration_months,
           payload.price,
           payload.sessions_per_month ?? null,
-          JSON.stringify(payload.perks),
+          JSON.stringify([]),
           payload.freeze_days_per_cycle,
           payload.guest_invites_per_cycle,
           sortOrder
@@ -118,7 +118,6 @@ export async function PATCH(request: NextRequest) {
       payload.duration_months,
       payload.price,
       payload.sessions_per_month,
-      payload.perks,
       payload.freeze_days_per_cycle,
       payload.guest_invites_per_cycle,
       payload.is_archived,
@@ -134,11 +133,11 @@ export async function PATCH(request: NextRequest) {
                 duration_months = COALESCE($5::integer, duration_months),
                 price = COALESCE($6::numeric, price),
                 sessions_per_month = CASE WHEN $7::boolean THEN $8::int ELSE sessions_per_month END,
-                perks = CASE WHEN $9::boolean THEN $10::jsonb ELSE perks END,
-                freeze_days_per_cycle = COALESCE($11::integer, freeze_days_per_cycle),
-                guest_invites_per_cycle = COALESCE($12::integer, guest_invites_per_cycle),
-                is_archived = COALESCE($13::boolean, is_archived),
-                sort_order = COALESCE($14::integer, sort_order),
+                perks = '[]'::jsonb,
+                freeze_days_per_cycle = COALESCE($9::integer, freeze_days_per_cycle),
+                guest_invites_per_cycle = COALESCE($10::integer, guest_invites_per_cycle),
+                is_archived = COALESCE($11::boolean, is_archived),
+                sort_order = COALESCE($12::integer, sort_order),
                 updated_at = NOW()
           WHERE id = $1
             AND organization_id = $2
@@ -153,8 +152,6 @@ export async function PATCH(request: NextRequest) {
           payload.price ?? null,
           payload.sessions_per_month !== undefined,
           payload.sessions_per_month ?? null,
-          payload.perks !== undefined,
-          JSON.stringify(payload.perks ?? []),
           payload.freeze_days_per_cycle ?? null,
           payload.guest_invites_per_cycle ?? null,
           payload.is_archived ?? null,
