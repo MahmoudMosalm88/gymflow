@@ -148,10 +148,10 @@ export async function POST(request: NextRequest) {
     await ensureSubscriptionPaymentMethodColumn();
     const body = await request.json();
     const payload = subscriptionSchema.parse(body);
-    const hasExpectedActiveSubscriptionGuard = Object.prototype.hasOwnProperty.call(
-      body,
-      "expected_active_subscription_id"
-    );
+    const isOfflineSync = (body as { source?: unknown }).source === "offline_sync";
+    const hasExpectedActiveSubscriptionGuard =
+      isOfflineSync &&
+      Object.prototype.hasOwnProperty.call(body, "expected_active_subscription_id");
     const expectedActiveSubscriptionId = toNullablePositiveInt((body as { expected_active_subscription_id?: unknown })?.expected_active_subscription_id);
     const accessNow = getCurrentSubscriptionAccessReferenceUnix();
     await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, accessNow);

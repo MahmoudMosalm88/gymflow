@@ -204,6 +204,7 @@ async function syncOperation(operation: Awaited<ReturnType<typeof getPendingOper
           price_paid: operation.payload.pricePaid,
           payment_method: operation.payload.paymentMethod,
           sessions_per_month: operation.payload.sessionsPerMonth,
+          source: "offline_sync",
           expected_active_subscription_id: operation.payload.expectedActiveSubscriptionId,
         });
         if (!response.success) throw new Error(response.message || "Failed to create subscription.");
@@ -215,6 +216,9 @@ async function syncOperation(operation: Awaited<ReturnType<typeof getPendingOper
         const response = await api.post("/api/subscriptions/renew", {
           member_id: operation.payload.memberId,
           previous_subscription_id: operation.payload.previousSubscriptionId,
+          source: "offline_sync",
+          expected_previous_end_date: operation.payload.expectedPreviousEndDate,
+          expected_previous_is_active: operation.payload.expectedPreviousIsActive,
           plan_months: operation.payload.planMonths,
           price_paid: operation.payload.pricePaid,
           payment_method: operation.payload.paymentMethod,
