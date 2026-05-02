@@ -104,8 +104,23 @@ export async function ensurePlanTemplateSchema(executor: Queryable) {
            AND udt_name = '_text'
       ) THEN
         ALTER TABLE subscriptions
+          ALTER COLUMN plan_perks DROP DEFAULT;
+
+        ALTER TABLE subscriptions
           ALTER COLUMN plan_perks TYPE jsonb
           USING COALESCE(to_jsonb(plan_perks), '[]'::jsonb);
+      END IF;
+
+      IF EXISTS (
+        SELECT 1
+          FROM information_schema.columns
+         WHERE table_schema = current_schema()
+           AND table_name = 'subscriptions'
+           AND column_name = 'plan_perks'
+           AND data_type = 'jsonb'
+      ) THEN
+        ALTER TABLE subscriptions
+          ALTER COLUMN plan_perks SET DEFAULT '[]'::jsonb;
       END IF;
     END $$;
   `);
