@@ -21,6 +21,22 @@ CREATE INDEX IF NOT EXISTS idx_plan_templates_org_branch_active
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS plan_template_id uuid;
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS plan_template_name text;
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS plan_perks jsonb;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = current_schema()
+       AND table_name = 'subscriptions'
+       AND column_name = 'plan_perks'
+       AND data_type = 'ARRAY'
+       AND udt_name = '_text'
+  ) THEN
+    ALTER TABLE subscriptions
+      ALTER COLUMN plan_perks TYPE jsonb
+      USING COALESCE(to_jsonb(plan_perks), '[]'::jsonb);
+  END IF;
+END $$;
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS freeze_days_allowed integer;
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS guest_invites_allowed integer;
 
