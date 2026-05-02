@@ -137,6 +137,39 @@ describe("subscription renewal stale flow", () => {
     expect(clientQuery).toHaveBeenCalledTimes(4);
   });
 
+  it("writes an empty perks snapshot for manual renewals", async () => {
+    const insertedRenewal = {
+      id: 101,
+      member_id: memberId,
+      renewed_from_subscription_id: previousSubscriptionId,
+      start_date: previousEndDate,
+      end_date: 1782129600,
+      plan_months: 1,
+      price_paid: 250,
+      payment_method: "cash",
+      sessions_per_month: 26,
+      plan_perks: [],
+      is_active: true,
+    };
+    const clientQuery = vi.fn()
+      .mockResolvedValueOnce({ rows: [{ id: memberId }] })
+      .mockResolvedValueOnce({ rows: [previousRow()] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [insertedRenewal] });
+    mockWithTransaction.mockImplementation(async (callback) => callback({ query: clientQuery }));
+
+    const { POST } = await import("@/app/api/subscriptions/renew/route");
+    const response = await POST(createJsonRequest("/api/subscriptions/renew", renewPayload({ plan_template_id: null })));
+    const payload = await readJson<{ success: boolean; data: { id: number } }>(response);
+    const insertCall = clientQuery.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO subscriptions"));
+
+    expect(response.status).toBe(201);
+    expect(payload.success).toBe(true);
+    expect(payload.data.id).toBe(101);
+    expect(insertCall?.[1]?.[12]).toBe("[]");
+  });
+
   it("still rejects an explicitly guarded offline renewal when the previous cycle changed", async () => {
     const clientQuery = vi.fn()
       .mockResolvedValueOnce({ rows: [{ id: memberId }] })

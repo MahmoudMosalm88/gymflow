@@ -96,6 +96,8 @@ describe("subscription create conflict guard", () => {
       expect.stringContaining("UPDATE subscriptions"),
       [organizationId, branchId, memberId]
     );
+    const insertCall = clientQuery.mock.calls.find(([sql]) => String(sql).includes("INSERT INTO subscriptions"));
+    expect(insertCall?.[1]?.[11]).toBe("[]");
   });
 
   it("ignores stale web create guards unless the payload is an offline sync", async () => {
