@@ -158,7 +158,6 @@ export async function saveSubscriptionCreate(input: {
         price_paid: input.pricePaid,
         payment_method: input.paymentMethod,
         sessions_per_month: input.sessionsPerMonth,
-        expected_active_subscription_id: input.expectedActiveSubscriptionId,
       });
       if (!response.success) throw new Error(response.message || "Failed to create subscription.");
       await refreshOfflineBundleSafe();

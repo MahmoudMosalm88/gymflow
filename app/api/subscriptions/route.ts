@@ -148,6 +148,10 @@ export async function POST(request: NextRequest) {
     await ensureSubscriptionPaymentMethodColumn();
     const body = await request.json();
     const payload = subscriptionSchema.parse(body);
+    const hasExpectedActiveSubscriptionGuard = Object.prototype.hasOwnProperty.call(
+      body,
+      "expected_active_subscription_id"
+    );
     const expectedActiveSubscriptionId = toNullablePositiveInt((body as { expected_active_subscription_id?: unknown })?.expected_active_subscription_id);
     const accessNow = getCurrentSubscriptionAccessReferenceUnix();
     await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, accessNow);
@@ -204,7 +208,12 @@ export async function POST(request: NextRequest) {
 
       const currentId = currentRows.rows[0]?.id ?? null;
       let allowExpiredExpectedSubscription = false;
-      if (currentId !== expectedActiveSubscriptionId && currentId === null && expectedActiveSubscriptionId !== null) {
+      if (
+        hasExpectedActiveSubscriptionGuard &&
+        currentId !== expectedActiveSubscriptionId &&
+        currentId === null &&
+        expectedActiveSubscriptionId !== null
+      ) {
         const expectedRows = await client.query<{ id: number; end_date: number; is_active: boolean }>(
           `SELECT id, end_date, is_active
              FROM subscriptions
@@ -221,7 +230,11 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      if (currentId !== expectedActiveSubscriptionId && !allowExpiredExpectedSubscription) {
+      if (
+        hasExpectedActiveSubscriptionGuard &&
+        currentId !== expectedActiveSubscriptionId &&
+        !allowExpiredExpectedSubscription
+      ) {
         throw Object.assign(new Error("This member's subscription changed on another device. Review and try again."), {
           statusCode: 409,
           code: "offline_conflict",
