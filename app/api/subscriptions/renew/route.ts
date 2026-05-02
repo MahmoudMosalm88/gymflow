@@ -30,7 +30,15 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
     await ensureSubscriptionPaymentMethodColumn();
-    const payload = subscriptionRenewSchema.parse(await request.json());
+    const body = await request.json();
+    const isOfflineSync = (body as { source?: unknown }).source === "offline_sync";
+    const hasExpectedPreviousGuard =
+      isOfflineSync &&
+      (
+        Object.prototype.hasOwnProperty.call(body, "expected_previous_end_date") ||
+        Object.prototype.hasOwnProperty.call(body, "expected_previous_is_active")
+      );
+    const payload = subscriptionRenewSchema.parse(body);
     const accessNow = getCurrentSubscriptionAccessReferenceUnix();
     await deactivateExpiredSubscriptions(auth.organizationId, auth.branchId, accessNow);
 
@@ -82,6 +90,19 @@ export async function POST(request: NextRequest) {
       }
       const previousEndDate = Number(previous.end_date);
 
+      if (
+        hasExpectedPreviousGuard &&
+        (
+          (payload.expected_previous_end_date != null && previousEndDate !== payload.expected_previous_end_date) ||
+          (payload.expected_previous_is_active != null && previous.is_active !== payload.expected_previous_is_active)
+        )
+      ) {
+        throw Object.assign(new Error("This subscription changed on another device. Review and try again."), {
+          statusCode: 409,
+          code: "offline_conflict",
+        });
+      }
+
       if (previous.member_id !== payload.member_id) {
         throw Object.assign(new Error("Subscription does not belong to this member"), { statusCode: 400 });
       }
@@ -90,8 +111,8 @@ export async function POST(request: NextRequest) {
         throw Object.assign(new Error("Only enabled subscription cycles can be renewed"), { statusCode: 400 });
       }
 
-      const existingRenewalRows = await client.query<{ id: number }>(
-        `SELECT id
+      const existingRenewalRows = await client.query(
+        `SELECT *
            FROM subscriptions
           WHERE organization_id = $1
             AND branch_id = $2
@@ -103,14 +124,11 @@ export async function POST(request: NextRequest) {
       );
 
       if (existingRenewalRows.rows[0]) {
-        throw Object.assign(new Error("This subscription was already renewed. Refresh and review the latest cycle."), {
-          statusCode: 409,
-          code: "already_renewed",
-        });
+        return existingRenewalRows.rows[0];
       }
 
-      const newerCycleRows = await client.query<{ id: number }>(
-        `SELECT id
+      const newerCycleRows = await client.query(
+        `SELECT *
            FROM subscriptions
           WHERE organization_id = $1
             AND branch_id = $2
@@ -123,6 +141,9 @@ export async function POST(request: NextRequest) {
       );
 
       if (newerCycleRows.rows[0]) {
+        if (!hasExpectedPreviousGuard) {
+          return newerCycleRows.rows[0];
+        }
         throw Object.assign(new Error("This member already has a newer subscription cycle. Refresh and review the latest state."), {
           statusCode: 409,
           code: "newer_cycle_exists",
@@ -154,6 +175,9 @@ export async function POST(request: NextRequest) {
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
             $11, $12, $13::jsonb, $14, $15, true
          )
+         ON CONFLICT (renewed_from_subscription_id)
+           WHERE renewed_from_subscription_id IS NOT NULL
+           DO NOTHING
          RETURNING *`,
         [
           auth.organizationId,
@@ -173,6 +197,21 @@ export async function POST(request: NextRequest) {
           templateSnapshot?.guestInvitesAllowed ?? null
         ]
       );
+
+      if (!inserted.rows[0]) {
+        const existingRows = await client.query(
+          `SELECT *
+             FROM subscriptions
+            WHERE organization_id = $1
+              AND branch_id = $2
+              AND member_id = $3
+              AND renewed_from_subscription_id = $4
+            ORDER BY created_at DESC
+            LIMIT 1`,
+          [auth.organizationId, auth.branchId, payload.member_id, payload.previous_subscription_id]
+        );
+        if (existingRows.rows[0]) return existingRows.rows[0];
+      }
 
       return inserted.rows[0];
     });

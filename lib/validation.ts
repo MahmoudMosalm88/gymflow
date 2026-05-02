@@ -124,6 +124,8 @@ export const subscriptionPatchSchema = z.object({
 export const subscriptionRenewSchema = z.object({
   member_id: z.string().uuid(),
   previous_subscription_id: z.coerce.number().int().positive(),
+  expected_previous_end_date: z.coerce.number().int().positive().optional().nullable(),
+  expected_previous_is_active: z.boolean().optional().nullable(),
   plan_template_id: z.string().uuid().optional().nullable(),
   plan_months: z.number().int().positive(),
   price_paid: z.number().min(0).optional().nullable(),
