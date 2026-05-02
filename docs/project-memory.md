@@ -1,7 +1,7 @@
 # GymFlow — Project Memory (Source of Truth)
 
 > Single living document. Combines git history, session logs, and all docs into one timeline.
-> Any new task should start here. Last updated: **April 28, 2026**.
+> Any new task should start here. Last updated: **May 2, 2026**.
 
 ---
 
@@ -19,6 +19,16 @@ GymFlow is a gym membership management system built for Arabic-speaking gym owne
 | **WhatsApp Worker** | `/worker/whatsapp-vm/` | Node/TS background worker | Active |
 
 > Historical notes below still reference `/saas-web/` for events that happened before the April 24, 2026 repo flatten.
+
+### Current State (May 2, 2026)
+
+- **Production release**: `6053c887dadae0d877d18b828da14ef15f3f9ce9` is live on `gymflowsystem.com`; `npm run release:status` reports Cloud Build, `CI`, `Post Deploy Smoke`, and `/api/health` closed successfully.
+- **Acquisition funnel**: public landing uses the hybrid motion: `Start Free Trial` for simple gyms and assisted `Book a Demo` routing for larger/migration-heavy gyms. `/start-trial`, `/ar/start-trial`, `/contact`, and `/contact-and-data-requests` are active routes.
+- **Branch management**: owners now have branch management UI and a header branch switcher after onboarding. `app/api/branches/route.ts`, `components/dashboard/settings/BranchesTab.tsx`, `components/dashboard/BranchSwitcher.tsx`, and `lib/branch-session.ts` are the key files.
+- **Plan templates**: owner-managed branch plan templates are live. Templates can prefill create/renew subscription flows, while sold subscriptions keep billing/snapshot fields so later template edits do not mutate historical sales.
+- **Subscription create/renew safety**: stale offline and duplicate create/renew guard behavior was hardened in PRs `#30` and `#31`; use `client_request_id`, idempotency metadata, and stale offline action cleanup rather than relying only on UI state.
+- **PT workflows**: PT package assignment and booking flows are more guided, including the 3-step booking dialog and safer trainer deactivation blockers when active PT workload needs a replacement trainer.
+- **Release workflow**: protected branch + PR workflow is active. Required local stack remains `typecheck`, `build`, `test`, `test:smoke`, and worker typecheck. Main deploys only through CI/CD on merge.
 
 ---
 
@@ -77,12 +87,23 @@ All tables scoped by `organization_id + branch_id`.
 organizations → branches (one-to-many)
 owners → owner_branch_access → branches (many-to-many, role-based)
 members, subscriptions, subscription_freezes, quotas
+plan_templates (owner-managed branch subscription templates)
 logs (attendance check-in records)
 settings (key-value JSONB per branch) ← whatsapp_status lives here
 message_queue (async WhatsApp send queue)
 backups, backup_artifacts, import_artifacts, migration_jobs
 guest_passes
 ```
+
+### Subscription / Plan Template Snapshot Rules
+
+- `plan_templates` are scoped by `organization_id + branch_id`.
+- Required template fields: `name`, `duration_months`, `price`.
+- Optional template fields: `sessions_per_month`, display `perks`, `freeze_days_per_cycle`, `guest_invites_per_cycle`, archive/order metadata.
+- Subscription rows keep billing snapshot fields in the existing columns: `plan_months`, `price_paid`, `sessions_per_month`.
+- Template-backed subscription rows additionally snapshot `plan_template_id`, `plan_template_name`, `plan_perks`, `freeze_days_allowed`, and `guest_invites_allowed`.
+- Payment method is still per subscription payment, not part of a plan template.
+- Archived templates stay available for historical reporting but are hidden from new create/renew forms.
 
 ---
 
@@ -665,7 +686,7 @@ Commit `e17aadd`: Desktop app converted to full dark premium palette.
 
 ---
 
-## Current State (Feb 19, 2026)
+## Historical State Snapshot (Feb 19, 2026)
 
 ### What works
 - Desktop app: full dark UI, WhatsApp connect/disconnect/QR via Baileys, member management, QR check-in, attendance, subscriptions, reports, import/export, PDF generation, auto-update
@@ -678,7 +699,7 @@ Commit `e17aadd`: Desktop app converted to full dark premium palette.
 |------|-------|
 | WhatsApp web worker | Code written but not deployed/tested end-to-end. Needs `ORGANIZATION_ID` + `BRANCH_ID` env vars when running |
 | PWA / offline check-in | Implemented and locally validated. Next: production soak test and monitoring for sync edge-cases. |
-| Tests | Zero tests anywhere |
+| Tests | Feb 19 snapshot said zero tests. This is no longer true; see the May 2 current state and release safety sections above. |
 | Staging environment | None — only production Cloud Run |
 | DB migrations in live Cloud Build trigger | The trigger now uses repo-root `cloudbuild.trigger.yaml`, which still does not run migrations |
 | Dashboard UX polish | QR scanner prominence, member empty states, subscription status badges |
@@ -700,18 +721,26 @@ src/renderer/src/index.css      — Design tokens, traffic light animations
 tailwind.config.js              — Desktop Tailwind: IBM Plex, gold primary, dark tokens
 ```
 
-### SaaS Web (`/saas-web/`)
+### SaaS Web (`/`)
 ```
 app/(auth)/login/page.tsx       — Full brutalist login (Firebase, Zod, react-hook-form)
 app/dashboard/layout.tsx        — Dashboard shell
-app/dashboard/settings/page.tsx — Settings: General, WhatsApp, Backup, Data tabs
+app/dashboard/settings/page.tsx — Settings shell: General, WhatsApp, Backup, Data, Branches, Plans tabs
 app/api/whatsapp/               — connect, disconnect, status, send routes
 app/api/attendance/check/       — Check-in route (quota, subscription, cooldown)
+app/api/branches/route.ts       — Owner branch management API
+app/api/plan-templates/route.ts — Owner-managed plan template API
+components/dashboard/BranchSwitcher.tsx — Header branch switcher
+components/dashboard/PlanTemplateSelector.tsx — Create/renew subscription plan picker
+components/dashboard/settings/BranchesTab.tsx — Branch management tab
+components/dashboard/settings/PlansTab.tsx — Plan template management tab
 components/dashboard/Sidebar.tsx — Brutalist dark sidebar
 components/dashboard/Header.tsx — White header + lang toggle
 lib/auth.ts                     — Firebase token verify, multi-tenant context
+lib/branch-session.ts           — Active branch cookie/session helpers
 lib/db.ts                       — PostgreSQL pool, Cloud SQL proxy detection
 lib/http.ts                     — ok(), fail(), routeError() helpers
+lib/plan-templates.ts           — Plan template CRUD and snapshot helpers
 lib/tenant.ts                   — upsertSetting() helper
 db/schema.sql                   — Full multi-tenant PostgreSQL schema
 worker/whatsapp-vm/src/index.ts — Baileys worker (connection manager + queue processor)
@@ -2045,3 +2074,136 @@ The reports revamp roadmap is now implemented for all owner-facing report items 
   - self-serve trial for straightforward gyms
   - guided demo path for bigger, more complex rollouts
 - This keeps the landing faster for smaller operators without forcing large gyms into a blind signup flow.
+
+---
+
+### April 29-May 1, 2026 — Landing CTA cleanup after hybrid funnel
+
+**PRs / commits**:
+- `#21` / `329eae8109a77a067bbe8025d68de5b060befa80` — `fix(landing): make Book a Demo CTA visible on red strip`
+- `#22` / `1465de48abf55eca902f95cd92a96ac8f3850106` — `fix(landing): restore original CTA copy and trial link`
+- `#23` / `b3a12f31c6f242768374dfc80a19fd3e321352e8` — `fix(landing): change hero CTA to 'Free Trial'`
+- `#25` / `12e30b307b235bb414c7b4e68b3c8139c42bad1f` — `fix(landing): correct CTA wiring`
+
+**What this means now**:
+- Landing CTA language is intentionally `Free Trial`, not a quote-only motion.
+- `Book a Demo` remains present as the assisted path, especially for complex migration/branch scenarios.
+- CTA links were corrected across hero/nav/final CTA after several fast copy and routing adjustments.
+
+---
+
+### May 1, 2026 — PT booking dialog revamp
+
+**PR / commit**:
+- `#26` / `3840dc5a2347cbeefa7130e9b36df4584e04f6fd` — `feat(pt): revamp booking dialog into 3-step stepper`
+
+**What changed**:
+- `components/dashboard/pt/SessionsTab.tsx` booking UI moved to a guided 3-step flow.
+- The flow makes trainer/client/session choices clearer and reduces the chance of submitting half-complete booking data.
+- Keep future PT booking work aligned with this stepper pattern rather than adding more fields to a single long modal.
+
+---
+
+### May 1, 2026 — Plan template UI iteration
+
+**PR / commit**:
+- `#27` / `73fe22d15d114f9ef6bd4fc904fe5625426f3e51` — `feat(settings): revamp Plan editor from side panel to overlay dialog`
+
+**What changed**:
+- `components/dashboard/settings/PlansTab.tsx` was introduced as the Settings `Plans` tab.
+- The first side-panel version of plan editing was replaced by an overlay dialog direction, but subsequent UI feedback found the create flow still needed tighter state handling.
+- No predefined GymFlow plans are seeded. Owners build their own branch-specific templates.
+
+---
+
+### May 1, 2026 — Branch management + owner-managed plan templates
+
+**Live release**:
+- PR: `#28` — `feat(app): add plan templates and trainer workflow updates`
+- Merge commit / release id: `950397b48b39fba8a08c79cc1c38956378130aec`
+- Production loop closed through Cloud Build, `CI`, `Post Deploy Smoke`, and `/api/health`.
+
+**Branch management shipped**:
+- Owners can manage branches after onboarding instead of being stuck in the initial selected branch.
+- Added active-branch session helpers and branch switcher:
+  - `lib/branch-session.ts`
+  - `components/dashboard/BranchSwitcher.tsx`
+  - `components/dashboard/Header.tsx`
+- Added owner branch management UI/API:
+  - `app/api/branches/route.ts`
+  - `components/dashboard/settings/BranchesTab.tsx`
+  - `components/dashboard/BranchExpansionPrompt.tsx`
+- Branch-aware APIs were tightened for notifications and member flows where needed.
+
+**Plan templates shipped**:
+- Added `plan_templates` persistence with migration:
+  - `db/migrations/005_plan_templates.sql`
+  - `lib/plan-templates.ts`
+  - `app/api/plan-templates/route.ts`
+- Added `components/dashboard/PlanTemplateSelector.tsx`.
+- Create/renew subscription flows now show saved templates as the obvious path, with manual custom available as the fallback.
+- Template-backed subscriptions snapshot plan name, perks, freeze-day allowance, and guest-invite allowance at sale/renewal time.
+- Existing manual/legacy subscriptions still display from `plan_months`, `price_paid`, and `sessions_per_month`.
+
+**PT / trainer workflow updates in the same release**:
+- PT package APIs gained safer assignment behavior and regression coverage.
+- Member profile and subscription screens now surface template-backed plan details where available.
+- WhatsApp send and notification targeting received related route hardening.
+
+**Coverage added**:
+- `tests/integration/api-notifications-targeting.test.ts`
+- `tests/integration/api-pt-packages.test.ts`
+- `tests/integration/api-whatsapp-send.test.ts`
+- `tests/unit/check-in-code.test.ts`
+- `tests/unit/pt-package-assignment.test.ts`
+
+---
+
+### May 1, 2026 — Trainer deactivation blocker made explicit
+
+**Live release**:
+- PR: `#29` — `fix(settings): show trainer deactivation blockers`
+- Merge commit / release id: `fabef8082b7a221b177b688754ee5fde8ab26944`
+- Production loop closed through Cloud Build, `CI`, `Post Deploy Smoke`, and `/api/health`.
+
+**Problem**:
+- Deactivating a trainer with active PT workload required a replacement trainer at the API layer.
+- If no replacement trainer existed, the UI showed no selector and the button appeared to do nothing.
+
+**Fix**:
+- `components/dashboard/settings/TeamTab.tsx` now:
+  - shows a clear warning when active PT workload blocks deactivation
+  - disables `Deactivate` until a valid replacement exists and is selected
+  - shows modal-local API errors instead of failing silently
+  - still allows direct deactivation for trainers with no active packages, future sessions, or assigned members
+
+---
+
+### May 2, 2026 — Subscription stale/offline guards hardened
+
+**Live releases**:
+- `#30` / `31b95d390e172f27f5a71126ed3974fe1f95a4f7` — `fix(subscriptions): avoid false create conflicts`
+- `#31` / `6053c887dadae0d877d18b828da14ef15f3f9ce9` — `fix(subscriptions): harden stale offline guards`
+- Latest production release: `6053c887dadae0d877d18b828da14ef15f3f9ce9`
+- `npm run release:status` on May 2 reported Cloud Build success, `CI` success, `Post Deploy Smoke` success, and production `/api/health` serving the latest release.
+
+**What changed**:
+- Subscription create now avoids false duplicate/conflict failures from stale offline metadata.
+- Renew flow now has explicit stale offline guard behavior and integration coverage.
+- Offline sync manager clears stale subscription actions more safely instead of leaving old client actions to poison later online creates/renews.
+- Validation gained the extra fields needed to support the guarded/idempotent subscription request path.
+
+**Key files**:
+- `app/api/subscriptions/route.ts`
+- `app/api/subscriptions/renew/route.ts`
+- `lib/offline/actions.ts`
+- `lib/offline/sync-manager.ts`
+- `lib/validation.ts`
+
+**Coverage added**:
+- `tests/integration/api-subscriptions-create.test.ts`
+- `tests/integration/api-subscriptions-renew.test.ts`
+- `tests/unit/offline-actions.test.ts`
+
+**Operational note**:
+- When debugging subscription create/renew issues now, check `client_request_id`, offline action metadata, and stale IndexedDB state before assuming the server duplicated a subscription.
