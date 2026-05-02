@@ -133,14 +133,11 @@ export const subscriptionRenewSchema = z.object({
   payment_method: paymentMethodSchema.optional().nullable()
 });
 
-const planPerksSchema = z.array(z.string().trim().min(1).max(160)).max(20);
-
 export const planTemplateCreateSchema = z.object({
   name: z.string().trim().min(2, "Plan name is required").max(120),
   duration_months: z.coerce.number().int().positive(),
   price: z.coerce.number().min(0),
   sessions_per_month: z.coerce.number().int().positive().nullable().optional(),
-  perks: planPerksSchema.default([]),
   freeze_days_per_cycle: z.coerce.number().int().min(0).default(0),
   guest_invites_per_cycle: z.coerce.number().int().min(0).default(0)
 });
@@ -151,7 +148,6 @@ export const planTemplatePatchSchema = z.object({
   duration_months: z.coerce.number().int().positive().optional(),
   price: z.coerce.number().min(0).optional(),
   sessions_per_month: z.coerce.number().int().positive().nullable().optional(),
-  perks: planPerksSchema.optional(),
   freeze_days_per_cycle: z.coerce.number().int().min(0).optional(),
   guest_invites_per_cycle: z.coerce.number().int().min(0).optional(),
   is_archived: z.boolean().optional(),

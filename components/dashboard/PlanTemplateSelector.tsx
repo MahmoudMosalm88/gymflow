@@ -13,7 +13,6 @@ export type PlanTemplateOption = {
   duration_months: number;
   price: number;
   sessions_per_month: number | null;
-  perks: string[];
   freeze_days_per_cycle: number;
   guest_invites_per_cycle: number;
   is_archived?: boolean;
@@ -36,8 +35,7 @@ const copy = {
     sessions: "Sessions / Month",
     unlimited: "Unlimited sessions",
     freeze: "freeze days",
-    guest: "guest invites",
-    noPerks: "No perks listed"
+    guest: "guest invites"
   },
   ar: {
     title: "قوالب الخطط",
@@ -46,8 +44,7 @@ const copy = {
     sessions: "جلسة / شهر",
     unlimited: "جلسات غير محدودة",
     freeze: "أيام تجميد",
-    guest: "دعوات ضيوف",
-    noPerks: "لا توجد مزايا"
+    guest: "دعوات ضيوف"
   }
 } as const;
 
@@ -136,9 +133,6 @@ export default function PlanTemplateSelector({
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{template.name}</p>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">{details.join(" · ")}</p>
-                  <p className="mt-1 truncate text-xs text-muted-foreground">
-                    {template.perks.length > 0 ? template.perks.join(" · ") : c.noPerks}
-                  </p>
                 </div>
                 {selected ? <Check className="mt-0.5 h-4 w-4 shrink-0 text-destructive" /> : null}
               </div>

@@ -13,7 +13,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { AlertCircle, Archive, ArrowDown, ArrowUp, CheckCircle, Pencil, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +22,6 @@ type PlanTemplate = {
   duration_months: number;
   price: number;
   sessions_per_month: number | null;
-  perks: string[];
   freeze_days_per_cycle: number;
   guest_invites_per_cycle: number;
   is_archived: boolean;
@@ -36,7 +34,6 @@ type Draft = {
   duration_months: string;
   price: string;
   sessions_per_month: string;
-  perks: string;
   freeze_days_per_cycle: string;
   guest_invites_per_cycle: string;
 };
@@ -47,7 +44,6 @@ const emptyDraft: Draft = {
   duration_months: '1',
   price: '',
   sessions_per_month: '',
-  perks: '',
   freeze_days_per_cycle: '0',
   guest_invites_per_cycle: '0',
 };
@@ -57,7 +53,7 @@ const copy = {
     title: 'Plan templates',
     description: 'Build reusable subscription plans for this branch. Sold subscriptions keep a snapshot when templates change later.',
     emptyTitle: 'Create your first branch plan',
-    emptyDescription: 'Start with the plan your team sells most often, then add perks and cycle rules if they matter.',
+    emptyDescription: 'Start with the plan your team sells most often, then add cycle rules if they matter.',
     newPlan: 'New plan',
     editPlan: 'Edit plan',
     name: 'Plan name',
@@ -65,8 +61,6 @@ const copy = {
     price: 'Price',
     sessions: 'Sessions per month',
     sessionsPlaceholder: 'Leave blank for unlimited',
-    perks: 'Perks',
-    perksPlaceholder: 'One perk per line',
     freeze: 'Freeze days per cycle',
     guests: 'Guest invites per cycle',
     create: 'Create plan',
@@ -78,7 +72,6 @@ const copy = {
     restore: 'Restore',
     moveUp: 'Move up',
     moveDown: 'Move down',
-    noPerks: 'No perks listed',
     saved: 'Plan saved.',
     failed: 'Could not save plan.',
     requiredFields: 'Plan name, months, and price are required.',
@@ -90,7 +83,7 @@ const copy = {
     title: 'قوالب الاشتراكات',
     description: 'أنشئ خطط اشتراك قابلة لإعادة الاستخدام لهذا الفرع. الاشتراكات المباعة تحتفظ بنسخة ثابتة عند تعديل القالب لاحقاً.',
     emptyTitle: 'أنشئ أول خطة للفرع',
-    emptyDescription: 'ابدأ بالخطة الأكثر بيعاً، ثم أضف المزايا وقواعد الدورة إذا كانت مهمة.',
+    emptyDescription: 'ابدأ بالخطة الأكثر بيعاً، ثم أضف قواعد الدورة إذا كانت مهمة.',
     newPlan: 'خطة جديدة',
     editPlan: 'تعديل الخطة',
     name: 'اسم الخطة',
@@ -98,8 +91,6 @@ const copy = {
     price: 'السعر',
     sessions: 'الحصص شهرياً',
     sessionsPlaceholder: 'اتركها فارغة لغير محدود',
-    perks: 'المزايا',
-    perksPlaceholder: 'ميزة واحدة في كل سطر',
     freeze: 'أيام التجميد لكل دورة',
     guests: 'دعوات الضيوف لكل دورة',
     create: 'إنشاء الخطة',
@@ -111,7 +102,6 @@ const copy = {
     restore: 'استعادة',
     moveUp: 'تحريك لأعلى',
     moveDown: 'تحريك لأسفل',
-    noPerks: 'لا توجد مزايا',
     saved: 'تم حفظ الخطة.',
     failed: 'تعذر حفظ الخطة.',
     requiredFields: 'اسم الخطة وعدد الأشهر والسعر مطلوبة.',
@@ -128,7 +118,6 @@ function toDraft(template: PlanTemplate): Draft {
     duration_months: String(template.duration_months),
     price: String(template.price),
     sessions_per_month: template.sessions_per_month == null ? '' : String(template.sessions_per_month),
-    perks: template.perks.join('\n'),
     freeze_days_per_cycle: String(template.freeze_days_per_cycle),
     guest_invites_per_cycle: String(template.guest_invites_per_cycle),
   };
@@ -217,7 +206,6 @@ export default function PlansTab() {
       duration_months: durationMonths,
       price,
       sessions_per_month: sessionsPerMonth,
-      perks: draft.perks.split('\n').map((item) => item.trim()).filter(Boolean),
       freeze_days_per_cycle: freezeDays,
       guest_invites_per_cycle: guestInvites,
     };
@@ -323,9 +311,6 @@ export default function PlansTab() {
                     <p className="mt-1 text-xs text-muted-foreground">
                       {template.freeze_days_per_cycle} {c.freeze} · {template.guest_invites_per_cycle} {c.guests}
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {template.perks.length > 0 ? template.perks.join(' · ') : c.noPerks}
-                    </p>
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
                     {!template.is_archived ? (
@@ -406,10 +391,6 @@ export default function PlansTab() {
                   <Label htmlFor="plan-guests">{c.guests}</Label>
                   <Input id="plan-guests" type="number" min={0} value={draft.guest_invites_per_cycle} onChange={(e) => setDraft((d) => ({ ...d, guest_invites_per_cycle: e.target.value }))} className="border-2" />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="plan-perks">{c.perks}</Label>
-                <Textarea id="plan-perks" rows={3} placeholder={c.perksPlaceholder} value={draft.perks} onChange={(e) => setDraft((d) => ({ ...d, perks: e.target.value }))} className="border-2" />
               </div>
             </div>
           </div>
